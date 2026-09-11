@@ -25,7 +25,7 @@
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (1 - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc)
 - contract_id (N - 1: RentalContract) -> null as default -> được gán nếu hóa đơn phát sinh từ `RentalContract` (tiền thuê hàng tháng, gia hạn, tiền phạt, ...)
-- customer_id (1 - N: Account)
+- customer_id (N - 1: Account)
 - code
   - Cấu trúc mã hóa đề xuất: Gợi nhớ & Dễ lọcĐể thuận tiện tuyệt đối khi kiểm tra, mã hóa đơn nên mang ý nghĩa phân loại theo công thức:
   - Mã hóa đơn = Tiền tố nghiệp vụ (DEP - deposit, RNT - rental fee, ...) + mã chi nhánh (Q7 - Quận 7, ...) + YYMMDD (ngày tạo hóa đơn) + random
@@ -39,3 +39,28 @@
 - amount
 - created_at
 - due_date
+
+**NOTES:**
+- Nếu cả 2 fields order_id và contract_id đều null, tức là hóa đơn từ việc yêu cầu dịch vụ hỗ trợ (`SupportRequest`)
+# ProposalFeedback
+- order_id (1 - 1: RentalOrder)
+- customer_id (N - 1: Account)
+- unit_id (N - 1: StorageUnit)
+- status (Pending/Agree/Reject)
+- note
+
+**NOTES:**
+- field note dùng để khi khách từ chối và muốn chọn lại, sẽ nêu lý do vì sao từ chối, ...
+
+# PaymentTransaction
+- invoice_id (N - 1: Invoice)
+- gateway_transaction_no -  Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
+- transaction_content
+- response_payload: JSON / TEXT, nullable -> Lưu toàn bộ log raw webhook/IPN để đối soát
+- amount
+- failure_reason
+- paid_at
+- create_at
+- status (Pending/Failed/Success)
+
+- NOTES: visa card only
