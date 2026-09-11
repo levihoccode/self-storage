@@ -151,9 +151,59 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - **Nếu thanh toán thành công:** trạng thái khoang chứa sẽ được chuyển sang `Reserved`
 - **Nếu thanh toán không thành công:** khách hàng quay về trang "Hóa đơn" và khóa tạm thời của khoang chứa được mở.
 ### 2. Check-in và bàn giao kho
+
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
+**Context:** Thiết lập môi trường để quản lý rules doanh nghiệp, khách hàng, đồng theo dõi doanh thu, khách hàng tiềm năng, chi nhánh tiềm năng giúp mở rộng chi nhánh, ...
+**Flow**
+[BOM đăng nhập] -> [Trang quản lý]
+#### 4.1 Quản lý business rules
+- Mỗi rule bao gồm ID (BR + tyle(A,B,C,...)+ number | Nội dung
+- Dựa vào tyle sẽ tách thành các bảng sau:
+- Hiển thị list rules.
+  * Một khách hàng có thể thuê nhiều unit.
+  * Một unit có thể được thuê nhiều lần theo thời gian, nhưng không được có hai hợp đồng active chồng lấn.
+  * Khách hàng phải chọn kho, loại unit, ngày bắt đầu và thời gian thuê khi đặt kho.
+  * Reservation chỉ được tạo khi unit còn available.
+  * Một reservation phải có thời hạn hết hiệu lực.
+  * Nếu khách hàng không thanh toán khoản tiền yêu cầu trước thời hạn, reservation có thể bị hủy.
+  * ...
+- Điều khoảng khách hàng khi thuê kho
+  1. Điều khoản sử dụng ứng dụng
+		Tài khoản
+		Sử dụng hệ thống
+		Thanh toán
+  2. Điều khoản thuê kho
+		Đặt thuê kho
+		Thanh toán tiền thuê
+		Sử dụng kho
+		Check-in / Check-out
+  3. Điều khoản gia hạn
+  4. Các khoản phí nên đưa vào điều khoản thuê
+  5. Điều khoản hủy thuê
+    **danh sách được chỉnh sửa ngay trên web hoặc upload file**
+     _Được sử dụng khi khách hàng ký biên bản nhận kho tại mục đồng ý điều khoản sử dụng ứng dụng, chính sách tiếp nhận bàn giao kho bãi_
+- Fee
+  * tiền đặt cọc: 10%/ tháng thuê
+  * tiền thuê: 500tr-1000tr/tháng
+  * phí gia hạn: 10tr (hồ sơ)
+  * phí trả kho trễ: 20tr/day
+  * phí phát sinh: điện, nước, wifi, bảo vệ, ...
+  * phí hư hỏng: tổn thất thiết bị, cơ sở vật chất, 
+  * phí vệ sinh 5-10tr/lần
+  * phí dịch vụ
+- Chức năng thêm, xóa, sửa, tìm kiếm.
+- Page để show rules, chỉ được xem bởi Admin, BOM, FM, FS
+
+#### 4.2 theo dõi doanh thu
+- Theo ngày, tuần, tháng, quý, năm, ... trên từng kho, chi nhánh
+  * Lấy data trên bảng lịch sử thuê để tạo chart
+  * **So sánh kỳ hiện tại và khung thời gian cùng kỳ trước**
+- Dựa trên khách hàng
+- Dựa trên loại kho (chi nhánh)
+- **Dashboard doanh thu**
+   
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
 NOTE: sau khi trả hợp đồng, status của kho là MAINTANANCE trong vòng 1-3 ngày trước khi cho người khác thuê.
