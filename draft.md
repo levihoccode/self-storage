@@ -58,11 +58,11 @@
 [Yêu cầu đặt kho] -> [Khách tạo tài khoản] -> [Đặt cọc] -> [Ký hợp đồng] -> [Thanh toán]
 ```
 #### 1.1 Yêu cầu đặt kho
-##### 1.1.1 Context:
-Khách mới, chưa từng sử dụng dịch vụ, muốn tìm cho mình một khoang chứa phù hợp với nhu cầu.
-##### 1.1.2 Flow tổng quát:
-Khách lựa chọn khoang chứa dựa trên nhu cầu và điền các thông tin cần thiết (Không được chỉ định khoang chứa cụ thể). Sau đó, FM[^1] kiểm tra những khoang chứa còn trống và sẵn sàng cho thuê để chỉ định cho người thuê.
-##### 1.1.3 Details:
+**Context:** Khách mới, chưa từng sử dụng dịch vụ, muốn tìm cho mình một khoang chứa phù hợp với nhu cầu.
+
+**Flow tổng quát:** Khách lựa chọn khoang chứa dựa trên nhu cầu và điền các thông tin cần thiết (Không được chỉ định khoang chứa cụ thể). Sau đó, FM kiểm tra những khoang chứa còn trống và sẵn sàng cho thuê để chỉ định cho người thuê.
+
+**Details:**
 - **Customer:**
   - Khách hàng điền nhu cầu thuê kho qua form (không cần đăng nhập), bao gồm các thông tin được hiển thị trên form: 
     + customer_email
@@ -108,12 +108,12 @@ Khách lựa chọn khoang chứa dựa trên nhu cầu và điền các thông 
     - Phương án 1 (gợi ý khoang tương đương): hệ thống bắn thông báo/email "Khoang M-101 đã có người cọc trước. Cơ sở hiện vẫn còn các khoang M-102, M-103 cùng kích thước. Bấm vào đây để giữ khoang tương đương."
     - Phương án 2 (chuyển sang danh sách mong muốn - Wish Lists): Yêu cầu của các khách còn lại tự động chuyển status sang Wishlisted. Nếu Khách A sau đó hủy cọc hoặc bùng hợp đồng, những người trong danh sách chờ sẽ nhận được thông báo để đặt cọc.
 
-##### 1.1.4 Schema:
-- [**RentalRequest:**](./db-table-draft.md#rentalrequest) chứa các thông tin được gửi từ form trên website.
-- [**RentalOrder:**](./db-table-draft.md#rentalorder) chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
-- [**Invoice:**](./db-table-draft.md#invoice) chứa thông tin thanh toán của khách hàng (hóa đơn)
+**Schema:**
+- [**RentalRequest**](./db-table-draft.md#rentalrequest) - chứa các thông tin được gửi từ form trên website.
+- [**RentalOrder**](./db-table-draft.md#rentalorder) - chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
+- [**Invoice**](./db-table-draft.md#invoice) -  chứa thông tin thanh toán của khách hàng (hóa đơn)
 
-##### 1.1.5 NOTES
+**NOTES**
 - Nếu cả 2 fields order_id và contract_id đều null, tức là hóa đơn từ việc yêu cầu dịch vụ hỗ trợ (`SupportRequest`)
 - Entry trong list yêu cầu đặt khoang chứa của FM không có facility vì khi đặt, khách chỉ định một chi nhánh cụ thể và người quản lý tại chi nhánh đó sẽ nhận được yêu cầu => không cần liệt kê facility field.
 - Có thể phát triển thêm phần wishlist giành cho các khoang chứa đều không available, nhưng tự động gửi thông báo và đăng ký ngay khi có bất kỳ khoang chứa nào trống (có thể dùng filter).
@@ -123,14 +123,13 @@ Khách lựa chọn khoang chứa dựa trên nhu cầu và điền các thông 
 - Cho khách chỉ định cụ thể khoang chứa để thuê. -> không tối ưu layout khi để khách tự chọn, cần tìm cách hoặc kệ nó luôn đi :))
 - Cho khách đặt nhiều khoang chứa trong 1 request. -> cần lưu ý về việc các khoang chứa có cần liên tục nhau hay không, tính toán ra sao nếu không đủ, ...
 #### 1.2 Khách tạo tài khoản
-#### 1.2.a Sau khi có một yêu cầu được duyệt
-##### 1.2.a.1 Context:
-Yêu cầu đặt khoang chứa của khách đã được duyệt và cần đặt cọc nhưng chưa có tài khoản.
+**Case A: Sau khi có một yêu cầu được duyệt**
 
-##### 1.2.a.2 Flow tổng quát:
-Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định và hóa đơn + chọn lịch hẹn on-site sẽ được thêm tự động cho tài khoản đó. 
+**Context:** Yêu cầu đặt khoang chứa của khách đã được duyệt và cần đặt cọc nhưng chưa có tài khoản.
 
-##### 1.2.a.3 Details:
+**Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định và hóa đơn + chọn lịch hẹn on-site sẽ được thêm tự động cho tài khoản đó. 
+
+**Details:**
 - Sau khi đăng ký, hệ thống kiểm tra trên bộ nhớ (Redis hoặc PG Cache) xem tài khoản có nằm trong mục "Có yêu cầu nhưng chưa tạo tài khoản"
 - Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
   - code: INV-DEP-XX-XXXXXX-XXXX
@@ -138,15 +137,15 @@ Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng
   - desc: "Thanh toán đặt cọc khoang chứa A để đảm bảo giữ chỗ."
   - amount: ...
 - Hệ thống tạo một yêu cầu chọn lịch cho tài khoản.
-#### 1.2.2 Không có yêu cầu nào được duyệt
-#### 1.3 Đặt cọc
-##### 1.3.1 Context:
-Sau khi khách đã điền form và được approve, email phản hồi thành công đã được gửi có kèm theo link kích hoạt tài khoản và tài khoản được kích hoạt thành công.
 
-##### 1.3.2 Flow tổng quát:
+**Case B: Không có yêu cầu nào được duyệt**
+#### 1.3 Đặt cọc
+**Context:** Sau khi khách đã điền form và được approve, email phản hồi thành công đã được gửi có kèm theo link kích hoạt tài khoản và tài khoản được kích hoạt thành công.
+
+**Flow tổng quát:**
 Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" -> hiển thị một mục "Đặt cọc để giữ khoang chứa" -> thanh toán thành công -> trạng thái kho chuyển sang `Reserved` trong một khoản thời gian.
 
-##### 1.3.2 Details:
+**Details:**
 - Khách đăng nhập vào ứng dụng và thanh toán
 - Ở bước hiện mã QR để chuyển khoản, khoang chứa sẽ tạm thời bị khóa (5-10p timeout) để việc thanh toán hoàn tất mà không bị gián đoạn. -> Tránh nhiều người đặt cọc 1 kho cùng lúc
 - **Nếu thanh toán thành công:** trạng thái khoang chứa sẽ được chuyển sang `Reserved`

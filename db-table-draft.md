@@ -1,5 +1,6 @@
 # RentalRequest
 **Overview:** chứa các thông tin được gửi từ form trên website.
+- facility_id (N - 1: Facility)
 - customer_email
 - customer_phone
 - unit_type
@@ -10,7 +11,7 @@
 # RentalOrder
 **Overview:** chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
 - request_id (1 - 1: RentalRequest)
-- customer_id (1 - N: Account)
+- customer_id (N - 1: Account)
 - staff_id (N - 1: Account, null until the FS confirm and status pending -> in progress)
 - appointment_date (MM/DD/YYYY)
 - unit_id
