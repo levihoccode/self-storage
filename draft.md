@@ -192,9 +192,9 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 FLOW tổng quát:
 
 [BOM tạo/quản lý Facility] -> [FM setup khoang chứa tại Facility] -> [FM điều phối Facility Staff] -> [FM theo dõi báo cáo cơ sở]
-5.1 Quản lý cơ sở (Facility)
+### 5.1 Quản lý cơ sở (Facility)
 
-Context: BOM là người duy nhất có quyền tạo mới và quản lý danh sách toàn bộ cơ sở/chi nhánh trong hệ thống, đồng thời gán FM phụ trách cho từng cơ sở.
+**Context: BOM là người duy nhất có quyền tạo mới và quản lý danh sách toàn bộ cơ sở/chi nhánh trong hệ thống, đồng thời gán FM phụ trách cho từng cơ sở.**
 
 Flow tổng quát: BOM tạo mới một Facility → điền thông tin cơ bản của cơ sở → gán một FM (đã có account + role) phụ trách cơ sở đó → cơ sở đủ điều kiện để FM tiếp tục setup khoang chứa.
 
@@ -205,9 +205,9 @@ Tạo/sửa/vô hiệu hóa Facility (không nên xóa cứng vì còn liên k�
 Gán/thay đổi FM phụ trách cho từng Facility.
 Vấn đề cần chốt: một FM chỉ phụ trách 1 facility (1–1) hay có thể phụ trách nhiều facility cùng lúc (1–n)? Cái này ảnh hưởng đến toàn bộ RBAC và các query filter theo facility ở các flow khác.
 Cross-reference: Việc tạo account và gán role FM cho một người dùng thuộc phạm vi System Administrator. Ở đây BOM chỉ chọn/gán một account FM có sẵn cho facility, chứ không tạo account mới.
-5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
+### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
 
-Context: FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — đây là nguồn dữ liệu nền cho khách xem/đặt kho và cho FS thao tác khi bàn giao/trả kho.
+**Context: FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — đây là nguồn dữ liệu nền cho khách xem/đặt kho và cho FS thao tác khi bàn giao/trả kho.**
 
 Flow tổng quát: FM tạo mới/cập nhật StorageUnit (loại, kích thước, vị trí, giá thuê, trạng thái) → khoang chứa hiển thị cho khách xem và để FM chỉ định (assign) khi duyệt RentalRequest.
 
@@ -223,9 +223,9 @@ Flow 1 (Đặt kho): FM đọc các unit có trạng thái Available để chỉ
 Flow 2 (Check-in/Handover): trạng thái chuyển sang Rented sau khi FS bàn giao thành công.
 Flow 3 (Trả kho): trạng thái chuyển sang Maintenance khi khách trả kho (ghi chú gốc: giữ MAINTENANCE 1–3 ngày trước khi cho thuê lại).
 Flow 4 (Business rules): khung giá thuê tham chiếu chính sách giá do BOM quản lý — Flow 5 chỉ được dùng khung giá này, không định nghĩa lại.
-5.3 Quản lý & điều phối Facility Staff
+### 5.3 Quản lý & điều phối Facility Staff
 
-Context: FM điều phối các FS tại cơ sở để hỗ trợ check-in, check-out, kiểm tra khoang chứa và xử lý sự cố on-site.
+**Context: FM điều phối các FS tại cơ sở để hỗ trợ check-in, check-out, kiểm tra khoang chứa và xử lý sự cố on-site.**
 
 Flow tổng quát: FM xem danh sách FS thuộc cơ sở mình → phân công FS cho một lịch hẹn hoặc một sự cố cụ thể → theo dõi tiến độ xử lý của FS.
 
@@ -241,9 +241,9 @@ Cross-reference:
 Cần dữ liệu lịch hẹn on-site (appointment) được tạo ra ở Flow 1 (mục 1.1/1.3, sau khi khách đặt cọc thành công) và dùng trong Flow 2 để biết cần phân công FS vào thời điểm nào.
 Cần dữ liệu SupportRequest từ Flow 7 (Yêu cầu hỗ trợ và xử lý sự cố) để phân công FS xử lý.
 Việc gán một FS vào một facility cụ thể (account–facility mapping, phục vụ RBAC) thuộc phạm vi System Administrator — đây là điều kiện tiên quyết để FM có danh sách FS để chọn, dù không nằm trong 5 flow chính.
-5.4 Báo cáo cơ sở
+### 5.4 Báo cáo cơ sở
 
-Context: FM cần theo dõi tình hình vận hành của riêng cơ sở mình phụ trách.
+**Context: FM cần theo dõi tình hình vận hành của riêng cơ sở mình phụ trách.**
 
 Details:
 
@@ -257,7 +257,9 @@ Facility — cơ sở/chi nhánh, có FM phụ trách.
 StorageUnit — khoang chứa thuộc một Facility, trạng thái dùng chung với Flow 1/2/3.
 Account (role FM/FS) — được tạo/gán role bởi System Administrator, gán vào Facility để phục vụ RBAC.
 (Tùy chọn, chưa MVP) StaffAssignment — bản ghi phân công FS cho appointment/sự cố cụ thể.
-NOTES
+
+
+###### NOTES
 Chưa chốt quan hệ FM–Facility là 1–1 hay 1–n.
 Flow 5 phụ thuộc dữ liệu tài khoản & phân quyền theo facility vốn thuộc trách nhiệm System Administrator — nên coi đây là pre-condition, không tự làm trong Flow 5.
 Trạng thái StorageUnit là điểm giao thoa nhiều nhất với các flow khác (1, 2, 3) — cần định nghĩa rõ state machine của StorageUnit chung cho toàn hệ thống trước khi thiết kế chi tiết Flow 5, tránh mỗi flow tự ý set trạng thái gây conflict.
