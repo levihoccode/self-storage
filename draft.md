@@ -154,7 +154,185 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
+**Context:** Thiết lập môi trường để quản lý rules doanh nghiệp, khách hàng, đồng theo dõi doanh thu, khách hàng tiềm năng, chi nhánh tiềm năng giúp mở rộng chi nhánh, ...
+**Flow**
+[BOM đăng nhập] -> [Trang quản lý]
+#### 4.1 Quản lý business rules
+**Context:**BOM cần thiết lập và quản lý các quy định áp dụng cho toàn bộ hệ thống,
+**Flow tổng quát:** 
+ - BOM truy cập trang quản lý rules
+ - hệ thống hiển thị danh sách các rules hiện tại 
+ - thêm, sửa, xóa, tìm kiếm hoặc cập nhật nội dung rules 
+ - các rule phải có ý nghĩa, công dụng trong hệ thống
+ **Details:**
+ - **BOM:**
+  - Truy cập trang B-rules
+  - Hệ thống hiển thị các rule
+  - Rule bao gồm:
+    + id
+    + type
+    + number
+    + nội dung
+    + trạng thái
+    + tạo bởi ai
+    + ngày tạo
+    + (update) ...
+  - ID: BR+ type+ number  -> BRA
+  001,...
+- **Các nhóm business rules:**
+  - Type A - Rental và Reservation Rules
+    * Một khách hàng có thể thuê nhiều kho.
+    * Một kho có thể được thuê nhiều lần (gia hạn).
+    * Một kho không được có hai hợp đồng thuê cùng lúc.
+    * Khách hàng phải chọn chi nhánh, loại kho, ngày thuê, thuê bao lâu,... khi gửi yêu cầu đặt kho.
+    * yêu cầu chỉ được tạo khi kho trống.
+    * Một hợp đồng thuê phải có thời hạn hết hiệu lực.
+    * Nếu khách hàng không thanh toán khoản tiền yêu cầu trước thời hạn, hủy hợp đồng thuê.
+    * Một kho chỉ được chuyển sang "đã cho thuê" sau khi khách hàng hoàn tất khoản thanh toán yêu cầu.
+    * Không được tạo hợp đồng nếu kho đang thuộc một hợp đồng  khác.
+    * Ngày bắt đầu hợp đồng không được nằm ngoài khoảng thời gian cho phép của reservation.
+    * ...
+  - Type B - Customer rules
+    * Một tài khoản chỉ được liên kết với một Customer.
+    * Email và số điện thoại của customer phải hợp lệ.
+    * Customer phải cung cấp đầy đủ thông tin bắt buộc trước khi ký hợp đồng.
+    * Customer phải đồng ý với điều khoản sử dụng ứng dụng trước khi sử dụng dịch vụ.
+    * Customer phải đồng ý với điều khoản thuê kho trước khi nhận bàn giao kho.
+    * v.v
 
+  - Type C - Payment và Fee rules
+    * Quy định tỷ lệ tiền đặt cọc.
+    * Quy định thời hạn thanh toán.
+    * Quy định phí gia hạn.
+    * Quy định phí trả kho trễ.
+    * Quy định phí phát sinh.
+    * Quy định phí hư hỏng.
+    * Quy định phí vệ sinh.
+    * Quy định các loại phí dịch vụ khác.
+    * v.v
+
+- **Quản lý điều khoản khách hàng khi thuê kho:**
+  1. Điều khoản sử dụng ứng dụng
+		- Tài khoản.
+    - Bảo mật tài khoản.
+    - Trách nhiệm khi sử dụng tài khoản.
+    - Sử dụng hệ thống.
+    - Quyền và nghĩa vụ của người dùng.
+    - Thanh toán.
+    - Bảo mật thông tin.
+    - ...
+  2. Điều khoản thuê kho
+		- Đặt thuê kho.
+    - Đặt cọc.
+    - Thanh toán tiền thuê.
+    - Thời gian thuê.
+    - Sử dụng kho.
+    - Quy định hàng hóa được phép lưu trữ.
+    - Quy định hàng hóa bị cấm.
+    - Check-in / Check-out.
+    - Quy định về quyền truy cập kho.
+    - Trách nhiệm bảo quản tài sản.
+    - ...
+  3. Điều khoản gia hạn
+    - Thời gian yêu cầu gia hạn.
+    - Phí gia hạn.
+    - Điều kiện được gia hạn.
+    - Thời gian thanh toán phí gia hạn.
+    - Xử lý trường hợp khách hàng không gia hạn đúng hạn.
+    - ...
+  4. Các khoản phí nên đưa vào điều khoản thuê
+    - Tiền đặt cọc.
+    - Tiền thuê kho.
+    - Phí gia hạn.
+    - Phí trả kho trễ.
+    - Phí điện.
+    - Phí nước.
+    - Phí Wi-Fi.
+    - Phí bảo vệ.
+    - Phí vệ sinh.
+    - Phí dịch vụ.
+    - Phí hư hỏng.
+    - Các khoản phí phát sinh khác.
+    - ...
+  5. Điều khoản hủy thuê
+    - Điều kiện được hủy thuê.
+    - Thời hạn thông báo hủy.
+    - Chính sách hoàn tiền.
+    - Chính sách xử lý tiền đặt cọc.
+    - Phí hủy hợp đồng.
+    - Xử lý tài sản còn lại trong kho.
+    - Xử lý trường hợp khách hàng không trả kho đúng hạn.
+    - ...
+- **Quản lý nội dung điều khoản:**
+  - BOM có thể chỉnh sửa trực tiếp nội dung trên website.
+  - BOM có thể upload file điều khoản.
+  - Hệ thống lưu lại phiên bản của điều khoản để xác định khách hàng đã đồng ý với phiên bản nào.
+  - Khi nội dung điều khoản được cập nhật, hệ thống tạo một version mới.
+  - Không ghi đè hoàn toàn version cũ vì cần lưu lại lịch sử để đối chiếu với các hợp đồng đã ký.
+  - Các điều khoản được sử dụng tại bước khách hàng ký biên bản nhận kho:
+    - Điều khoản sử dụng ứng dụng
+    - Chính sách tiếp nhận
+    - Bàn giao kho bãi
+    - Điều khoản thuê kho
+    - ...
+  - **Page quản lý rules:**
+    - Hiển thị danh sách rules.
+    - Search theo:
+      - Rule ID.
+      - Type.
+      - Title.
+      - Content.
+    - Filter theo type.
+    - Filter theo status.
+    - Các thao tác:
+      - Details
+      - Create
+      - Update
+      - Delete
+      - Enable / Disable
+    - Chỉ các role được phép mới có quyền chỉnh sửa.
+
+- **Permission:**
+- Fee
+  * tiền đặt cọc: 10%/ tháng thuê
+  * tiền thuê: 500tr-1000tr/tháng
+  * phí gia hạn: 10tr (hồ sơ)
+  * phí trả kho trễ: 20tr/day
+  * phí phát sinh: điện, nước, wifi, bảo vệ, ...
+  * phí hư hỏng: tổn thất thiết bị, cơ sở vật chất, 
+  * phí vệ sinh 5-10tr/lần
+  * phí dịch vụ
+- Chức năng thêm, xóa, sửa, tìm kiếm.
+- Page để show rules, chỉ được xem bởi Admin, BOM, FM, FS
+- Schema:
+
+  - `BusinessRule` - lưu thông tin các business rules.
+  - `BusinessRuleVersion` - lưu lịch sử các version của rule.
+  - `Term` - lưu các điều khoản áp dụng cho khách hàng.
+  - `TermVersion` - lưu lịch sử thay đổi của điều khoản.
+  - `FeeRule` - lưu cấu hình các khoản phí.
+  - `FeeType` - định nghĩa loại phí.
+  - `CustomerTermAgreement` - lưu việc khách hàng đã đồng ý với điều khoản nào và version nào.
+
+
+#### 4.2 theo dõi doanh thu
+**Context:** BOM cần theo dõi tình hình doanh thu của hệ thống để đánh giá hiệu quả kinh doanh, hiệu quả của từng chi nhánh, từng loại kho, nhóm khách hàng.
+
+**Flow tổng quát:** 
+- BOM đăng nhập
+- mở Revenue Dashboard
+- hệ thống lấy dữ liệu từ lịch sử thuê và thanh toán -> tổng hợp doanh thu
+- hiển thị dưới dạng số liệu, bảng và biểu đồ
+- BOM có thể lọc theo thời gian, chi nhánh, facility, unit type và customer.
+ **_đoạn này mới có idea chứ chưa tièm hiểu mô hình_**
+- Theo ngày, tuần, tháng, quý, năm, ... trên từng kho, chi nhánh
+  * Lấy data trên bảng lịch sử thuê để tạo chart
+  * **So sánh kỳ hiện tại và khung thời gian cùng kỳ trước**
+- Dựa trên khách hàng
+- Dựa trên loại kho (chi nhánh)
+- **Dashboard doanh thu**
+-
+   
 
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
