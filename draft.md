@@ -154,41 +154,41 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 **FLOW:**
 ```
-[Chọn lịch hẹn] -> [FM phân công FS] -> [Khách đến cơ sở] -> [Xem khoang & xác nhận] -> [Ký hợp đồng] -> [Thanh toán] -> [Nhận khóa] -> [Khoang chuyển Rented]
+[Chọn lịch hẹn] -> [FM phân công FS] -> [Khách đến cơ sở] -> [Xem khoang & xác nhận] -> [Nhận khóa/mã truy cập] -> [Khoang chuyển Rented]
 ```
 
-**Vị trí trong vòng đời thuê kho:** Flow 2 bắt đầu ngay sau khi Flow 1.3 (Đặt cọc) hoàn tất, lúc này khoang chứa đang ở trạng thái `Reserved` và đang được giữ cho khách. Flow 2 kết thúc khi khách nhận khoang thành công: khoang chuyển `Rented`, hợp đồng có hiệu lực và việc theo dõi được bàn giao sang Flow 3. Đây là flow **chỉ diễn ra một lần** cho mỗi `RentalOrder` và phần lớn là thao tác on-site.
+**Vị trí trong vòng đời thuê kho:** Flow 2 bắt đầu sau khi Flow 1 hoàn tất toàn bộ thủ tục giấy tờ và thanh toán, lúc này khoang chứa đang ở trạng thái `Reserved` và đang được giữ cho khách. Flow 2 kết thúc khi khách nhận khoang thành công: khoang chuyển `Rented`, hợp đồng bắt đầu có hiệu lực và việc theo dõi được bàn giao sang Flow 3. Đây là flow **chỉ diễn ra một lần** cho mỗi `RentalOrder` và toàn bộ là thao tác on-site.
 
 **Dữ liệu phụ thuộc (input từ các flow khác):**
-- Flow 1: `RentalOrder` đã được `Approve`, `unit_id` đã được gán, `Invoice` đặt cọc đã ở trạng thái `Paid`.
-- Flow 4: bảng giá thuê, danh mục các khoản phí và **version điều khoản đang hiệu lực** (để ghi nhận khách đã ký trên version nào).
-- Flow 5: danh sách FS thuộc cơ sở và giờ hoạt động của cơ sở (để sinh ra các slot lịch hẹn hợp lệ).
+- Flow 1: `RentalOrder` đã `Approve`, `unit_id` đã được gán, `Invoice` đặt cọc đã `Paid`, **hợp đồng đã được ký** và **hóa đơn tiền thuê kỳ đầu đã `Paid`**. Flow 2 chỉ kiểm tra lại các điều kiện này chứ không tạo ra chúng.
+- Flow 4: version điều khoản khách đã đồng ý (để in kèm biên bản bàn giao), danh mục phí phát sinh.
+- Flow 5: danh sách FS thuộc cơ sở, giờ hoạt động của cơ sở (để sinh slot lịch hẹn hợp lệ), hình thức khóa mà cơ sở đang sử dụng.
 
-**Context:** Khách đã đặt cọc thành công, cần đến cơ sở để xem khoang chứa thực tế, hoàn tất thủ tục hợp đồng và nhận quyền truy cập khoang chứa.
+**Context:** Khách đã hoàn tất cọc, hợp đồng và thanh toán từ xa, cần đến cơ sở để xem khoang chứa thực tế và nhận quyền truy cập.
 
-**Flow tổng quát:** Khách chọn lịch hẹn on-site -> FM phân công FS phụ trách -> khách đến cơ sở, FS ghi nhận check-in và dẫn khách xem khoang -> khách xác nhận đồng ý -> ký hợp đồng điện tử và thanh toán các khoản còn lại -> FS bàn giao chìa khóa/mã truy cập và lập biên bản -> khoang chuyển `Rented`.
+**Flow tổng quát:** Khách chọn lịch hẹn on-site -> FM phân công FS phụ trách -> khách đến cơ sở, FS ghi nhận check-in và dẫn khách xem khoang -> khách xác nhận đồng ý -> FS lập biên bản bàn giao và giao chìa khóa/mã truy cập -> khoang chuyển `Rented`, hợp đồng có hiệu lực.
 
 #### 2.1 Chọn lịch hẹn và phân công nhân sự
 
 **Details:**
 
 - **Customer:**
-  - Sau khi thanh toán cọc thành công, khách nhận được yêu cầu chọn lịch hẹn on-site (đã được tạo ở Flow 1).
+  - Sau khi hoàn tất thủ tục ở Flow 1, khách nhận được yêu cầu chọn lịch hẹn nhận khoang.
   - Khách chọn ngày và khung giờ trong các slot mà hệ thống đưa ra. Slot chỉ được sinh trong giờ hoạt động của cơ sở (dữ liệu từ Flow 5).
-  - Khách được phép **dời lịch tối đa 2 lần** trước thời điểm hẹn ít nhất 24h. (CẦN CHỐT: số lần dời lịch và thời hạn báo trước là chính sách của BOM - Flow 4.)
-  - Nếu khách không chọn lịch trong vòng N ngày kể từ khi cọc thành công, hệ thống nhắc qua email/thông báo. (CẦN CHỐT: quá hạn không chọn lịch thì xử lý ra sao - giữ khoang vô thời hạn, hay thu hồi và xử lý cọc theo Flow 4?)
+  - Khách được phép **dời lịch tối đa 2 lần**, phải báo trước thời điểm hẹn ít nhất 24h. (CẦN CHỐT: số lần dời và thời hạn báo trước là chính sách của BOM - Flow 4.)
+  - Nếu khách không chọn lịch trong vòng N ngày, hệ thống nhắc qua email/thông báo. (CẦN CHỐT: quá hạn không chọn lịch thì giữ khoang vô thời hạn, hay thu hồi và xử lý theo chính sách Flow 4?)
 
 - **FM:**
-  - Xem danh sách các lịch hẹn của cơ sở theo ngày.
+  - Xem danh sách lịch hẹn của cơ sở theo ngày.
   - Phân công một FS phụ trách cho từng lịch hẹn (nghiệp vụ phân công thuộc Flow 5.3, Flow 2 chỉ tiêu thụ kết quả).
-  - Lịch hẹn chưa được phân công FS sẽ được đánh dấu nổi bật để FM không bỏ sót.
+  - Lịch hẹn chưa được phân công FS được đánh dấu nổi bật để FM không bỏ sót.
 
 - **FS:**
   - Xem lịch trình trong ngày của mình: danh sách khách sẽ đến, khoang chứa tương ứng, loại lịch hẹn (nhận khoang / trả khoang / hỗ trợ sự cố).
   - Xác nhận đã nhận việc, `Appointment.status` chuyển từ `Scheduled` sang `Assigned`.
 
 **NOTES:**
-- (CẦN CHỐT - mâu thuẫn giữa các flow) Flow 1.1 ghi hệ thống tạo lựa chọn lịch hẹn **ngay khi FM Approve**, trong khi Flow 5.3 ghi lịch hẹn được tạo **sau khi khách đặt cọc thành công**. Flow 2 đang viết theo hướng tạo sau khi cọc thành công vì trước đó khoang chưa thực sự được giữ.
+- (CẦN CHỐT - mâu thuẫn giữa các flow) Flow 1.1 ghi hệ thống tạo lựa chọn lịch hẹn **ngay khi FM Approve**, trong khi Flow 5.3 ghi lịch hẹn được tạo **sau khi khách đặt cọc thành công**. Flow 2 đang viết theo hướng tạo sau khi khách hoàn tất thủ tục ở Flow 1, vì trước đó khoang chưa thực sự được giữ chắc chắn.
 
 #### 2.2 Check-in và xem khoang tại cơ sở
 
@@ -208,74 +208,66 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - **Xử lý khi khách `Reject` khoang chứa:**
   - FS ghi nhận lý do và báo lại FM ngay trong phiên làm việc.
   - FM kiểm tra tại cơ sở còn khoang nào khác cùng `unit_type` đang `Available` hay không:
-    - **Còn khoang thay thế:** FM gán lại `unit_id` mới cho `RentalOrder`, khoang cũ trả về `Available`, khoang mới chuyển `Reserved`. Khách xem lại ngay trong buổi hẹn, không phải đặt cọc lại.
-    - **Không còn khoang thay thế:** `RentalOrder` chuyển `Canceled` với lý do tương ứng và chuyển sang quy trình hoàn cọc.
-  - (CẦN CHỐT) Khách từ chối vì khoang không đúng mô tả thì hoàn 100% cọc, còn từ chối vì lý do cá nhân thì xử lý cọc thế nào? Đây là chính sách của BOM (Flow 4), Flow 2 chỉ thực thi.
+    - **Còn khoang thay thế:** FM gán lại `unit_id` mới cho `RentalOrder`, khoang cũ trả về `Available`, khoang mới chuyển `Reserved`. Khách xem lại ngay trong buổi hẹn, không phải đặt cọc hay thanh toán lại.
+    - **Không còn khoang thay thế:** `RentalOrder` chuyển `Canceled` với lý do tương ứng, chuyển sang quy trình hoàn tiền.
+  - (CẦN CHỐT - hệ quả của việc ký hợp đồng ở Flow 1) Do hợp đồng đã được ký **trước** buổi hẹn và trong hợp đồng có ghi `unit_id` cụ thể, nên việc đổi khoang ở bước này đồng nghĩa với **sửa nội dung một hợp đồng đã ký**. Cần chốt cách xử lý:
+    - Phương án A: hợp đồng ký ở Flow 1 chỉ ghi loại khoang và cơ sở, `unit_id` cụ thể được chốt tại biên bản bàn giao ở 2.3. Đổi khoang không ảnh hưởng hợp đồng.
+    - Phương án B: hợp đồng ghi rõ `unit_id`, đổi khoang thì phải ký phụ lục hoặc ký lại hợp đồng ngay tại cơ sở.
+    - Tài liệu này **đang viết theo phương án A** vì nhẹ nhất cho vận hành. Nếu nhóm chọn B thì mục 2.2 và 2.3 phải bổ sung bước ký phụ lục.
+  - (CẦN CHỐT) Khách từ chối vì khoang không đúng mô tả thì hoàn 100% tiền, còn từ chối vì lý do cá nhân thì xử lý cọc và tiền thuê đã đóng thế nào? Đây là chính sách của BOM (Flow 4), Flow 2 chỉ thực thi.
   - (CẦN CHỐT) Cho phép khách `Reject` tối đa bao nhiêu lần trên cùng một đơn, tránh việc giữ khoang kéo dài.
 
 - **Xử lý khi khách không đến hẹn (no-show):**
   - Hết khung giờ hẹn mà khách không tới, FS đánh dấu `Appointment.status = NoShow` kèm ghi chú.
   - Hệ thống gửi thông báo/email nhắc khách đặt lại lịch.
   - Khoang chứa **vẫn giữ `Reserved`** cho tới khi chạm ngưỡng xử lý do BOM quy định.
-  - (CẦN CHỐT) Sau bao nhiêu lần no-show thì hủy đơn và xử lý tiền cọc ra sao? Chính sách này thuộc Flow 4, hiện chưa có.
+  - (CẦN CHỐT) Sau bao nhiêu lần no-show thì hủy đơn, và tiền cọc + tiền thuê đã đóng xử lý ra sao? Chính sách này thuộc Flow 4, hiện chưa có.
 
-#### 2.3 Ký hợp đồng và thanh toán
-
-> (CẦN CHỐT - ranh giới flow) Sơ đồ Flow 1 liệt kê `[Ký hợp đồng] -> [Thanh toán]` là hai bước của Flow 1, nhưng `db-table-draft.md` lại định nghĩa `RentalOrder.status = Done` là *"khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử"*, tức hai bước này diễn ra trong buổi hẹn on-site. Mục 2.3 đang được viết theo hướng **ký hợp đồng và thanh toán nằm trong Flow 2**. Nếu nhóm chốt ngược lại thì toàn bộ mục này sẽ được cắt bỏ.
+#### 2.3 Bàn giao khóa và kích hoạt hợp đồng
 
 **Details:**
 
-- **Ký hợp đồng điện tử:**
-  - Hệ thống sinh hợp đồng từ mẫu đang hiệu lực, điền sẵn thông tin khách, khoang chứa, giá thuê, thời hạn, số tiền cọc.
-  - Khách đọc và xác nhận đồng ý các điều khoản (điều khoản thuê kho, quy định hàng hóa được phép/bị cấm, quy định truy cập, trách nhiệm bảo quản). Nội dung và version điều khoản lấy từ Flow 4.
-  - Hệ thống ghi nhận khách đã đồng ý với **version cụ thể** của từng điều khoản, phục vụ đối chiếu về sau.
-  - Khách ký điện tử, hệ thống tạo bản ghi `RentalContract` và xuất file PDF lưu trữ.
-  - (CẦN CHỐT) Hình thức ký: ký tay trên màn hình thiết bị của FS, hay OTP gửi về điện thoại khách? Ảnh hưởng tới giá trị pháp lý của hợp đồng.
-
-- **Thanh toán các khoản còn lại:**
-  - Hệ thống tạo `Invoice` tiền thuê kỳ đầu (prefix `RNT`) theo bảng giá của Flow 4.
-  - Tiền cọc đã thu ở Flow 1.3 **không** được trừ vào hóa đơn này, cọc được giữ riêng tới khi trả kho (xem 2.5.3).
-  - Khách thanh toán, quy trình thanh toán dùng lại cơ chế đã mô tả ở Flow 1.3.
-  - (CẦN CHỐT) Tại cơ sở có cho phép thanh toán tiền mặt hoặc quẹt thẻ qua FS không? `PaymentTransaction` hiện đang ghi chú *"visa card only"* nhưng Flow 1.3 lại mô tả chuyển khoản QR. Nếu có thu tiền mặt thì cần bổ sung `payment_method` và cơ chế FS xác nhận đã thu.
-  - Nếu khách không thanh toán được ngay trong buổi hẹn: `Appointment` kết thúc ở trạng thái `Pending Payment`, khoang vẫn giữ `Reserved`, chưa bàn giao khóa.
-
-#### 2.4 Bàn giao khóa và kích hoạt hợp đồng
-
-**Details:**
+- **Điều kiện bắt buộc trước khi bàn giao:**
+  - `ProposalFeedback.status = Agree`.
+  - Hợp đồng đã được ký ở Flow 1.
+  - `Invoice` đặt cọc và `Invoice` tiền thuê kỳ đầu đều đã `Paid`.
+  - Thiếu bất kỳ điều kiện nào thì hệ thống chặn thao tác bàn giao và báo lỗi rõ ràng cho FS.
+  - (CẦN CHỐT - khoảng trống nghiệp vụ) Nếu khách tới nơi mà vẫn còn hóa đơn chưa thanh toán thì xử lý thế nào: cho thanh toán tại chỗ, hay hẹn lại buổi khác? Việc thanh toán thuộc Flow 1 nhưng tình huống lại phát sinh trong Flow 2, cần Flow 1 bổ sung cơ chế thanh toán on-site hoặc chốt là hẹn lại.
 
 - **FS:**
-  - Chỉ được thực hiện bước này khi hợp đồng đã ký **và** hóa đơn tiền thuê kỳ đầu đã `Paid`.
   - Lập **biên bản bàn giao** (`HandoverRecord`, loại `CheckIn`) ghi nhận:
+    - `unit_id` cụ thể được bàn giao.
     - Tình trạng khoang chứa tại thời điểm bàn giao (vệ sinh, hư hỏng sẵn có nếu có).
     - Ảnh chụp hiện trạng khoang chứa.
     - Hình thức truy cập được bàn giao và số lượng.
-  - Bàn giao quyền truy cập khoang chứa cho khách:
-    - Nếu dùng **khóa cơ**: giao chìa khóa vật lý, ghi nhận số lượng chìa đã giao.
-    - Nếu dùng **khóa mã số**: hệ thống sinh mã truy cập và gửi cho khách, FS hướng dẫn khách đổi mã lần đầu.
-    - (CẦN CHỐT) Hệ thống dùng khóa cơ hay khóa mã số, hay cho phép cả hai tùy cơ sở? Quyết định này ảnh hưởng trực tiếp tới thiết kế bảng lưu trữ quyền truy cập và tới Flow 7 (mất chìa khóa, lỗi mã truy cập).
+  - Bàn giao quyền truy cập khoang chứa. Hình thức khóa **tùy theo cấu hình của từng cơ sở**:
+    - **Khóa cơ:** giao chìa khóa vật lý, ghi nhận số lượng chìa đã giao để đối chiếu khi trả kho.
+    - **Khóa mã số:** hệ thống sinh mã truy cập gắn với `RentalOrder`, gửi cho khách qua kênh riêng, FS hướng dẫn khách đổi mã trong lần sử dụng đầu tiên.
+    - Mã truy cập **không lưu dạng plain text** trong DB, chỉ lưu hash để đối chiếu.
   - Hai bên xác nhận biên bản, khách ký nhận.
+  - (CẦN CHỐT - phụ thuộc Flow 5) Do hệ thống hỗ trợ cả hai loại khóa, cần một field xác định cơ sở hoặc khoang chứa đang dùng loại nào, ví dụ `Facility.access_type` hoặc `StorageUnit.access_type`. Hai bảng này thuộc phạm vi Flow 5 nên Flow 2 **không tự thêm**, chỉ nêu nhu cầu.
 
 - **Hệ thống:**
   - `StorageUnit.status`: `Reserved` -> `Rented`.
   - `RentalOrder.status`: chuyển sang trạng thái đang thuê (xem NOTES về xung đột enum bên dưới).
   - `Appointment.status` -> `Completed`.
-  - `RentalContract` bắt đầu có hiệu lực, `start_date` được ghi nhận theo thực tế bàn giao.
+  - `RentalContract` bắt đầu có hiệu lực, ghi nhận `unit_id` thực tế và mốc bắt đầu thuê.
   - Gửi email xác nhận kèm bản PDF hợp đồng và biên bản bàn giao.
   - Bắn event `RentalOrder.HandoverCompleted` để Flow 3 bắt đầu theo dõi.
 
 **NOTES:**
-- (CẦN CHỐT) `start_date` của hợp đồng tính theo ngày khách đăng ký trong `RentalRequest` hay theo ngày bàn giao thực tế? Nếu khách dời lịch nhiều lần thì hai mốc này lệch nhau và ảnh hưởng tới việc tính tiền thuê, ngày hết hạn và phí quá hạn ở Flow 3/Flow 6.
+- (CẦN CHỐT) Mốc bắt đầu tính tiền thuê là ngày khách đăng ký trong `RentalRequest`, hay ngày bàn giao thực tế? Nếu khách dời lịch nhiều lần thì hai mốc này lệch nhau và ảnh hưởng trực tiếp tới ngày hết hạn, kỳ xuất hóa đơn và phí quá hạn ở Flow 3/Flow 6. Việc này càng quan trọng khi tiền thuê kỳ đầu đã được thu từ Flow 1 trước buổi hẹn.
 
 #### Backend flow (chi tiết kỹ thuật)
 
 **Nguyên tắc chung:**
 - API của FS/FM yêu cầu đăng nhập và kiểm tra **facility scope**: tài khoản chỉ thao tác được trên `Appointment`/`StorageUnit` thuộc cơ sở mình phụ trách, nếu không trả `403`.
 - API của customer áp dụng **ownership check** trên `RentalOrder.customer_id`.
-- Mọi bước làm thay đổi `StorageUnit.status` đều phải chạy trong DB transaction và lock theo `unit_id` để không xung đột với luồng đặt cọc của Flow 1.
+- Mọi bước làm thay đổi `StorageUnit.status` phải chạy trong DB transaction và lock theo `unit_id` để không xung đột với luồng gán khoang của Flow 1.
 
 **a) Lấy slot và đặt lịch (2.1)**
 - `GET /api/customer/rental-orders/{id}/appointment-slots`: sinh slot từ giờ hoạt động của cơ sở, loại bỏ slot đã đầy theo số FS khả dụng.
-- `POST /api/customer/rental-orders/{id}/appointments`: body `{ appointment_date, slot }`. Validate `Invoice` cọc đã `Paid` trước khi cho đặt lịch. Tạo `Appointment(type=Handover, status=Scheduled)`, bắn event `Appointment.Created` để FM nhận thông báo phân công.
+- `POST /api/customer/rental-orders/{id}/appointments`: body `{ appointment_date, slot }`. Validate các điều kiện từ Flow 1 (hợp đồng đã ký, hóa đơn đã `Paid`) trước khi cho đặt lịch. Tạo `Appointment(type=Handover, status=Scheduled)`, bắn event `Appointment.Created` để FM nhận thông báo phân công.
 - `PATCH /api/customer/appointments/{id}`: dời lịch, validate số lần dời và thời hạn báo trước.
 
 **b) Lịch trình của FS (2.1, 2.2)**
@@ -287,15 +279,11 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - `POST /api/staff/appointments/{id}/proposal-feedback`: body `{ status: Agree|Reject, note? }`, ghi vào `ProposalFeedback`.
 - Khi `Reject`: bắn event `ProposalFeedback.Rejected` để FM xử lý đổi khoang. Việc gán lại `unit_id` chạy trong transaction: trả khoang cũ về `Available` và set khoang mới `Reserved` cùng lúc.
 
-**d) Ký hợp đồng và thanh toán (2.3)**
-- `POST /api/customer/rental-orders/{id}/contracts`: sinh `RentalContract` từ mẫu, snapshot version điều khoản đang hiệu lực. Chỉ cho phép khi `ProposalFeedback.status = Agree`.
-- `POST /api/customer/contracts/{id}/sign`: ghi nhận chữ ký, xuất PDF lên storage, tạo `Invoice(type=MonthlyRent)`.
-- Thanh toán dùng lại `POST /api/invoices/{id}/pay` đã mô tả ở Flow 3.
-
-**e) Bàn giao (2.4)**
+**d) Bàn giao (2.3)**
 - `POST /api/staff/appointments/{id}/handover`: body `{ unit_condition, photos[], access_type, access_quantity, note? }`.
-- Backend kiểm tra tuần tự trước khi ghi: hợp đồng đã ký, hóa đơn tiền thuê đã `Paid`, `ProposalFeedback = Agree`. Thiếu bất kỳ điều kiện nào thì trả lỗi rõ ràng, không cho bàn giao.
-- Transaction: tạo `HandoverRecord(type=CheckIn)`, tạo bản ghi quyền truy cập, update `StorageUnit.status = Rented`, update `RentalOrder`, `Appointment.status = Completed`, kích hoạt `RentalContract`.
+- Backend kiểm tra tuần tự trước khi ghi: `ProposalFeedback = Agree`, hợp đồng đã ký, các hóa đơn bắt buộc đã `Paid`. Thiếu bất kỳ điều kiện nào thì trả lỗi rõ ràng, không cho bàn giao.
+- Transaction: tạo `HandoverRecord(type=CheckIn)`, tạo `UnitAccessKey`, update `StorageUnit.status = Rented`, update `RentalOrder`, `Appointment.status = Completed`, kích hoạt `RentalContract`.
+- Với khóa mã số: sinh mã ngẫu nhiên, lưu hash, gửi mã cho khách qua kênh riêng chứ không trả về trong response của FS.
 - Bắn event `RentalOrder.HandoverCompleted`.
 
 **Events phát ra từ Flow 2:**
@@ -311,47 +299,55 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 Các bảng đã có, Flow 2 chỉ đọc hoặc cập nhật trạng thái:
 - [**RentalOrder**](./db-table-draft.md#rentalorder) - đơn hàng được xử lý trong buổi hẹn, `staff_id` là FS được phân công.
-- [**Invoice**](./db-table-draft.md#invoice) - hóa đơn tiền thuê kỳ đầu phát sinh tại 2.3.
+- [**Invoice**](./db-table-draft.md#invoice) - Flow 2 chỉ **kiểm tra** trạng thái `Paid`, không tạo hóa đơn mới.
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) - ghi nhận khách đồng ý/từ chối khoang chứa sau khi xem thực tế.
 
-Các bảng Flow 2 cần nhưng **chưa có trong `db-table-draft.md`** (đề xuất, chờ chốt trước khi bổ sung vào file schema chung):
+Các bảng Flow 2 cần nhưng **chưa có trong `db-table-draft.md`**. Theo thống nhất của nhóm, phần đề xuất này **giữ tại đây**, chưa đưa vào file schema chung để tránh xung đột khi merge:
+
 - **Appointment** - lịch hẹn on-site, dùng chung cho cả Flow 2 và Flow 2.5.
   - order_id (N - 1: RentalOrder)
   - staff_id (N - 1: Account, null cho tới khi FM phân công)
   - type (Handover/Return)
   - appointment_date, slot
   - status (Scheduled/Assigned/InProgress/Completed/NoShow/Canceled)
+  - reschedule_count
   - note
-  - (CẦN CHỐT) `RentalOrder` hiện đã có sẵn `staff_id` và `appointment_date`. Nếu tách bảng `Appointment` riêng thì hai field đó nên bỏ khỏi `RentalOrder` để tránh trùng lặp dữ liệu. Việc sửa `RentalOrder` thuộc phạm vi schema chung nên chưa thực hiện.
+  - (CẦN CHỐT) `RentalOrder` hiện đã có sẵn `staff_id` và `appointment_date`. Nếu tách bảng `Appointment` riêng thì hai field đó nên bỏ khỏi `RentalOrder` để tránh trùng lặp dữ liệu. Việc sửa `RentalOrder` thuộc schema chung nên chưa thực hiện.
+
 - **HandoverRecord** - biên bản bàn giao, dùng chung cho check-in (Flow 2) và check-out (Flow 2.5).
   - order_id (N - 1: RentalOrder)
   - appointment_id (1 - 1: Appointment)
   - staff_id (N - 1: Account)
+  - unit_id (N - 1: StorageUnit)
   - type (CheckIn/CheckOut)
   - unit_condition
   - photos
   - customer_signature
   - note
   - created_at
+
 - **UnitAccessKey** - quyền truy cập khoang chứa đã bàn giao cho khách.
   - unit_id (N - 1: StorageUnit)
   - order_id (N - 1: RentalOrder)
   - access_type (PhysicalKey/AccessCode)
-  - quantity hoặc code_hash
+  - quantity - số chìa đã giao, dùng khi `access_type = PhysicalKey`
+  - code_hash - hash của mã truy cập, dùng khi `access_type = AccessCode`
   - issued_at, revoked_at
   - status (Active/Revoked/Lost)
-  - (CẦN CHỐT) Phụ thuộc hoàn toàn vào quyết định khóa cơ hay khóa mã số ở mục 2.4.
-- **RentalContract** - hợp đồng thuê. `Invoice.contract_id` đã tham chiếu tới bảng này nhưng bảng chưa được định nghĩa. Bảng này nằm ở ranh giới Flow 1/Flow 2 nên **chưa đề xuất field**, chờ nhóm chốt chủ sở hữu.
+
+- **RentalContract** - hợp đồng thuê. `Invoice.contract_id` đã tham chiếu tới bảng này nhưng bảng chưa được định nghĩa ở đâu. Theo thống nhất, hợp đồng được tạo và ký ở **Flow 1**, nên Flow 2 **không đề xuất field**, chỉ đọc và kích hoạt. Đây là một khoảng trống cần Flow 1 bổ sung.
 
 **NOTES**
+- (ĐÃ CHỐT) Việc ký hợp đồng và thanh toán tiền thuê kỳ đầu thuộc **Flow 1**, diễn ra trước buổi hẹn. Flow 2 chỉ kiểm tra điều kiện và kích hoạt hợp đồng tại thời điểm bàn giao.
+- (ĐÃ CHỐT) Hệ thống hỗ trợ **cả khóa cơ và khóa mã số**, tùy cấu hình từng cơ sở. `UnitAccessKey.access_type` phân biệt hai trường hợp.
 - (CẦN CHỐT - xung đột enum) `RentalOrder.status` hiện có hai bộ giá trị khác nhau: `db-table-draft.md` ghi `Pending/InProgress/Canceled/Done`, còn Flow 3 dùng `Active/ExpiringSoon/Overdue/PendingReturn/Completed`. Flow 2 là nơi đơn hàng chuyển từ "đang làm thủ tục" sang "đang thuê" nên bị ảnh hưởng trực tiếp. Tài liệu này tạm dùng cách gọi trung tính cho tới khi nhóm gộp hai bộ enum.
-- (CẦN CHỐT - state machine dùng chung) Trạng thái `StorageUnit` được set bởi nhiều flow khác nhau nhưng chưa có định nghĩa chung. Flow 2 nắm chuyển đổi `Reserved -> Rented`, Flow 2.5 nắm `Rented -> Maintenance -> Available`. Cần một bảng trạng thái chuẩn cho toàn hệ thống trước khi code.
-- Bảng `Appointment` được Flow 3 và Flow 5 gọi tên nhưng chưa ai định nghĩa. Flow 2 đang đề xuất ở trên, nếu nhóm đồng ý thì nên đưa vào `db-table-draft.md` để các flow khác tham chiếu thống nhất.
+- (CẦN CHỐT - state machine dùng chung) Trạng thái `StorageUnit` được set bởi nhiều flow nhưng chưa có định nghĩa chung. Flow 2 nắm chuyển đổi `Reserved -> Rented`, Flow 2.5 nắm `Rented -> Maintenance -> Available`. Cần một bảng trạng thái chuẩn cho toàn hệ thống trước khi code.
+- Bảng `Appointment` được Flow 3 và Flow 5 gọi tên nhưng chưa ai định nghĩa. Đề xuất ở trên là bản nháp của Flow 2, nếu nhóm đồng ý thì Levi đưa vào `db-table-draft.md` để các flow khác tham chiếu thống nhất.
 
 **Advanced Features (not MVP)**
 - Cho khách tự chọn slot theo lịch trống thực tế của từng FS thay vì slot cố định theo giờ hoạt động cơ sở.
 - Nhắc lịch hẹn tự động qua email/SMS trước 24h.
-- Ký hợp đồng từ xa, khách không cần tới cơ sở mới ký được.
+- Cho khách xem ảnh/video khoang chứa trước buổi hẹn để giảm tỉ lệ từ chối tại chỗ.
 - Khóa thông minh điều khiển qua app, bỏ hẳn bước giao chìa khóa vật lý.
 
 ### 2.5 Trả kho và bảo trì
@@ -410,7 +406,7 @@ Các bảng Flow 2 cần nhưng **chưa có trong `db-table-draft.md`** (đề x
   - (CẦN CHỐT) Khách không đồng ý với đánh giá hư hỏng của FS thì xử lý thế nào? Đề xuất: cho phép khách ghi ý kiến phản đối vào biên bản và chuyển FM xử lý, chưa tạo hóa đơn ngay.
 
 - **Thu hồi quyền truy cập:**
-  - Khóa cơ: FS thu lại chìa khóa, đối chiếu với số lượng đã giao ở 2.4. Thiếu chìa thì tính phí mất chìa theo Flow 4.
+  - Khóa cơ: FS thu lại chìa khóa, đối chiếu với `UnitAccessKey.quantity` đã giao ở 2.3. Thiếu chìa thì tính phí mất chìa hoặc phí thay khóa theo Flow 4.
   - Khóa mã số: hệ thống vô hiệu hóa mã truy cập của khách ngay khi biên bản được xác nhận.
   - `UnitAccessKey.status` -> `Revoked`, ghi `revoked_at`.
 
@@ -432,8 +428,9 @@ Các bảng Flow 2 cần nhưng **chưa có trong `db-table-draft.md`** (đề x
     - Cọc lớn hơn tổng phí: hoàn lại phần chênh lệch cho khách.
     - Cọc nhỏ hơn tổng phí: tạo hóa đơn cho phần còn thiếu, khách phải thanh toán trước khi hoàn tất trả kho.
   - (CẦN CHỐT - thiếu ở schema chung) `PaymentTransaction` hiện chỉ mô tả chiều thu tiền, **chưa có cơ chế hoàn tiền**. Cần bổ sung trường phân biệt chiều giao dịch hoặc thêm bảng riêng cho refund, kèm trạng thái xử lý và mã giao dịch hoàn từ cổng thanh toán để đối soát.
-  - (CẦN CHỐT - chính sách) Tiền cọc được hoàn lại cho khách, hay mặc định trừ vào kỳ thuê cuối cùng? Hiện không flow nào quy định. Đề xuất hoàn lại để tách bạch với tiền thuê, nhưng đây là quyết định của BOM.
-  - (CẦN CHỐT) Thời hạn hoàn cọc là bao lâu kể từ ngày trả kho, và hoàn qua kênh nào?
+  - (ĐÃ CHỐT) Tiền cọc **được hoàn lại cho khách** sau khi đối trừ hết các khoản phát sinh, không trừ vào kỳ thuê cuối cùng. Cách này giữ tiền cọc tách bạch với tiền thuê và đúng vai trò đảm bảo hiện trạng khoang chứa.
+  - (CẦN CHỐT) Thời hạn hoàn cọc là bao lâu kể từ ngày trả kho, và hoàn qua kênh nào (chuyển khoản về tài khoản khách, hay hoàn về đúng phương tiện đã thanh toán)?
+  - (CẦN CHỐT) Các khoản phí phát sinh tại chỗ có cho khách thanh toán ngay trong buổi trả kho không, và bằng hình thức gì? `PaymentTransaction` đang ghi chú *"visa card only"* trong khi Flow 1.3 mô tả chuyển khoản QR. Nếu FS được thu tiền mặt thì cần bổ sung `payment_method` và cơ chế FS xác nhận đã thu.
 
 #### 2.5.4 Bảo trì và mở lại cho thuê
 
@@ -490,7 +487,7 @@ Các bảng Flow 2 cần nhưng **chưa có trong `db-table-draft.md`** (đề x
 - [**RentalOrder**](./db-table-draft.md#rentalorder) - đơn hàng được đóng lại sau khi trả kho.
 - [**Invoice**](./db-table-draft.md#invoice) - các hóa đơn phí phát sinh khi trả kho.
 - [**PaymentTransaction**](./db-table-draft.md#paymenttransaction) - cần bổ sung cơ chế hoàn tiền, xem 2.5.3.
-- **Appointment**, **HandoverRecord**, **UnitAccessKey** - dùng chung với Flow 2, đề xuất ở phần Schema của Flow 2.
+- **Appointment**, **HandoverRecord**, **UnitAccessKey** - dùng chung với Flow 2, phần đề xuất field nằm ở mục Schema của Flow 2. Theo thống nhất của nhóm, các bảng này giữ trong `draft.md`, chưa đưa vào `db-table-draft.md`.
 
 **NOTES**
 - Flow 3.4 đã ghi sẵn hành vi mong đợi của Flow 2.5: *"Sau khi FS xác nhận hoàn tất và không phát sinh phí hư hại, khoang chứa chuyển trạng thái MAINTENANCE, RentalOrder chuyển Completed"*. Tài liệu này viết khớp với mô tả đó và bổ sung thêm nhánh **có** phát sinh phí, vốn chưa được mô tả ở đâu.
