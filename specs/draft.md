@@ -156,7 +156,7 @@
 - Hệ thống kiểm tra trên bộ nhớ tạm (Redis hoặc PG Cache) xem tài khoản có nằm trong mục "Có yêu cầu được duyệt nhưng chưa tạo tài khoản"
 - Hệ thống lấy instance `RentalOrder` từ bộ nhớ tạm và tạo một bản ghi `RentalOrder` vào database.
 - Xóa key `RentalOrder` đã lấy trong bộ nhớ tạm.
-- Hệ thống tạo một bản ghi `ProposalFeedback` cho tài khoản của khách hàng.
+- Hệ thống tạo một bản ghi `ProposalFeedback` (status = `Pending`) cho tài khoản của khách hàng.
 
 **Case B: Không có yêu cầu nào được duyệt**
 
@@ -167,15 +167,33 @@
 **Details:**
 - Tạo một bản ghi `Account` với role là `Customer`.
 #### 1.3 Kiểm tra kho của tôi
-- NOTES: Cái này khó thể chia thành 2 tabs:
-  - Đang sử dụng: Đã ký hợp đồng
-  - Chờ được duyệt: các khoang yêu cầu được duyệt bởi FM vần cần khách hàng xác nhận
-TODO: add cái này khi khách hàng đồng ý khoang được chỉ định
-- Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
-          - code: INV-DEP-XX-XXXXXX-XXXX
-          - title: "Đặt cọc khoang chứa A"
-          - desc: "Thanh toán đặt cọc khoang chứa A để đảm bảo giữ chỗ."
-          - amount: ...
+**Context:** Đơn đặt khoang chứa của một khách hàng đã được duyệt và chỉ định bởi FM (bản ghi `ProposalFeedback` của đơn hàng đã được tạo), hệ thống cần xác nhận từ khách hàng.
+**Flow tổng quát:** 
+- Khách hàng vào trang xác nhận -> chọn đồng ý hoặc từ chối -> luồng xử lý dựa vào đồng ý hay từ chối
+**Details:**
+- Khách hàng vào trang xác nhận, trang đó hiển thị các thông tin của khoang (thông tin hiển thị lấy từ `ProposalFeedback`)
+- Khách hàng chọn đồng ý hoặc từ chối:
+  - *Đồng ý*:
+    - Hệ thống cập nhật bản ghi của `ProposalFeedback` sang `Agreed`
+    - Hệ thống gán field `unit_id` trong `RentalOrder`: RentalOrder.unit_id = ProposalFeedback.unit_id
+    - Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
+      - code: INV-DEP-XX-XXXXXX-XXXX
+      - title: "Đặt cọc khoang chứa A"
+      - desc: "Thanh toán đặt cọc khoang chứa A để đảm bảo giữ chỗ."
+      - amount: ...
+  - *Từ chối*:
+    - Hệ thống cập nhật bản ghi của `ProposalFeedback` sang `Rejected` (kèm note)
+    - Hệ thống gửi thông báo đến FM:
+      ```
+      Khách đã từ chối khoang [Mã khoang cũ], lý do: [note]
+      ```
+    - FM vào xem khoang trống khác, chọn `unit_id` mới và bấm "Đề xuất lại".
+    - Hệ thống tạo một bản ghi `ProposalFeedback` (status = `Pending`), gắn unit_id mới vừa chọn 
+    
+- NOTES: 
+  - Khi làm trang này, có thể chia thành 2 tabs:
+    - Đang sử dụng: Đã ký hợp đồng
+    - Chờ được duyệt: các khoang yêu cầu được duyệt bởi FM vần cần khách hàng xác nhận
 
 #### 1.4 Đặt cọc
 **Context:** Sau khi khách đã điền form và được approve, đã nhận email phản hồi duyệt thành công và đã đăng ký tài khoản thành công.
@@ -224,13 +242,25 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
   - Luồng từ việc đặt khoang -> đặt cọc -> chọn lịch hẹn là tuyến tính, tức là chỉ có đặt cọc mới có thể đặt lịch hẹn (check-in và bàn giao). Vì thế nên suy nghĩ đến việc cho đặt lịch hẹn (với loại là xem kho) trước khi đặt cọc, ở luồng này, mình có thể để FS xử lý nhiều lịch hẹn xem kho cùng 1 thời điểm (giống như 1 tour du lịch).
   - Sau khi khách đã trả tiền cọc, khoang chứa phải được giữ ở trạng thái Reserved cho đến ngày hẹn check-in/bàn giao. Nó chỉ hết hạn nếu có quy định: "Khách cọc xong nhưng quá N ngày không đến nhận kho thì mất cọc và hủy đơn".
 #### 1.5 Chọn lịch check-in và bàn giao
-**Context:** Sau khi khách đã đặt cọc thành công, field `appointment_date` vẫn đang null, và hệ thống điều hướng khách hàng sang 1 trang để nhập lịch hẹn.
-**Flow tổng quát:** Hệ thống điều hướng users đến 1 trang để nhập lịch hẹn -> khách chọn và nhập lịch hẹn -> hệ thống gán kết quả nhập từ users vào field `appointment_date` và chuyển trâng thái của `RentalOrder` sang `Scheduled`.
-**Details**
-- Hệ thống điều hướng users đến 1 trang chọn & nhập lịch hẹn
-- Khách chọn & nhập, sau đó ấn "Xác nhận"
-- Hệ thống cập nhật field `appointment_date` 
-- Hệ thống cập nhật trạng thái (status) của `RentalOrder` sang `Scheduled`
+**Context:** Sau khi khách đã đặt cọc thành công (`RentalOrder.status = Deposited`), trường `appointment_date` đang là `NULL`. Hệ thống điều hướng khách hàng sang màn hình lên lịch hẹn on-site tại chi nhánh.
+
+**Flow tổng quát:** 
+Hệ thống điều hướng user đến trang đặt lịch hẹn -> Khách chọn ngày & giờ trong giới hạn quy định -> Hệ thống lưu `appointment_date` và chuyển đơn sang `Scheduled` -> FM chỉ định nhân viên FS đón tiếp -> Hệ thống gán `staff_id` và chuyển đơn sang `InProgress`.
+
+**Details:**
+- **Customer:**
+  - Hệ thống điều hướng user đến trang chọn lịch hẹn.
+  - Khách chọn ngày và khung giờ hẹn đến nhận khoang (Ràng buộc: trong vòng N ngày kể từ lúc cọc và nằm trong khung giờ làm việc của chi nhánh).
+  - Khách ấn "Xác nhận".
+  - Hệ thống cập nhật trường `appointment_date` vào `RentalOrder`.
+  - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `Scheduled`.
+  - Hệ thống gửi email/thông báo xác nhận lịch hẹn kèm địa chỉ cơ sở và hướng dẫn mang theo giấy tờ tùy thân (CCCD/Passport).
+- **FM:**
+  - FM nhận thông báo và xem danh sách các đơn đang ở trạng thái `Scheduled`.
+  - FM chỉ định một nhân viên cơ sở (`FS`) phụ trách ca tiếp đón khách:
+    - Hệ thống gán `RentalOrder.staff_id = [FS_Account_ID]`.
+    - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `InProgress`.
+    - Thông báo nhiệm vụ tiếp đón được gửi đến tài khoản của nhân viên FS tương ứng.
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
