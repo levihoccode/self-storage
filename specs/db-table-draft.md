@@ -5,23 +5,33 @@
 - customer_email
 - customer_phone
 - unit_type
-- start_date (MM/DD/YYYY)
+- start_date
 - period - số tháng thuê
 - unit_id (null as default)
-- status (Pending/Reject/Approve/Expired) - Expired xảy ra khi trong trạng thái chờ khách hàng tạo tài khoản và timeout
+- status (Pending/Rejected/Approved/Expired) - Expired xảy ra khi trong trạng thái chờ khách hàng tạo tài khoản và timeout
 # RentalOrder
-**Overview:** chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
+**Overview:** chứa các thông tin đơn hàng đã được `Approved` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
 - request_id (1 - 1: RentalRequest)
 - customer_id (N - 1: Account)
-- staff_id (N - 1: Account, null until the FS confirm and status pending -> in progress)
-- appointment_date (MM/DD/YYYY)
+- staff_id (N - 1: Account, null cho đến khi trang thái thay đổi từ `Scheduled` -> `InProgress`, FM sẽ chỉ định FS)
+- appointment_date
 - unit_id
 - cancel_reason
 - status: 
-  - Wait: Đợi khách hàng đặt cọc
-  - Pending: đơn đã cọc xong, đang chờ khách chọn lịch hẹn hoặc chờ FS tiếp nhận ca bàn giao
-  - Canceled: hủy đơn hàng
+  - Pending: trạng thái mặc định khi tạo đơn hàng
+  - Deposited: Khách hàng đã đặt cọc
+  - Scheduled: Khách đã lên lịch hẹn
+  - InProgress: Đơn hàng đang được xử lý (lúc này staff_id bắt buộc != null)
+  - Canceled: Hủy đơn hàng
   - Done: Khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử 
+
+- NOTES:
+  - Trạng thái đơn hàng là tuyến tính:
+    ```
+    Pending ──> Deposited ──> Scheduled ──> InProgress ──> Done
+       │           │             │             │
+       └───────────┴─────────────┴─────────────┴──> Canceled
+    ```
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (1 - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc)
@@ -44,15 +54,15 @@
 **NOTES:**
 - Nếu cả 2 fields order_id và contract_id đều null, tức là hóa đơn từ việc yêu cầu dịch vụ hỗ trợ (`SupportRequest`)
 # ProposalFeedback
-- order_id (1 - 1: RentalOrder)
+**Overview:** chứa thông tin feedback từ khách hàng sau khi khoang chứa được chỉ định từ FM
+- order_id (N - 1: RentalOrder)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit)
-- status (Pending/Agree/Reject)
+- status (Pending/Agreed/Rejected)
 - note
 
 **NOTES:**
 - field note dùng để khi khách từ chối và muốn chọn lại, sẽ nêu lý do vì sao từ chối, ...
-
 # PaymentTransaction
 - invoice_id (N - 1: Invoice)
 - gateway_transaction_no - Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
@@ -65,3 +75,4 @@
 - status (Pending/Failed/Success)
 
 - NOTES: visa card only
+# TODO: FacilityTask
