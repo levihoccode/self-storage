@@ -14,8 +14,8 @@
 - request_id (1 - 1: RentalRequest)
 - customer_id (N - 1: Account)
 - staff_id (N - 1: Account, null cho đến khi trang thái thay đổi từ `Scheduled` -> `InProgress`, FM sẽ chỉ định FS)
+- unit_id (N - 1: StorageUnit, null cho đến khi việc chỉ định khoang chứa giữa FM và Khách hàng hoàn thành)
 - appointment_date
-- unit_id
 - cancel_reason
 - status: 
   - Pending: trạng thái mặc định khi tạo đơn hàng
@@ -25,13 +25,13 @@
   - Canceled: Hủy đơn hàng
   - Done: Khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử 
 
-- NOTES:
-  - Trạng thái đơn hàng là tuyến tính:
-    ```
-    Pending ──> Deposited ──> Scheduled ──> InProgress ──> Done
-       │           │             │             │
-       └───────────┴─────────────┴─────────────┴──> Canceled
-    ```
+**NOTES:**
+- Trạng thái đơn hàng là tuyến tính:
+  ```
+  Pending ──> Deposited ──> Scheduled ──> InProgress ──> Done
+     │           │             │             │
+     └───────────┴─────────────┴─────────────┴──> Canceled
+  ```
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (1 - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc)
@@ -60,6 +60,9 @@
 - unit_id (N - 1: StorageUnit)
 - status (Pending/Agreed/Rejected)
 - note
+
+**Constraints**
+- 1 order chỉ có 1 proposal được đồng ý bởi khách hàng
 
 **NOTES:**
 - field note dùng để khi khách từ chối và muốn chọn lại, sẽ nêu lý do vì sao từ chối, ...
