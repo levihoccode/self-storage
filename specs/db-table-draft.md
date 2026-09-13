@@ -1,6 +1,7 @@
 # RentalRequest
 **Overview:** chứa các thông tin được gửi từ form trên website.
 - facility_id (N - 1: Facility)
+- customer_name
 - customer_email
 - customer_phone
 - unit_type
@@ -17,8 +18,8 @@
 - unit_id
 - cancel_reason
 - status: 
-  - Pending: chờ FS được chỉ định xác nhận
-  - InProgress: sau FS được chỉ đã xác nhận và đang trong quá trình hẹn gặp, tư vấn
+  - Wait: Đợi khách hàng đặt cọc
+  - Pending: đơn đã cọc xong, đang chờ khách chọn lịch hẹn hoặc chờ FS tiếp nhận ca bàn giao
   - Canceled: hủy đơn hàng
   - Done: Khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử 
 # Invoice
@@ -54,7 +55,7 @@
 
 # PaymentTransaction
 - invoice_id (N - 1: Invoice)
-- gateway_transaction_no -  Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
+- gateway_transaction_no - Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
 - transaction_content
 - response_payload: JSON / TEXT, nullable -> Lưu toàn bộ log raw webhook/IPN để đối soát
 - amount

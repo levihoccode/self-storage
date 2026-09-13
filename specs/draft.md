@@ -55,7 +55,22 @@
 ### 1. Đặt kho
 **FLOW:**
 ```
-[Yêu cầu đặt kho] -> [Khách tạo tài khoản] -> [Đặt cọc] -> [Ký hợp đồng] -> [Thanh toán]
+[1.1 Yêu cầu đặt kho] 
+          │
+          ▼
+[1.2 Khách tạo tài khoản] 
+          │
+          ▼
+[1.3 Kiểm tra Kho của tôi (Xác nhận/Từ chối khoang)] 
+          │
+     ┌────┴────────────────────────┐
+     │ (Từ chối)                   │ (Đồng ý)
+     ▼                             ▼
+[Yêu cầu chọn lại khoang]     [1.4 Đặt cọc (Deposit)]
+                                   │ 
+                                   ▼
+                              [1.5 Chọn lịch hẹn check-in và bàn giao]
+
 ```
 #### 1.1 Yêu cầu đặt kho
 **Context:** Khách mới, chưa từng sử dụng dịch vụ, muốn tìm cho mình một khoang chứa phù hợp với nhu cầu.
@@ -65,6 +80,7 @@
 **Details:**
 - **Customer:**
   - Khách hàng điền nhu cầu thuê kho qua form (không cần đăng nhập), bao gồm các thông tin được hiển thị trên form: 
+    + customer_name
     + customer_email
     + customer_phone
     + unit_type
@@ -72,6 +88,9 @@
     + start_date (MM/DD/YYYY)
     + period - số tháng thuê
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
+  - **Nếu khách đã có tài khoản:** hệ thống sẽ gửi thông báo vào tài khoản.
+    - **Nếu yêu cầu được duyệt:** hệ thông sẽ thêm một bản ghi vào `UserOrder`
+    - Khách sẽ thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc
 
 - **FM:**
   - Các yêu cầu đặt khoang chứa sẽ được liệt kê ở một trang và có các nút (button) để thao tác (details, response, update status, ...), mỗi entry là một `RentalRequest`.
@@ -79,11 +98,12 @@
     - **Tìm thấy khoang chứa thích hợp**:
       - FM nhập unit id phù hợp vào field `unit_id` và bấm `Approve`.
       - `RentalRequest.status` sang `Approve`.
+      - Tạo một instance `RentalOrder` với status = `Wait` (chỉ tạo và sẽ được ghi vào các bước tiếp theo)
       - **Trong trường hợp email chưa có tài khoản:**
-        - Hệ thống ghi nhận trong một khoảng thời gian ngắn, có một yêu cầu được duyệt nhưng chưa có tài khoản. (Có thể sử dụng PG Cache hoặc Redis)
+        - Hệ thống ghi nhận trong một khoảng thời gian ngắn, có một yêu cầu được duyệt nhưng chưa có tài khoản. (Có thể sử dụng PG Cache hoặc Redis) -> Giả sử tài khoản đã tồn tài và thay vì ghi instance `RentalOrder`vào db thì ghi vào bộ nhớ tạm.
         - Hóa đơn và yêu cầu chọn lịch hẹn sẽ được thêm vào tài khoản khách hàng khi được tạo trong thời gian quy định.
       - **Trong trường hợp email đã có tài khoản:**
-        - Hệ thống tạo một bản ghi trong `RentalOrder` để chờ khách đặt cọc.
+        - Hệ thống tạo một bản ghi instance đã tạo vào `RentalOrder` để chờ khách đặt cọc.
         - Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
           - code: INV-DEP-XX-XXXXXX-XXXX
           - title: "Đặt cọc khoang chứa A"
@@ -112,9 +132,9 @@
 - [**RentalRequest**](./db-table-draft.md#rentalrequest) - chứa các thông tin được gửi từ form trên website.
 - [**RentalOrder**](./db-table-draft.md#rentalorder) - chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
 - [**Invoice**](./db-table-draft.md#invoice) -  chứa thông tin thanh toán của khách hàng (hóa đơn)
+- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) -  chứa các feedback từ khách hàng sau khi FM chỉ định kho
 
 **NOTES**
-- Nếu cả 2 fields order_id và contract_id đều null, tức là hóa đơn từ việc yêu cầu dịch vụ hỗ trợ (`SupportRequest`)
 - Entry trong list yêu cầu đặt khoang chứa của FM không có facility vì khi đặt, khách chỉ định một chi nhánh cụ thể và người quản lý tại chi nhánh đó sẽ nhận được yêu cầu => không cần liệt kê facility field.
 - Có thể phát triển thêm phần wishlist giành cho các khoang chứa đều không available, nhưng tự động gửi thông báo và đăng ký ngay khi có bất kỳ khoang chứa nào trống (có thể dùng filter).
 
@@ -127,29 +147,80 @@
 
 **Context:** Yêu cầu đặt khoang chứa của khách đã được duyệt và cần đặt cọc nhưng chưa có tài khoản.
 
-**Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định và hóa đơn + chọn lịch hẹn on-site sẽ được thêm tự động cho tài khoản đó. 
+**Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định và hóa đơn sẽ được thêm tự động cho tài khoản đó. 
 
 **Details:**
-- Sau khi đăng ký, hệ thống kiểm tra trên bộ nhớ (Redis hoặc PG Cache) xem tài khoản có nằm trong mục "Có yêu cầu nhưng chưa tạo tài khoản"
+- Tạo một bản ghi `Account` với role là `Customer`.
+- Hệ thống kiểm tra trên bộ nhớ tạm (Redis hoặc PG Cache) xem tài khoản có nằm trong mục "Có yêu cầu nhưng chưa tạo tài khoản"
+- Hệ thống lấy instance `RentalOrder` từ bộ nhớ tạm và tạo một bản ghi `RentalOrder` vào database.
+- Xóa key `RentalOrder` đã lấy trong bộ nhớ tạm.
 - Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
   - code: INV-DEP-XX-XXXXXX-XXXX
   - title: "Đặt cọc khoang chứa A"
   - desc: "Thanh toán đặt cọc khoang chứa A để đảm bảo giữ chỗ."
   - amount: ...
-- Hệ thống tạo một yêu cầu chọn lịch cho tài khoản.
 
 **Case B: Không có yêu cầu nào được duyệt**
-#### 1.3 Đặt cọc
-**Context:** Sau khi khách đã điền form và được approve, email phản hồi thành công đã được gửi có kèm theo link kích hoạt tài khoản và tài khoản được kích hoạt thành công.
 
-**Flow tổng quát:**
-Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" -> hiển thị một mục "Đặt cọc để giữ khoang chứa" -> thanh toán thành công -> trạng thái kho chuyển sang `Reserved` trong một khoản thời gian.
+**Context:** Khách tạo tài khoản nhưng không có yêu cầu được duyệt nào trên hệ thống tạm nhớ.
+
+**Flow tổng quát:** Tạo tài khoản `Customer` trong hệ thống. 
 
 **Details:**
-- Khách đăng nhập vào ứng dụng và thanh toán
-- Ở bước hiện mã QR để chuyển khoản, khoang chứa sẽ tạm thời bị khóa (5-10p timeout) để việc thanh toán hoàn tất mà không bị gián đoạn. -> Tránh nhiều người đặt cọc 1 kho cùng lúc
-- **Nếu thanh toán thành công:** trạng thái khoang chứa sẽ được chuyển sang `Reserved`
-- **Nếu thanh toán không thành công:** khách hàng quay về trang "Hóa đơn" và khóa tạm thời của khoang chứa được mở.
+- Tạo một bản ghi `Account` với role là `Customer`.
+#### 1.3 Kiểm tra kho của tôi
+
+#### 1.4 Đặt cọc
+**Context:** Sau khi khách đã điền form và được approve, đã nhận email phản hồi duyệt thành công và đã đăng ký tài khoản thành công.
+
+**Flow tổng quát:**
+Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -> hiển thị một hóa đơn "Đặt cọc" cho khoang yêu cầu -> thanh toán thành công -> trạng thái kho chuyển sang `Reserved` trong một khoảng thời gian.
+
+**Details:**
+- Khách đăng nhập vào ứng dụng 
+- Ấn vào mục "Hóa đơn" kiểm tra các hóa đơn cần thanh toán
+- Chọn hóa đơn đặt cọc (code=INV-DEP-...) cần thanh toán và bấm vào "Tiến hành thanh toán"
+- Ở đây hệ thống sẽ kiểm tra 3 trường hợp theo thứ tự:
+  - **Khoang chứa đã được đặt cọc (status = `Reserved`):**
+    - Hệ thống từ chối giao dịch và hiển thị lỗi:
+      ```
+      Khoang chứa đã được đặt cọc bởi khách hàng khác. Hóa đơn này đã hết hiệu lực.
+      ```
+    - Hệ thống sửa trạng thái của đơn này (`RentalOrder.status`) thành `Canceled`.
+    - Hệ thống sửa trạng thái của hóa đơn này (`Invoice.status`) trong tài khoản thành `Canceled`.
+    - Trả về trang "Hóa đơn".
+  - **Khoang chứa đang có giao dịch khác xử lý (chưa bị timeout):**
+    - Hệ thống từ chối giao dịch và hiển thị lỗi:
+      ```
+      Khoang chứa này hiện đang trong quá trình xử lý thanh toán (đặt cọc / gia hạn) bởi một khách hàng khác. Vui lòng quay lại thử lại sau ít phút hoặc chọn khoang chứa khác! 
+      ```
+    - Trả về trang "Hóa đơn".
+  - **Khoang chứa đang không có bất kỳ giao dịch nào:** 
+    - Tạm khóa khoang chứa cho đến khi việc thanh toán hoàn tất hoặc trong một khoảng thời gian (timeout)
+    - Chọn phương thức thanh toán (visa card only)
+    - Nhập các thông tin cần thiết để thanh toán, bao gồm các thông tin:
+      + card_number
+      + cardholder_name
+      + expiration_date (MM/YY)
+      + cvv
+    - Khách ấn "Thanh toán"
+    - Hệ thống đóng gói dữ liệu gửi sang gateway (VNPay)
+    - Hệ thống nhận phản hồi từ gateway, có 2 trường hợp:
+      - **Thất bại:** 
+        - Mở khóa khoang chứa để trả trạng thái về tự do
+        - Tạo một bản ghi `PaymentTransaction` với `status = Failed`
+        - Hiển thị lỗi "Thanh toán thất bại, vui lòng thử lại!".
+      - **Thành công**
+        - Tạo một bản ghi `PaymentTransaction` với `status = Success`
+        - Hệ thống cập nhật `Invoice.status` thành `Paid`
+        - Hệ thống cập nhật trạng thái khoang chứa thành `Reserved`
+        - Mở khóa khoang chứa và được trạng thái `Reserved` bảo vệ
+        - Hiển thị thông báo "Thanh toán thành công".
+        - Hệ thống tạo một yêu cầu chọn lịch để check-in và bàn giao kho
+
+- NOTES:
+  - Luồng từ việc đặt khoang -> đặt cọc -> chọn lịch hẹn là tuyến tính, tức là chỉ có đặt cọc mới có thể đặt lịch hẹn (check-in và bàn giao). Vì thế nên suy nghĩ đến việc cho đặt lịch hẹn (với loại là xem kho) trước khi đặt cọc, ở luồng này, mình có thể để FS xử lý nhiều lịch hẹn xem kho cùng 1 thời điểm (giống như 1 tour du lịch).
+#### 1.5 Chọn lịch check-in và bàn giao
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
