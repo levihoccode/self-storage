@@ -153,6 +153,138 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
+**FLOW:**
+```
+[Dashboard tổng quan] -> [Chi tiết khoang chứa/hợp đồng] -> [Gia hạn / Trả kho / Thanh toán / Báo sự cố]
+```
+
+**Vị trí trong vòng đời thuê kho:** Flow 3 bắt đầu ngay khi `RentalContract` được tạo (cuối Flow 2), và là flow có thời gian sống dài nhất — chạy liên tục cho tới khi khoang được trả và chuyển `MAINTENANCE`, `RentalContract.status = Completed`, khoang quay về `Available` cho Flow 1.
+
+**Dữ liệu phụ thuộc (input từ các flow khác):**
+- Flow 2: tạo ra `RentalContract` (đề xuất) ngay sau khi `RentalOrder.status = Done`.
+- Flow 4: cung cấp `FeeRule`/`FeeType` để tính hóa đơn hàng tháng, phí gia hạn, phí quá hạn (không tự định nghĩa mức phí trong Flow 3).
+- Flow 5: cung cấp thông tin facility hiển thị kèm khoang chứa.
+
+**Context:** Khách hàng đã có ít nhất một `RentalContract` ở trạng thái `Active` và muốn theo dõi, quản lý các khoang chứa đang thuê thông qua tài khoản cá nhân.
+
+**Flow tổng quát:** Khách đăng nhập -> xem danh sách khoang đang thuê (dashboard) -> chọn 1 khoang để xem chi tiết -> từ màn hình chi tiết, khách có thể gia hạn, yêu cầu trả kho, xem/thanh toán hóa đơn hoặc gửi yêu cầu hỗ trợ sự cố.
+
+**Đề xuất schema `RentalContract` (cần team xác nhận):**
+- order_id (1 - 1: RentalOrder) — hợp đồng luôn xuất phát từ 1 RentalOrder đã `Done`
+- unit_id (N - 1: StorageUnit)
+- customer_id (N - 1: Account)
+- start_date, end_date
+- signed_at, file_url — ngày ký + link PDF hợp đồng
+- deposit_amount, monthly_price
+- status (`Active` / `PendingReturn` / `Completed` / `Terminated`)
+- created_at
+
+#### 3.1 Dashboard tổng quan
+**Details:**
+- Hiển thị danh sách các `RentalContract` khách đang thuê, gồm:
+  + facility (join qua `StorageUnit.facility_id`)
+  + unit_id / unit_type / size
+  + rental_status (`Active`, `Expiring Soon`, `Overdue`, `Pending Return`, ...) — derived từ `RentalContract.status` + `end_date`
+  + start_date, end_date
+  + payment_status (đã thanh toán / còn nợ / quá hạn) — tính từ `Invoice WHERE contract_id = :id`
+- Lọc/sắp xếp theo facility, trạng thái, ngày hết hạn gần nhất.
+- **Quyết định:** khách thuê nhiều khoang ở nhiều chi nhánh sẽ được **tách hiển thị theo từng facility** (nhóm/tab theo facility), không gộp chung 1 danh sách phẳng.
+- Cảnh báo nổi bật (badge/màu) cho các khoang sắp hết hạn (≤ 7 ngày) hoặc đang quá hạn thanh toán.
+- Với khách chỉ thuê 1 khoang tại 1 facility, hệ thống có thể bỏ qua bước dashboard và đưa thẳng vào 3.2.
+
+#### 3.2 Chi tiết khoang chứa & hợp đồng
+**Details:**
+- Thông tin khoang chứa: facility, vị trí, type, size — chỉ hiển thị (mã truy cập/chìa khóa do FS quản lý ở Flow 2).
+- Thông tin hợp đồng lấy từ `RentalContract`: signed_at, start_date/end_date, deposit_amount, monthly_price; cho phép xem/tải `file_url` (PDF).
+- Lịch sử hóa đơn: `Invoice WHERE contract_id = :id` (tiền thuê hàng tháng, phí gia hạn, phí quá hạn) — mỗi hóa đơn `Unpaid` có thể thanh toán trực tiếp từ đây. Số tiền tính theo `FeeRule`/`FeeType` (Flow 4).
+- Lịch sử check-in/check-out on-site (tham chiếu Flow 2).
+- Action khả dụng tùy theo `rental_status` — giống bản trước (`Active` / `Expiring Soon` / `Overdue` / `Pending Return`).
+
+#### 3.3 Yêu cầu gia hạn
+**Details:**
+- Khách chọn [Gia hạn], nhập số tháng muốn gia hạn thêm.
+- Hệ thống tạo `ExtendRequest(contract_id, extra_months, status=PendingApproval)` — chuyển cho FM duyệt theo `FeeRule` gia hạn (Flow 6/Flow 4).
+- Sau khi FM duyệt, hệ thống tạo `Invoice(contract_id, type=Extension)` theo mã `INV-EXT-{facility}-{YYMMDD}-{random}`. `RentalContract.end_date` chỉ update sau khi `Invoice` được thanh toán thành công (`PaymentTransaction.status = Success`).
+- **Quyết định:** khách **không được hủy** yêu cầu gia hạn sau khi đã gửi. Nếu gửi nhầm, cần liên hệ FM để FM chủ động từ chối.
+
+#### 3.4 Yêu cầu trả kho
+**Details:**
+- Khách chọn [Yêu cầu trả kho], chọn ngày dự kiến trả và (tuỳ chọn) lý do.
+- `RentalContract.status` chuyển `PendingReturn`, hệ thống tạo lịch hẹn on-site để FS xác nhận tình trạng khoang (Flow 2.5).
+- Sau khi FS xác nhận hoàn tất, không phát sinh phí hư hại: `StorageUnit.status = MAINTENANCE` (1-3 ngày), `RentalContract.status = Completed`.
+- Đây là **điểm kết thúc vòng đời** của Flow 3 cho khoang này: sau `MAINTENANCE`, khoang quay về `Available`, sẵn sàng cho Flow 1.
+- **Quyết định:** khách **không được hủy** yêu cầu trả kho sau khi đã gửi. Cần liên hệ FM/FS trực tiếp để hủy hộ.
+
+#### 3.5 Gửi yêu cầu hỗ trợ sự cố
+**Details:**
+- Khách chọn [Báo sự cố] (mất chìa khóa, lỗi mã truy cập, khoang hư hỏng, hỗ trợ khác).
+- Hệ thống tạo `SupportRequest(contract_id, unit_id, status=Open)`, khách theo dõi trạng thái ngay tại đây (xử lý chi tiết ở Flow 7). Không đổi `rental_status`.
+
+#### 3.6 Backend flow (chi tiết kỹ thuật)
+**Nguyên tắc chung:**
+- Mọi API yêu cầu ownership check: `RentalContract.customer_id` phải khớp `current_user`.
+- `rental_status` là derived field, tính từ `RentalContract.status` + `end_date`, không lưu cứng.
+
+**a) Dashboard (3.1) — `GET /api/customer/contracts`**
+- Query: `RentalContract WHERE customer_id = :current_user`, JOIN `Facility`, `StorageUnit`; JOIN `Invoice WHERE contract_id = ...` để tính `payment_status`.
+- Response group theo `facility_id` (mảng facility, mỗi facility chứa mảng contracts con).
+
+**b) Chi tiết (3.2) — `GET /api/customer/contracts/{id}`**
+- Trả về `RentalContract` + danh sách `Invoice` (order by created_at desc) + `available_actions` tính sẵn theo `rental_status`.
+- Logic tính `rental_status`:
+  ```
+  if status == PendingReturn: return "Pending Return"
+  if status == Completed: return "Completed"
+  if now > end_date: return "Overdue"
+  if end_date - now <= 7 days: return "Expiring Soon"
+  return "Active"
+  ```
+
+**c) Gia hạn (3.3) — `POST /api/customer/contracts/{id}/extend-requests`**
+- Validate `RentalContract.status == Active` (không cho khi `PendingReturn`).
+- Tạo `ExtendRequest(status=PendingApproval)`. Không expose API hủy.
+- FM approve → tạo `Invoice(contract_id, type=Extension, code=INV-EXT-...)`.
+- `PaymentTransaction.status = Success` (webhook) → transaction: `RentalContract.end_date += extra_months`, `ExtendRequest.status = Completed`.
+
+**d) Trả kho (3.4) — `POST /api/customer/contracts/{id}/return-requests`**
+- Validate `RentalContract.status == Active` (chặn nếu có `ExtendRequest` đang `PendingApproval`).
+- Transaction: `RentalContract.status = PendingReturn`, tạo lịch hẹn on-site cho FS (Flow 2.5).
+- FS xác nhận (Flow 2.5) → `StorageUnit.status = MAINTENANCE`, `RentalContract.status = Completed`.
+
+**e) Báo sự cố (3.5) — `POST /api/customer/contracts/{id}/support-requests`**
+- Tạo `SupportRequest(contract_id, unit_id, status=Open)` → notify FS (Flow 7).
+
+**f) Thanh toán hóa đơn — `POST /api/invoices/{id}/pay`**
+- Tạo `PaymentTransaction(invoice_id, status=Pending)` + payment session (visa card only, theo NOTE của bảng).
+- Webhook cổng thanh toán trả về `gateway_transaction_no`, `response_payload` (raw log đối soát) → cập nhật `PaymentTransaction.status = Success/Failed`.
+- Nếu `Success`: `Invoice.status = Paid` → trigger theo `type`: `Extension` cập nhật `end_date` (xem 3.3), `RNT` (tiền thuê định kỳ) chỉ đóng invoice, phí quá hạn thì clear cảnh báo.
+- Nếu `Failed`: lưu `failure_reason`, giữ `Invoice.status = Unpaid` để khách thử lại.
+
+**Concurrency cần lưu ý:**
+- Lock theo `RentalContract.id` khi tạo `ExtendRequest`/`ReturnRequest` cùng lúc, tránh race.
+- Tính `rental_status` on-the-fly khi validate action, không tin cache cũ.
+
+**Events phát ra từ Flow 3:**
+| Event | Consumer |
+|---|---|
+| `ExtendRequest.Created` | Flow 6 (FM duyệt gia hạn) |
+| `RentalContract.ReturnRequested` | Flow 2.5 (FS xử lý bàn giao) |
+| `SupportRequest.Created` | Flow 7 (FS xử lý sự cố) |
+| `RentalContract.BecameOverdue` | Flow 6 (tính phí quá hạn), notify email/SMS |
+
+**Schema:**
+- `RentalOrder` — giai đoạn trước ký hợp đồng (Flow 1/2 sở hữu, Flow 3 chỉ đọc để biết nguồn gốc).
+- **`RentalContract`** — **đề xuất mới**, cần team xác nhận field trước khi implement (xem box cảnh báo đầu mục).
+- `Invoice`, `PaymentTransaction` — theo schema thật đã có.
+- `ExtendRequest`, `SupportRequest` — cần bổ sung vào db-table-draft.md, tham chiếu `contract_id` thay vì `order_id`.
+
+**NOTES**
+- **Mới phát sinh:** cần team chốt field chính thức cho `RentalContract` — nếu tên bảng/field khác đề xuất trên, phải update lại toàn bộ mục 3.6.
+- Cần chốt: FM/FS hủy hộ yêu cầu gia hạn/trả kho có cần log lý do/xác nhận với khách trước không.
+
+**Advanced Features (not MVP)**
+- Tự động nhắc gia hạn qua email/SMS trước X ngày hết hạn.
+- Cho khách xem lịch sử đầy đủ các khoang đã từng thuê (kể cả `Completed`).
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
