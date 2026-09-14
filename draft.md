@@ -395,29 +395,37 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Các bảng dự kiến có trong phần này
 
 #### 4,5.2 Quản lý chính sách phí
+
 **Context:** 
 - BOM thiết lập và quản lý các chính sách về khoản phí, chi phí đặt, thuê, gia hạn, trả, phạt, v.v. Đồng thời quản lý các loại phí, chi phí, cách tính phí. 
+
 **Flow tổng quát:**
 - Truy cập vào [Quản lý chính sách phí], hệ thống show các phí hiện có. Chọn xen/thêm/sửa/xóa/tìm kiếm/lọc/status/...
+
 **Details:**
 - Truy cập Fee Management -> hiện list fee
 - Một rule = id + type + title + description + calcuation + amount + unit + hiệu lực từ ngày + status + người tạo, ngày tạo + người cập nhập, ngày cập nhập + ...
 - Một số loại phí : rental, deposit, revewal, late, cleaning, damage, electricity, water, wfi, security, orther
 - Cách tính phí dựa vào BOM
 -  Khi Cus phát sinh phí, hệ thống check loại phí -> tính toán -> số tiền -> biên bản
+
 **Schema liên quan:**
+
 #### 4,5.3 Dashboard theo dõi doanh thu chi nhánh
+
 **Context:** 
 - BOM theo dõi doanh thu chi nhánh, kho cơ sở. Hệ thống tổng hợp data cho thuê theo thời gian, Bom's chi nhánh, loại kho, Cus. Dboard giúp đánh giá, so sánh giữa các chi nhánh, các khung thời gian, ... 
+
 **Flow tổng quát:**
 - BOM vào Revenue Dashboard. Sys lấy data từ Contract, Fee, Payment và Rental History để tổng hợp doanh thu.
 - DBoard có thể dưới dạng các bảng hay biểu đồ cột, đường, tròn,...
 - Có thể xét theo thời gian, chi nhánh, kho, Cus, . Khi thay đổi lọc thì Sys  sẽ tính toán lại. Có thể chọn nhiều đơn vị lọc.
+  
 **Details:**
 - BOM vào Revenue Dashboard. Sys hiện thị doang thu của chi nhánh 2 tháng gần nhất (default). Chọn các tiêu chí để hệ thống tính toán và trả về kết quả
 - Bên cạnh đó có mô hình so sánh doanh thu
   - Trước đó BOM phải chọn (or not) biểu đồ cần so sánh (*). bên phải sẽ có phần so sánh theo từng thay đổi (data được trả về page cùng lúc với *).
-  -
+  
 **Schema liên quan:**
 
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
