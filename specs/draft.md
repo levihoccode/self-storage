@@ -1,6 +1,15 @@
 # Bản nháp phân tích
-## Techstack
-- Platform: Web Only
+## Techstack (TODO)
+- **Platform:** Web Only
+- **Backend:** Java, Springboot
+- **Frontend:** React, Typescript, TailwindCSS, ShadCN
+- **Database & Cache:** Postgres, Redis
+- **DevOps & Infra:** Docker, Docker Compose, Github Action
+- **File & Media Storage:** Cloudinary (hoặc AWS S3 / MinIO) - Lưu ảnh nghiệm thu khoang, PDF hợp đồng
+- **Third-party Services:**
+  - Payment: VNPay Gateway (Sandbox)
+  - Notification: Spring Mail (Gmail SMTP / Resend)
+- **Payment Gateway:** VNPay
 
 ## Overview
 - Một ứng dụng quản lý việc cho thuê các chuỗi kho tự chứa (thuê xong muốn chứa gì chứa)
@@ -130,11 +139,11 @@
     - Phương án 1 (gợi ý khoang tương đương): hệ thống bắn thông báo/email "Khoang M-101 đã có người cọc trước. Cơ sở hiện vẫn còn các khoang M-102, M-103 cùng kích thước. Bấm vào đây để giữ khoang tương đương."
     - Phương án 2 (chuyển sang danh sách mong muốn - Wish Lists): Yêu cầu của các khách còn lại tự động chuyển status sang Wishlisted. Nếu Khách A sau đó hủy cọc hoặc bùng hợp đồng, những người trong danh sách chờ sẽ nhận được thông báo để đặt cọc.
 
-**Schema:**
-- [**RentalRequest**](./db-table-draft.md#rentalrequest) - chứa các thông tin được gửi từ form trên website.
+**Schema có trong phần này:**
+- [**RentalRequest**](./db-table-draft.md#rentalrequest)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
-- [**Invoice**](./db-table-draft.md#invoice) -  chứa thông tin thanh toán của khách hàng (hóa đơn)
-- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) -  chứa các feedback từ khách hàng sau khi FM chỉ định kho
+- [**Invoice**](./db-table-draft.md#invoice)
+- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
 
 **NOTES**
 - Entry trong list yêu cầu đặt khoang chứa của FM không có facility vì khi đặt, khách chỉ định một chi nhánh cụ thể và người quản lý tại chi nhánh đó sẽ nhận được yêu cầu => không cần liệt kê facility field.
@@ -166,6 +175,12 @@
 
 **Details:**
 - Tạo một bản ghi `Account` với role là `Customer`.
+
+**Schema có trong phần này:**
+- [**Account**](./db-table-draft.md#account)
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
+
 #### 1.3 Kiểm tra kho của tôi
 **Context:** Đơn đặt khoang chứa của một khách hàng đã được duyệt và chỉ định bởi FM (bản ghi `ProposalFeedback` của đơn hàng đã được tạo), hệ thống cần xác nhận từ khách hàng.
 **Flow tổng quát:** 
@@ -194,6 +209,12 @@
   - Khi làm trang này, có thể chia thành 2 tabs:
     - Đang sử dụng: Đã ký hợp đồng
     - Chờ được duyệt: các khoang yêu cầu được duyệt bởi FM vần cần khách hàng xác nhận
+
+**Schema có trong phần này:**
+- [**Invoice**](./db-table-draft.md#invoice)
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
+
 
 #### 1.4 Đặt cọc
 **Context:** Sau khi khách đã điền form và được approve, đã nhận email phản hồi duyệt thành công và đã đăng ký tài khoản thành công.
@@ -238,6 +259,11 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
         - Hiển thị thông báo "Thanh toán thành công".
         - Hệ thống điều hướng khách hàng sang màn hình chọn lịch hẹn check-in và bàn giao kho (Mục 1.5).
 
+**Schema có trong phần này:**
+- [**PaymentTransaction**](./db-table-draft.md#paymenttransaction)
+- [**Invoice**](./db-table-draft.md#invoice)
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+
 - NOTES:
   - Luồng từ việc đặt khoang -> đặt cọc -> chọn lịch hẹn là tuyến tính, tức là chỉ có đặt cọc mới có thể đặt lịch hẹn (check-in và bàn giao). Vì thế nên suy nghĩ đến việc cho đặt lịch hẹn (với loại là xem kho) trước khi đặt cọc, ở luồng này, mình có thể để FS xử lý nhiều lịch hẹn xem kho cùng 1 thời điểm (giống như 1 tour du lịch).
   - Sau khi khách đã trả tiền cọc, khoang chứa phải được giữ ở trạng thái Reserved cho đến ngày hẹn check-in/bàn giao. Nó chỉ hết hạn nếu có quy định: "Khách cọc xong nhưng quá N ngày không đến nhận kho thì mất cọc và hủy đơn".
@@ -261,6 +287,10 @@ Hệ thống điều hướng user đến trang đặt lịch hẹn -> Khách ch
     - Hệ thống gán `RentalOrder.staff_id = [FS_Account_ID]`.
     - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `InProgress`.
     - Thông báo nhiệm vụ tiếp đón được gửi đến tài khoản của nhân viên FS tương ứng.
+
+**Schema có trong phần này:**
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
