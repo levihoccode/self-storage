@@ -51,6 +51,14 @@
 - created_at
 - due_date
 
+**Code:**
+- DEP: đặt cọc khoang chứa
+- RNT: tiền thuê hằng tháng
+- CLN: phí dọn dẹp khoang sau khi trả
+- DMG: phí hư hại kho sau khi trả
+- EXT: dịch vụ phát sinh (nếu chưa có mã)
+
+
 **NOTES:**
 - Nếu cả 2 fields order_id và contract_id đều null, tức là hóa đơn từ việc yêu cầu dịch vụ hỗ trợ (`SupportRequest`)
 # ProposalFeedback
