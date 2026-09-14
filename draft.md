@@ -333,6 +333,83 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - **Dashboard doanh thu**
 -
    
+### 4,5 Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
+**Các điều cần lưu ý khi thực hiện code ở flow này:**
+- Các chính sách về mặt hình thức đều là các con chữ, cần có một chiến thuật rõ ràng để hạn thay đổi code khi chính sách bị thay đổi nhiều nhất có thể. Các giải pháp được đề xuất:
+  - Cố định các cơ chế chính sách sẽ được hỗ trợ tự động bởi hệ thống như các chức năng (ví dụ: tự động khóa hợp đồng khi quá hạn, tự động tạo bảng tính phí khi một hợp đồng quá hạn)
+  - Cho phép xử lý thủ công khi hệ thống chưa hỗ trợ cơ chế cần thiết (ví dụ: thanh lý tài sản khi quá hạn > 90 ngày, bồi thường thiệt hại đặc biệt không có trong danh mục cố định -> FM/BOM thực hiện thủ công ngoài đời với tác vụ là "Xử lý sự cố" rồi bấm nút 'Ghi nhận xử lý' trên hệ thống, chứ code không tự chạy).
+
+- Khi thực hiện phần "Thêm chính sách", cần phân chia rõ thành 2 cấp độ:
+#### Cấp độ 1: Thêm chính sách dựa trên CƠ CHẾ CÓ SẴN (Không sửa Code - Zero Code Deployment)
+Áp dụng cho các chính sách chỉ thay đổi về mặt dữ liệu, tham số hoặc danh mục lựa chọn. Cơ chế xử lý đã được lập trình sẵn trong code.
+
+* **Thao tác của BOM:** Thực hiện trực tiếp trên giao diện quản trị (Web UI).
+* **Các trường hợp hỗ trợ:**
+  - **Thêm loại phụ phí mới:** Thêm mục phí vào danh mục (VD: Thêm *"Phí mượn xe đẩy hàng quá giờ: 50.000đ/lần"*). Hệ thống tự cập nhật danh sách phụ phí để nhân viên cơ sở (FS/FM) tick chọn khi lập biên bản nghiệm thu kho.
+  - **Thêm bậc cấu hình/khuyến mãi:** Thêm rule tính toán dựa trên khung có sẵn (VD: Hợp đồng thuê trên 6 tháng -> Giảm 5% tiền cọc).
+  - **Ban hành văn bản pháp lý mới:** Tải lên nội dung/file PDF điều khoản phiên bản mới (`RentalTerm v2.0`) để áp dụng cho các hợp đồng tiếp theo.
+* **Bản chất kỹ thuật:** Thao tác tạo bản ghi mới (INSERT) vào Database (`FeeConfig`, `RentalTerm`, `PromotionRule`). Code hệ thống tự động đọc và áp dụng ngay lập tức.
+
+
+#### Cấp độ 2: Thêm chính sách mang HÀNH VI HOÀN TOÀN MỚI (Bắt buộc sửa Code - Feature Development)
+Áp dụng khi BOM ban hành một chính sách đòi hỏi hệ thống phải thực hiện một hành vi, quy trình hoặc tích hợp kỹ thuật chưa từng tồn tại trong mã nguồn.
+
+* **Thao tác của BOM:** Không thể tự cấu hình trên Web UI. Chính sách phải đi qua quy trình tiếp nhận yêu cầu thay đổi (Change Request).
+* **Ví dụ thực tế:**
+  - *"Khách quá hạn 30 ngày thì tự động gửi tin nhắn đòi nợ qua Zalo ZNS và đẩy hồ sơ sang đơn vị thu hồi nợ."*
+  - *"Nếu khách trả kho trước hạn 15 ngày, tự động đăng tin khoang trống lên website ở chế độ flash sale."*
+* **Tại sao không thể tự cấu hình trên UI?** Vì hệ thống chưa có tích hợp API bên thứ ba (Zalo Gateway, Đơn vị thu nợ), chưa có Cronjob quét mốc 30 ngày, và chưa có logic state machine tương ứng.
+* **Quy trình triển khai:**
+  1. **BOM / Nghiệp vụ:** Soạn thảo văn bản quy định chính sách mới.
+  2. **Kỹ thuật (Tech Lead / Dev):** Phân tích tác động (Impact Analysis), thiết kế Database/API và viết code bổ sung cơ chế mới.
+  3. **Kiểm thử & Triển khai (Deploy):** Đẩy phiên bản phần mềm mới lên môi trường production.
+  4. **Cung cấp giao diện quản trị:** Lúc này BOM mới có thêm các tham số mới trên Web UI để bật/tắt hoặc điều chỉnh ngưỡng (VD: đổi mốc 30 ngày thành 45 ngày).
+
+**FLOW:**
+```
+                        [Trang Quản Lý Của BOM]
+                                  │
+         ┌────────────────────────┼────────────────────────┐
+         │                        │                        │
+         ▼                        ▼                        ▼
+[Quản Lý Chính Sách      [Quản Lý Chính Sách      [Dashboard Theo Dõi
+     Nghiệp Vụ]                 Phí]              Doanh Thu Chi Nhánh]
+ (Business Rules &       (Fee Configuration &      (Revenue Analytics &
+ Operational Limits)         Surcharges)             Cash Inflow)
+```
+
+#### 4,5.1 Quản lý chính sách nghiệp vụ (Business Rules)
+**Context:** 
+- BOM muốn đề ra các chính sách nghiệp vụ và sẽ được áp dụng vào việc sử dụng, hoàn trả khoang chứa, xử lý khi hợp đồng quá hạn, ... 
+
+**Flow tổng quát:**
+- Nêu khái quát quá trình sử của BOM khi ở trang "Quản lý chính sách nghiệp vụ". Ví dụ: BOM truy cập vào trang quản lý -> hệ thống liệt kê tất cả các chính sách hiện có -> BOM thực hiện các thao tác lên từng chính sách (thêm/sửa/xóa) -> ....
+
+**Details:**
+- Workflow chi tiết của phần sửa/xóa chính sách, một số câu hỏi để làm, hệ thống xử lý thế nào khi:
+  - BOM muốn xóa một chính sách -> Xóa trực tiếp trong db là xong nhỉ :)
+  - BOM muốn cập nhật nội dung, dữ liệu của một chính sách -> update nội dung của row trong table là xong nhỉ :)
+  - BOM muốn đề ra một chính sách mới -> dựa trên 2 cấp độ thêm chính sách
+
+**Schema liên quan:**
+- Các bảng dự kiến có trong phần này
+
+#### 4,5.2 Quản lý chính sách phí
+**Context:** 
+
+**Flow tổng quát:**
+
+**Details:**
+
+**Schema liên quan:**
+#### 4,5.3 Dashboard theo dõi doanh thu chi nhánh
+**Context:** 
+
+**Flow tổng quát:**
+
+**Details:**
+
+**Schema liên quan:**
 
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
