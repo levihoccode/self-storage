@@ -173,7 +173,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **NOTES:**
 - UI/UX trang này cần thiết kế kỹ để dễ dùng: nút filter theo chi nhánh, theo khoảng thời hạn hợp đồng, sort theo ngày hết hạn gần nhất.
 - Hợp đồng gần hết hạn (trước N ngày, N lấy từ policy do BOM cấu hình ở Flow 4) nên được hệ thống tự động gửi thông báo qua email/SMS.
-- Khách chỉ thuê 1 hợp đồng tại 1 facility có thể bỏ qua dashboard, vào thẳng 3.2.
+- Khách chỉ có 1 hợp đồng vẫn hiển thị dashboard như bình thường (danh sách 1 item), không tách luồng riêng để vào thẳng 3.2 -> giữ 1 flow duy nhất, đỡ phải xử lý thêm case đặc biệt ở FE/BE.
 
 #### 3.2 Chi tiết khoang chứa & hợp đồng
 **Details:**
@@ -270,13 +270,6 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - **`ReturnRequest`** (mới, thay cho việc dùng `RentalContract.status = PendingReturn`): `contract_id, customer_id, preferred_date, reason, status(Pending/Assigned/Canceled/...), assigned_staff_id, created_at`.
 - **`ExtendRequest`** (mới): `contract_id, extra_months, status(PendingApproval/Canceled/Rejected/ApprovedPendingPayment/Completed), invoice_id, approved_by, requested_at, processed_at`.
 - **`SupportRequest`** (mới): `contract_id, unit_id, customer_id, issue_type, description, status(Open/Assigned/InProgress/Resolved/Closed), assigned_staff_id, created_at, resolved_at`.
-
-**NOTES**
-- ~~Multi-unit: gộp hay tách theo facility?~~ → **Đã chốt: tách theo facility.**
-- ~~Cho phép hủy yêu cầu gia hạn/trả kho?~~ → **Đã chốt lại (sửa so với bản trước): được hủy TRƯỚC khi FM duyệt/phân công FS; sau đó thì không.**
-- Cần chốt: N ngày cảnh báo sắp hết hạn — do BOM cấu hình ở Flow 4 hay hardcode?
-- Cần team xác nhận field chính thức cho `RentalContract`.
-
 **Advanced Features (not MVP)**
 - Tự động nhắc gia hạn qua email/SMS trước N ngày hết hạn.
 - Cho khách xem lịch sử đầy đủ các hợp đồng đã `Completed`.
