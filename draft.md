@@ -205,8 +205,12 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 * **Admin:**
 
-  * Tạo Account cho nhân sự nội bộ (FM, FS, BOM) với thông tin: họ tên, email, số điện thoại, mật khẩu tạm/link kích hoạt. Riêng Customer tự đăng ký tài khoản (theo Flow 1, mục 1.2), Admin không tạo hộ.
+  * Tạo Account cho nhân sự nội bộ (FM, FS, BOM), theo 2 cách:
+    - Tạo thủ công từng account: nhập trực tiếp thông tin họ tên, email, số điện thoại, chọn role, hệ thống sinh mật khẩu tạm/link kích hoạt.
+    - Import hàng loạt (bulk import): Admin upload file Excel/Google Sheets theo template có sẵn (cột: họ tên, email, phone, role, facility dự kiến nếu có) → hệ thống parse và validate từng dòng (email trùng, role không hợp lệ, thiếu field bắt buộc) → tạo account theo batch cho các dòng hợp lệ → trả về báo cáo kết quả (số dòng thành công/lỗi, chi tiết lỗi từng dòng) để Admin sửa và import lại các dòng bị lỗi.
+    - Riêng Customer tự đăng ký tài khoản (theo Flow 1, mục 1.2), Admin không tạo hộ dù bằng cách nào.
   * Gán Role (RBAC) cho account: mỗi account được gán đúng 1 trong 5 role — Customer, Facility Staff, Facility Manager, Business Operation Manager, System Administrator. Role quyết định tập hành động (permission) account được phép thực hiện trên hệ thống.
+  * Setup Role & Permission: mỗi role được ánh xạ (map) sẵn tới 1 tập permission cố định, định nghĩa cứng trong hệ thống (constant mapping, không phải bảng permission động cho phép Admin tự tạo/sửa permission mới — việc phân quyền chi tiết theo từng permission riêng lẻ thuộc Advanced Features, xem cuối Flow 5). Khi Admin gán role cho 1 account, account đó tự động thừa hưởng toàn bộ tập permission tương ứng với role đó — Admin không setup permission riêng theo từng account, chỉ chọn role. Bảng RBAC bên dưới chính là bảng ánh xạ role → nhóm quyền chính thức của MVP.
   * Update role cho account đã tồn tại (VD: thăng chức FS lên FM) — cần ghi audit log (ai đổi, đổi từ role gì sang role gì, thời điểm).
   * Gán Account vào Facility (data-scope): sau khi có role FM/FS, Admin gán account đó vào 1 facility cụ thể để giới hạn phạm vi dữ liệu account được truy cập. Đây là bước tách biệt với việc gán role: role trả lời "account này được LÀM GÌ", còn facility assignment trả lời "account này được làm việc đó trên DỮ LIỆU CỦA CƠ SỞ NÀO".
   * Xử lý `AccountCreationRequest` do BOM gửi lên (xem mục 5.1): Admin xem danh sách yêu cầu đang `Pending`, tạo account theo thông tin đề xuất, cập nhật request sang `Approved` và thông báo lại cho BOM.
@@ -228,12 +232,13 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
   * Facility assignment cho FM liên kết trực tiếp với mục 5.1 (BOM chọn FM có sẵn — account phải được Admin tạo trước).
   * Facility assignment cho FS liên kết với mục 5.3 (FM chọn FS để phân công — FS phải được Admin tạo và gán vào đúng facility trước).
   * Việc Customer tự tạo account thuộc Flow 1 (mục 1.2), không thuộc phạm vi Admin.
+  * Kết quả bulk import (thành công/lỗi từng dòng) có thể ghi vào AuditLog (action_type = BulkAccountImport) để truy vết ai import, lúc nào, bao nhiêu account được tạo.
 
 #### 5.1 Quản lý cơ sở (Facility)
 
 **Context:** BOM là người duy nhất có quyền tạo mới và quản lý danh sách toàn bộ cơ sở/chi nhánh trong hệ thống, đồng thời gán FM phụ trách cho từng cơ sở.
 
-**Flow tổng quát:** BOM tạo mới một Facility → điền thông tin cơ bản của cơ sở → gán một FM (đã có account + role) phụ trách cơ sở đó → cơ sở đủ điều kiện để FM tiếp tục setup khoang chứa.
+**Flow tổng quát:** BOM tạo mới một Facility → điền thông tin cơ bản của cơ sở → gán một FM và nhiều FS (đã có account + role) phụ trách cơ sở đó → cơ sở đủ điều kiện để FM tiếp tục setup khoang chứa.
 
 **Details:**
 
@@ -264,12 +269,12 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
   * Tạo StorageUnit: unit_code, unit_type, size, location (khu/tầng/dãy), rental_price, trạng thái ban đầu (mặc định Available).
   * Chuyển khoang sang Maintenance thủ công:
-    - Chỉ thực hiện khi khoang có vấn đề vật lý/kỹ thuật cần tạm ngưng cho thuê.
-    - Nếu khoang đang Available: FM chuyển trực tiếp sang Maintenance.
-    - Nếu khoang đang OnHold hoặc Reserved: không được chuyển trực tiếp. FM phải xử lý request/order liên quan trước và thông báo cho khách hàng.
-    - Nếu khoang đang Rented: FM không được tự ý chuyển trạng thái sang Maintenance. Cần tạo yêu cầu xử lý sự cố, thông báo khách hàng và thực hiện phương án di chuyển/tạm ngưng sử dụng theo nghiệp vụ đã được phê duyệt.
-    - Khi khoang đang Maintenance, không được xuất hiện trong danh sách khoang có thể được đặt/assign cho khách hàng.
-Sau khi xử lý xong sự cố, FM chuyển khoang về Available khi khoang đã đủ điều kiện cho thuê lại.
+  - Lý do phải chuyển thủ công (không tự động): sự cố vật lý/kỹ thuật của khoang có thể xảy ra ở 2 thời điểm — trước khi cho thuê (khoang đang Available/OnHold/Reserved, VD: phát hiện hư hỏng khi kiểm tra định kỳ) hoặc trong lúc đang cho thuê (khoang đang Rented, VD: dột, hỏng khóa, chập điện phát sinh giữa kỳ thuê). Hệ thống không có cảm biến/cơ chế tự động phát hiện sự cố vật lý, nên FM luôn là người chủ động ghi nhận và chuyển trạng thái sau khi xác nhận sự cố thực tế tại cơ sở.
+  - Nếu khoang đang Available: FM chuyển trực tiếp sang Maintenance.
+  - Nếu khoang đang OnHold hoặc Reserved: không được chuyển trực tiếp. FM phải xử lý request/order liên quan trước và thông báo cho khách hàng.
+  - Nếu khoang đang Rented: FM không được tự ý chuyển trạng thái sang Maintenance. Cần tạo yêu cầu xử lý sự cố, thông báo khách hàng và thực hiện phương án di chuyển/tạm ngưng sử dụng theo nghiệp vụ đã được phê duyệt.
+  - Khi khoang đang Maintenance, không được xuất hiện trong danh sách khoang có thể được đặt/assign cho khách hàng.
+  - Sau khi xử lý xong sự cố, FM chuyển khoang về Available khi khoang đã đủ điều kiện cho thuê lại.
   * Trường hợp phát hiện sự cố đột xuất khi khoang đang được thuê (Rented):
     - Sự cố không ảnh hưởng đến việc sử dụng khoang: ghi nhận sự cố → tạo SupportRequest → thông báo khách hàng → tiếp tục cho thuê.
     - Sự cố ảnh hưởng đến việc sử dụng nhưng khách vẫn có thể tiếp tục sử dụng tạm thời: ghi nhận sự cố → thông báo khách hàng → xử lý sự cố → chỉ chuyển Maintenance sau khi khách đã hoàn tất việc di chuyển/trả kho.

@@ -91,14 +91,19 @@ NOTES:
 
 Overview: cơ sở/chi nhánh, mỗi facility có đúng 1 FM phụ trách (1–1).
 
+
 * name
 * address
 * phone
 * operating_hours
 * status (Active/Inactive)
-* fm_account_id (1 - 1: Account, nullable) — nullable vì facility mới mở có thể chưa có FM
+* fm_account_id (1 - 1: Account, null as default) -> chỉ được gán khi đã có account role FM phù hợp; facility mới mở có thể chưa có FM
 * created_at
 
+## NOTES:
+
+* Không xóa cứng Facility vì còn liên kết StorageUnit, RentalOrder... của cơ sở — khi ngừng hoạt động thì chuyển status sang Inactive.
+* Quan hệ FM–Facility là 1–1: field fm_account_id lưu trực tiếp trên Facility (không cần bảng trung gian). Riêng Facility–FS là 1–n, dùng bảng AccountFacilityAssignment riêng (không lưu trên Facility).
 ---
 
 ### StorageUnit
@@ -224,7 +229,7 @@ Overview: khung giá thuê do BOM cấu hình — Flow 5.2 yêu cầu "giá thu�
 
 ---
 
-## NOTES tổng
+## NOTES
 
 * `Account.facility_id` chỉ bắt buộc NOT NULL khi role = FacilityManager; FS dùng `AccountFacilityAssignment` riêng — không gộp chung logic 2 role vào 1 field, đúng theo ràng buộc 1–1 vs 1–n đã chốt.
 * `AuditLog` và `PricingPolicy` là 2 bảng dễ bị bỏ sót nhất vì flow chỉ nhắc miệng ("cần ghi audit log", "khung giá đã được BOM cấu hình") chứ không liệt kê field cụ thể trong schema gốc, nhưng cả hai đều là điều kiện bắt buộc để logic (audit, validate giá) chạy được.
