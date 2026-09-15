@@ -161,17 +161,14 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **Context:**BOM cần thiết lập và quản lý các quy định áp dụng cho toàn bộ hệ thống,
 **Flow tổng quát:** 
  - BOM truy cập trang quản lý rules
- - hệ thống hiển thị danh sách các rules hiện tại 
- - thêm, sửa, xóa, tìm kiếm hoặc cập nhật nội dung rules 
- - các rule phải có ý nghĩa, công dụng trong hệ thống
+ - Hệ thống show list các BR
+ - Chỉ BOM và Admin có thể xem, thêm, xóa, sửa, tìm kiếm, lọc,...
  **Details:**
  - **BOM:**
   - Truy cập trang B-rules
   - Hệ thống hiển thị các rule
   - Rule bao gồm:
     + id
-    + type
-    + number
     + nội dung
     + trạng thái
     + tạo bởi ai
@@ -179,90 +176,17 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
     + (update) ...
   - ID: BR+ type+ number  -> BRA
   001,...
+  - **Flow**
+    + Defauft: Hệ thống lấy toàn bộ data từ table BR
+    + Thêm, sửa: BOM nhập type, nội dung, ngày tạo -> system nhận và tự thêm id, BOM-id, verson -> update db
+    + Tất cả role đều có thể xem BR tại welcome page
+    + Những chính sách không cần hỗ trợ từ hệ thống có thể tự động thực hiện, xor yêu cầu template contract 
+  
+  --**note** Các chính sách không liên quan đến phí (vd như khoá account) chưa được xử lý
+
 - **Các nhóm business rules:**
-  - Type A - Rental và Reservation Rules
-    * Một khách hàng có thể thuê nhiều kho.
-    * Một kho có thể được thuê nhiều lần (gia hạn).
-    * Một kho không được có hai hợp đồng thuê cùng lúc.
-    * Khách hàng phải chọn chi nhánh, loại kho, ngày thuê, thuê bao lâu,... khi gửi yêu cầu đặt kho.
-    * yêu cầu chỉ được tạo khi kho trống.
-    * Một hợp đồng thuê phải có thời hạn hết hiệu lực.
-    * Nếu khách hàng không thanh toán khoản tiền yêu cầu trước thời hạn, hủy hợp đồng thuê.
-    * Một kho chỉ được chuyển sang "đã cho thuê" sau khi khách hàng hoàn tất khoản thanh toán yêu cầu.
-    * Không được tạo hợp đồng nếu kho đang thuộc một hợp đồng  khác.
-    * Ngày bắt đầu hợp đồng không được nằm ngoài khoảng thời gian cho phép của reservation.
-    * ...
-  - Type B - Customer rules
-    * Một tài khoản chỉ được liên kết với một Customer.
-    * Email và số điện thoại của customer phải hợp lệ.
-    * Customer phải cung cấp đầy đủ thông tin bắt buộc trước khi ký hợp đồng.
-    * Customer phải đồng ý với điều khoản sử dụng ứng dụng trước khi sử dụng dịch vụ.
-    * Customer phải đồng ý với điều khoản thuê kho trước khi nhận bàn giao kho.
-    * v.v
+  **Mô tả theo BR.docx**
 
-  - Type C - Payment và Fee rules
-    * Quy định tỷ lệ tiền đặt cọc.
-    * Quy định thời hạn thanh toán.
-    * Quy định phí gia hạn.
-    * Quy định phí trả kho trễ.
-    * Quy định phí phát sinh.
-    * Quy định phí hư hỏng.
-    * Quy định phí vệ sinh.
-    * Quy định các loại phí dịch vụ khác.
-    * v.v
-
-- **Quản lý điều khoản khách hàng khi thuê kho:**
-  1. Điều khoản sử dụng ứng dụng
-		- Tài khoản.
-    - Bảo mật tài khoản.
-    - Trách nhiệm khi sử dụng tài khoản.
-    - Sử dụng hệ thống.
-    - Quyền và nghĩa vụ của người dùng.
-    - Thanh toán.
-    - Bảo mật thông tin.
-    - ...
-  2. Điều khoản thuê kho
-		- Đặt thuê kho.
-    - Đặt cọc.
-    - Thanh toán tiền thuê.
-    - Thời gian thuê.
-    - Sử dụng kho.
-    - Quy định hàng hóa được phép lưu trữ.
-    - Quy định hàng hóa bị cấm.
-    - Check-in / Check-out.
-    - Quy định về quyền truy cập kho.
-    - Trách nhiệm bảo quản tài sản.
-    - ...
-  3. Điều khoản gia hạn
-    - Thời gian yêu cầu gia hạn.
-    - Phí gia hạn.
-    - Điều kiện được gia hạn.
-    - Thời gian thanh toán phí gia hạn.
-    - Xử lý trường hợp khách hàng không gia hạn đúng hạn.
-    - ...
-  4. Các khoản phí nên đưa vào điều khoản thuê
-    - Tiền đặt cọc.
-    - Tiền thuê kho.
-    - Phí gia hạn.
-    - Phí trả kho trễ.
-    - Phí điện.
-    - Phí nước.
-    - Phí Wi-Fi.
-    - Phí bảo vệ.
-    - Phí vệ sinh.
-    - Phí dịch vụ.
-    - Phí hư hỏng.
-    - Các khoản phí phát sinh khác.
-    - ...
-  5. Điều khoản hủy thuê
-    - Điều kiện được hủy thuê.
-    - Thời hạn thông báo hủy.
-    - Chính sách hoàn tiền.
-    - Chính sách xử lý tiền đặt cọc.
-    - Phí hủy hợp đồng.
-    - Xử lý tài sản còn lại trong kho.
-    - Xử lý trường hợp khách hàng không trả kho đúng hạn.
-    - ...
 - **Quản lý nội dung điều khoản:**
   - BOM có thể chỉnh sửa trực tiếp nội dung trên website.
   - BOM có thể upload file điều khoản.
@@ -313,25 +237,6 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
   - `FeeRule` - lưu cấu hình các khoản phí.
   - `FeeType` - định nghĩa loại phí.
   - `CustomerTermAgreement` - lưu việc khách hàng đã đồng ý với điều khoản nào và version nào.
-
-
-#### 4.2 theo dõi doanh thu
-**Context:** BOM cần theo dõi tình hình doanh thu của hệ thống để đánh giá hiệu quả kinh doanh, hiệu quả của từng chi nhánh, từng loại kho, nhóm khách hàng.
-
-**Flow tổng quát:** 
-- BOM đăng nhập
-- mở Revenue Dashboard
-- hệ thống lấy dữ liệu từ lịch sử thuê và thanh toán -> tổng hợp doanh thu
-- hiển thị dưới dạng số liệu, bảng và biểu đồ
-- BOM có thể lọc theo thời gian, chi nhánh, facility, unit type và customer.
- **_đoạn này mới có idea chứ chưa tièm hiểu mô hình_**
-- Theo ngày, tuần, tháng, quý, năm, ... trên từng kho, chi nhánh
-  * Lấy data trên bảng lịch sử thuê để tạo chart
-  * **So sánh kỳ hiện tại và khung thời gian cùng kỳ trước**
-- Dựa trên khách hàng
-- Dựa trên loại kho (chi nhánh)
-- **Dashboard doanh thu**
--
    
 ### 4,5 Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 **Các điều cần lưu ý khi thực hiện code ở flow này:**
@@ -387,8 +292,6 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 **Details:**
 - Workflow chi tiết của phần sửa/xóa chính sách, một số câu hỏi để làm, hệ thống xử lý thế nào khi:
-  - BOM muốn xóa một chính sách -> Xóa trực tiếp trong db là xong nhỉ :)
-  - BOM muốn cập nhật nội dung, dữ liệu của một chính sách -> update nội dung của row trong table là xong nhỉ :)
   - BOM muốn đề ra một chính sách mới -> dựa trên 2 cấp độ thêm chính sách
 
 **Schema liên quan:**
@@ -403,11 +306,15 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Truy cập vào [Quản lý chính sách phí], hệ thống show các phí hiện có. Chọn xen/thêm/sửa/xóa/tìm kiếm/lọc/status/...
 
 **Details:**
-- Truy cập Fee Management -> hiện list fee
-- Một rule = id + type + title + description + calcuation + amount + unit + hiệu lực từ ngày + status + người tạo, ngày tạo + người cập nhập, ngày cập nhập + ...
+- Khi BOM ban hành chính sách mới, đồng thời input vào bảng fee manager các loại thông tin liên quan như phí, khóa account, khóa vĩnh viễn,....
+- Truy cập table Fee Management -> hiện list fee
+- Một rule = id + type + title + description + amount + unit + hiệu lực từ ngày + status + người tạo, ngày tạo + người cập nhập, ngày cập nhập + ...
 - Một số loại phí : rental, deposit, revewal, late, cleaning, damage, electricity, water, wfi, security, orther
-- Cách tính phí dựa vào BOM
+- Cách tính phí dựa vào BOM: amount*unit * times.
 -  Khi Cus phát sinh phí, hệ thống check loại phí -> tính toán -> số tiền -> biên bản
+- 
+
+  
 
 **Schema liên quan:**
 
@@ -421,6 +328,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - DBoard có thể dưới dạng các bảng hay biểu đồ cột, đường, tròn,...
 - Có thể xét theo thời gian, chi nhánh, kho, Cus, . Khi thay đổi lọc thì Sys  sẽ tính toán lại. Có thể chọn nhiều đơn vị lọc.
   
+
 **Details:**
 - BOM vào Revenue Dashboard. Sys hiện thị doang thu của chi nhánh 2 tháng gần nhất (default). Chọn các tiêu chí để hệ thống tính toán và trả về kết quả
 - Bên cạnh đó có mô hình so sánh doanh thu
