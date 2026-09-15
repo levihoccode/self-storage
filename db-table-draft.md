@@ -65,3 +65,30 @@
 - status (Pending/Failed/Success)
 
 - NOTES: visa card only
+
+
+# Business Rules
+- id: pk
+- name NN
+- deposit-type: $ or %   
+- deposit-value: decimal
+- cancel polity: nvarchar -chính sách hủy
+- return polity: nvarchar -chính sách trả kho, hoặc trả kho trước kỳ
+- renewal polity: nvarchar -chính sách gia hạn
+- overdue polity: nvarchar -chính sách quá hạn
+- efective from: date -NN
+- efective to: date
+- status: NN
+- created by: (N:1) users-id  -NN
+- created at:local day -NN
+
+# Fee Managerment
+- id: pk
+- name: NN
+- categoty: nvarchar -NN
+- amount: decimal
+- caculation-type: fixed/daily/monthly/%
+- description: nvarchar
+- status: NN
+- created by: (N:1) users-id  -NN
+- created at:local day -NN
