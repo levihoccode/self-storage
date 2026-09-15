@@ -1,3 +1,4 @@
+
 # RentalRequest
 **Overview:** chứa các thông tin được gửi từ form trên website.
 - facility_id (N - 1: Facility)

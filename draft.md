@@ -57,7 +57,7 @@
 ```
 [Yêu cầu đặt kho] -> [Khách tạo tài khoản] -> [Đặt cọc] -> [Ký hợp đồng] -> [Thanh toán]
 ```
-#### 1.1 Yêu cầu đặt kho
+ssss#### 1.1 Yêu cầu đặt kho
 **Context:** Khách mới, chưa từng sử dụng dịch vụ, muốn tìm cho mình một khoang chứa phù hợp với nhu cầu.
 
 **Flow tổng quát:** Khách lựa chọn khoang chứa dựa trên nhu cầu và điền các thông tin cần thiết (Không được chỉ định khoang chứa cụ thể). Sau đó, FM kiểm tra những khoang chứa còn trống và sẵn sàng cho thuê để chỉ định cho người thuê.
@@ -154,6 +154,188 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
+**Context:** Thiết lập môi trường để quản lý rules doanh nghiệp, khách hàng, đồng theo dõi doanh thu, khách hàng tiềm năng, chi nhánh tiềm năng giúp mở rộng chi nhánh, ...
+**Flow**
+[BOM đăng nhập] -> [Trang quản lý]
+#### 4.1 Quản lý business rules
+**Context:**BOM cần thiết lập và quản lý các quy định áp dụng cho toàn bộ hệ thống,
+**Flow tổng quát:** 
+ - BOM truy cập trang quản lý rules
+ - Hệ thống show list các BR
+ - Chỉ BOM và Admin có thể xem, thêm, xóa, sửa, tìm kiếm, lọc,...
+ **Details:**
+ - **BOM:**
+  - Truy cập trang B-rules
+  - Hệ thống hiển thị các rule
+  - Rule bao gồm:
+    + id
+    + nội dung
+    + trạng thái
+    + tạo bởi ai
+    + ngày tạo
+    + (update) ...
+  - ID: BR+ type+ number  -> BRA
+  001,...
+  - **Flow**
+    + Defauft: Hệ thống lấy toàn bộ data từ table BR
+    + Thêm, sửa: BOM nhập type, nội dung, ngày tạo -> system nhận và tự thêm id, BOM-id, verson -> update db
+    + Tất cả role đều có thể xem BR tại welcome page
+    + Những chính sách không cần hỗ trợ từ hệ thống có thể tự động thực hiện, xor yêu cầu template contract 
+  
+  --**note** Các chính sách không liên quan đến phí (vd như khoá account) chưa được xử lý
+
+- **Các nhóm business rules:**
+  **Mô tả theo BR.docx**
+
+- **Quản lý nội dung điều khoản:**
+  - BOM có thể chỉnh sửa trực tiếp nội dung trên website.
+  - BOM có thể upload file điều khoản.
+  - Hệ thống lưu lại phiên bản của điều khoản để xác định khách hàng đã đồng ý với phiên bản nào.
+  - Khi nội dung điều khoản được cập nhật, hệ thống tạo một version mới.
+  - Không ghi đè hoàn toàn version cũ vì cần lưu lại lịch sử để đối chiếu với các hợp đồng đã ký.
+  - Các điều khoản được sử dụng tại bước khách hàng ký biên bản nhận kho:
+    - Điều khoản sử dụng ứng dụng
+    - Chính sách tiếp nhận
+    - Bàn giao kho bãi
+    - Điều khoản thuê kho
+    - ...
+  - **Page quản lý rules:**
+    - Hiển thị danh sách rules.
+    - Search theo:
+      - Rule ID.
+      - Type.
+      - Title.
+      - Content.
+    - Filter theo type.
+    - Filter theo status.
+    - Các thao tác:
+      - Details
+      - Create
+      - Update
+      - Delete
+      - Enable / Disable
+    - Chỉ các role được phép mới có quyền chỉnh sửa.
+
+- **Permission:**
+- Fee
+  * tiền đặt cọc: 10%/ tháng thuê
+  * tiền thuê: 500tr-1000tr/tháng
+  * phí gia hạn: 10tr (hồ sơ)
+  * phí trả kho trễ: 20tr/day
+  * phí phát sinh: điện, nước, wifi, bảo vệ, ...
+  * phí hư hỏng: tổn thất thiết bị, cơ sở vật chất, 
+  * phí vệ sinh 5-10tr/lần
+  * phí dịch vụ
+- Chức năng thêm, xóa, sửa, tìm kiếm.
+- Page để show rules, chỉ được xem bởi Admin, BOM, FM, FS
+- Schema:
+
+  - `BusinessRule` - lưu thông tin các business rules.
+  - `BusinessRuleVersion` - lưu lịch sử các version của rule.
+  - `Term` - lưu các điều khoản áp dụng cho khách hàng.
+  - `TermVersion` - lưu lịch sử thay đổi của điều khoản.
+  - `FeeRule` - lưu cấu hình các khoản phí.
+  - `FeeType` - định nghĩa loại phí.
+  - `CustomerTermAgreement` - lưu việc khách hàng đã đồng ý với điều khoản nào và version nào.
+   
+### 4,5 Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
+**Các điều cần lưu ý khi thực hiện code ở flow này:**
+- Các chính sách về mặt hình thức đều là các con chữ, cần có một chiến thuật rõ ràng để hạn thay đổi code khi chính sách bị thay đổi nhiều nhất có thể. Các giải pháp được đề xuất:
+  - Cố định các cơ chế chính sách sẽ được hỗ trợ tự động bởi hệ thống như các chức năng (ví dụ: tự động khóa hợp đồng khi quá hạn, tự động tạo bảng tính phí khi một hợp đồng quá hạn)
+  - Cho phép xử lý thủ công khi hệ thống chưa hỗ trợ cơ chế cần thiết (ví dụ: thanh lý tài sản khi quá hạn > 90 ngày, bồi thường thiệt hại đặc biệt không có trong danh mục cố định -> FM/BOM thực hiện thủ công ngoài đời với tác vụ là "Xử lý sự cố" rồi bấm nút 'Ghi nhận xử lý' trên hệ thống, chứ code không tự chạy).
+
+- Khi thực hiện phần "Thêm chính sách", cần phân chia rõ thành 2 cấp độ:
+#### Cấp độ 1: Thêm chính sách dựa trên CƠ CHẾ CÓ SẴN (Không sửa Code - Zero Code Deployment)
+Áp dụng cho các chính sách chỉ thay đổi về mặt dữ liệu, tham số hoặc danh mục lựa chọn. Cơ chế xử lý đã được lập trình sẵn trong code.
+
+* **Thao tác của BOM:** Thực hiện trực tiếp trên giao diện quản trị (Web UI).
+* **Các trường hợp hỗ trợ:**
+  - **Thêm loại phụ phí mới:** Thêm mục phí vào danh mục (VD: Thêm *"Phí mượn xe đẩy hàng quá giờ: 50.000đ/lần"*). Hệ thống tự cập nhật danh sách phụ phí để nhân viên cơ sở (FS/FM) tick chọn khi lập biên bản nghiệm thu kho.
+  - **Thêm bậc cấu hình/khuyến mãi:** Thêm rule tính toán dựa trên khung có sẵn (VD: Hợp đồng thuê trên 6 tháng -> Giảm 5% tiền cọc).
+  - **Ban hành văn bản pháp lý mới:** Tải lên nội dung/file PDF điều khoản phiên bản mới (`RentalTerm v2.0`) để áp dụng cho các hợp đồng tiếp theo.
+* **Bản chất kỹ thuật:** Thao tác tạo bản ghi mới (INSERT) vào Database (`FeeConfig`, `RentalTerm`, `PromotionRule`). Code hệ thống tự động đọc và áp dụng ngay lập tức.
+
+
+#### Cấp độ 2: Thêm chính sách mang HÀNH VI HOÀN TOÀN MỚI (Bắt buộc sửa Code - Feature Development)
+Áp dụng khi BOM ban hành một chính sách đòi hỏi hệ thống phải thực hiện một hành vi, quy trình hoặc tích hợp kỹ thuật chưa từng tồn tại trong mã nguồn.
+
+* **Thao tác của BOM:** Không thể tự cấu hình trên Web UI. Chính sách phải đi qua quy trình tiếp nhận yêu cầu thay đổi (Change Request).
+* **Ví dụ thực tế:**
+  - *"Khách quá hạn 30 ngày thì tự động gửi tin nhắn đòi nợ qua Zalo ZNS và đẩy hồ sơ sang đơn vị thu hồi nợ."*
+  - *"Nếu khách trả kho trước hạn 15 ngày, tự động đăng tin khoang trống lên website ở chế độ flash sale."*
+* **Tại sao không thể tự cấu hình trên UI?** Vì hệ thống chưa có tích hợp API bên thứ ba (Zalo Gateway, Đơn vị thu nợ), chưa có Cronjob quét mốc 30 ngày, và chưa có logic state machine tương ứng.
+* **Quy trình triển khai:**
+  1. **BOM / Nghiệp vụ:** Soạn thảo văn bản quy định chính sách mới.
+  2. **Kỹ thuật (Tech Lead / Dev):** Phân tích tác động (Impact Analysis), thiết kế Database/API và viết code bổ sung cơ chế mới.
+  3. **Kiểm thử & Triển khai (Deploy):** Đẩy phiên bản phần mềm mới lên môi trường production.
+  4. **Cung cấp giao diện quản trị:** Lúc này BOM mới có thêm các tham số mới trên Web UI để bật/tắt hoặc điều chỉnh ngưỡng (VD: đổi mốc 30 ngày thành 45 ngày).
+
+**FLOW:**
+```
+                        [Trang Quản Lý Của BOM]
+                                  │
+         ┌────────────────────────┼────────────────────────┐
+         │                        │                        │
+         ▼                        ▼                        ▼
+[Quản Lý Chính Sách      [Quản Lý Chính Sách      [Dashboard Theo Dõi
+     Nghiệp Vụ]                 Phí]              Doanh Thu Chi Nhánh]
+ (Business Rules &       (Fee Configuration &      (Revenue Analytics &
+ Operational Limits)         Surcharges)             Cash Inflow)
+```
+
+#### 4,5.1 Quản lý chính sách nghiệp vụ (Business Rules)
+**Context:** 
+- BOM muốn đề ra các chính sách nghiệp vụ và sẽ được áp dụng vào việc sử dụng, hoàn trả khoang chứa, xử lý khi hợp đồng quá hạn, ... 
+
+**Flow tổng quát:**
+- Nêu khái quát quá trình sử của BOM khi ở trang "Quản lý chính sách nghiệp vụ". Ví dụ: BOM truy cập vào trang quản lý -> hệ thống liệt kê tất cả các chính sách hiện có -> BOM thực hiện các thao tác lên từng chính sách (thêm/sửa/xóa) -> ....
+
+**Details:**
+- Workflow chi tiết của phần sửa/xóa chính sách, một số câu hỏi để làm, hệ thống xử lý thế nào khi:
+  - BOM muốn đề ra một chính sách mới -> dựa trên 2 cấp độ thêm chính sách
+
+**Schema liên quan:**
+- Các bảng dự kiến có trong phần này
+
+#### 4,5.2 Quản lý chính sách phí
+
+**Context:** 
+- BOM thiết lập và quản lý các chính sách về khoản phí, chi phí đặt, thuê, gia hạn, trả, phạt, v.v. Đồng thời quản lý các loại phí, chi phí, cách tính phí. 
+
+**Flow tổng quát:**
+- Truy cập vào [Quản lý chính sách phí], hệ thống show các phí hiện có. Chọn xen/thêm/sửa/xóa/tìm kiếm/lọc/status/...
+
+**Details:**
+- Khi BOM ban hành chính sách mới, đồng thời input vào bảng fee manager các loại thông tin liên quan như phí, khóa account, khóa vĩnh viễn,....
+- Truy cập table Fee Management -> hiện list fee
+- Một rule = id + type + title + description + amount + unit + hiệu lực từ ngày + status + người tạo, ngày tạo + người cập nhập, ngày cập nhập + ...
+- Một số loại phí : rental, deposit, revewal, late, cleaning, damage, electricity, water, wfi, security, orther
+- Cách tính phí dựa vào BOM: amount*unit * times.
+-  Khi Cus phát sinh phí, hệ thống check loại phí -> tính toán -> số tiền -> biên bản
+- 
+
+  
+
+**Schema liên quan:**
+
+#### 4,5.3 Dashboard theo dõi doanh thu chi nhánh
+
+**Context:** 
+- BOM theo dõi doanh thu chi nhánh, kho cơ sở. Hệ thống tổng hợp data cho thuê theo thời gian, Bom's chi nhánh, loại kho, Cus. Dboard giúp đánh giá, so sánh giữa các chi nhánh, các khung thời gian, ... 
+
+**Flow tổng quát:**
+- BOM vào Revenue Dashboard. Sys lấy data từ Contract, Fee, Payment và Rental History để tổng hợp doanh thu.
+- DBoard có thể dưới dạng các bảng hay biểu đồ cột, đường, tròn,...
+- Có thể xét theo thời gian, chi nhánh, kho, Cus, . Khi thay đổi lọc thì Sys  sẽ tính toán lại. Có thể chọn nhiều đơn vị lọc.
+  
+
+**Details:**
+- BOM vào Revenue Dashboard. Sys hiện thị doang thu của chi nhánh 2 tháng gần nhất (default). Chọn các tiêu chí để hệ thống tính toán và trả về kết quả
+- Bên cạnh đó có mô hình so sánh doanh thu
+  - Trước đó BOM phải chọn (or not) biểu đồ cần so sánh (*). bên phải sẽ có phần so sánh theo từng thay đổi (data được trả về page cùng lúc với *).
+  
+**Schema liên quan:**
+
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
 NOTE: sau khi trả hợp đồng, status của kho là MAINTANANCE trong vòng 1-3 ngày trước khi cho người khác thuê.
