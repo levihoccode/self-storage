@@ -67,169 +67,135 @@
 
 ## Bảng mới cần thêm (theo Flow 5)
 
-### Account
+# Account
+**Overview:** tài khoản nội bộ + khách hàng, chứa role và data-scope.
+- full_name
+- email (unique)
+- phone
+- password_hash
+- role (Customer/FacilityStaff/FacilityManager/BusinessOperationManager/SystemAdministrator)
+- status (Active/Inactive)
+- created_at
+- activated_at
 
-Overview: tài khoản nội bộ + khách hàng, chứa role và data-scope (facility_id chỉ áp dụng cho role FM).
-
-* full_name
-* email (unique)
-* phone
-* password_hash
-* role (Customer/FacilityStaff/FacilityManager/BusinessOperationManager/SystemAdministrator)
-* facility_id (N - 1: Facility, nullable) — chỉ set khi role = FacilityManager (1–1)
-* status (Active/Inactive)
-* created_at
-* activated_at
-
-NOTES:
-
-* FS không dùng field này để map facility — dùng bảng `AccountFacilityAssignment` riêng vì Facility–FS là 1–n.
+**NOTES:**
+- Không còn field `facility_id` trên Account. Quan hệ FM–Facility (1–1) chỉ lưu 1 chiều tại `Facility.fm_account_id`, tránh trùng lặp 2 nguồn dữ liệu. Cần biết FM đang phụ trách facility nào thì query ngược từ Facility.
+- FS dùng bảng `AccountFacilityAssignment` riêng (Facility–FS là 1–n).
 
 ---
 
-### Facility
+# Facility
+**Overview:** cơ sở/chi nhánh, có đúng 1 FM phụ trách (1–1).
+- name
+- address
+- phone
+- operating_hours
+- status (Active/Inactive) — mặc định Inactive khi mới tạo
+- fm_account_id (1 - 1: Account, null as default)
+- created_at
 
-Overview: cơ sở/chi nhánh, mỗi facility có đúng 1 FM phụ trách (1–1).
-
-
-* name
-* address
-* phone
-* operating_hours
-* status (Active/Inactive)
-* fm_account_id (1 - 1: Account, null as default) -> chỉ được gán khi đã có account role FM phù hợp; facility mới mở có thể chưa có FM
-* created_at
-
-## NOTES:
-
-* Không xóa cứng Facility vì còn liên kết StorageUnit, RentalOrder... của cơ sở — khi ngừng hoạt động thì chuyển status sang Inactive.
-* Quan hệ FM–Facility là 1–1: field fm_account_id lưu trực tiếp trên Facility (không cần bảng trung gian). Riêng Facility–FS là 1–n, dùng bảng AccountFacilityAssignment riêng (không lưu trên Facility).
----
-
-### StorageUnit
-
-Overview: khoang chứa vật lý thuộc một Facility, trạng thái dùng chung xuyên suốt Flow 1/2/3/5.
-
-* facility_id (N - 1: Facility)
-* unit_code
-* unit_type
-* size
-* location
-* rental_price
-* status (Available/OnHold/Reserved/Rented/Maintenance)
-* created_at
-* updated_at
+**NOTES:**
+- Không xóa cứng Facility vì còn liên kết StorageUnit, RentalOrder... của cơ sở.
+- `fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility trong toàn hệ thống.
+- Ràng buộc bắt buộc: Facility chỉ được chuyển sang `Active` sau khi `fm_account_id` đã có giá trị. Facility `Inactive` không hiển thị cho khách và FM không tạo được StorageUnit cho tới khi Facility `Active`.
+- Khi account đang là FM bị đổi sang role khác, hệ thống phải tự động set `fm_account_id = null` trong cùng transaction với thao tác đổi role (xem `AccountRoleRequest` / audit ở mục 5.0).
 
 ---
 
-### AccountFacilityAssignment
+# AccountFacilityAssignment
+**Overview:** mapping account (chỉ dùng cho FS) với Facility, phục vụ RBAC data-scope cho trường hợp 1 facility có nhiều FS (1–n). Không dùng cho FM.
+- account_id (N - 1: Account, role FacilityStaff)
+- facility_id (N - 1: Facility)
+- assigned_at
 
-Overview: bảng mapping account (chỉ dùng cho FS) với Facility, phục vụ RBAC data-scope cho trường hợp 1 facility có nhiều FS (1–n). Không dùng cho FM.
-
-* account_id (N - 1: Account, role FacilityStaff)
-* facility_id (N - 1: Facility)
-* assigned_at
-
----
-
-### AccountCreationRequest
-
-Overview: yêu cầu tạo tài khoản do BOM gửi lên Admin khi facility chưa có FM phù hợp.
-
-* requested_by (N - 1: Account, role BusinessOperationManager)
-* proposed_name
-* proposed_email
-* proposed_role (mặc định FacilityManager)
-* target_facility_id (N - 1: Facility)
-* status (Pending/Approved/Rejected)
-* approved_account_id (N - 1: Account, nullable) — gán sau khi Admin tạo account thành công
-* created_at
-
-NOTES:
-
-* Khi status chuyển `Approved`, hệ thống thông báo lại cho BOM để BOM tiến hành gán FM vào Facility.
+**NOTES:**
+- Khi account FS bị đổi sang role khác, dòng tương ứng phải bị xoá trong cùng transaction với thao tác đổi role, tránh để lại data-scope "mồ côi".
 
 ---
 
-### AuditLog
+# AccountRoleRequest
+*(thay thế `AccountCreationRequest`)*
 
-Overview: ghi nhận các hành động nhạy cảm (đổi role, đổi facility assignment, đổi trạng thái StorageUnit thủ công) — được flow 5 yêu cầu bắt buộc ở nhiều bước nhưng chưa có bảng lưu.
+**Overview:** danh sách nhân sự do BOM chỉ định role (FM/FS) trực tiếp, gửi lên Admin để thực thi tạo mới hoặc cập nhật role account đã tồn tại.
+- batch_id (nullable) — nhóm các dòng cùng 1 lần BOM gửi lên
+- requested_by (N - 1: Account, role BusinessOperationManager)
+- target_name
+- target_email
+- role (FM hoặc FS — do BOM chỉ định trực tiếp, không phải đề xuất chờ duyệt)
+- target_facility_id (N - 1: Facility)
+- status (Pending/Done)
+- account_id (N - 1: Account, nullable) — gán sau khi Admin xử lý xong dòng đó (account mới hoặc account được đổi role)
+- created_at
+- expires_at
 
-* actor_account_id (N - 1: Account) — ai thực hiện hành động
-* action_type (RoleChange/FacilityAssignmentChange/StorageUnitStatusChange/...)
-* target_type (Account/StorageUnit/...)
-* target_id
-* old_value
-* new_value
-* reason
-* created_at
-
----
-
-### StaffAssignment
-
-Overview: bản ghi phân công FS cho appointment hoặc sự cố cụ thể (Tùy chọn, chưa MVP theo note gốc, nhưng khai báo sẵn để tránh vướng khi mở rộng).
-
-* order_id (N - 1: RentalOrder, nullable)
-* support_request_id (N - 1: SupportRequest, nullable)
-* staff_id (N - 1: Account, role FacilityStaff)
-* assigned_by (N - 1: Account, role FacilityManager)
-* status (Assigned/InProgress/Completed/Overdue)
-* assigned_at
-* completed_at
+**NOTES:**
+- Không còn status Approved/Rejected — Admin không có quyền từ chối role do BOM chỉ định, chỉ thực thi kỹ thuật.
+- Nếu role là FS: Admin tạo/cập nhật account và gán luôn `AccountFacilityAssignment` trong cùng bước xử lý.
+- Nếu role là FM: Admin chỉ tạo/cập nhật account; việc set `Facility.fm_account_id` vẫn do BOM thực hiện riêng sau đó.
+- `expires_at` dùng để cảnh báo/escalate nếu Admin chưa xử lý kịp, tránh tồn đọng Pending vô thời hạn.
 
 ---
 
-## Bảng bị tham chiếu nhưng chưa định nghĩa (từ schema bạn đã có)
+# StorageUnit
+**Overview:** khoang chứa vật lý thuộc một Facility, trạng thái dùng chung xuyên suốt Flow 1/2/3/5.
+- facility_id (N - 1: Facility)
+- unit_code
+- unit_type
+- size
+- location
+- rental_price
+- status (Available/OnHold/Reserved/Rented/Maintenance)
+- created_at
+- updated_at
 
-### RentalContract
-
-Overview: hợp đồng thuê kho chính thức, được `Invoice.contract_id` tham chiếu tới nhưng chưa có bảng này.
-
-* order_id (1 - 1: RentalOrder)
-* customer_id (N - 1: Account)
-* unit_id (N - 1: StorageUnit)
-* start_date (MM/DD/YYYY)
-* end_date (MM/DD/YYYY)
-* monthly_rate
-* status (Active/Expired/Terminated)
-* signed_at
-* contract_file_url
-* created_at
-
----
-
-### SupportRequest
-
-Overview: yêu cầu hỗ trợ/sự cố tại kho — được nhắc tới ở note của `Invoice` (hóa đơn phát sinh từ SupportRequest) và ở Flow 5.2/5.3 nhưng chưa có bảng.
-
-* customer_id (N - 1: Account)
-* unit_id (N - 1: StorageUnit, nullable)
-* facility_id (N - 1: Facility)
-* type (Incident/ServiceRequest/Complaint)
-* title
-* desc
-* status (Pending/InProgress/Resolved/Closed)
-* assigned_staff_id (N - 1: Account, nullable)
-* created_at
-* resolved_at
+**NOTES:**
+- rental_price phải nằm trong khung giá của `PricingPolicy` (Flow 4 — bảng này KHÔNG thuộc phạm vi thiết kế của Flow 5, chỉ đọc/tham chiếu).
+- Chỉ tạo được khi Facility đang `Active`.
 
 ---
 
-### PricingPolicy
+# AuditLog
+**Overview:** ghi nhận các hành động nhạy cảm (tạo account, đổi role, gán/xoá facility assignment, đổi trạng thái StorageUnit thủ công). Dạng tối giản cho MVP.
+- actor_account_id (N - 1: Account) — ai thực hiện
+- action_description — mô tả dạng text (VD: "Đổi role account X từ FS sang FM")
+- created_at
 
-Overview: khung giá thuê do BOM cấu hình — Flow 5.2 yêu cầu "giá thuê FM nhập vào phải nằm trong khung giá đã được BOM cấu hình (validate ở BE)" nhưng chưa có bảng lưu khung giá này.
-
-* unit_type
-* min_price
-* max_price
-* facility_id (N - 1: Facility, nullable) — null = áp dụng toàn hệ thống, có giá trị = override riêng cho 1 facility
-* effective_date
-* created_by (N - 1: Account, role BusinessOperationManager)
+**NOTES:**
+- Bản đầy đủ (structured old_value/new_value theo từng loại entity) thuộc Advanced Features, không cần cho MVP.
 
 ---
 
-## NOTES
+# SupportRequest
+**Overview:** yêu cầu hỗ trợ/sự cố tại kho.
+- customer_id (N - 1: Account)
+- unit_id (N - 1: StorageUnit, nullable)
+- facility_id (N - 1: Facility)
+- type (Incident/ServiceRequest/Complaint)
+- title
+- desc
+- status (Pending/InProgress/Resolved/Closed)
+- assigned_staff_id (N - 1: Account, nullable) — FM gán trực tiếp qua field này (không dùng bảng StaffAssignment riêng)
+- created_at
+- resolved_at
 
-* `Account.facility_id` chỉ bắt buộc NOT NULL khi role = FacilityManager; FS dùng `AccountFacilityAssignment` riêng — không gộp chung logic 2 role vào 1 field, đúng theo ràng buộc 1–1 vs 1–n đã chốt.
-* `AuditLog` và `PricingPolicy` là 2 bảng dễ bị bỏ sót nhất vì flow chỉ nhắc miệng ("cần ghi audit log", "khung giá đã được BOM cấu hình") chứ không liệt kê field cụ thể trong schema gốc, nhưng cả hai đều là điều kiện bắt buộc để logic (audit, validate giá) chạy được.
+**NOTES:**
+- Bảng này thuộc phạm vi thiết kế của Flow 7, không phải Flow 5 — Flow 5 (mục 5.3) chỉ đọc/ghi field `assigned_staff_id`, không tự định nghĩa lại cấu trúc bảng.
+
+---
+
+# PricingPolicy
+**Overview:** khung giá thuê do BOM cấu hình.
+- unit_type
+- min_price
+- max_price
+- effective_date
+- created_by (N - 1: Account, role BusinessOperationManager)
+
+**NOTES:**
+- Bảng này thuộc phạm vi thiết kế của Flow 4, không phải Flow 5 — Flow 5 (mục 5.2) chỉ đọc để validate rental_price.
+- MVP chỉ 1 khung giá toàn hệ thống theo unit_type (bỏ field facility_id override — đẩy sang Advanced Features).
+
+---
+
+~~# StaffAssignment~~
+**Đã loại khỏi phạm vi MVP.** Phân công FS lưu trực tiếp trên `RentalOrder.staff_id` (cho appointment) và `SupportRequest.assigned_staff_id` (cho sự cố) — không dùng bảng riêng, tránh 2 nguồn dữ liệu song song cho cùng 1 mục đích.

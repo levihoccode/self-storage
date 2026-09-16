@@ -192,74 +192,103 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **FLOW:**
 
 ```text
-[Admin tạo Account & gán Role/RBAC] -> [BOM tạo/quản lý Facility] -> [FM setup khoang chứa tại Facility] -> [FM điều phối Facility Staff] -> [FM theo dõi báo cáo cơ sở]
+[BOM tạo Facility] -> [BOM chỉ định role (FM/FS) cho nhân sự] -> [Admin thực thi tạo/cập nhật Account] -> [BOM gán FM vào Facility] -> [FM setup khoang chứa tại Facility] -> [FM điều phối Facility Staff] -> [FM theo dõi báo cáo cơ sở]
 ```
 
 #### 5.0 Quản lý tài khoản & phân quyền (System Administrator)
 
-**Context:** System Administrator là người duy nhất có quyền tạo tài khoản cho nhân sự nội bộ (FM, FS, BOM) và gán role/RBAC cho từng tài khoản — đây là điều kiện tiên quyết để BOM có FM để gán (mục 5.1) và FM có FS để phân công (mục 5.3).
+**Context:** System Administrator là người duy nhất có quyền **thực thi kỹ thuật** việc tạo tài khoản và cập nhật role trong hệ thống. Admin không quyết định ai giữ role gì — quyết định đó thuộc về BOM (xem mục 5.1). Admin chỉ đảm bảo thao tác tạo/sửa account được thực hiện đúng, an toàn và có audit trail.
 
-**Flow tổng quát:** Admin tạo mới một Account cho nhân sự nội bộ → gán Role tương ứng (FM/FS/BOM/Admin) → gán Account vào Facility cụ thể (nếu role là FM/FS) → Account đủ điều kiện hoạt động trong hệ thống theo đúng phạm vi quyền hạn.
+**Flow tổng quát:** BOM chỉ định role (FM/FS) cho 1 người → gửi `AccountRoleRequest` lên Admin → Admin tra cứu email, tạo account mới hoặc cập nhật role account đã tồn tại → account đủ điều kiện hoạt động theo đúng phạm vi quyền hạn.
 
 **Details:**
 
 * **Admin:**
 
-  * Tạo Account cho nhân sự nội bộ (FM, FS, BOM), theo 2 cách:
-    - Tạo thủ công từng account: nhập trực tiếp thông tin họ tên, email, số điện thoại, chọn role, hệ thống sinh mật khẩu tạm/link kích hoạt.
-    - Import hàng loạt (bulk import): Admin upload file Excel/Google Sheets theo template có sẵn (cột: họ tên, email, phone, role, facility dự kiến nếu có) → hệ thống parse và validate từng dòng (email trùng, role không hợp lệ, thiếu field bắt buộc) → tạo account theo batch cho các dòng hợp lệ → trả về báo cáo kết quả (số dòng thành công/lỗi, chi tiết lỗi từng dòng) để Admin sửa và import lại các dòng bị lỗi.
-    - Riêng Customer tự đăng ký tài khoản (theo Flow 1, mục 1.2), Admin không tạo hộ dù bằng cách nào.
-  * Gán Role (RBAC) cho account: mỗi account được gán đúng 1 trong 5 role — Customer, Facility Staff, Facility Manager, Business Operation Manager, System Administrator. Role quyết định tập hành động (permission) account được phép thực hiện trên hệ thống.
-  * Setup Role & Permission: mỗi role được ánh xạ (map) sẵn tới 1 tập permission cố định, định nghĩa cứng trong hệ thống (constant mapping, không phải bảng permission động cho phép Admin tự tạo/sửa permission mới — việc phân quyền chi tiết theo từng permission riêng lẻ thuộc Advanced Features, xem cuối Flow 5). Khi Admin gán role cho 1 account, account đó tự động thừa hưởng toàn bộ tập permission tương ứng với role đó — Admin không setup permission riêng theo từng account, chỉ chọn role. Bảng RBAC bên dưới chính là bảng ánh xạ role → nhóm quyền chính thức của MVP.
-  * Update role cho account đã tồn tại (VD: thăng chức FS lên FM) — cần ghi audit log (ai đổi, đổi từ role gì sang role gì, thời điểm).
-  * Gán Account vào Facility (data-scope): sau khi có role FM/FS, Admin gán account đó vào 1 facility cụ thể để giới hạn phạm vi dữ liệu account được truy cập. Đây là bước tách biệt với việc gán role: role trả lời "account này được LÀM GÌ", còn facility assignment trả lời "account này được làm việc đó trên DỮ LIỆU CỦA CƠ SỞ NÀO".
-  * Xử lý `AccountCreationRequest` do BOM gửi lên (xem mục 5.1): Admin xem danh sách yêu cầu đang `Pending`, tạo account theo thông tin đề xuất, cập nhật request sang `Approved` và thông báo lại cho BOM.
-  * Theo dõi lịch sử đăng nhập (login history) và log các hành động nhạy cảm của từng account (đổi role, đổi facility assignment...).
-  * Ràng buộc: **đã chốt quan hệ FM–Facility là 1–1** — mỗi account FM chỉ gán được vào đúng 1 facility_id (giá trị đơn, không phải danh sách qua bảng trung gian cho FM). Riêng FS vẫn có thể cân nhắc cho phép nhiều FS cùng thuộc 1 facility (facility–FS là 1–n, không phải FM–Facility).
+  * Tạo Account cho nhân sự nội bộ (FM, FS, BOM) theo 2 cách: tạo thủ công từng account, hoặc import hàng loạt qua file Excel/Sheets (validate từng dòng, trả báo cáo lỗi). Riêng Customer tự đăng ký tài khoản (Flow 1, mục 1.2), Admin không tạo hộ.
+  * Xử lý `AccountRoleRequest` do BOM gửi lên (xem mục 5.1) — mỗi dòng trong danh sách BOM gửi kèm **role đã được BOM chỉ định trực tiếp**, không phải đề xuất chờ duyệt:
+
+    * Tra cứu email trong dòng đó xem đã có account chưa.
+    * **Chưa có account:** tạo mới account với đúng role BOM chỉ định.
+    * **Đã có account:** chỉ **cập nhật role** thành role BOM chỉ định — không tạo account trùng.
+    * Nếu role là **FS**: sau khi tạo/cập nhật, Admin gán luôn account vào facility dự kiến (tạo dòng `AccountFacilityAssignment`).
+    * Nếu role là **FM**: Admin chỉ tạo/cập nhật account, **không** gán facility — việc gán FM vào Facility thuộc quyền BOM (xem mục 5.1), vì `Facility.fm_account_id` là field BOM trực tiếp quản lý.
+    * Chuyển status dòng đó sang `Done`. Admin không có quyền `Reject` vì đây là lệnh thực thi, không phải đề xuất chờ xét duyệt — nếu dữ liệu dòng đó lỗi (email sai định dạng...), Admin báo lỗi lại cho BOM chứ không tự ý đổi role khác.
+  * **Đổi role account đã tồn tại đang giữ facility assignment (bắt buộc, trong 1 transaction):**
+
+    * Nếu account đang là FM của 1 Facility (`Facility.fm_account_id = account_id`) và bị đổi sang role khác: hệ thống **tự động clear** `Facility.fm_account_id` về `null` — Facility đó quay lại trạng thái "chưa có FM" (xem ràng buộc ở 5.1).
+    * Nếu account đang là FS có dòng `AccountFacilityAssignment` và bị đổi sang role khác: hệ thống **tự động xoá** dòng `AccountFacilityAssignment` tương ứng.
+    * Toàn bộ thao tác đổi role + clear/xoá assignment phải nằm trong cùng 1 transaction, tránh để lại data-scope "mồ côi".
+  * Ghi `AuditLog` cho mọi hành động: tạo account, đổi role, gán/xoá facility assignment.
+  * Theo dõi lịch sử đăng nhập (login history) của từng account.
 
 * **RBAC — Bảng phân quyền tổng quát (tham chiếu, áp dụng xuyên suốt mọi flow):**
 
 | Role                       | Phạm vi dữ liệu (data scope)                                | Nhóm quyền chính                                                       |
-| -------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| -------------------------- | ------------------------------------------------------------| ------------------------------------------------------------------------|
 | Customer                   | Chỉ dữ liệu của chính mình (account_id = self)              | Xem kho, đặt kho, thanh toán, quản lý kho đã thuê, gửi support request |
-| Facility Staff             | Chỉ dữ liệu thuộc facility được gán                         | Check-in/out, cập nhật trạng thái unit, xử lý sự cố on-site            |
-| Facility Manager           | Chỉ dữ liệu thuộc đúng 1 facility được gán (1–1)            | Duyệt request, gán unit, quản lý FS, xem report của facility mình      |
-| Business Operation Manager | Toàn bộ dữ liệu mọi facility                                | Set chính sách, giá/phí, xem report toàn hệ thống                      |
-| System Administrator       | Toàn bộ account + config, KHÔNG thao tác nghiệp vụ thuê kho | Tạo/sửa account, gán role, gán facility, xem audit log                 |
+| Facility Staff             | Chỉ dữ liệu thuộc facility được gán (qua `AccountFacilityAssignment`) | Check-in/out, cập nhật trạng thái unit, xử lý sự cố on-site   |
+| Facility Manager           | Chỉ dữ liệu thuộc đúng 1 facility mà `Facility.fm_account_id` trỏ tới mình | Duyệt request, gán unit, quản lý FS, xem report của facility mình |
+| Business Operation Manager | Toàn bộ dữ liệu mọi facility                                | Set chính sách, giá/phí, xem report toàn hệ thống, chỉ định role nhân sự |
+| System Administrator       | Toàn bộ account + config, KHÔNG thao tác nghiệp vụ thuê kho | Tạo/cập nhật account, thực thi role do BOM chỉ định, xem audit log     |
+
+  * **Setup Role & Permission:** mỗi role được ánh xạ (map) sẵn tới 1 tập permission cố định, hard-code trong hệ thống — không có UI cho Admin tự tạo/sửa permission (fine-grained permission thuộc Advanced Features). Bảng RBAC ở trên chính là bảng ánh xạ role → permission chính thức của MVP.
 
 * **Cross-reference:**
 
-  * Facility assignment cho FM liên kết trực tiếp với mục 5.1 (BOM chọn FM có sẵn — account phải được Admin tạo trước).
-  * Facility assignment cho FS liên kết với mục 5.3 (FM chọn FS để phân công — FS phải được Admin tạo và gán vào đúng facility trước).
+  * `Facility.fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility (1–1) — **Account không còn field `facility_id` riêng cho FM**; khi cần biết FM đang phụ trách facility nào, truy vấn ngược từ `Facility.fm_account_id`, tránh lưu trùng 2 chiều.
+  * Facility assignment cho FS liên kết với mục 5.3, qua `AccountFacilityAssignment` do Admin quản lý.
   * Việc Customer tự tạo account thuộc Flow 1 (mục 1.2), không thuộc phạm vi Admin.
-  * Kết quả bulk import (thành công/lỗi từng dòng) có thể ghi vào AuditLog (action_type = BulkAccountImport) để truy vết ai import, lúc nào, bao nhiêu account được tạo.
+
+---
 
 #### 5.1 Quản lý cơ sở (Facility)
 
-**Context:** BOM là người duy nhất có quyền tạo mới và quản lý danh sách toàn bộ cơ sở/chi nhánh trong hệ thống, đồng thời gán FM phụ trách cho từng cơ sở.
+**Context:** BOM là người duy nhất có quyền tạo mới và quản lý danh sách toàn bộ cơ sở/chi nhánh, đồng thời là người **quyết định role** (FM/FS) cho nhân sự và gán FM phụ trách cho từng cơ sở. Admin chỉ thực thi kỹ thuật (mục 5.0), không quyết định nghiệp vụ ai giữ role gì.
 
-**Flow tổng quát:** BOM tạo mới một Facility → điền thông tin cơ bản của cơ sở → gán một FM và nhiều FS (đã có account + role) phụ trách cơ sở đó → cơ sở đủ điều kiện để FM tiếp tục setup khoang chứa.
+**Flow tổng quát:** BOM tạo mới một Facility → điền thông tin cơ bản → chỉ định role (FM/FS) cho nhân sự cần thiết và gửi danh sách lên Admin thực thi → sau khi Admin xử lý xong, BOM gán FM vào Facility → Facility đủ điều kiện chuyển `Active` để FM tiếp tục setup khoang chứa.
 
 **Details:**
 
 * **BOM:**
 
-  * Tạo/sửa/vô hiệu hóa Facility (không nên xóa cứng vì còn liên kết StorageUnit, RentalOrder... của cơ sở) với các thông tin: tên cơ sở, địa chỉ, số điện thoại, giờ hoạt động, trạng thái (Active/Inactive).
-  * Gán/thay đổi FM phụ trách cho từng Facility. **Đã chốt: quan hệ FM–Facility là 1–1** — mỗi Facility chỉ có đúng 1 FM phụ trách, mỗi FM chỉ phụ trách đúng 1 Facility tại một thời điểm.
-  * Nếu Facility chưa có FM (mới mở, hoặc FM cũ đã nghỉ), BOM có 2 trường hợp:
+  * Tạo/sửa/vô hiệu hoá Facility (không xoá cứng vì còn liên kết `StorageUnit`, `RentalOrder`...) với thông tin: tên cơ sở, địa chỉ, số điện thoại, giờ hoạt động, trạng thái (Active/Inactive).
+  * **Ràng buộc bắt buộc:** Facility mới tạo mặc định ở trạng thái `Inactive`, chỉ được BOM chuyển sang `Active` **sau khi** `fm_account_id` đã có giá trị (đã có FM phụ trách). Facility `Inactive` không hiển thị cho khách ở Flow 1 và FM không thể tạo `StorageUnit` cho tới khi Facility `Active`. Điều này giải quyết dứt điểm case "Facility chưa có FM thì ai setup StorageUnit" — không ai được setup, Facility phải có FM trước.
+  * Gán/thay đổi FM phụ trách cho từng Facility bằng cách set trực tiếp `Facility.fm_account_id`. **Đã chốt: quan hệ FM–Facility là 1–1**, và đây là field duy nhất lưu quan hệ này trong toàn hệ thống (xem Cross-reference 5.0).
+  * Nếu Facility chưa có FM (mới mở, hoặc FM cũ vừa bị đổi role — xem quy tắc auto-clear ở 5.0):
 
-    * **Đã có sẵn account FM rảnh (chưa gán facility nào):** BOM chọn trực tiếp account đó và gán vào Facility.
-    * **Chưa có account FM phù hợp:** BOM **gửi yêu cầu tạo tài khoản** đến System Administrator (kèm thông tin đề xuất: họ tên, email, facility dự kiến phụ trách). Admin là người **trực tiếp tạo tài khoản** (theo mục 5.0), sau đó thông báo lại cho BOM để BOM tiến hành gán account đó vào Facility.
-  * Cross-reference: Việc tạo account và gán role FM cho một người dùng thuộc phạm vi System Administrator (xem mục 5.0). BOM chỉ được quyền gửi yêu cầu và chọn/gán một account FM có sẵn cho facility, không tự tạo account mới.
+    * **Đã có sẵn account FM rảnh** (không account nào khác đang có `Facility.fm_account_id` trỏ tới nó): BOM chọn trực tiếp account đó, set `fm_account_id`.
+    * **Chưa có account FM phù hợp:** BOM chỉ định role FM cho 1 người và gửi vào danh sách `AccountRoleRequest` (xem bên dưới).
+  * **Tạo danh sách chỉ định nhân sự (`AccountRoleRequest` — dạng batch/list):** khi cần thêm hoặc đổi người cho FM và/hoặc FS, BOM lập 1 danh sách gồm nhiều dòng, mỗi dòng: họ tên, email, **role đã quyết định (FM hoặc FS)**, facility dự kiến → gửi lên Admin để thực thi vào hệ thống.
+  * Sau khi Admin xử lý xong danh sách (mục 5.0):
 
-**Schema bổ sung cho luồng yêu cầu tạo tài khoản:**
+    * Dòng **FS**: Admin đã tạo/cập nhật account và gán facility xong — BOM không cần làm gì thêm.
+    * Dòng **FM**: Admin chỉ tạo/cập nhật account — BOM nhận thông báo và tự thực hiện bước "Gán/thay đổi FM phụ trách" ở trên (set `fm_account_id`).
+  * Cross-reference: Việc tạo/cập nhật account trong hệ thống thuộc phạm vi Admin (mục 5.0), nhưng **quyết định ai giữ role gì** và **gán FM vào Facility** là của BOM.
 
-* `AccountCreationRequest` — ghi nhận yêu cầu của BOM gửi đến Admin, gồm: requested_by (BOM), proposed_name, proposed_email, proposed_role (FM), target_facility_id, status (Pending/Approved/Rejected), created_at.
-* Khi Admin xử lý xong (tạo account thành công), request chuyển status sang `Approved` và liên kết với `account_id` vừa tạo; hệ thống gửi thông báo về cho BOM để tiến hành gán FM vào Facility (quay lại bước "Gán/thay đổi FM phụ trách" ở trên).
+**Schema `AccountRoleRequest`** *(thay thế `AccountCreationRequest`)*:
+
+* batch_id (nullable) — nhóm các dòng cùng 1 lần BOM gửi lên.
+* requested_by (BOM)
+* target_name
+* target_email
+* role (FM hoặc FS — BOM chỉ định trực tiếp)
+* target_facility_id
+* status (Pending/Done) — không còn Approved/Rejected.
+* account_id (nullable) — gán sau khi Admin xử lý xong dòng đó, dù là account mới hay account được đổi role.
+* created_at
+* expires_at — nếu quá hạn mà Admin chưa xử lý, hệ thống nhắc lại/escalate; tránh tồn đọng `Pending` vô thời hạn (tương tự cơ chế `Expired` của `RentalRequest`).
+
+**Phụ thuộc chưa chốt (không thuộc phạm vi thiết kế của Flow 5):**
+
+* Khung giá thuê (`PricingPolicy`) mà 5.2 cần dùng để validate `rental_price` — **thuộc Flow 4**, Flow 5 chỉ đọc, không tự định nghĩa lại.
+* `SupportRequest` mà 5.3 cần dùng để phân công FS xử lý sự cố — **thuộc Flow 7**, Flow 5 chỉ đọc, không tự định nghĩa lại.
+
+---
 
 #### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
 
-**Context:** FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — đây là nguồn dữ liệu nền cho khách xem/đặt kho và cho FS thao tác khi bàn giao/trả kho.
+**Context:** FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — chỉ thực hiện được sau khi Facility đã `Active` (đã có FM, theo ràng buộc ở 5.1).
 
 **Flow tổng quát:** FM tạo mới/cập nhật StorageUnit (loại, kích thước, vị trí, giá thuê, trạng thái) → khoang chứa hiển thị cho khách xem và để FM chỉ định (assign) khi duyệt RentalRequest.
 
@@ -267,48 +296,39 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 * **FM:**
 
-  * Tạo StorageUnit: unit_code, unit_type, size, location (khu/tầng/dãy), rental_price, trạng thái ban đầu (mặc định Available).
+  * Tạo StorageUnit: unit_code, unit_type, size, location, rental_price, trạng thái ban đầu (mặc định Available).
   * Chuyển khoang sang Maintenance thủ công:
-  - Lý do phải chuyển thủ công (không tự động): sự cố vật lý/kỹ thuật của khoang có thể xảy ra ở 2 thời điểm — trước khi cho thuê (khoang đang Available/OnHold/Reserved, VD: phát hiện hư hỏng khi kiểm tra định kỳ) hoặc trong lúc đang cho thuê (khoang đang Rented, VD: dột, hỏng khóa, chập điện phát sinh giữa kỳ thuê). Hệ thống không có cảm biến/cơ chế tự động phát hiện sự cố vật lý, nên FM luôn là người chủ động ghi nhận và chuyển trạng thái sau khi xác nhận sự cố thực tế tại cơ sở.
-  - Nếu khoang đang Available: FM chuyển trực tiếp sang Maintenance.
-  - Nếu khoang đang OnHold hoặc Reserved: không được chuyển trực tiếp. FM phải xử lý request/order liên quan trước và thông báo cho khách hàng.
-  - Nếu khoang đang Rented: FM không được tự ý chuyển trạng thái sang Maintenance. Cần tạo yêu cầu xử lý sự cố, thông báo khách hàng và thực hiện phương án di chuyển/tạm ngưng sử dụng theo nghiệp vụ đã được phê duyệt.
-  - Khi khoang đang Maintenance, không được xuất hiện trong danh sách khoang có thể được đặt/assign cho khách hàng.
-  - Sau khi xử lý xong sự cố, FM chuyển khoang về Available khi khoang đã đủ điều kiện cho thuê lại.
-  * Trường hợp phát hiện sự cố đột xuất khi khoang đang được thuê (Rented):
-    - Sự cố không ảnh hưởng đến việc sử dụng khoang: ghi nhận sự cố → tạo SupportRequest → thông báo khách hàng → tiếp tục cho thuê.
-    - Sự cố ảnh hưởng đến việc sử dụng nhưng khách vẫn có thể tiếp tục sử dụng tạm thời: ghi nhận sự cố → thông báo khách hàng → xử lý sự cố → chỉ chuyển Maintenance sau khi khách đã hoàn tất việc di chuyển/trả kho.
-    - Sự cố nghiêm trọng, không thể tiếp tục sử dụng: ghi nhận sự cố → thông báo khách hàng ngay → FM/FS phối hợp xử lý việc di chuyển đồ đạc sang khoang phù hợp khác → sau khi bàn giao khoang mới, chuyển khoang cũ sang Maintenance.
-    - Mọi thay đổi trạng thái thủ công phải ghi nhận người thực hiện, thời điểm và lý do thay đổi để phục vụ audit log.
-  * Xem danh sách khoang chứa theo filter: loại, trạng thái, khu vực.
-  * Ràng buộc: giá thuê FM nhập vào phải nằm trong khung giá đã được BOM cấu hình (validate ở BE) — không được tự set giá vượt khung.
-  * Cross-reference (quan trọng — trạng thái StorageUnit là dữ liệu dùng chung xuyên suốt các flow):
 
-    * Flow 1 (Đặt kho): FM đọc các unit có trạng thái Available để chỉ định unit_id khi Approve một RentalRequest; hệ thống chuyển trạng thái sang OnHold/Reserved khi được duyệt/đặt cọc.
-    * Flow 2 (Check-in/Handover): trạng thái chuyển sang Rented sau khi FS bàn giao thành công.
-    * Flow 3 (Trả kho): trạng thái chuyển sang Maintenance khi khách trả kho (ghi chú gốc: giữ MAINTENANCE 1–3 ngày trước khi cho thuê lại).
-    * Flow 4 (Business rules): khung giá thuê tham chiếu chính sách giá do BOM quản lý — Flow 5 chỉ được dùng khung giá này, không định nghĩa lại.
+    * Lý do phải chuyển thủ công (không tự động): sự cố vật lý/kỹ thuật có thể xảy ra **trước khi cho thuê** (Available/OnHold/Reserved) hoặc **trong lúc đang cho thuê** (Rented). Hệ thống không có cảm biến tự động phát hiện sự cố, FM luôn là người chủ động ghi nhận sau khi xác nhận thực tế tại cơ sở.
+    * Available → chuyển trực tiếp sang Maintenance.
+    * OnHold/Reserved → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
+    * Rented → không tự ý chuyển; tạo yêu cầu xử lý sự cố, thông báo khách, thực hiện phương án di chuyển/tạm ngưng theo nghiệp vụ đã duyệt.
+    * Đang Maintenance → không xuất hiện trong danh sách khoang có thể đặt/assign.
+    * Sau khi xử lý xong sự cố, FM chuyển khoang về Available.
+  * Trường hợp phát hiện sự cố đột xuất khi khoang đang Rented: phân theo mức độ ảnh hưởng (không ảnh hưởng / ảnh hưởng nhưng dùng tạm được / nghiêm trọng) — xử lý tương ứng ghi nhận sự cố, thông báo khách, và chỉ chuyển Maintenance khi khách đã hoàn tất di chuyển/trả kho. Mọi thay đổi trạng thái thủ công phải ghi `AuditLog` (người thực hiện, thời điểm, lý do).
+  * Ràng buộc: giá thuê FM nhập phải nằm trong khung giá `PricingPolicy` do BOM cấu hình (Flow 4) — validate ở BE. Nếu `PricingPolicy` thay đổi sau khi StorageUnit đã tồn tại, hệ thống nên có cơ chế đánh dấu/cảnh báo các StorageUnit đang có giá lệch khung mới (không bắt buộc MVP, nhưng cần ghi nhận là rủi ro đã biết).
+  * Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (OnHold/Reserved khi duyệt/đặt cọc), Flow 2 (Rented sau bàn giao), Flow 3 (Maintenance khi trả kho).
+
+---
 
 #### 5.3 Quản lý & điều phối Facility Staff
 
 **Context:** FM điều phối các FS tại cơ sở để hỗ trợ check-in, check-out, kiểm tra khoang chứa và xử lý sự cố on-site.
 
-**Flow tổng quát:** FM xem danh sách FS thuộc cơ sở mình → phân công FS cho một lịch hẹn hoặc một sự cố cụ thể → theo dõi tiến độ xử lý của FS.
+**Flow tổng quát:** FM xem danh sách FS thuộc cơ sở mình (qua `AccountFacilityAssignment`) → phân công FS trực tiếp trên `RentalOrder.staff_id` (cho appointment) hoặc `SupportRequest.assigned_staff_id` (cho sự cố) → theo dõi tiến độ.
 
 **Details:**
 
 * **FM:**
 
   * Xem danh sách FS được gán vào cơ sở của mình.
-  * Phân công FS phụ trách một appointment cụ thể để hỗ trợ khách check-in/bàn giao.
-  * Phân công FS xử lý một SupportRequest/sự cố tại kho.
-  * Theo dõi trạng thái công việc đã giao (đang xử lý / hoàn thành / quá hạn).
-  * MVP scope: chỉ cần "phân công theo task/appointment", chưa cần quản lý ca làm việc (shift) chi tiết kiểu HRM.
-  * Cross-reference:
+  * Phân công FS phụ trách 1 appointment: set `RentalOrder.staff_id`.
+  * Phân công FS xử lý 1 SupportRequest: set `SupportRequest.assigned_staff_id`.
+  * Theo dõi trạng thái công việc đã giao qua status của `RentalOrder`/`SupportRequest` tương ứng — **MVP không dùng bảng `StaffAssignment` riêng**, phân công lưu trực tiếp trên 2 bảng trên để tránh 2 nguồn dữ liệu song song cho cùng 1 mục đích.
+  * MVP scope: chỉ "phân công theo task/appointment", chưa quản lý ca làm việc (shift) chi tiết.
+  * Cross-reference: cần `RentalOrder.appointment_date` (Flow 1/2) và `SupportRequest` (Flow 7, phụ thuộc chưa chốt — xem 5.1).
 
-    * Cần dữ liệu lịch hẹn on-site (appointment) được tạo ra ở Flow 1 (mục 1.1/1.3, sau khi khách đặt cọc thành công) và dùng trong Flow 2 để biết cần phân công FS vào thời điểm nào.
-    * Cần dữ liệu SupportRequest từ Flow 7 (Yêu cầu hỗ trợ và xử lý sự cố) để phân công FS xử lý.
-    * Việc gán một FS vào một facility cụ thể (account–facility mapping, phục vụ RBAC) thuộc phạm vi System Administrator (xem mục 5.0) — đây là điều kiện tiên quyết để FM có danh sách FS để chọn.
+---
 
 #### 5.4 Báo cáo cơ sở
 
@@ -317,38 +337,36 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **Details:**
 
 * **FM:** xem dashboard/report theo filter thời gian và loại khoang: số khoang trống/đã thuê, tỷ lệ lấp đầy, doanh thu, số ca quá hạn tại cơ sở.
+* Truy vấn report **bắt buộc lọc theo facility mà `Facility.fm_account_id` trỏ tới FM đang đăng nhập** ở tầng API (không chỉ ẩn ở FE) — tránh rủi ro IDOR khi FM cố truy vấn facility khác qua param.
 
 **Cross-reference:**
 
-* Số liệu doanh thu và phí phụ thuộc chính sách giá/phí từ Flow 4.
-* Số ca quá hạn phụ thuộc dữ liệu xử lý từ Flow 6 (Xử lý quá hạn/gia hạn).
-* Report so sánh nhiều cơ sở / toàn hệ thống thuộc quyền BOM (Flow 4) — FM chỉ xem được report của cơ sở mình phụ trách (ràng buộc theo RBAC).
+* Doanh thu/phí phụ thuộc chính sách giá từ Flow 4.
+* Số ca quá hạn phụ thuộc dữ liệu từ Flow 6.
+* Report toàn hệ thống/so sánh nhiều cơ sở thuộc quyền BOM (Flow 4).
 
-**Schema (liên quan)**
+---
 
-* `Account` — chứa thông tin cơ bản + role, được tạo/quản lý bởi System Administrator. Với role FM: có trực tiếp 1 field `facility_id` (vì đã chốt 1–1, không cần bảng trung gian riêng cho FM).
-* `AccountFacilityAssignment` — bảng mapping account (FS) với Facility, phục vụ RBAC data-scope cho trường hợp 1 facility có nhiều FS (1–n). Không dùng cho FM.
-* `AccountCreationRequest` — yêu cầu tạo tài khoản do BOM gửi lên Admin (xem mục 5.1), gồm thông tin đề xuất account + facility dự kiến + trạng thái xử lý.
-* `Facility` — cơ sở/chi nhánh, có đúng 1 FM phụ trách (1–1).
-* `StorageUnit` — khoang chứa thuộc một Facility, trạng thái dùng chung với Flow 1/2/3.
-* (Tùy chọn, chưa MVP) `StaffAssignment` — bản ghi phân công FS cho appointment/sự cố cụ thể.
+**Schema (liên quan, tổng hợp toàn Flow 5):**
 
-###### NOTES
+* `Account` — không còn field `facility_id` cho FM (xem 5.0 Cross-reference).
+* `Facility` — có `fm_account_id` (1–1, nguồn duy nhất), mặc định `Inactive` khi tạo mới, chỉ `Active` sau khi có FM.
+* `AccountFacilityAssignment` — mapping FS–Facility (1–n), do Admin quản lý.
+* `AccountRoleRequest` — thay thế `AccountCreationRequest`, có `expires_at`, chỉ còn status `Pending`/`Done`.
+* `StorageUnit` — thuộc 1 Facility, trạng thái dùng chung Flow 1/2/3/5.
+* `AuditLog` — dạng tối giản (actor, action_description, created_at) cho MVP.
+* ~~`StaffAssignment`~~ — loại khỏi phạm vi MVP, dùng field trực tiếp trên `RentalOrder`/`SupportRequest`.
 
-* **Đã chốt: quan hệ FM–Facility là 1–1.** Mỗi Facility có đúng 1 FM phụ trách; mỗi FM chỉ phụ trách đúng 1 Facility. Field `facility_id` được lưu trực tiếp trên `Account` (role FM), không cần bảng trung gian.
-* BOM không có quyền tự tạo account cho FM — chỉ được gửi `AccountCreationRequest` đến Admin; Admin là người trực tiếp tạo tài khoản. Sau khi account được tạo, BOM mới thực hiện bước gán FM vào Facility.
-* Flow 5 giờ đã bao gồm luôn phần quản lý Account & RBAC (mục 5.0) — không còn coi đây là pre-condition ngoài phạm vi Flow 5 nữa, mà là bước đầu tiên trong flow.
-* Trạng thái StorageUnit là điểm giao thoa nhiều nhất với các flow khác (1, 2, 3) — cần định nghĩa rõ state machine của StorageUnit chung cho toàn hệ thống trước khi thiết kế chi tiết Flow 5, tránh mỗi flow tự ý set trạng thái gây conflict.
-* Khung giá của StorageUnit phải validate theo chính sách của Flow 4, không để FM nhập tự do.
-* Vì FM–Facility là 1–1 nhưng Facility–FS vẫn có thể là 1–n, nên `AccountFacilityAssignment` (bảng trung gian) chỉ giữ lại cho FS, còn FM dùng field đơn trực tiếp trên Account để đơn giản hóa query RBAC.
+**Advanced Features (not MVP):**
 
-**Advanced Features (not MVP)**
-
+* Import hàng loạt account qua Excel/Sheets.
+* `AuditLog` dạng structured (old_value/new_value theo từng loại entity).
+* `PricingPolicy` override riêng theo từng facility.
+* Unique constraint DB-level cho quan hệ 1–1 FM–Facility (MVP validate ở application layer).
 * Quản lý ca làm việc (shift scheduling) chi tiết cho FS.
-* Tự động phân công FS dựa trên khối lượng công việc hiện tại hoặc vị trí trong kho.
-* Cảnh báo tự động cho FM khi tỷ lệ lấp đầy cơ sở quá thấp hoặc quá cao (gần full).
-* Phân quyền chi tiết hơn theo permission cụ thể (fine-grained permission) thay vì chỉ theo role cố định.
-
+* Tự động phân công FS dựa trên khối lượng công việc/vị trí.
+* Cảnh báo tự động khi tỷ lệ lấp đầy cơ sở quá thấp/cao.
+* Fine-grained permission thay vì permission cố định theo role.
 
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
 
