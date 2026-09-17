@@ -133,7 +133,7 @@
 
 **NOTES:**
 - Khi account FS bị đổi sang role khác, dòng tương ứng phải bị xoá trong cùng transaction với thao tác đổi role, tránh để lại data-scope "mồ côi".
-- Dùng để validate `Appointment.staff_id`/`SupportRequest.assigned_staff_id` thuộc đúng facility của khoang (Flow 2, Flow 3).
+- Dùng để validate Appointment.facility_id/SupportRequest.assigned_staff_id's facility khớp với facility account FS đang được gán — so sánh trực tiếp AccountFacilityAssignment.facility_id = Appointment.facility_id, không cần join qua order_id/StorageUnit nữa (kể cả lịch hẹn không gắn đơn để xử lý sự cố).
 
 ---
 

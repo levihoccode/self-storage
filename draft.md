@@ -315,7 +315,8 @@ Available | OnHold | Reserved | Rented | Maintenance
 
 - **FM:**
   - Xem danh sách FS được gán vào cơ sở của mình.
-  - Xem `Appointment` của cơ sở theo ngày, lọc `staff_id IS NULL` để thấy lịch chưa phân công, và gán FS: set `Appointment.staff_id`. **Đã chốt (A6, thống nhất với Flow 2):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — mọi việc phân công lịch hẹn chuyển hẳn sang bảng `Appointment` (Flow 2 sở hữu, Flow 5 chỉ đọc/ghi `staff_id`).
+  - Xem `Appointment` của cơ sở theo ngày, lọc `staff_id IS NULL` để thấy lịch chưa phân công, và gán FS: set `Appointment.staff_id`.
+    **Đã chốt (A6, thống nhất với Flow 2):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — mọi việc phân công lịch hẹn chuyển hẳn sang bảng `Appointment` (Flow 2 sở hữu, Flow 5 chỉ đọc/ghi `staff_id`).
   - Phân công FS xử lý 1 `SupportRequest`: set `SupportRequest.assigned_staff_id` (bảng do Flow 3/7 sở hữu — xem 5.1).
   - Theo dõi tiến độ qua status của `Appointment`/`SupportRequest` tương ứng — MVP không dùng bảng `StaffAssignment` riêng.
   - MVP scope: chỉ "phân công theo task/appointment", chưa quản lý ca làm việc (shift) chi tiết.
