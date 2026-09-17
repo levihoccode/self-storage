@@ -224,11 +224,25 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
   - Tại 1 thời điểm chỉ có 1 rules được hoạt động trên hệ thống.
   - Cus chỉ bị áp dụng rule, thứ đang hiện hành và được khách hàng đồng ý khi họ đồng ý lần đầu tiên với kho FM đưa ra
 
-  --**note** 
+  -**note** 
     + Các chính sách không liên quan đến phí (vd như khoá account) chưa được xử lý
     + Ngoài ra có thể phát triển thêm bảng [discounts] hỗ trở khách hàng dùng giả giá, và [active] giúp admin quản lý hoạn động của BOM
     + Chưa có idea làm version rule
-   
+  
+  **Các chính sách liên quan**
+    - Đặt cọc: 
+      - Hình thức đặt cọc deposit type: $ hoặc %
+      - Giá trị đặt cọc deposit value: $(>0) hoặc % ([0;100]);
+      - deposit type và deposit value là cố định với mỗi version chính sách. Cus được chọn hình thức thông qua FS. 
+        - Nếu Cus chọn $ -> Sử dụng trực tiếp deposit value để tạo hóa đơn đặt cọc
+        - Nếu Cus chọn % -> Sử dụng deposit value và table [unit] để tính toán số tiền tạo hóa đơn đặt cọc
+      - Ngoại lệ: Khách hủy hợp đồng khi đã đặt cọc thành công: Hủy request đặt cọc của khách. Mất cọc. Kho được trả về free
+    - Bảo trì:
+      - Thời gian bảo trì, refresh kho cein 1 tháng kể từ khi trả kho và 1 năm kể từ lần bảo trì gần nhất. Data được lưu ở units
+    - Hình thức ký: Ký điện tử + Hợp đồng giấy khi bàn giao kho
+    - Hợp đồng sinh ra mỗi khi bắt đầu và kết thúc thuê kho
+    - 100% Thanh toán online
+    - Hiện tại chưa có chính sách hoàn tiền. Đang cân nhắc đến việc lập bảng giảm giá  [discounts];
 #### 4.2 Các loại phí
 **Context:**
   - BOM thiết lập và quản lý các chính sách về khoản phí, chi phí đặt, thuê, gia hạn, trả, phạt, v.v. Đồng thời quản lý các loại phí, chi phí, cách tính phí. 
@@ -239,8 +253,8 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **Details**
   - các loại phí liên quan đến tất cả loại chi phí vận hành kho, dịch vù và phí phạt, nơi data được lưu trữ và sử dụng để tạo hóa đơn
   - Table [Fee]: id + name + category + amount + caculaiton (fixed/daily/monthly/%) + desc + status + created by + created at
-  VD1: id + Mất chìa khóa + "LOST-KEY" + 50k + fixed + "" + active + "" + ""
-  VD2: id + Wifi + "WIFI" + 2tr + monthly + "" + active + "" + ""
+    + VD1: id + Mất chìa khóa + "LOST-KEY" + 50k + fixed + "" + active + "" + ""
+    + VD2: id + Wifi + "WIFI" + 2tr + monthly + "" + active + "" + ""
   - Caculation:
     + fixed: fee= amount* số lần
     + daily: fee= amount* số ngày phát sinh chi phí
@@ -262,13 +276,14 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
     + 'time' là số 'type' mà tài khoản bị khóa; VD: 3 là số tháng mà tài khoản bị khóa
     + Hành động time-- sẽ được thực thi kể từ khi  'efective from' và lặp lại mỗi chu trình 'type'
 **Note** 
-  - Phí thuê trả kho không được lưu ở đây. Nên lưu tại [Unit-type]
 
 
+**Các chính sách liên quan**
+  - Khung giá thuê, gia hạn được lưu lại units (hoặc unit-type) 
 **Payment** 
-    - Có thể ghép chung với phần tạo hóa đơn, ở đây chỉ lên idea payment cho fee
-    - Table: id, cus-id, contract-id(hình như ở flow2), (reservation-id), payment-type(deposit/rental/renewal/Fee/...), amount, payment-method, code, status, paid-at, created-at.
-    - Khi FM/FS tạo yêu cầu về phí: Sys dựa vào type + caculaiton + asc created-at để lấy data. Đối các phí daily/monthly/... Sys sẽ lưu hóa đơn và sẽ thông báo cho Cus trước khi đến kỳ hạn (Flow đoạn này giống phần thanh toán bàn giao kho)
+  - Có thể ghép chung với phần tạo hóa đơn, ở đây chỉ lên idea payment cho fee
+  - Table: id, cus-id, contract-id(hình như ở flow2), (reservation-id), payment-type(deposit/rental/renewal/Fee/...), amount, payment-method, code, status, paid-at, created-at.
+  - Khi FM/FS tạo yêu cầu về phí: Sys dựa vào type + caculaiton + asc created-at để lấy data. Đối các phí daily/monthly/... Sys sẽ lưu hóa đơn và sẽ thông báo cho Cus trước khi đến kỳ hạn (Flow đoạn này giống phần thanh toán bàn giao kho)
  
 #### 4.3 Dashboard theo dõi doanh thu chi nhánh
 
