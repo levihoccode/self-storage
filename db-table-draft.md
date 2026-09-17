@@ -42,35 +42,37 @@
 **NOTES:**
 - Khi đơn chuyển sang `Canceled`/`Expired`, hóa đơn đặt cọc chưa thanh toán của đơn chuyển sang `Invoice.status = Canceled`
 # RentalContract
-**Overview:** chứa thông tin hợp đồng điện tử được thiết lập khi ký hợp đồng (`RentalOrder` chuyển sang trạng thái `Done`, thuộc Flow 2), là căn cứ để phát sinh hóa đơn định kỳ, gia hạn, tiền phạt, ...
+**Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. **Owner: Flow 2** (tạo + quản lý vòng đời). Flow 3 chỉ đọc và cập nhật `end_date` khi gia hạn. `Invoice.contract_id` tham chiếu tới bảng này.
 - order_id (1 - 1: RentalOrder)
 - customer_id (N - 1: Account)
-- staff_id (N - 1: Account) - FS lập/ký hợp đồng với khách
 - unit_id (N - 1: StorageUnit)
 - code
   - Mã hợp đồng = CTR + mã chi nhánh + YYMMDD (ngày ký) + random
   - Ví dụ: CTR-Q7-260911-B27C: Hợp đồng chi nhánh Quận 7, ký ngày 11/09/2026.
-- start_date (MM/DD/YYYY)
-- end_date (MM/DD/YYYY) - được cập nhật khi gia hạn
-- monthly_price - giá thuê hàng tháng tại thời điểm ký (không phụ thuộc giá hiện tại của unit)
-- deposit_amount - tiền cọc
-- billing_day - ngày trong tháng phát sinh hóa đơn tiền thuê (1 - 28)
-- file_url - file hợp đồng điện tử (PDF)
+- terms_version - snapshot version điều khoản khách đã đồng ý (Flow 4)
+- monthly_price - giá thuê chốt tại thời điểm ký (không phụ thuộc giá hiện tại của unit)
+- deposit_amount - tiền cọc đã thu ở Flow 1.3
+- period - số tháng thuê
+- start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
+- end_date - được cập nhật khi gia hạn thành công (Flow 3.3)
 - signed_at
-- terminated_at (null as default)
-- termination_reason (null as default)
-- created_at
-- status:
-  - Active: hợp đồng đã ký và đang có hiệu lực (kể cả khi chưa tới `start_date`, hoặc đã quá `end_date` nhưng chưa trả kho)
-  - Completed: khách đã trả kho và FS xác nhận hoàn tất (Flow 2.5)
-  - Terminated: chấm dứt trước hạn (khách yêu cầu, vi phạm, quá hạn thanh toán, ...)
-  - Canceled: hợp đồng đã ký nhưng bị hủy trước khi có hiệu lực (trước `start_date`/bàn giao khoang)
+- signature
+- pdf_url
+- status (Draft/Signed/Active/Ended/Canceled)
+  - Draft: hợp đồng đã được sinh, chờ khách ký
+  - Signed: đã ký nhưng chưa bàn giao
+  - Active: đã bàn giao, đang có hiệu lực (kể cả đã quá `end_date` nhưng chưa trả kho)
+  - Ended: đã trả kho xong (Flow 2.5)
+  - Canceled: hủy trước khi bàn giao khoang
 
 **NOTES:**
 - Mỗi `StorageUnit` chỉ có tối đa 1 hợp đồng `Active` tại một thời điểm
 - Trạng thái còn hiệu lực / sắp hết hạn / quá hạn **không lưu vào `status`** mà tính trực tiếp từ `end_date` tại thời điểm query (Flow 3.6)
 - Không có status `PendingReturn` — tiến trình trả kho được theo dõi ở bảng `ReturnRequest`
 - Khi gia hạn: xem `ExtendRequest`, thanh toán thành công thì cập nhật `end_date`
+- Đề xuất bổ sung từ Flow 3 (chờ Flow 2/4/6 xác nhận):
+  - `billing_day` (1 - 28) - ngày trong tháng phát sinh hóa đơn tiền thuê định kỳ (Flow 4)
+  - `terminated_at`, `termination_reason` + status `Terminated` - chấm dứt trước hạn do vi phạm/quá hạn thanh toán (Flow 6)
 # ExtendRequest
 **Overview:** chứa các yêu cầu gia hạn hợp đồng do khách gửi từ trang chi tiết hợp đồng (Flow 3.3), FM duyệt (Flow 6)
 - contract_id (N - 1: RentalContract)
@@ -78,11 +80,12 @@
 - invoice_id (1 - 1: Invoice, null until FM approve) - hóa đơn gia hạn được tạo khi FM duyệt
 - approved_by (N - 1: Account, null until FM approve/reject) - FM xử lý yêu cầu
 - reject_reason (null as default)
+- cancel_reason (null as default) - lý do khách tự hủy (tùy chọn)
 - requested_at
 - processed_at (null as default) - thời điểm FM duyệt/từ chối
 - status:
   - PendingApproval: chờ FM duyệt, khách được phép hủy
-  - Canceled: khách hủy khi còn `PendingApproval`
+  - Canceled: khách hủy khi còn `PendingApproval`, hoặc hệ thống hủy khi hợp đồng bị chấm dứt trước hạn
   - Rejected: FM từ chối
   - ApprovedPendingPayment: FM đã duyệt, hệ thống tạo `Invoice` và chờ khách thanh toán, khách không được hủy qua web
   - Expired: quá `Invoice.due_date` mà khách chưa thanh toán -> hóa đơn gia hạn chuyển `Canceled`
@@ -90,7 +93,9 @@
 
 **NOTES:**
 - Chỉ được tạo khi `now <= RentalContract.end_date` (hợp đồng quá hạn không được gia hạn qua web)
-- Mỗi `RentalContract` chỉ có tối đa 1 `ExtendRequest` ở trạng thái `PendingApproval` hoặc `ApprovedPendingPayment` tại một thời điểm (lock theo `contract_id`)
+- Mỗi `RentalContract` chỉ có tối đa 1 `ExtendRequest` ở trạng thái `PendingApproval` hoặc `ApprovedPendingPayment` tại một thời điểm (partial unique index trên `contract_id`)
+- Không được tạo khi hợp đồng đang có `ReturnRequest` ở `Pending`/`Assigned` (kiểm tra trong transaction, Flow 3.6)
+- Hợp đồng bị chấm dứt trước hạn: `PendingApproval` -> `Canceled`; `ApprovedPendingPayment` -> `Expired` và hóa đơn gia hạn -> `Canceled`
 - Không cần `customer_id` vì đã xác định qua `RentalContract.customer_id`
 # ReturnRequest
 **Overview:** chứa các yêu cầu trả kho do khách gửi (Flow 3.4), FM phân công FS xử lý on-site (Flow 2.5). Tách bảng riêng thay vì dùng `RentalContract.status = PendingReturn` để không đè mất thông tin quá hạn của hợp đồng.
@@ -98,18 +103,21 @@
 - assigned_staff_id (N - 1: Account, null until FM assign)
 - preferred_date (MM/DD/YYYY) - ngày khách mong muốn trả kho
 - reason (nullable) - lý do trả kho (tùy chọn)
+- cancel_reason (null as default) - lý do khách tự hủy (tùy chọn)
 - created_at
 - completed_at (null as default) - thời điểm FS xác nhận trả kho xong
 - status:
   - Pending: chờ FM phân công FS, khách được phép hủy
   - Assigned: FM đã phân công FS, khách không được hủy qua web (liên hệ FM/FS trực tiếp)
-  - Canceled: khách hủy khi còn `Pending`
-  - Completed: FS kiểm tra và xác nhận trả kho hoàn tất -> `RentalContract.status = Completed`, `StorageUnit` chuyển sang `Maintenance` (1-3 ngày)
+  - Canceled: khách hủy khi còn `Pending`, hoặc hệ thống hủy khi hợp đồng bị chấm dứt trước hạn
+  - Completed: Flow 2.5 xác nhận trả kho hoàn tất (`CheckoutRecord.result = COMPLETED`). Việc đóng hợp đồng (`RentalContract.status = Ended`) và chuyển/mở lại `StorageUnit` do Flow 2.5 thực hiện
 
 **NOTES:**
-- Mỗi `RentalContract` chỉ có tối đa 1 `ReturnRequest` ở trạng thái `Pending` hoặc `Assigned` tại một thời điểm (lock theo `contract_id`)
+- Mỗi `RentalContract` chỉ có tối đa 1 `ReturnRequest` ở trạng thái `Pending` hoặc `Assigned` tại một thời điểm (partial unique index trên `contract_id`)
+- Không được tạo khi hợp đồng đang có `ExtendRequest` ở `PendingApproval`/`ApprovedPendingPayment` (kiểm tra trong transaction, Flow 3.6)
+- `assigned_staff_id` phải là FS có `AccountFacilityAssignment` với facility của khoang
 - Không cần `customer_id` vì đã xác định qua `RentalContract.customer_id`
-- Các trạng thái on-site chi tiết (kiểm tra tình trạng, phát sinh phí hư hỏng, ...) sẽ bổ sung khi chốt Flow 2.5
+- Các bước on-site chi tiết (lịch hẹn trả kho, kiểm tra tình trạng, phí hư hỏng, đối trừ cọc) theo dõi ở `Appointment` + `CheckoutRecord` của Flow 2.5
 # SupportRequest
 **Overview:** chứa các yêu cầu hỗ trợ sự cố do khách gửi (Flow 3.5) hoặc FS ghi nhận tại kho, FM phân công FS xử lý on-site (Flow 7). Không ảnh hưởng tới `RentalContract`.
 - unit_id (N - 1: StorageUnit)
@@ -130,12 +138,13 @@
 
 **NOTES:**
 - Khi Customer gửi: `contract_id` bắt buộc và phải thuộc về khách (`RentalContract.customer_id = reporter_id`)
-- Chỉ phát sinh `invoice_id` khi có `contract_id` (có khách để thu phí)
+- Chỉ phát sinh `invoice_id` khi có `contract_id` (có khách để thu phí). Hóa đơn `Invoice(type=Service)` do Flow 7 tạo theo `ExtraFee`
+- `assigned_staff_id` phải là FS có `AccountFacilityAssignment` với facility của khoang
 - Một hợp đồng có thể có nhiều `SupportRequest` cùng lúc (khác với `ExtendRequest`/`ReturnRequest`)
 - Chi tiết xử lý on-site và quy tắc đóng yêu cầu sẽ bổ sung khi chốt Flow 7
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
-- order_id (1 - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc)
+- order_id (N - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc). N - 1 vì một đơn có thể phát sinh lại hóa đơn cọc (hóa đơn cũ `Canceled`)
 - contract_id (N - 1: RentalContract) -> null as default -> được gán nếu hóa đơn phát sinh từ `RentalContract` (tiền thuê hàng tháng, gia hạn, tiền phạt, dịch vụ, ...)
 - customer_id (N - 1: Account)
 - type - loại hóa đơn, quyết định tiền tố trong `code`:
@@ -187,7 +196,7 @@
 # PaymentTransaction
 - invoice_id (N - 1: Invoice)
 - method (BankTransferQR/Card)
-- gateway_transaction_no -  Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
+- gateway_transaction_no (unique, nullable until gateway trả về) -  Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
 - transaction_content
 - response_payload: JSON / TEXT, nullable -> Lưu toàn bộ log raw webhook/IPN để đối soát
 - amount
@@ -198,11 +207,12 @@
 
 **NOTES:**
 - Hỗ trợ QR chuyển khoản (Flow 1.3) và thẻ (Visa/Mastercard, dùng thêm cho pre-authorization nếu chốt `OnHold`) — bỏ ràng buộc "visa card only" vì mâu thuẫn với Flow 1.3
+- Bản ghi `Pending` được tạo **trước khi** redirect sang cổng thanh toán
+- Webhook/IPN phải idempotent: giao dịch đã `Success`/`Failed` thì bỏ qua; `Invoice` được `SELECT ... FOR UPDATE` và chỉ áp dụng tác dụng (ví dụ cộng `RentalContract.end_date`) khi chuyển từ `Unpaid` sang `Paid` (Flow 3.6)
 
 # Account
 **Overview:** tài khoản của tất cả người dùng trong hệ thống (Admin, BOM, FM, FS, Customer), được tham chiếu bởi các field `customer_id`, `staff_id`, `approved_by`, ... ở các bảng khác.
 - role_id (N - 1: Role)
-- facility_id (N - 1: Facility, nullable) - chi nhánh được giao, chỉ dùng cho FM/FS (Admin, BOM, Customer để null)
 - email (unique)
 - phone
 - password_hash
@@ -212,8 +222,9 @@
 - updated_at
 
 **NOTES:**
-- FM chỉ được thao tác dữ liệu thuộc `facility_id` của mình
-- Customer không gắn `facility_id` vì có thể thuê khoang ở nhiều chi nhánh
+- Không có field `facility_id` trên Account. Quan hệ FM–Facility (1 - 1) lưu 1 chiều tại `Facility.fm_account_id`; FS–Facility (N - 1 phía FS) lưu ở `AccountFacilityAssignment`
+- FM chỉ được thao tác dữ liệu thuộc facility có `Facility.fm_account_id` trỏ tới mình
+- Customer không gắn facility vì có thể thuê khoang ở nhiều chi nhánh
 # Role
 **Overview:** các vai trò trong hệ thống, System Administrator quản lý (update role).
 - name (Admin/BOM/FM/FS/Customer)
@@ -245,16 +256,31 @@
 - new_value (JSON, nullable)
 - created_at
 # Facility
-**Overview:** chi nhánh kho, được tham chiếu bởi `RentalRequest.facility_id`, `StorageUnit.facility_id`, `Account.facility_id`.
+**Overview:** chi nhánh kho, có đúng 1 FM phụ trách (1 - 1), được tham chiếu bởi `RentalRequest.facility_id`, `StorageUnit.facility_id`, `AccountFacilityAssignment.facility_id`.
 - code (unique) - mã chi nhánh dùng trong mã hóa đơn/hợp đồng (Q7 - Quận 7, TD - Thủ Đức, ...)
 - name
 - address
 - phone
-- status (Active/Inactive)
+- operating_hours
+- fm_account_id (1 - 1: Account, null as default) - FM phụ trách
+- status (Active/Inactive) - mặc định `Inactive` khi mới tạo
 - created_at
 
 **NOTES:**
-- FM của chi nhánh xác định qua `Account` có role `FM` và `facility_id` tương ứng
+- `fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility trong toàn hệ thống
+- Facility chỉ được chuyển sang `Active` sau khi đã có `fm_account_id`
+- Khi account đang là FM bị đổi sang role khác, set `fm_account_id = null` trong cùng transaction
+- Không xóa cứng Facility vì còn liên kết `StorageUnit`, `RentalOrder`, ...
+- `code` cần được bổ sung vào schema của flow-5 (hiện flow-5 chưa có, nhưng mã hợp đồng/hóa đơn cần)
+# AccountFacilityAssignment
+**Overview:** gán FS vào Facility (1 facility có nhiều FS), phục vụ RBAC data-scope. Không dùng cho FM.
+- account_id (N - 1: Account, role FS)
+- facility_id (N - 1: Facility)
+- assigned_at
+
+**NOTES:**
+- Khi account FS bị đổi sang role khác, xóa dòng tương ứng trong cùng transaction
+- Dùng để validate `assigned_staff_id` ở `ReturnRequest`/`SupportRequest` thuộc đúng facility của khoang
 # UnitType
 **Overview:** loại khoang chứa (type, size, rental price) hiển thị cho khách xem và chọn khi gửi yêu cầu đặt kho.
 - name - ví dụ: Small, Medium, Large
@@ -277,7 +303,7 @@
 - status:
   - Available: sẵn sàng cho thuê
   - Reserved: đã được đặt cọc, giữ cho khách tới khi bàn giao (Flow 2)
-  - Occupied: đã bàn giao cho khách, đang có hợp đồng `Active`
+  - Rented: đã bàn giao cho khách, đang có hợp đồng `Active`
   - Maintenance: đang bảo trì (1-3 ngày sau khi khách trả kho) hoặc đang sửa chữa sự cố
 - created_at
 - updated_at
@@ -320,70 +346,11 @@
 - is_active
 - created_by (N - 1: Account)
 - created_at
-# AppointmentSlot
-**Overview:** các khung giờ hẹn on-site của chi nhánh, hệ thống đưa ra làm lựa chọn lịch hẹn để khách chọn (tư vấn, ký hợp đồng, xem khoang, nhận khoang).
-- facility_id (N - 1: Facility)
-- start_at (MM/DD/YYYY HH:mm)
-- end_at (MM/DD/YYYY HH:mm)
-- capacity - số khách tối đa trong khung giờ
-- booked_count
-- status (Open/Full/Closed)
-
-**NOTES:**
-- Khi khách chọn một slot, `RentalOrder.appointment_at` lấy theo `start_at` của slot và `booked_count` tăng lên
-# CheckInRecord
-**Overview:** FS ghi nhận khách đến/đi tại kho, dùng để quan sát lịch trình trong ngày và làm lịch sử check-in/out của hợp đồng (Flow 3.2).
-- facility_id (N - 1: Facility)
-- staff_id (N - 1: Account) - FS ghi nhận
-- customer_id (N - 1: Account, nullable) - null nếu khách chưa có tài khoản
-- visitor_name (nullable) - dùng khi `customer_id` null
-- visitor_phone (nullable)
-- unit_id (N - 1: StorageUnit, nullable)
-- order_id (N - 1: RentalOrder, nullable) - khi khách đến theo lịch hẹn
-- contract_id (N - 1: RentalContract, nullable) - khi khách đến lấy/gửi đồ, trả kho, hỗ trợ sự cố
-- purpose (Appointment/Handover/Access/Return/Support/Other)
-- check_in_at
-- check_out_at (null as default)
-- note
-# AccessCredential
-**Overview:** chìa khóa/mã cửa của khoang chứa, FS giao cho khách khi bàn giao và nhận lại khi trả kho.
-- unit_id (N - 1: StorageUnit)
-- contract_id (N - 1: RentalContract, nullable)
-- type (PhysicalKey/AccessCode)
-- credential_code - số chìa khóa hoặc mã cửa (mã cửa cần được mã hóa khi lưu)
-- issued_by (N - 1: Account) - FS giao
-- issued_at
-- returned_to (N - 1: Account, null as default) - FS nhận lại
-- returned_at (null as default)
-- status:
-  - Active: đang được khách sử dụng
-  - Returned: khách đã trả lại
-  - Lost: khách báo mất
-  - Revoked: bị vô hiệu hóa (đổi mã, làm lại chìa khóa)
-
-**NOTES:**
-- Khi xử lý `SupportRequest` loại `LostKey`/`AccessCode`: bản ghi cũ chuyển sang `Lost`/`Revoked` và tạo bản ghi mới
-# UnitInspection
-**Overview:** biên bản FS kiểm tra tình trạng khoang chứa khi bàn giao cho khách (Flow 2) và khi khách trả lại khoang (Flow 2.5).
-- unit_id (N - 1: StorageUnit)
-- contract_id (N - 1: RentalContract)
-- return_request_id (1 - 1: ReturnRequest, nullable) - chỉ gán khi `type = Return`
-- staff_id (N - 1: Account) - FS kiểm tra
-- type (Handover/Return)
-- condition (Good/NeedCleaning/Damaged)
-- note
-- photo_urls (JSON) - ảnh chụp tình trạng khoang
-- penalty_invoice_id (1 - 1: Invoice, nullable) - hóa đơn phạt hư hỏng (`Invoice.type = Penalty`) nếu có
-- inspected_at
-
-**NOTES:**
-- So sánh biên bản `Handover` và `Return` của cùng một hợp đồng để xác định hư hỏng phát sinh
-- Chi tiết sẽ bổ sung khi chốt Flow 2 và Flow 2.5
 # Notification
-**Overview:** thông báo gửi đến khách hàng/nhân viên qua web, email, SMS (duyệt/từ chối yêu cầu, hóa đơn cần thanh toán, hợp đồng sắp hết hạn, ...).
+**Overview:** thông báo gửi đến khách hàng/nhân viên qua web, email (duyệt/từ chối yêu cầu, hóa đơn cần thanh toán, hợp đồng sắp hết hạn, ...).
 - account_id (N - 1: Account, nullable) - null khi gửi email cho người chưa có tài khoản (Flow 1.1)
-- recipient - email/số điện thoại nhận (dùng cho channel Email/SMS)
-- channel (Web/Email/SMS)
+- recipient - email nhận (dùng cho channel Email)
+- channel (Web/Email)
 - type - ví dụ: `RentalRequest.Approved`, `Invoice.Created`, `Contract.ExpiringSoon`
 - title
 - content
