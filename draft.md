@@ -14,7 +14,7 @@
 - Đề ra các chính sách chung cho thuê, đặt cọc, gia hạn, hủy, trả khoang chứa, xử lý quá hạn
 - Quản lý giá thuê, phí quá hạn, discount, phí extra
 
-**Facility Manger - Quản lý cơ sở**: Trưởng kho của từng chi nhánh, chỉ phụ trách các thông tin liên quan đến cơ sở được giao
+**Facility Manager - Quản lý cơ sở**: Trưởng kho của từng chi nhánh, chỉ phụ trách các thông tin liên quan đến cơ sở được giao
 - Quản lý từng khoang chứa 
 - Phân bổ khoang chứa cho khách dựa trên yêu cầu của khách
 - Quản lý quá trình duyệt hợp đồng, trả, gia hạn
@@ -45,10 +45,16 @@
 
 **Storage unit - Khoang chứa**
 - First-paid first-serve
-- Trạng thái được chuyển sang "Đã được đặt cọc" ngay khi khách chuyển tiền đặt cọc thành công
+- Trạng thái (`StorageUnit.status`):
+  - `Available`: sẵn sàng cho thuê
+  - `Reserved`: đã được đặt cọc, giữ cho khách tới khi bàn giao (Flow 2)
+  - `Occupied`: đã bàn giao cho khách, đang có hợp đồng `Active`
+  - `Maintenance`: đang bảo trì (1-3 ngày sau khi khách trả kho) hoặc đang sửa chữa sự cố
+- Trạng thái được chuyển sang `Reserved` ngay khi khách chuyển tiền đặt cọc thành công
+- Khóa tạm 5-10 phút khi khách đang thanh toán cọc (Flow 1.3) **không phải là một status**, chỉ là lock ngắn hạn (ví dụ Redis key có TTL) để chặn thanh toán song song
 - Khách không được yêu cầu đặt kho đã được đặt cọc
 - NOTES:
-  - Đang phân vân việc có nên thêm 1 trạng thái cho khoang chứa là `OnHold` (tạm giữ cho khách đặt và đã được approve nhưng chưa đặt cọc) để giữ kho trong ngắn hạn (24h timeout), nếu không có `OnHold`, đơn đặt mặc dù đã `Approve` nhưng nếu chưa đặt cọc, các đơn tới sau và đặt cọc có thể chiếm khoang chứa đó.
+  - Đang phân vân việc có nên thêm 1 trạng thái cho khoang chứa là `OnHold` (tạm giữ cho khách đặt và đã được approve nhưng chưa đặt cọc) để giữ kho trong ngắn hạn (24h timeout), nếu không có `OnHold`, đơn đặt mặc dù đã `Approved` nhưng nếu chưa đặt cọc, các đơn tới sau và đặt cọc có thể chiếm khoang chứa đó.
     - Vấn đề phát sinh, Holding Attack - kẻ xấu dùng đúng 1 thông tin hợp lệ, lặp đi lặp lại quy trình để kho luôn ở trạng thái bị giữ, người khác không thuê được mà FM cũng không làm gì được nếu không có cơ chế chặn. Giải pháp dự kiến: Pre-authorization bằng visa/master card, tạm giữ 1$ để xác minh.
 
 ## Business workflow
@@ -78,21 +84,23 @@
   - Sau khi xác định được 1 yêu cầu đặt kho cần giải quyết, FM sẽ kiểm tra các kho còn sẵn tại chi nhánh và trong trường hợp:
     - **Tìm thấy khoang chứa thích hợp**:
       - FM nhập unit id phù hợp vào field `unit_id` và bấm `Approve`.
-      - `RentalRequest.status` sang `Approve`.
+      - `RentalRequest.status` sang `Approved`, lưu `unit_id`, `processed_by`, `processed_at`.
       - **Trong trường hợp email chưa có tài khoản:**
-        - Hệ thống ghi nhận trong một khoảng thời gian ngắn, có một yêu cầu được duyệt nhưng chưa có tài khoản. (Có thể sử dụng PG Cache hoặc Redis)
-        - Hóa đơn và yêu cầu chọn lịch hẹn sẽ được thêm vào tài khoản khách hàng khi được tạo trong thời gian quy định.
+        - `RentalRequest.customer_id` giữ null. Trạng thái "đã duyệt nhưng chưa có tài khoản" chính là `status = Approved AND customer_id IS NULL`, lưu trực tiếp trong DB (không dùng Redis/PG Cache để tránh mất yêu cầu khi cache bị xóa).
+        - `RentalOrder`, hóa đơn và yêu cầu chọn lịch hẹn sẽ được tạo khi khách đăng ký tài khoản trong thời gian quy định (Flow 1.2 Case A). Quá thời gian, job định kỳ chuyển `RentalRequest.status` sang `Expired`.
       - **Trong trường hợp email đã có tài khoản:**
-        - Hệ thống tạo một bản ghi trong `RentalOrder` để chờ khách đặt cọc.
+        - Gán `RentalRequest.customer_id`.
+        - Hệ thống tạo một bản ghi trong `RentalOrder` (`status = AwaitingDeposit`, `unit_id` = khoang FM chỉ định) để chờ khách đặt cọc.
         - Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
           - code: INV-DEP-XX-XXXXXX-XXXX
           - title: "Đặt cọc khoang chứa A"
           - desc: "Thanh toán đặt cọc khoang chứa A để đảm bảo giữ chỗ."
           - amount: ...
+          - due_date: hạn thanh toán cọc, quá hạn thì `RentalOrder.status = Expired`, `Invoice.status = Canceled`
         - Hệ thống gửi một thông báo/email thành công đến khách hàng kèm theo thông tin khoang chứa.
         - Hệ thống tạo một lựa chọn lịch hẹn on-site cho khách hàng.
     - **Không tìm thấy khoang chứa thích hợp**: 
-      - Chuyển status sang `Reject` và nhập lý do: "Hết khoang chứa phù hợp tại chi nhánh".
+      - Chuyển status sang `Rejected` và nhập `reject_reason`: "Hết khoang chứa phù hợp tại chi nhánh".
       - Hệ thống gửi một thông báo/email không thành công đến khách hàng kèm theo lý do.
 
 - **Hệ thống gửi email:**
@@ -104,17 +112,17 @@
       - Tạo một hóa đơn "Đặt cọc" cho khách hàng.
       - Thông báo trên web và email rằng có một hóa đơn đặt cọc cần được xử lý.
     - Đính kèm cảnh báo: "Khoang chứa chỉ được xác nhận chính thức cho khách hàng hoàn tất thanh toán cọc đầu tiên. Vui lòng thanh toán sớm để đảm bảo giữ chỗ."
-  - **Trong trường hợp yêu cầu được Approve nhưng chưa đặt cọc, và đã có người khác đặt cọc: (chưa chốt)**
-    - Phương án 1 (gợi ý khoang tương đương): hệ thống bắn thông báo/email "Khoang M-101 đã có người cọc trước. Cơ sở hiện vẫn còn các khoang M-102, M-103 cùng kích thước. Bấm vào đây để giữ khoang tương đương."
-    - Phương án 2 (chuyển sang danh sách mong muốn - Wish Lists): Yêu cầu của các khách còn lại tự động chuyển status sang Wishlisted. Nếu Khách A sau đó hủy cọc hoặc bùng hợp đồng, những người trong danh sách chờ sẽ nhận được thông báo để đặt cọc.
+  - **Trong trường hợp yêu cầu được Approved nhưng chưa đặt cọc, và đã có người khác đặt cọc: (chưa chốt)**
+    - Phương án 1 (gợi ý khoang tương đương): hệ thống bắn thông báo/email "Khoang M-101 đã có người cọc trước. Cơ sở hiện vẫn còn các khoang M-102, M-103 cùng kích thước. Bấm vào đây để giữ khoang tương đương." -> tạo `RentalOrder` mới (hoặc cập nhật `RentalOrder.unit_id`) cho khoang tương đương.
+    - Phương án 2 (chuyển sang danh sách mong muốn - Wish Lists): Yêu cầu của các khách còn lại tự động chuyển status sang `Wishlisted` (cần bổ sung status này vào `RentalRequest` nếu chốt). Nếu Khách A sau đó hủy cọc hoặc bùng hợp đồng, những người trong danh sách chờ sẽ nhận được thông báo để đặt cọc.
 
 **Schema:**
 - [**RentalRequest**](./db-table-draft.md#rentalrequest) - chứa các thông tin được gửi từ form trên website.
-- [**RentalOrder**](./db-table-draft.md#rentalorder) - chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
+- [**RentalOrder**](./db-table-draft.md#rentalorder) - chứa các thông tin đơn hàng đã được `Approved` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho.
 - [**Invoice**](./db-table-draft.md#invoice) -  chứa thông tin thanh toán của khách hàng (hóa đơn)
 
 **NOTES**
-- Nếu cả 2 fields order_id và contract_id đều null, tức là hóa đơn từ việc yêu cầu dịch vụ hỗ trợ (`SupportRequest`)
+- Nguồn gốc hóa đơn xác định bằng `Invoice.type` (Deposit/Rental/Extension/Penalty/Service), không suy ra từ việc `order_id`/`contract_id` null — xem NOTES của `Invoice`.
 - Entry trong list yêu cầu đặt khoang chứa của FM không có facility vì khi đặt, khách chỉ định một chi nhánh cụ thể và người quản lý tại chi nhánh đó sẽ nhận được yêu cầu => không cần liệt kê facility field.
 - Có thể phát triển thêm phần wishlist giành cho các khoang chứa đều không available, nhưng tự động gửi thông báo và đăng ký ngay khi có bất kỳ khoang chứa nào trống (có thể dùng filter).
 
@@ -127,29 +135,45 @@
 
 **Context:** Yêu cầu đặt khoang chứa của khách đã được duyệt và cần đặt cọc nhưng chưa có tài khoản.
 
-**Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định và hóa đơn + chọn lịch hẹn on-site sẽ được thêm tự động cho tài khoản đó. 
+**Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định và đơn hàng + hóa đơn + chọn lịch hẹn on-site sẽ được thêm tự động cho tài khoản đó. 
 
 **Details:**
-- Sau khi đăng ký, hệ thống kiểm tra trên bộ nhớ (Redis hoặc PG Cache) xem tài khoản có nằm trong mục "Có yêu cầu nhưng chưa tạo tài khoản"
+- Sau khi đăng ký, hệ thống query `RentalRequest WHERE customer_email = :email AND status = Approved AND customer_id IS NULL AND processed_at >= now - timeout`
+- Nếu có kết quả, với mỗi yêu cầu tìm được:
+  - Gán `RentalRequest.customer_id` = tài khoản vừa tạo.
+  - Kiểm tra `unit_id` còn `Available` (chưa bị ai đặt cọc). Nếu không còn -> xử lý như trường hợp "đã có người khác đặt cọc" ở Flow 1.1.
+  - Hệ thống tạo một bản ghi `RentalOrder` (`status = AwaitingDeposit`, `unit_id` lấy từ `RentalRequest.unit_id`).
 - Hệ thống tạo một bản ghi `Invoice` cho tài khoản để đặt cọc (số tiền cần đặt cọc dựa trên quy định từ BOM) với các thông tin:
   - code: INV-DEP-XX-XXXXXX-XXXX
   - title: "Đặt cọc khoang chứa A"
   - desc: "Thanh toán đặt cọc khoang chứa A để đảm bảo giữ chỗ."
   - amount: ...
+  - due_date: hạn thanh toán cọc
 - Hệ thống tạo một yêu cầu chọn lịch cho tài khoản.
 
 **Case B: Không có yêu cầu nào được duyệt**
+
+**Context:** Khách tự đăng ký tài khoản (chưa gửi yêu cầu, yêu cầu còn `Pending`/`Rejected`, hoặc đã quá thời gian và `Expired`).
+
+**Details:**
+- Query ở Case A không trả về kết quả -> chỉ tạo tài khoản, không tạo `RentalOrder`/`Invoice`.
+- Các yêu cầu còn `Pending` gửi bằng email này sẽ được gán `customer_id` khi FM duyệt (Flow 1.1, trường hợp email đã có tài khoản).
+- Yêu cầu đã `Expired` không được khôi phục, khách cần gửi yêu cầu mới.
 #### 1.3 Đặt cọc
-**Context:** Sau khi khách đã điền form và được approve, email phản hồi thành công đã được gửi có kèm theo link kích hoạt tài khoản và tài khoản được kích hoạt thành công.
+**Context:** Yêu cầu của khách đã được `Approved`, khách đã có tài khoản và có `RentalOrder` ở trạng thái `AwaitingDeposit` kèm hóa đơn đặt cọc chưa thanh toán.
 
 **Flow tổng quát:**
-Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" -> hiển thị một mục "Đặt cọc để giữ khoang chứa" -> thanh toán thành công -> trạng thái kho chuyển sang `Reserved` trong một khoản thời gian.
+Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" -> hiển thị một mục "Đặt cọc để giữ khoang chứa" -> thanh toán thành công -> trạng thái kho chuyển sang `Reserved` cho tới khi bàn giao (Flow 2).
 
 **Details:**
 - Khách đăng nhập vào ứng dụng và thanh toán
-- Ở bước hiện mã QR để chuyển khoản, khoang chứa sẽ tạm thời bị khóa (5-10p timeout) để việc thanh toán hoàn tất mà không bị gián đoạn. -> Tránh nhiều người đặt cọc 1 kho cùng lúc
-- **Nếu thanh toán thành công:** trạng thái khoang chứa sẽ được chuyển sang `Reserved`
+- Ở bước hiện mã QR để chuyển khoản, khoang chứa sẽ tạm thời bị khóa (5-10p timeout, lock ngắn hạn, không đổi `StorageUnit.status`) để việc thanh toán hoàn tất mà không bị gián đoạn. -> Tránh nhiều người đặt cọc 1 kho cùng lúc
+- **Nếu thanh toán thành công:**
+  - `PaymentTransaction.status = Success`, `Invoice.status = Paid`, `Invoice.paid_at = now`
+  - `StorageUnit.status = Reserved`
+  - `RentalOrder.status` chuyển từ `AwaitingDeposit` sang `Pending` (chờ FS xác nhận lịch hẹn)
 - **Nếu thanh toán không thành công:** khách hàng quay về trang "Hóa đơn" và khóa tạm thời của khoang chứa được mở.
+- **Nếu quá `Invoice.due_date` mà chưa thanh toán:** `RentalOrder.status = Expired`, `Invoice.status = Canceled`.
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
 ### 3. Quản lý kho đã thuê (Customer)
@@ -157,16 +181,16 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 ```
 [Dashboard tổng quan] -> [Chi tiết khoang chứa/hợp đồng] -> [Gia hạn / Trả kho / Báo sự cố]
 ```
-** Ghi chú schema:** `RentalOrder` (theo db-table-draft.md) chỉ là giai đoạn trước khi ký hợp đồng. Bảng hợp đồng đang hiệu lực — **`RentalContract`** — vẫn là **đề xuất, cần team xác nhận** (xem chi tiết field ở cuối mục Schema).
+**Ghi chú schema:** `RentalOrder` chỉ là giai đoạn trước khi ký hợp đồng. Hợp đồng đang hiệu lực được lưu ở [**`RentalContract`**](./db-table-draft.md#rentalcontract).
 
-**Vị trí trong vòng đời:** Flow 3 bắt đầu khi `RentalContract` được tạo (cuối Flow 2), kết thúc khi FS xác nhận trả kho xong (Flow 2.5 cập nhật `RentalContract.status = Completed`).
+**Vị trí trong vòng đời:** Flow 3 bắt đầu khi `RentalContract` được tạo (lúc ký hợp đồng, `RentalOrder` -> `Done`, thuộc Flow 2), kết thúc khi FS xác nhận trả kho xong (Flow 2.5 cập nhật `RentalContract.status = Completed`).
 
 **Dữ liệu phụ thuộc:** Flow 2 (tạo `RentalContract`) · Flow 4 (bảng giá/phí, số ngày N để cảnh báo sắp hết hạn) · Flow 5 (facility info).
 
 #### 3.1 Dashboard tổng quan
 **Details:**
 - User (Customer) vào trang **"Kho của tôi"**.
-- System: query `RentalContract WHERE customer_id = current_user AND status != Canceled`, JOIN `StorageUnit`, `Facility` để lấy tên chi nhánh/loại kho; JOIN `Invoice WHERE contract_id = ...` để tính tình trạng thanh toán.
+- System: query `RentalContract WHERE customer_id = current_user AND status = Active`, JOIN `StorageUnit`, `Facility` để lấy tên chi nhánh/loại kho (`facility_id` lấy qua `StorageUnit`); JOIN `Invoice WHERE contract_id = ...` để tính tình trạng thanh toán.
 - System: nhóm kết quả theo `facility_id`, trả về danh sách con theo từng chi nhánh (đã chốt: tách theo facility).
 - System: với mỗi hợp đồng, so sánh `now` với `end_date` để tính hiển thị "còn hiệu lực / quá hạn" ngay tại thời điểm trả dữ liệu (không lưu field trạng thái riêng cho việc này).
 
@@ -178,7 +202,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 #### 3.2 Chi tiết khoang chứa & hợp đồng
 **Details:**
 - User: bấm vào 1 hợp đồng từ dashboard.
-- System: trả về thông tin khoang (facility, vị trí, type, size — chỉ đọc), thông tin `RentalContract` (signed_at, start_date/end_date, deposit_amount, monthly_price, file_url), danh sách `Invoice WHERE contract_id = :id` (order theo created_at desc), lịch sử check-in/out (tham chiếu Flow 2).
+- System: trả về thông tin khoang (facility, vị trí, type, size — chỉ đọc), thông tin `RentalContract` (signed_at, start_date/end_date, deposit_amount, monthly_price, file_url), danh sách `Invoice WHERE contract_id = :id OR order_id = RentalContract.order_id` (bao gồm cả hóa đơn đặt cọc, order theo created_at desc), lịch sử check-in/out (tham chiếu Flow 2).
 - System: tính toán và trả về danh sách action khả dụng (`available_actions`) theo bảng event dưới đây — FE chỉ render theo mảng này, không tự suy luận business rule.
 
 **Bảng action/event (thay cho khái niệm status `Expiring Soon` — không cần lưu riêng, tính trực tiếp từ `end_date`):**
@@ -194,8 +218,9 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - User: bấm [Gia hạn], nhập số tháng muốn gia hạn thêm.
 - System: tạo `ExtendRequest(contract_id, extra_months, status=PendingApproval)`.
 - System: notify FM để duyệt (chi tiết duyệt thuộc Flow 6).
-- FM duyệt → System: tạo `Invoice(contract_id, type=Extension)` theo bảng phí Flow 4.
+- FM duyệt → System: tạo `Invoice(contract_id, type=Extension, due_date)` theo bảng phí Flow 4, gán `ExtendRequest.invoice_id`, `status = ApprovedPendingPayment`.
 - Khách thanh toán thành công → System: cập nhật `RentalContract.end_date += extra_months`, `ExtendRequest.status = Completed`.
+- Quá `Invoice.due_date` mà chưa thanh toán → System: `ExtendRequest.status = Expired`, `Invoice.status = Canceled` (giải phóng lock để khách có thể gửi yêu cầu gia hạn mới).
 - **Hủy yêu cầu:** User có thể bấm [Hủy yêu cầu gia hạn] **khi `ExtendRequest.status = PendingApproval`** (FM chưa duyệt). Sau khi FM đã duyệt, hệ thống **không cho hủy qua web** — khách cần liên hệ FM trực tiếp.
 
 #### 3.4 Yêu cầu trả kho
@@ -213,7 +238,8 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 #### 3.5 Gửi yêu cầu hỗ trợ sự cố
 **Details:**
 - User: bấm [Báo sự cố], nhập `issue_type`, `description` (mất chìa khóa, lỗi mã truy cập, khoang hư hỏng...).
-- System: tạo `SupportRequest(contract_id, unit_id, status=Open)`.
+- System: tạo `SupportRequest(contract_id, unit_id, reporter_id=current_user, status=Open)`.
+- FS cũng có thể tự ghi nhận sự cố tại kho: `reporter_id` = FS, `contract_id` có thể null nếu khoang không có hợp đồng `Active`.
 - System: notify FM.
 - FM: phân công FS xử lý → System: cập nhật `SupportRequest.assigned_staff_id`, `status = Assigned` → chi tiết xử lý on-site thuộc Flow 7.
 - Action này không ảnh hưởng tới `RentalContract`.
@@ -224,10 +250,10 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Trạng thái "còn hiệu lực / sắp hết hạn / quá hạn" **luôn tính trực tiếp từ `end_date` tại thời điểm query**, không lưu field riêng — tránh dữ liệu bị lệch theo thời gian và tránh xung đột với các bảng request khác (xem lý do ở 3.4).
 
 **a) Dashboard (3.1) — `GET /api/customer/contracts`**
-- Query `RentalContract WHERE customer_id = :current_user AND status != Canceled`, group theo `facility_id`.
+- Query `RentalContract WHERE customer_id = :current_user AND status = Active`, JOIN `StorageUnit` rồi group theo `StorageUnit.facility_id`.
 
 **b) Chi tiết (3.2) — `GET /api/customer/contracts/{id}`**
-- Trả về `RentalContract` + `Invoice` list + `available_actions` tính theo bảng event ở 3.2:
+- Trả về `RentalContract` + `Invoice` list (theo `contract_id` và hóa đơn cọc theo `order_id`) + `available_actions` tính theo bảng event ở 3.2:
   ```
   if now > end_date: available_actions = []   # quá hạn, ẩn hết action
   elif end_date - now <= N: available_actions = [ReturnRequest, ExtendRequest(highlight), SupportRequest]
@@ -245,11 +271,12 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - `POST /api/fm/return-requests/{id}/assign` (phía FM) — set `assigned_staff_id`, `status = Assigned`, bắn event cho Flow 2.5.
 
 **e) Báo sự cố (3.5)**
-- `POST /api/customer/contracts/{id}/support-requests` — tạo `SupportRequest(status=Open)`.
+- `POST /api/customer/contracts/{id}/support-requests` — tạo `SupportRequest(reporter_id=current_user, status=Open)`.
 - `POST /api/fm/support-requests/{id}/assign` (phía FM) — set `assigned_staff_id`, `status = Assigned`, bắn event cho Flow 7.
 
 **f) Thanh toán hóa đơn**
-- `POST /api/invoices/{id}/pay` → tạo `PaymentTransaction`, webhook cập nhật `status = Success/Failed`; nếu `Success` và `Invoice.type = Extension` → cập nhật `RentalContract.end_date`.
+- `POST /api/invoices/{id}/pay` → tạo `PaymentTransaction`, webhook cập nhật `status = Success/Failed`; nếu `Success` → `Invoice.status = Paid`, `paid_at = now`, và nếu `Invoice.type = Extension` → cập nhật `RentalContract.end_date`, `ExtendRequest.status = Completed`.
+- Chỉ cho thanh toán hóa đơn `status = Unpaid`, hóa đơn `Canceled` trả lỗi 409.
 
 **Concurrency:**
 - Lock theo `contract_id` khi tạo `ExtendRequest`/`ReturnRequest` để tránh 2 yêu cầu xung đột cùng lúc.
@@ -264,17 +291,11 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 | `SupportRequest.Created` | FM (trang phân công FS) |
 | `SupportRequest.Assigned` | Flow 7 (FS xử lý sự cố) |
 
-**Schema:**
-- `RentalOrder`, `Invoice`, `PaymentTransaction` — đã có trong db-table-draft.md.
-- **`RentalContract`** — đề xuất, cần xác nhận. Field: `order_id, unit_id, customer_id, start_date, end_date, signed_at, file_url, deposit_amount, monthly_price, status(Active/Completed/Terminated/Canceled)`. **Không còn `PendingReturn` trong enum này** — trạng thái trả kho theo dõi ở bảng riêng bên dưới.
-- **`ReturnRequest`** (mới, thay cho việc dùng `RentalContract.status = PendingReturn`): `contract_id, customer_id, preferred_date, reason, status(Pending/Assigned/Canceled/...), assigned_staff_id, created_at`.
-- **`ExtendRequest`** (mới): `contract_id, extra_months, status(PendingApproval/Canceled/Rejected/ApprovedPendingPayment/Completed), invoice_id, approved_by, requested_at, processed_at`.
-- **`SupportRequest`** (mới): `contract_id, unit_id, customer_id, issue_type, description, status(Open/Assigned/InProgress/Resolved/Closed), assigned_staff_id, created_at, resolved_at`.
 **Advanced Features (not MVP)**
 - Tự động nhắc gia hạn qua email/SMS trước N ngày hết hạn.
 - Cho khách xem lịch sử đầy đủ các hợp đồng đã `Completed`.
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
-NOTE: sau khi trả hợp đồng, status của kho là MAINTANANCE trong vòng 1-3 ngày trước khi cho người khác thuê.
+NOTE: sau khi trả hợp đồng, status của kho là `Maintenance` trong vòng 1-3 ngày trước khi cho người khác thuê.
 ### 7. Yêu cầu hỗ trợ và xử lý sự cố
