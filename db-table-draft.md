@@ -73,7 +73,7 @@
 - email (unique)
 - phone
 - password_hash
-- role (Customer/FacilityStaff/FacilityManager/BusinessOperationManager/SystemAdministrator)
+- role_id (N - 1: Role)
 - status (Active/Inactive)
 - created_at
 - activated_at
@@ -81,11 +81,33 @@
 **NOTES:**
 - Không còn field `facility_id` trên Account. Quan hệ FM–Facility (1–1) chỉ lưu 1 chiều tại `Facility.fm_account_id`, tránh trùng lặp 2 nguồn dữ liệu. Cần biết FM đang phụ trách facility nào thì query ngược từ Facility.
 - FS dùng bảng `AccountFacilityAssignment` riêng (Facility–FS là 1–n).
+- **Đã sửa:** `role` không còn là enum trực tiếp trên `Account` mà là `role_id` tham chiếu tới bảng `Role` (mô hình RBAC data-driven, xem `Role`/`Permission`/`RolePermission` bên dưới) — khớp với nhiệm vụ gốc của System Administrator: *"Thiết lập quyền truy cập dữ liệu cho các role dựa trên model RBAC"*.
+
+---
+
+# Role
+**Overview:** các vai trò trong hệ thống. System Administrator quản lý (tạo/sửa role nếu cần, seed mặc định 5 role cho MVP).
+- name (Customer/FacilityStaff/FacilityManager/BusinessOperationManager/SystemAdministrator)
+- description
+
+# Permission
+**Overview:** các quyền truy cập/hành động cụ thể trong hệ thống theo model RBAC.
+- code — ví dụ: `rental_request.approve`, `invoice.read`, `policy.update`, `storage_unit.create`
+- description
+
+# RolePermission
+**Overview:** bảng trung gian N–N giữa `Role` và `Permission`. System Administrator thiết lập/điều chỉnh quyền cho từng role qua đây (data-driven, không hard-code trong source code).
+- role_id (N - 1: Role)
+- permission_id (N - 1: Permission)
+
+**NOTES:**
+- MVP seed sẵn 1 bộ permission mặc định cho mỗi role theo bảng RBAC tổng quát ở mục 5.0 của draft.md — Admin có thể chỉnh sửa thêm qua bảng này mà không cần deploy lại code.
 
 ---
 
 # Facility
 **Overview:** cơ sở/chi nhánh, có đúng 1 FM phụ trách (1–1).
+- code (unique) — mã chi nhánh dùng trong `Invoice.code`/`RentalContract.code` (VD: Q7 - Quận 7, TD - Thủ Đức)
 - name
 - address
 - phone
@@ -99,6 +121,7 @@
 - `fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility trong toàn hệ thống.
 - Ràng buộc bắt buộc: Facility chỉ được chuyển sang `Active` sau khi `fm_account_id` đã có giá trị. Facility `Inactive` không hiển thị cho khách và FM không tạo được StorageUnit cho tới khi Facility `Active`.
 - Khi account đang là FM bị đổi sang role khác, hệ thống phải tự động set `fm_account_id = null` trong cùng transaction với thao tác đổi role (xem `AccountRoleRequest` / audit ở mục 5.0).
+- **Đã thêm field `code`:** bắt buộc phải có vì `Invoice.code` và `RentalContract.code` (Flow 1/2) dùng mã chi nhánh này làm phần giữa của mã hóa đơn/hợp đồng — trước đây Flow 5 chưa có field này dù các flow khác đã tham chiếu.
 
 ---
 
@@ -110,6 +133,7 @@
 
 **NOTES:**
 - Khi account FS bị đổi sang role khác, dòng tương ứng phải bị xoá trong cùng transaction với thao tác đổi role, tránh để lại data-scope "mồ côi".
+- Dùng để validate `Appointment.staff_id`/`SupportRequest.assigned_staff_id` thuộc đúng facility của khoang (Flow 2, Flow 3).
 
 ---
 
@@ -137,65 +161,82 @@
 ---
 
 # StorageUnit
-**Overview:** khoang chứa vật lý thuộc một Facility, trạng thái dùng chung xuyên suốt Flow 1/2/3/5.
+**Overview:** khoang chứa vật lý thuộc một Facility, trạng thái dùng chung xuyên suốt Flow 1/2/2.5/3/5.
 - facility_id (N - 1: Facility)
+- unit_type_id (N - 1: UnitType)
 - unit_code
-- unit_type
-- size
 - location
-- rental_price
 - status (Available/OnHold/Reserved/Rented/Maintenance)
 - created_at
 - updated_at
 
 **NOTES:**
-- rental_price phải nằm trong khung giá của `PricingPolicy` (Flow 4 — bảng này KHÔNG thuộc phạm vi thiết kế của Flow 5, chỉ đọc/tham chiếu).
+- **Đã bỏ field `rental_price` và `unit_type` (string).** Giá thuê là thuộc tính của `UnitType.monthly_price` (Flow 4, BOM quản lý tập trung) — mọi `StorageUnit` cùng `unit_type_id` dùng chung một mức giá tại một thời điểm. FM không tự nhập giá cho từng khoang, nên không còn nhu cầu validate khung giá riêng lẻ.
+- `unit_type` (string) đổi thành `unit_type_id` (FK tới bảng `UnitType`) để tránh dữ liệu tự do, đảm bảo đồng bộ với giá và thông tin loại kho.
+- Enum `status` là bản chính thức do Flow 5 sở hữu, dùng chung toàn hệ thống — chi tiết từng giá trị xem mục 5.2 của draft.md.
 - Chỉ tạo được khi Facility đang `Active`.
 
 ---
 
 # AuditLog
-**Overview:** ghi nhận các hành động nhạy cảm (tạo account, đổi role, gán/xoá facility assignment, đổi trạng thái StorageUnit thủ công). Dạng tối giản cho MVP.
-- actor_account_id (N - 1: Account) — ai thực hiện
-- action_description — mô tả dạng text (VD: "Đổi role account X từ FS sang FM")
+**Overview:** ghi nhận các hành động nhạy cảm (tạo account, đổi role, gán/xoá facility assignment, đổi trạng thái StorageUnit thủ công, duyệt/từ chối yêu cầu...). Dùng chung cấu trúc với quyết định của Flow 3 (mục 3.6), không phải bản riêng của Flow 5.
+- account_id (N - 1: Account) — người thực hiện
+- action — ví dụ: `RentalRequest.Approve`, `Account.UpdateRole`, `Facility.AssignFM`
+- entity_type — tên bảng bị tác động
+- entity_id
+- old_value (JSON, nullable)
+- new_value (JSON, nullable)
 - created_at
 
 **NOTES:**
-- Bản đầy đủ (structured old_value/new_value theo từng loại entity) thuộc Advanced Features, không cần cho MVP.
+- **Đã thay thế bản tối giản (`actor_account_id`/`action_description` dạng text) bằng cấu trúc đầy đủ này** để khớp với Flow 3 — Flow 3 (mục 3.6) đã tham chiếu tới "cấu trúc bảng AuditLog theo quyết định chung", nên Flow 5 không tự định nghĩa bản khác.
+- Chỉ ghi các thao tác làm thay đổi quyền lợi/quyền hạn (đổi role, gán facility, duyệt yêu cầu...), không ghi mọi hành động đọc dữ liệu.
 
 ---
 
-# SupportRequest
-**Overview:** yêu cầu hỗ trợ/sự cố tại kho.
-- customer_id (N - 1: Account)
-- unit_id (N - 1: StorageUnit, nullable)
-- facility_id (N - 1: Facility)
-- type (Incident/ServiceRequest/Complaint)
-- title
-- desc
-- status (Pending/InProgress/Resolved/Closed)
-- assigned_staff_id (N - 1: Account, nullable) — FM gán trực tiếp qua field này (không dùng bảng StaffAssignment riêng)
+# LoginHistory
+**Overview:** lịch sử đăng nhập của users, System Administrator theo dõi (nhiệm vụ đã ghi trong phần Actors nhưng trước đây Flow 5 chưa có bảng riêng).
+- account_id (N - 1: Account, nullable) — null khi đăng nhập bằng email không tồn tại
+- email — email dùng để đăng nhập
+- ip_address
+- user_agent
+- status (Success/Failed)
+- failure_reason (null as default)
 - created_at
-- resolved_at
 
 **NOTES:**
-- Bảng này thuộc phạm vi thiết kế của Flow 7, không phải Flow 5 — Flow 5 (mục 5.3) chỉ đọc/ghi field `assigned_staff_id`, không tự định nghĩa lại cấu trúc bảng.
+- Tách riêng khỏi `AuditLog`: `LoginHistory` ghi nhận sự kiện đăng nhập (kể cả thất bại/email không tồn tại), `AuditLog` ghi nhận hành động nghiệp vụ có tác động dữ liệu.
 
 ---
 
-# PricingPolicy
-**Overview:** khung giá thuê do BOM cấu hình.
-- unit_type
-- min_price
-- max_price
-- effective_date
-- created_by (N - 1: Account, role BusinessOperationManager)
+# UnitType
+**Overview:** loại khoang chứa (type, size, giá thuê hiện tại), thuộc phạm vi thiết kế của **Flow 4** — Flow 5 chỉ đọc `monthly_price`/thông tin loại khi tạo `StorageUnit`, không tự định nghĩa lại bảng này.
+- name — ví dụ: Small, Medium, Large
+- width, depth, height (m)
+- area (m2)
+- description
+- monthly_price — giá thuê hiện tại mỗi tháng, do BOM cập nhật trực tiếp (Flow 4)
+- updated_by (N - 1: Account)
+- updated_at
 
 **NOTES:**
-- Bảng này thuộc phạm vi thiết kế của Flow 4, không phải Flow 5 — Flow 5 (mục 5.2) chỉ đọc để validate rental_price.
-- MVP chỉ 1 khung giá toàn hệ thống theo unit_type (bỏ field facility_id override — đẩy sang Advanced Features).
+- `RentalContract.monthly_price` (Flow 2) lưu giá tại thời điểm ký, không phụ thuộc giá hiện tại ở bảng này.
+- Nếu sau này cần giá khác nhau theo từng chi nhánh, tách giá ra bảng riêng theo (`facility_id`, `unit_type_id`) — đẩy sang Advanced Features, MVP dùng 1 giá áp dụng toàn hệ thống theo `unit_type_id`.
+
+---
+
+~~# PricingPolicy~~
+**Đã loại bỏ.** Xung đột với mô hình `UnitType.monthly_price` (Flow 4 quản lý giá trực tiếp, không phải khung min–max để FM tự nhập). FM khi tạo `StorageUnit` chỉ chọn `unit_type_id` có sẵn, không tự nhập số tiền — do đó không cần bảng khung giá riêng cho FM.
+
+---
+
+~~# SupportRequest~~
+**Không định nghĩa ở đây.** Bảng này thuộc phạm vi thiết kế của **Flow 3/7**, đã có schema đầy đủ riêng (`issue_type`, `reporter_id`, `contract_id`, `invoice_id`...) ở phần schema của Flow 3. Flow 5 (mục 5.3) chỉ đọc/ghi field `assigned_staff_id` khi FM phân công FS, không tự định nghĩa lại cấu trúc bảng để tránh 2 shape khác nhau cho cùng 1 bảng.
 
 ---
 
 ~~# StaffAssignment~~
-**Đã loại khỏi phạm vi MVP.** Phân công FS lưu trực tiếp trên `RentalOrder.staff_id` (cho appointment) và `SupportRequest.assigned_staff_id` (cho sự cố) — không dùng bảng riêng, tránh 2 nguồn dữ liệu song song cho cùng 1 mục đích.
+**Đã loại khỏi phạm vi MVP.** Phân công FS lưu trực tiếp trên `Appointment.staff_id` (cho lịch hẹn check-in/bàn giao/trả kho — bảng do Flow 2 sở hữu) và `SupportRequest.assigned_staff_id` (cho sự cố) — không dùng bảng riêng, tránh 2 nguồn dữ liệu song song cho cùng 1 mục đích.
+
+**NOTES:**
+- **Đã sửa so với bản cũ:** trước đây ghi "lưu trên `RentalOrder.staff_id`" — theo quyết định chung mới nhất (A6, thống nhất với Flow 2), `staff_id`/`appointment_date` không còn nằm trên `RentalOrder` nữa mà chuyển hẳn sang bảng `Appointment`.
