@@ -88,20 +88,20 @@
   - Canceled: khách hủy khi còn `PendingApproval`, hoặc hệ thống hủy khi hợp đồng bị chấm dứt trước hạn
   - Rejected: FM từ chối
   - ApprovedPendingPayment: FM đã duyệt, hệ thống tạo `Invoice` và chờ khách thanh toán, khách không được hủy qua web
-  - Expired: quá `Invoice.due_date` mà khách chưa thanh toán -> hóa đơn gia hạn chuyển `Canceled`
+  - Expired: quá `Invoice.due_date` mà khách chưa thanh toán -> hóa đơn gia hạn chuyển `Canceled` (job định kỳ, Flow 3.6 g)
   - Completed: thanh toán thành công, `RentalContract.end_date += extra_months`
 
 **NOTES:**
-- Chỉ được tạo khi `now <= RentalContract.end_date` (hợp đồng quá hạn không được gia hạn qua web)
+- Chỉ được tạo khi `today <= RentalContract.end_date` (so sánh theo ngày; hợp đồng quá hạn không được gia hạn qua web)
 - Mỗi `RentalContract` chỉ có tối đa 1 `ExtendRequest` ở trạng thái `PendingApproval` hoặc `ApprovedPendingPayment` tại một thời điểm (partial unique index trên `contract_id`)
 - Không được tạo khi hợp đồng đang có `ReturnRequest` ở `Pending`/`Assigned` (kiểm tra trong transaction, Flow 3.6)
-- Hợp đồng bị chấm dứt trước hạn: `PendingApproval` -> `Canceled`; `ApprovedPendingPayment` -> `Expired` và hóa đơn gia hạn -> `Canceled`
+- Hợp đồng bị chấm dứt trước hạn (nếu chốt status `Terminated`): `PendingApproval` -> `Canceled`; `ApprovedPendingPayment` -> `Expired` và hóa đơn gia hạn -> `Canceled`
 - Không cần `customer_id` vì đã xác định qua `RentalContract.customer_id`
 # ReturnRequest
 **Overview:** chứa các yêu cầu trả kho do khách gửi (Flow 3.4), FM phân công FS xử lý on-site (Flow 2.5). Tách bảng riêng thay vì dùng `RentalContract.status = PendingReturn` để không đè mất thông tin quá hạn của hợp đồng.
 - contract_id (N - 1: RentalContract)
 - assigned_staff_id (N - 1: Account, null until FM assign)
-- preferred_date (MM/DD/YYYY) - ngày khách mong muốn trả kho
+- preferred_date (MM/DD/YYYY) - ngày khách mong muốn trả kho, phải `>= today` lúc tạo; được gửi cả khi hợp đồng đã quá hạn
 - reason (nullable) - lý do trả kho (tùy chọn)
 - cancel_reason (null as default) - lý do khách tự hủy (tùy chọn)
 - created_at
@@ -109,7 +109,7 @@
 - status:
   - Pending: chờ FM phân công FS, khách được phép hủy
   - Assigned: FM đã phân công FS, khách không được hủy qua web (liên hệ FM/FS trực tiếp)
-  - Canceled: khách hủy khi còn `Pending`, hoặc hệ thống hủy khi hợp đồng bị chấm dứt trước hạn
+  - Canceled: khách hủy khi còn `Pending`, hoặc hệ thống hủy khi hợp đồng bị chấm dứt trước hạn (nếu chốt status `Terminated`)
   - Completed: Flow 2.5 xác nhận trả kho hoàn tất (`CheckoutRecord.result = COMPLETED`). Việc đóng hợp đồng (`RentalContract.status = Ended`) và chuyển/mở lại `StorageUnit` do Flow 2.5 thực hiện
 
 **NOTES:**
@@ -138,6 +138,7 @@
 
 **NOTES:**
 - Khi Customer gửi: `contract_id` bắt buộc và phải thuộc về khách (`RentalContract.customer_id = reporter_id`)
+- Khi FS ghi nhận (`POST /api/staff/support-requests`): FS phải thuộc facility của khoang; `contract_id` tự gán theo hợp đồng `Active` của khoang, không có thì null
 - Chỉ phát sinh `invoice_id` khi có `contract_id` (có khách để thu phí). Hóa đơn `Invoice(type=Service)` do Flow 7 tạo theo `ExtraFee`
 - `assigned_staff_id` phải là FS có `AccountFacilityAssignment` với facility của khoang
 - Một hợp đồng có thể có nhiều `SupportRequest` cùng lúc (khác với `ExtendRequest`/`ReturnRequest`)

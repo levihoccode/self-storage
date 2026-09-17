@@ -188,56 +188,85 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **Ranh giới với Flow 2:** `RentalContract` do Flow 2 tạo và quản lý vòng đời (`Draft -> Signed -> Active -> Ended`). Flow 3 **chỉ đọc** hợp đồng và **chỉ cập nhật `end_date`** khi gia hạn thành công (3.3), không tạo mới và không đổi `status`.
 
 **Dữ liệu phụ thuộc:** Flow 2 (`RentalContract`, `Appointment`, `HandoverRecord`) · Flow 4 (bảng giá/phí, số ngày N để cảnh báo sắp hết hạn) · Flow 5 (facility info, phân quyền FM/FS theo facility).
+- Flow 3 **không đọc `RentalOrder.status` và không dùng `ProposalFeedback`** — chỉ dùng `RentalContract.order_id` để lấy hóa đơn đặt cọc hiển thị ở 3.2. Quyết định giữ/bỏ `ProposalFeedback` (A5) và enum `RentalOrder` (B3) không làm thay đổi Flow 3.
+- `start_date`/`end_date` do Flow 2 tính khi kích hoạt hợp đồng theo mốc bắt đầu tính tiền (A10). Flow 3 chỉ dùng `end_date` (ngày cuối cùng còn hiệu lực) và không tự tính lại từ `start_date`.
+
+**Dữ liệu Flow 3 cần Flow 4 cung cấp** (giá trị dạng số, đọc qua tên key trong file constant dùng chung giữa Flow 3 và Flow 4, không hardcode string ở từng flow):
+
+| Key đề xuất | Kiểu | Dùng ở |
+|---|---|---|
+| `contract.expiring_soon_days` | Number (ngày) | N trong bảng action 3.2 và thông báo sắp hết hạn 3.1 |
+| `extension.invoice_due_days` | Number (ngày) | `Invoice.due_date` của hóa đơn gia hạn (3.3) = ngày FM duyệt + giá trị này |
+| Giá gia hạn | Quy tắc | Số tiền hóa đơn gia hạn = `extra_months × RentalContract.monthly_price` (giá đã chốt lúc ký), trừ khi Flow 4 quy định khác |
+
+- `overdue.fee_per_day` và việc tạo `Invoice(type=Penalty)` khi quá hạn **không thuộc Flow 3** (Flow 6); Flow 3 chỉ hiển thị banner quá hạn và các hóa đơn phạt đã được tạo.
 
 #### 3.1 Dashboard tổng quan
 **Details:**
 - User (Customer) vào trang **"Kho của tôi"**.
 - System: query `RentalContract WHERE customer_id = current_user AND status = Active`, JOIN `StorageUnit`, `Facility` để lấy tên chi nhánh/loại kho (`facility_id` lấy qua `StorageUnit`); JOIN `Invoice WHERE contract_id = ...` để tính tình trạng thanh toán.
 - System: nhóm kết quả theo `facility_id`, trả về danh sách con theo từng chi nhánh (đã chốt: tách theo facility).
-- System: với mỗi hợp đồng, so sánh `now` với `end_date` để tính hiển thị "còn hiệu lực / quá hạn" ngay tại thời điểm trả dữ liệu (không lưu field trạng thái riêng cho việc này).
+- System: với mỗi hợp đồng, so sánh `today` (ngày hiện tại theo múi giờ hệ thống, không phải timestamp `now`) với `end_date` để tính hiển thị "còn hiệu lực / sắp hết hạn / quá hạn" ngay tại thời điểm trả dữ liệu (không lưu field trạng thái riêng cho việc này).
 
 **NOTES:**
 - UI/UX trang này cần thiết kế kỹ để dễ dùng: nút filter theo chi nhánh, theo khoảng thời hạn hợp đồng, sort theo ngày hết hạn gần nhất.
-- Hợp đồng gần hết hạn (trước N ngày, N lấy từ policy do BOM cấu hình ở Flow 4) nên được hệ thống tự động gửi thông báo qua email và thông báo web.
+- Hợp đồng gần hết hạn (trước N ngày, N = `contract.expiring_soon_days` do BOM cấu hình ở Flow 4) nên được hệ thống tự động gửi thông báo qua email và thông báo web.
 - Khách chỉ có 1 hợp đồng vẫn hiển thị dashboard như bình thường (danh sách 1 item), không tách luồng riêng để vào thẳng 3.2 -> giữ 1 flow duy nhất, đỡ phải xử lý thêm case đặc biệt ở FE/BE.
 
 #### 3.2 Chi tiết khoang chứa & hợp đồng
 **Details:**
 - User: bấm vào 1 hợp đồng từ dashboard.
-- System: trả về thông tin khoang (facility, vị trí, type, size — chỉ đọc), thông tin `RentalContract` (signed_at, start_date/end_date, deposit_amount, monthly_price, pdf_url), danh sách `Invoice WHERE contract_id = :id OR order_id = RentalContract.order_id` (bao gồm cả hóa đơn đặt cọc, order theo created_at desc), lịch sử lịch hẹn và bàn giao (`Appointment` + `HandoverRecord` của Flow 2, chỉ đọc).
+- System: trả về thông tin khoang (facility, vị trí, type, size — chỉ đọc), thông tin `RentalContract` (signed_at, start_date/end_date, deposit_amount, monthly_price; nút tải hợp đồng chỉ hiển thị khi có `pdf_url` — hình thức ký và file hợp đồng chờ chốt A7/C1, Flow 3 không phụ thuộc), danh sách `Invoice WHERE contract_id = :id OR order_id = RentalContract.order_id` (bao gồm cả hóa đơn đặt cọc, order theo created_at desc), lịch sử lịch hẹn và bàn giao (`Appointment` + `HandoverRecord` của Flow 2, chỉ đọc).
 - System: tính toán và trả về danh sách action khả dụng (`available_actions`) theo bảng event dưới đây — FE chỉ render theo mảng này, không tự suy luận business rule.
 
 **Bảng action/event (thay cho khái niệm status `Expiring Soon` — không cần lưu riêng, tính trực tiếp từ `end_date`):**
 
-| Điều kiện (so với `now`) | Hành động hiển thị cho khách |
+**Bước 1 — theo thời hạn hợp đồng** (so sánh theo ngày, `end_date` là ngày cuối cùng còn hiệu lực):
+
+| Điều kiện | Hành động hiển thị cho khách |
 |---|---|
-| `now <= end_date` (hợp đồng còn hiệu lực) | [Trả kho], [Yêu cầu gia hạn], [Báo sự cố] |
-| `end_date - now <= N ngày` (N theo policy Flow 4), vẫn còn hiệu lực | Thêm banner nhắc gia hạn + làm nổi bật nút [Gia hạn] (vẫn đủ 3 nút ở trên) |
-| `now > end_date` (quá hạn) | **Không hiển thị nút thao tác nào** — chỉ hiển thị thông tin khoang & hợp đồng. Khách cần liên hệ FM để xử lý (thuộc Flow 6) |
+| `today <= end_date` (còn hiệu lực) | [Trả kho], [Yêu cầu gia hạn], [Báo sự cố] |
+| `end_date - today <= N ngày` (N theo policy Flow 4), vẫn còn hiệu lực | Như trên + banner nhắc gia hạn, làm nổi bật nút [Gia hạn] |
+| `today > end_date` (quá hạn) | [Trả kho], [Báo sự cố] + banner "Hợp đồng đã quá hạn, vui lòng liên hệ FM để gia hạn/xử lý phí" (Flow 6). **Ẩn [Gia hạn]** — không gia hạn qua web khi đã quá hạn |
+
+**Bước 2 — theo yêu cầu đang mở** (ghi đè bước 1, vì không được vừa gia hạn vừa trả kho — xem 3.3, 3.4):
+
+| Yêu cầu đang mở | Ẩn | Hiển thị thêm |
+|---|---|---|
+| `ExtendRequest.status = PendingApproval` | [Gia hạn], [Trả kho] | Trạng thái "Đang chờ FM duyệt gia hạn" + [Hủy yêu cầu gia hạn] |
+| `ExtendRequest.status = ApprovedPendingPayment` | [Gia hạn], [Trả kho] | [Thanh toán gia hạn] (dẫn tới hóa đơn `Extension`, hiển thị `due_date`) |
+| `ReturnRequest.status = Pending` | [Gia hạn], [Trả kho] | Trạng thái "Đang chờ phân công nhân viên" + [Hủy yêu cầu trả kho] |
+| `ReturnRequest.status = Assigned` | [Gia hạn], [Trả kho] | Trạng thái "Đã phân công nhân viên, ngày hẹn dự kiến `preferred_date`" |
+
+- [Báo sự cố] luôn hiển thị khi hợp đồng `Active` (kể cả quá hạn hoặc đang có yêu cầu mở) — sự cố khoang/chìa khóa vẫn có thể xảy ra bất kỳ lúc nào.
 
 #### 3.3 Yêu cầu gia hạn
 **Details:**
 - User: bấm [Gia hạn], nhập số tháng muốn gia hạn thêm.
 - System: tạo `ExtendRequest(contract_id, extra_months, status=PendingApproval)`.
 - System: notify FM để duyệt (chi tiết duyệt thuộc Flow 6).
-- FM duyệt → System: tạo `Invoice(contract_id, type=Extension, due_date)` theo bảng phí Flow 4, gán `ExtendRequest.invoice_id`, `status = ApprovedPendingPayment`.
-- Khách thanh toán thành công → System: cập nhật `RentalContract.end_date += extra_months`, `ExtendRequest.status = Completed`.
-- Quá `Invoice.due_date` mà chưa thanh toán → System: `ExtendRequest.status = Expired`, `Invoice.status = Canceled` (giải phóng lock để khách có thể gửi yêu cầu gia hạn mới).
+- FM duyệt → System: tạo `Invoice(contract_id, type=Extension, due_date)` theo bảng phí Flow 4, gán `ExtendRequest.invoice_id`, `approved_by`, `processed_at`, `status = ApprovedPendingPayment` → notify khách (web + email) kèm số tiền và `due_date` của hóa đơn gia hạn.
+- FM từ chối → System: `status = Rejected`, lưu `reject_reason`, `approved_by`, `processed_at` → notify khách (web + email) kèm lý do. Khách có thể gửi yêu cầu gia hạn mới nếu hợp đồng còn hiệu lực.
+- Khách thanh toán thành công → System: cập nhật `RentalContract.end_date += extra_months`, `ExtendRequest.status = Completed` → notify khách `end_date` mới.
+  - Cộng theo tháng lịch vào `end_date` hiện tại (không tính lại từ `start_date` hay ngày thanh toán). Nếu ngày không tồn tại ở tháng đích thì lấy ngày cuối tháng (ví dụ 31/01 + 1 tháng = 28/02 hoặc 29/02).
+- Quá `Invoice.due_date` mà chưa thanh toán → job định kỳ (3.6 g): `ExtendRequest.status = Expired`, `Invoice.status = Canceled` (giải phóng ràng buộc để khách có thể gửi yêu cầu gia hạn mới) → notify khách.
 - **Ràng buộc:** không cho tạo khi hợp đồng đã có `ExtendRequest` đang mở (`PendingApproval`/`ApprovedPendingPayment`) hoặc `ReturnRequest` đang mở (`Pending`/`Assigned`) — khách không thể vừa gia hạn vừa trả kho.
 - **Hủy yêu cầu:** User có thể bấm [Hủy yêu cầu gia hạn] và nhập `cancel_reason` (tuỳ chọn) **khi `ExtendRequest.status = PendingApproval`** (FM chưa duyệt). Sau khi FM đã duyệt, hệ thống **không cho hủy qua web** — khách cần liên hệ FM trực tiếp.
 
 #### 3.4 Yêu cầu trả kho
 **Details (chỉ mô tả tới bước FM phân công FS — phần xử lý on-site sau đó thuộc Flow 2.5):**
 - User: bấm [Yêu cầu trả kho], chọn `preferred_date`, nhập lý do (tuỳ chọn).
+  - Validate `preferred_date >= today` (không chọn ngày trong quá khứ). Giờ/ca hẹn cụ thể do Flow 2.5 chốt khi tạo `Appointment`.
+  - Được phép gửi cả khi hợp đồng đã quá hạn (`today > end_date`) — khách quá hạn chính là trường hợp cần trả kho nhất.
 - System: tạo bản ghi mới trong bảng riêng **`ReturnRequest`** (xem lý do tách bảng bên dưới), `status = Pending`.
 - System: notify FM.
-- FM: phân công FS (thuộc facility của khoang) xử lý yêu cầu → System: cập nhật `ReturnRequest.assigned_staff_id`, `status = Assigned` → trigger sang Flow 2.5 để FS xử lý on-site (lịch hẹn trả kho, `CheckoutRecord`, cập nhật `StorageUnit`/`RentalContract` khi hoàn tất — **đã được Flow 2.5 mô tả, không lặp lại ở đây**).
+- FM: phân công FS (thuộc facility của khoang) xử lý yêu cầu → System: cập nhật `ReturnRequest.assigned_staff_id`, `status = Assigned`, notify khách → trigger sang Flow 2.5 để FS xử lý on-site (lịch hẹn trả kho, `CheckoutRecord`, cập nhật `StorageUnit`/`RentalContract` khi hoàn tất — **đã được Flow 2.5 mô tả, không lặp lại ở đây**).
 - **Ràng buộc:** không cho tạo khi hợp đồng đã có `ReturnRequest` đang mở (`Pending`/`Assigned`) hoặc `ExtendRequest` đang mở (`PendingApproval`/`ApprovedPendingPayment`). Nếu gia hạn còn `PendingApproval`, khách hủy yêu cầu gia hạn trước rồi mới gửi yêu cầu trả kho.
 - **Hủy yêu cầu:** User có thể bấm [Hủy yêu cầu trả kho] và nhập `cancel_reason` (tuỳ chọn) **khi `ReturnRequest.status = Pending`** (FM chưa phân công FS). Sau khi đã `Assigned`, không tự hủy qua web được — cần liên hệ FM/FS trực tiếp.
 
 **Vì sao tách `ReturnRequest` thành bảng riêng thay vì set `RentalContract.status = PendingReturn`:**
 1. Sau khi gửi yêu cầu trả kho, khách vẫn cần thời gian di dời đồ và FS cần thời gian kiểm tra — đây là **một tiến trình có nhiều bước riêng** (`Pending → Assigned → ...` do Flow 2.5 tiếp tục cập nhật), xứng đáng có bảng theo dõi riêng.
-2. Nếu dùng chung field `status` trên `RentalContract`, khi hợp đồng đang quá hạn (`now > end_date`) mà khách gửi yêu cầu trả kho, việc set `status = PendingReturn` sẽ **đè mất thông tin quá hạn** — không còn biết được hợp đồng này vốn dĩ đang trễ hạn. Tách bảng riêng giữ nguyên được cả 2 thông tin cùng lúc.
+2. Nếu dùng chung field `status` trên `RentalContract`, khi hợp đồng đang quá hạn (`today > end_date`) mà khách gửi yêu cầu trả kho, việc set `status = PendingReturn` sẽ **đè mất thông tin quá hạn** — không còn biết được hợp đồng này vốn dĩ đang trễ hạn. Tách bảng riêng giữ nguyên được cả 2 thông tin cùng lúc.
 
 #### 3.5 Gửi yêu cầu hỗ trợ sự cố
 **Details:**
@@ -246,7 +275,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - FS cũng có thể tự ghi nhận sự cố tại kho: `reporter_id` = FS, `contract_id` có thể null nếu khoang không có hợp đồng `Active`.
 - System: notify FM.
 - FM: phân công FS (thuộc facility của khoang) xử lý → System: cập nhật `SupportRequest.assigned_staff_id`, `status = Assigned` → chi tiết xử lý on-site thuộc Flow 7.
-- Nếu sự cố phát sinh phí cho khách (ví dụ làm lại chìa khóa): hóa đơn `Invoice(type=Service)` do Flow 7 tạo theo `ExtraFee` và gán vào `SupportRequest.invoice_id`. Flow 3 chỉ hiển thị hóa đơn này trong danh sách `Invoice` ở 3.2.
+- Nếu sự cố phát sinh phí cho khách (ví dụ làm lại chìa khóa): hóa đơn `Invoice(type=Service)` do Flow 7 tạo theo danh mục phí của Flow 4 (tên bảng chờ chốt: `ExtraFee` / `Fee Management`) và gán vào `SupportRequest.invoice_id`. Flow 3 chỉ hiển thị hóa đơn này trong danh sách `Invoice` ở 3.2.
 - Action này không ảnh hưởng tới `RentalContract`.
 
 #### 3.6 Backend flow (chi tiết kỹ thuật)
@@ -254,40 +283,60 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Mọi API phía Customer yêu cầu ownership check: `RentalContract.customer_id` phải khớp `current_user`.
 - Mọi API phía FM yêu cầu facility scope: facility của khoang (`StorageUnit.facility_id`) phải có `Facility.fm_account_id = current_user` (kiểm tra ở BE, không chỉ ẩn ở FE).
 - FS được gán (`assigned_staff_id`) phải có bản ghi `AccountFacilityAssignment` với đúng facility đó, ngược lại trả lỗi 422.
-- Trạng thái "còn hiệu lực / sắp hết hạn / quá hạn" **luôn tính trực tiếp từ `end_date` tại thời điểm query**, không lưu field riêng — tránh dữ liệu bị lệch theo thời gian và tránh xung đột với các bảng request khác (xem lý do ở 3.4).
+- Trạng thái "còn hiệu lực / sắp hết hạn / quá hạn" **luôn tính trực tiếp từ `end_date` tại thời điểm query**, so sánh theo **ngày** (`today`, cùng một múi giờ hệ thống cho BE và job) chứ không so với timestamp `now` — tránh tính quá hạn sớm ngay trong ngày cuối hợp đồng; không lưu field riêng — tránh dữ liệu bị lệch theo thời gian và tránh xung đột với các bảng request khác (xem lý do ở 3.4).
 
 **a) Dashboard (3.1) — `GET /api/customer/contracts`**
 - Query `RentalContract WHERE customer_id = :current_user AND status = Active`, JOIN `StorageUnit` rồi group theo `StorageUnit.facility_id`.
 
 **b) Chi tiết (3.2) — `GET /api/customer/contracts/{id}`**
-- Trả về `RentalContract` + `Invoice` list (theo `contract_id` và hóa đơn cọc theo `order_id`) + `available_actions` tính theo bảng event ở 3.2:
+- Trả về `RentalContract` + `Invoice` list (theo `contract_id` và hóa đơn cọc theo `order_id`) + `open_extend_request` / `open_return_request` (nếu có) + cờ `is_overdue`, `is_expiring_soon` + `available_actions` tính theo 2 bước ở 3.2:
   ```
-  if now > end_date: available_actions = []   # quá hạn, ẩn hết action
-  elif end_date - now <= N: available_actions = [ReturnRequest, ExtendRequest(highlight), SupportRequest]
-  else: available_actions = [ReturnRequest, ExtendRequest, SupportRequest]
+  today = current_date()                      # theo ngày, không dùng timestamp
+  is_overdue = today > end_date
+  is_expiring_soon = not is_overdue and (end_date - today) <= N
+  actions = [SupportRequest]                  # luôn có khi hợp đồng Active
+
+  if open_extend_request:                     # PendingApproval / ApprovedPendingPayment
+      if open_extend_request.status == PendingApproval: actions += [CancelExtendRequest]
+      else: actions += [PayExtensionInvoice]
+  elif open_return_request:                   # Pending / Assigned
+      if open_return_request.status == Pending: actions += [CancelReturnRequest]
+  else:
+      actions += [ReturnRequest]
+      if not is_overdue: actions += [ExtendRequest(highlight = is_expiring_soon)]
   ```
-  N lấy từ config policy (Flow 4), không hardcode.
+  N = `contract.expiring_soon_days` (Flow 4), đọc qua file constant dùng chung, không hardcode.
 
 **c) Gia hạn (3.3)**
-- `POST /api/customer/contracts/{id}/extend-requests` — tạo `ExtendRequest(status=PendingApproval)`, validate `now <= end_date` (không cho gia hạn khi đã quá hạn — theo bảng event 3.2) và không có `ExtendRequest`/`ReturnRequest` đang mở (409).
+- `POST /api/customer/contracts/{id}/extend-requests` — tạo `ExtendRequest(status=PendingApproval)`, validate `today <= end_date` (không cho gia hạn khi đã quá hạn — theo bảng action 3.2) và không có `ExtendRequest`/`ReturnRequest` đang mở (409).
 - `DELETE /api/customer/extend-requests/{id}` (body: `cancel_reason` tuỳ chọn) — chỉ cho phép khi `status = PendingApproval`, ngược lại trả lỗi 409.
 
 **d) Trả kho (3.4)**
-- `POST /api/customer/contracts/{id}/return-requests` — tạo `ReturnRequest(status=Pending)`, validate không có `ReturnRequest`/`ExtendRequest` đang mở (409), notify FM.
+- `POST /api/customer/contracts/{id}/return-requests` — tạo `ReturnRequest(status=Pending)`, validate `preferred_date >= today` (422) và không có `ReturnRequest`/`ExtendRequest` đang mở (409), notify FM. Không chặn khi hợp đồng quá hạn.
 - `DELETE /api/customer/return-requests/{id}` (body: `cancel_reason` tuỳ chọn) — chỉ cho phép khi `status = Pending`, ngược lại trả lỗi 409.
 - `POST /api/fm/return-requests/{id}/assign` (phía FM) — kiểm tra facility scope + FS thuộc facility, set `assigned_staff_id`, `status = Assigned`, bắn event cho Flow 2.5.
 
 **e) Báo sự cố (3.5)**
 - `POST /api/customer/contracts/{id}/support-requests` — tạo `SupportRequest(reporter_id=current_user, status=Open)`.
+- `POST /api/staff/support-requests` (phía FS, body: `unit_id`, `issue_type`, `description`) — FS phải có `AccountFacilityAssignment` với facility của khoang (403); `contract_id` tự gán = hợp đồng `Active` của khoang nếu có, ngược lại null; tạo `SupportRequest(reporter_id=current_user, status=Open)`, notify FM.
 - `POST /api/fm/support-requests/{id}/assign` (phía FM) — kiểm tra facility scope + FS thuộc facility, set `assigned_staff_id`, `status = Assigned`, bắn event cho Flow 7.
 
 **f) Thanh toán hóa đơn**
-- `POST /api/invoices/{id}/pay` → tạo `PaymentTransaction(status=Pending)` **trước khi** redirect sang cổng thanh toán. Chỉ cho thanh toán hóa đơn `status = Unpaid`, hóa đơn `Paid`/`Canceled` trả lỗi 409.
+- `POST /api/invoices/{id}/pay` → tạo `PaymentTransaction(status=Pending)` **trước khi** chuyển khách sang bước thanh toán (redirect cổng thanh toán hoặc hiển thị QR — logic bên dưới giống nhau cho mọi phương thức, phương thức MVP chờ chốt A8). Chỉ cho thanh toán hóa đơn `status = Unpaid`, hóa đơn `Paid`/`Canceled` trả lỗi 409.
 - Webhook/IPN từ cổng thanh toán xử lý trong **một transaction**:
   1. Tìm `PaymentTransaction` theo mã giao dịch; nếu đã `Success`/`Failed` → bỏ qua, trả 200 (webhook bị gọi lặp khi retry).
   2. `SELECT Invoice ... FOR UPDATE`; nếu `Invoice.status != Unpaid` → không áp dụng lại tác dụng (chống 2 tab cùng thanh toán 1 hóa đơn), giao dịch thừa được ghi nhận để FM hoàn tiền thủ công.
   3. Cập nhật `PaymentTransaction.status = Success/Failed`; nếu `Success` → `Invoice.status = Paid`, `paid_at = now`, và nếu `Invoice.type = Extension` → `RentalContract.end_date += extra_months`, `ExtendRequest.status = Completed`.
 - `PaymentTransaction.gateway_transaction_no` là unique để DB chặn xử lý trùng kể cả khi code check bị bỏ sót → `end_date` không bao giờ bị cộng 2 lần.
+
+**g) Job định kỳ — hết hạn hóa đơn gia hạn (3.3)**
+- Chạy định kỳ (ví dụ mỗi 15 phút): tìm `ExtendRequest WHERE status = ApprovedPendingPayment` có `Invoice.status = Unpaid AND Invoice.due_date < now`.
+- Mỗi bản ghi xử lý trong **một transaction**: `SELECT Invoice ... FOR UPDATE` rồi kiểm tra lại `Invoice.status = Unpaid` → `Invoice.status = Canceled`, `ExtendRequest.status = Expired`, bắn `ExtendRequest.Expired`. Nếu webhook đã kịp chuyển `Paid` trước đó → bỏ qua.
+- Webhook thanh toán tới **sau khi** job đã `Canceled` hóa đơn → rơi vào bước 2 của mục f: không cộng `end_date`, giao dịch được ghi nhận để FM hoàn tiền thủ công.
+
+**Audit (mức tối thiểu cho MVP, cấu trúc bảng `AuditLog` theo quyết định chung C5/B13):**
+- Chỉ ghi các thao tác của nhân viên làm thay đổi quyền lợi của khách: FM duyệt/từ chối `ExtendRequest`, FM phân công FS cho `ReturnRequest`/`SupportRequest`.
+- Không ghi các thao tác khách tự tạo/hủy yêu cầu và các cập nhật của job (đã có `status`, `processed_at`, `cancel_reason` trên chính bản ghi).
 
 **Concurrency:**
 - Không dùng Redis lock. Dùng partial unique index ở DB:
@@ -295,19 +344,25 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
   - `ReturnRequest(contract_id) WHERE status IN (Pending, Assigned)`
 - Ràng buộc chéo `ExtendRequest` ↔ `ReturnRequest` (3.3, 3.4) kiểm tra trong cùng transaction tạo request, sau khi `SELECT RentalContract ... FOR UPDATE`.
 
-**Khi hợp đồng bị chấm dứt/hủy trước hạn (Flow 6):**
-- `ExtendRequest` đang `PendingApproval` → `Canceled`; đang `ApprovedPendingPayment` → `Expired` và `Invoice.status = Canceled`.
+**Khi hợp đồng bị chấm dứt trước hạn (Flow 6):**
+- Chỉ áp dụng nếu Flow 2/6 chấp nhận trạng thái `Terminated` cho `RentalContract` (hiện mới là đề xuất trong db-table-draft.md). Hợp đồng `Canceled` xảy ra trước bàn giao nên chưa thể có yêu cầu nào của Flow 3.
+- `ExtendRequest` đang `PendingApproval` → `Canceled`; đang `ApprovedPendingPayment` → `Expired` và `Invoice.status = Canceled` (khóa `Invoice` như job ở mục g).
 - `ReturnRequest` đang `Pending` → `Canceled`; đang `Assigned` giữ nguyên để Flow 2.5 vẫn thu hồi khoang.
 - `SupportRequest` đang mở giữ nguyên (sự cố của khoang vẫn cần xử lý).
 
-**Events phát ra từ Flow 3:**
+**Events phát ra từ Flow 3:** (`ExtendRequest.Approved`/`Rejected` phát ra khi FM thao tác ở trang duyệt của Flow 6, nhưng thuộc state machine của `ExtendRequest`)
 | Event | Consumer |
 |---|---|
 | `ExtendRequest.Created` | FM (trang duyệt gia hạn — Flow 6) |
 | `ExtendRequest.Canceled` | FM (nếu đang xem danh sách chờ duyệt) |
+| `ExtendRequest.Approved` | Customer (hóa đơn gia hạn cần thanh toán, kèm `due_date`) |
+| `ExtendRequest.Rejected` | Customer (kèm `reject_reason`) |
+| `ExtendRequest.Expired` | Customer, FM |
+| `ExtendRequest.Completed` | Customer (`end_date` mới), Flow 4 (ghi nhận doanh thu) |
 | `ReturnRequest.Created` | FM (trang phân công FS) |
-| `ReturnRequest.Assigned` | Flow 2.5 (FS xử lý on-site) |
-| `SupportRequest.Created` | FM (trang phân công FS) |
+| `ReturnRequest.Canceled` | FM (gỡ khỏi danh sách chờ phân công) |
+| `ReturnRequest.Assigned` | Flow 2.5 (FS xử lý on-site), Customer |
+| `SupportRequest.Created` | FM (trang phân công FS) — cả khi do Customer hay FS tạo |
 | `SupportRequest.Assigned` | Flow 7 (FS xử lý sự cố) |
 
 **Advanced Features (not MVP)**
