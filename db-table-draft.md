@@ -46,7 +46,7 @@
 - order_id (1 - 1: RentalOrder)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit)
-- status (Pending/Agree/Reject)
+- status (Pending/Agreed/Rejected)
 - note
 
 **NOTES:**
@@ -64,3 +64,109 @@
 - status (Pending/Failed/Success)
 
 - NOTES: visa card only
+# Appointment
+**Overview:** lịch hẹn dùng chung cho mọi loại cuộc hẹn tại cơ sở. Được tạo khi khách yêu cầu hoặc hệ thống tạo lịch; dùng cho check-in, bàn giao, trả kho, xử lý sự cố tại kho, ...
+- customer_id (1 - N: Account)
+- staff_id (1 - N: Account)
+- type (CHECKIN, HANDOVER, RETURN, ...)
+- cancel_reason
+- appointment_date
+- started_at - giờ bắt đầu có thể check-in
+- end_at - giờ kết thúc ca xem kho này
+- arrived_at - giờ ghi nhận khách check-in
+- status:
+  - Pending: trạng thái mặc định, trước khi khách đến
+  - Done: khách đã đến
+  - Canceled: lịch hẹn bị hủy
+
+**NOTES:**
+- `RETURN` do Flow 2.5 thêm vào để dùng cho buổi hẹn trả kho; Levi sẽ chốt lại bộ `type` sau khi các flow ổn định.
+- Khi khách đặt lại lịch sau reject/no-show thì tạo bản ghi **mới** (`staff_id = null`) để FM phân công lại; bản ghi cũ giữ nguyên làm lịch sử.
+# RentalAppointment
+**Overview:** nối lịch hẹn với đơn hàng. Được tạo khi `Appointment.type = CHECKIN`, `HANDOVER` hoặc `RETURN`.
+- order_id (N - 1: RentalOrder)
+- appointment_id (1 - 1: Appointment)
+# HandoverRecord
+**Overview:** theo dõi tiến trình on-site từ check-in tới bàn giao kho (Flow 2). Được tạo khi `RentalOrder.status = InProgress`. Khi `result = COMPLETED` hoặc `REJECTED` là Flow 2 kết thúc.
+- order_id (N - 1: RentalOrder)
+- unit_id (N - 1: StorageUnit)
+- staff_id (N - 1: Account)
+- **Checklist tiến trình on-site:**
+  - is_identity_verified (default: false) - xác minh danh tính người đến check-in
+  - identity_verified_at (nullable)
+  - is_unit_inspected (default: false) - hiện trạng kho được khách xác nhận
+  - unit_inspected_at (nullable)
+  - inspection_notes (nullable)
+  - inspection_photos - List<String> (nullable), ảnh chụp thực tế lúc check-in
+  - is_contract_signed (default: false) - hợp đồng đã được ký
+  - contract_signed_at (nullable)
+  - is_payment_settled (default: false) - khách đã thanh toán phần tiên quyết để nhận kho
+  - payment_settled_at (nullable)
+- **Trạng thái cuối cùng của biên bản:**
+  - result (IN_PROGRESS/COMPLETED/REJECTED) - default: IN_PROGRESS
+  - completed_at (nullable)
+  - reject_reason (nullable)
+
+**NOTES:**
+- `order_id` là `N - 1` vì một đơn có thể check-in nhiều lần (khách từ chối khoang rồi được chỉ định khoang khác). Ràng buộc: mỗi đơn chỉ có tối đa một bản ghi đang `IN_PROGRESS`.
+# RentalContract
+**Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
+- order_id (1 - 1: RentalOrder)
+- customer_id (N - 1: Account)
+- unit_id (N - 1: StorageUnit)
+- code
+- terms_version - snapshot version điều khoản khách đã đồng ý (Flow 4)
+- monthly_price - giá thuê chốt tại thời điểm ký
+- deposit_amount - tiền cọc đã thu ở Flow 1.3
+- period - số tháng thuê
+- start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
+- end_date
+- signed_at
+- signature - URL ảnh chữ ký; MVP là ảnh/scan trang ký của hợp đồng giấy
+- pdf_url - file hợp đồng lưu trữ; MVP là bản scan FS upload, không sinh PDF tự động
+- status (Draft/Signed/Active/Ended/Canceled)
+  - Signed: đã ký nhưng chưa bàn giao
+  - Active: đã bàn giao, đang có hiệu lực
+
+# UnitAccessKey
+**Overview:** quyền truy cập khoang chứa đã bàn giao cho khách.
+- unit_id (N - 1: StorageUnit)
+- order_id (N - 1: RentalOrder)
+- access_type (PhysicalKey/AccessCode) - MVP chỉ dùng `PhysicalKey`
+- quantity - số chìa đã giao, dùng khi `access_type = PhysicalKey`
+- code_hash - hash của mã truy cập, dùng khi `access_type = AccessCode`
+- issued_at, revoked_at
+- status (Active/Revoked/Lost)
+
+# CheckoutRecord
+**Overview:** biên bản trả kho (Flow 2.5). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
+- order_id (1 - 1: RentalOrder)
+- appointment_id (1 - 1: Appointment)
+- unit_id (N - 1: StorageUnit)
+- staff_id (N - 1: Account)
+- **Checklist cột mốc trả kho** (buổi trả kho có thể kéo dài vài ngày, mỗi cột mốc có timestamp để FM/FS theo dõi tiến độ):
+  - is_unit_emptied (default: false) - khoang đã dọn trống hoàn toàn
+  - unit_emptied_at (nullable)
+  - is_inspected (default: false) - FS đã kiểm tra hiện trạng và khách đã ký biên bản
+  - inspected_at (nullable)
+  - is_access_revoked (default: false) - đã thu chìa / vô hiệu hóa mã truy cập
+  - access_revoked_at (nullable)
+  - is_fee_settled (default: false) - các hóa đơn phát sinh đã `Paid`
+  - fee_settled_at (nullable)
+  - is_deposit_settled (default: false) - đã đối trừ và xử lý xong tiền cọc
+  - deposit_settled_at (nullable)
+- **Kết quả kiểm tra:**
+  - cleanliness - tình trạng vệ sinh
+  - damages - danh sách hư hỏng ghi nhận so với `HandoverRecord`
+  - photos - List<String>, ảnh hiện trạng lúc trả
+  - returned_key_quantity - số chìa thu lại, đối chiếu `UnitAccessKey.quantity`
+  - customer_signature
+- **Trạng thái cuối cùng của biên bản:**
+  - result (IN_PROGRESS/COMPLETED/PENDING_ITEMS) - default: IN_PROGRESS
+  - completed_at (nullable)
+- note
+- created_at
+
+**NOTES:**
+- `PENDING_ITEMS`: khoang còn tài sản, chưa hoàn tất trả kho, **chưa thu hồi `UnitAccessKey`** vì khách còn cần vào lấy đồ. Khách quay lại dọn thì cập nhật tiếp trên **cùng một bản ghi**, không tạo mới.
+- `COMPLETED`: đủ 5 cột mốc `true`, khoang sẵn sàng chuyển `Maintenance`.
