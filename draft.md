@@ -213,7 +213,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, mặc định theo **chính sách Flow 4** (ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Cho phép FS thỏa thuận riêng với khách nhưng **phải được FM duyệt**; mặc định vẫn ưu tiên chính sách để tránh xung đột.
 
 **Thanh toán tháng đầu tiên**
-- Hệ thống tạo `Invoice` tiền thuê (prefix `RNT`, gắn `contract_id`) với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.4 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
+- Hệ thống tạo `Invoice(type = Rental)` - prefix `RNT`, gắn `contract_id` - với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.4 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
 - Khách thanh toán qua VNPay; hệ thống nhận kết quả qua webhook/IPN -> `Invoice.status = Paid`, set `is_payment_settled`, `payment_settled_at`.
 - Chưa thanh toán xong trong buổi hẹn: `result` giữ `IN_PROGRESS`, khoang vẫn `Reserved`, **chưa bàn giao khóa**; hóa đơn nằm trong mục "Hóa đơn" của khách để thanh toán online.
 
@@ -278,7 +278,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 Các bảng đã có, Flow 2 chỉ đọc hoặc cập nhật trạng thái:
 - [**RentalOrder**](./db-table-draft.md#rentalorder) - đơn hàng được xử lý trong buổi hẹn.
-- [**Invoice**](./db-table-draft.md#invoice) - kiểm tra hóa đơn cọc đã `Paid`, tạo hóa đơn tiền thuê tháng đầu (prefix `RNT`).
+- [**Invoice**](./db-table-draft.md#invoice) - kiểm tra hóa đơn `type = Deposit` đã `Paid`, tạo hóa đơn `type = Rental` cho tháng đầu.
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) - dùng ở Flow 1, Flow 2 chỉ đọc.
 
 Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-table-draft.md`:
@@ -315,12 +315,13 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - `Appointment.type` thêm giá trị **`RETURN`** cho buổi hẹn trả kho, `RentalAppointment` cũng được tạo cho loại này. Levi sẽ chốt lại bộ `type` sau khi các flow ổn định.
 - MVP chỉ hỗ trợ **luồng trả do khách chủ động yêu cầu**; FM hủy hộ yêu cầu trả kho không thuộc MVP.
 - Biên bản trả kho tách thành bảng **`CheckoutRecord`** riêng, vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao và kết thúc vòng đời sau đó.
-- Bổ sung hai prefix mã hóa đơn: **`DMG`** (phí hư hỏng) và **`CLN`** (phí vệ sinh).
+- Phí phát sinh khi trả kho (hư hỏng, vệ sinh, mất chìa, trả trễ) dùng **`Invoice.type = Penalty`** (prefix `PEN`), theo bộ `type` đã thống nhất ở schema chung: `Deposit/Rental/Extension/Penalty/Service`. Phân loại chi tiết từng khoản ghi ở `title`/`desc`.
 - Khi phát sinh phí, **FS hoặc FM tạo hóa đơn trong hệ thống**, khách thanh toán qua VNPay. Không thu tiền mặt trong MVP.
 - Tiền cọc **được hoàn lại cho khách** sau khi đối trừ hết các khoản phát sinh, không trừ vào kỳ thuê cuối.
 - Cơ chế khách **phản đối đánh giá hư hỏng** của FS không thuộc MVP; đánh giá của FS là kết quả cuối cùng.
 - Hệ thống **tự động tính phí lưu giữ** khi khoang còn đồ không thuộc MVP; FM hoặc FS gửi hóa đơn thủ công theo chính sách của BOM (Flow 4).
 - **Luồng hoàn tiền tự động (refund) không thuộc MVP.** Khi làm sẽ cần bổ sung chiều giao dịch cho `PaymentTransaction` hoặc bảng refund riêng, kèm mã giao dịch hoàn để đối soát. Nguyên tắc dự kiến: hoàn về đúng phương tiện khách đã thanh toán.
+- Enum `StorageUnit.status` dùng chung toàn hệ thống: `Available/OnHold/Reserved/Rented/Maintenance` (theo schema Flow 5). Flow 2 và 2.5 chỉ dùng 4 giá trị `Reserved/Rented/Maintenance/Available`; `OnHold` thuộc cơ chế giữ chỗ của Flow 1.
 - Thời gian bảo trì **được cấu hình bởi BOM ở Flow 4**, không hard-code (mặc định 1-3 ngày). FM không tự sửa, chỉ gửi yêu cầu để BOM chỉnh.
 - Khách quá hạn không trả, không liên lạc được hoặc bỏ lại tài sản trong khoang: **thuộc Flow 6**, đã note để xử lý sau.
 
@@ -342,7 +343,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
   - Ghi nhận khách đến: set `Appointment.arrived_at`, `status = Done`.
   - Mở `HandoverRecord` đã lập ở **Flow 2** để lấy hiện trạng khoang **lúc bàn giao** (`inspection_notes`, `inspection_photos`). Flow 2.5 chỉ **đọc** bảng này, không tạo mới - đây là hiện trạng hai bên đã cùng xác nhận trước khi khách ký hợp đồng, nên là căn cứ đối chiếu duy nhất.
   - Kiểm tra hiện trạng **lúc trả** theo checklist rồi so với mốc trên: khoang đã dọn trống chưa, tình trạng vệ sinh, hư hỏng kết cấu/cửa/khóa/thiết bị, chụp ảnh hiện trạng.
-  - Chênh lệch giữa hai mốc chính là căn cứ tính phí `DMG`/`CLN` ở 2.5.3.
+  - Chênh lệch giữa hai mốc chính là căn cứ tính phí hư hỏng/vệ sinh ở 2.5.3.
   - Lập `CheckoutRecord`, khách ký xác nhận. Mỗi cột mốc (dọn trống, kiểm tra xong, thu hồi quyền truy cập, thanh toán phí, xử lý cọc) bật một cờ kèm timestamp để FM/FS theo dõi tiến độ khi buổi trả kho kéo dài nhiều ngày.
   - Các trường hợp:
     - **Đạt yêu cầu:** không phát sinh phí, sang 2.5.3.
@@ -360,7 +361,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 
 #### 2.5.3 Xử lý phí phát sinh và tiền cọc
 
-- **Các khoản có thể phát sinh:** phí vệ sinh (`CLN`), phí hư hỏng (`DMG`), phí mất chìa/thay khóa, phí trả kho trễ, và các hóa đơn `Unpaid` còn tồn đọng của hợp đồng. Mức phí lấy theo cấu hình Flow 4, Flow 2.5 **không tự định nghĩa mức phí**.
+- **Các khoản có thể phát sinh** (đều tạo dưới `Invoice.type = Penalty`): phí vệ sinh, phí hư hỏng, phí mất chìa/thay khóa, phí trả kho trễ; cộng thêm các hóa đơn `Unpaid` còn tồn đọng của hợp đồng. Mức phí lấy theo cấu hình Flow 4, Flow 2.5 **không tự định nghĩa mức phí**.
 - **Đối trừ tiền cọc:**
   - Cọc lớn hơn tổng phí: hoàn lại phần chênh lệch cho khách (MVP ghi nhận số tiền phải hoàn, FM xử lý thủ công).
   - Cọc nhỏ hơn tổng phí: tạo hóa đơn phần còn thiếu, khách phải thanh toán trước khi hoàn tất trả kho.
@@ -382,7 +383,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - `POST /api/staff/appointments/{id}/finalize-return`: chốt biên bản, tạo các `Invoice` phát sinh, thu hồi `UnitAccessKey`.
 
 **c) Đối trừ và hoàn cọc (2.5.3)**
-- Trong một transaction: tổng phí phát sinh + hóa đơn tồn đọng so với số tiền cọc đã thu (`Invoice` prefix `DEP` ở trạng thái `Paid`).
+- Trong một transaction: tổng phí phát sinh + hóa đơn tồn đọng so với số tiền cọc đã thu (`Invoice.type = Deposit`, `status = Paid`).
 - Thiếu: tạo `Invoice` phần chênh lệch, chặn bước chuyển `Maintenance` cho tới khi thanh toán xong.
 - Dư: MVP ghi nhận số tiền phải hoàn để FM xử lý thủ công.
 
@@ -397,13 +398,13 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 |---|---|
 | `Appointment.Created` (type = RETURN) | Hệ thống notify FS được phân công |
 | `RentalOrder.ReturnCompleted` | Flow 3 (đóng vòng theo dõi), Flow 4 (ghi nhận doanh thu) |
-| `Invoice.Created` (`DMG`/`CLN`/phí trễ) | Flow 4 (theo dõi doanh thu) |
+| `Invoice.Created` (`type = Penalty`) | Flow 4 (theo dõi doanh thu) |
 | `StorageUnit.BecameAvailable` | Flow 1 (khoang sẵn sàng cho yêu cầu mới), wishlist nếu có |
 
 **Schema:**
 
 - [**RentalOrder**](./db-table-draft.md#rentalorder) - đơn hàng được đóng lại sau khi trả kho.
-- [**Invoice**](./db-table-draft.md#invoice) - hóa đơn phí phát sinh khi trả kho, thêm prefix `DMG` và `CLN`.
+- [**Invoice**](./db-table-draft.md#invoice) - hóa đơn phí phát sinh khi trả kho, dùng `type = Penalty`.
 - [**PaymentTransaction**](./db-table-draft.md#paymenttransaction) - cơ chế hoàn tiền chưa làm trong MVP.
 - [**Appointment**](./db-table-draft.md#appointment), [**RentalAppointment**](./db-table-draft.md#rentalappointment), [**UnitAccessKey**](./db-table-draft.md#unitaccesskey), [**RentalContract**](./db-table-draft.md#rentalcontract) - dùng chung với Flow 2.
 - [**CheckoutRecord**](./db-table-draft.md#checkoutrecord) - biên bản trả kho, tách riêng khỏi `HandoverRecord`.
@@ -411,7 +412,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 **NOTES**
 - Flow 3 mô tả nhánh thuận: FS xác nhận hoàn tất, không phát sinh phí hư hại -> `StorageUnit.status = MAINTENANCE`, `RentalContract.status = Completed`. Flow 2.5 viết khớp với mô tả đó và bổ sung nhánh **có** phát sinh phí.
 - Toàn bộ mức phí trong Flow 2.5 phụ thuộc cấu hình của Flow 4. Nếu Flow 4 chưa chốt danh mục phí thì phần này chỉ dừng ở mô tả nghiệp vụ, chưa code được.
-- Cron chuyển `Maintenance -> Available` chưa có flow nào nhận phần implement: Flow 3 chỉ nói khoang quay về `Available` sau bảo trì, Flow 5 cho FM chuyển thủ công. Flow 2.5 mô tả cron này ở 2.5.4 và sẵn sàng nhận nếu nhóm đồng ý.
+- **Flow 2.5 sở hữu cron mở lại khoang sau bảo trì** (`Maintenance -> Available`, mô tả ở 2.5.4). Schema Flow 3 đã ghi rõ việc chuyển/mở lại `StorageUnit` do Flow 2.5 thực hiện; Flow 5 chỉ giữ thao tác chuyển `Maintenance` **thủ công** của FM cho các sự cố ngoài luồng trả kho, không đụng cron này.
 - Trường hợp khách quá hạn không trả, không liên lạc được, hoặc bỏ lại tài sản quá thời hạn dọn: thuộc Flow 6.
 
 **Advanced Features (not MVP)**
