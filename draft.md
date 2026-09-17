@@ -293,7 +293,8 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey) - quyền truy cập khoang chứa đã bàn giao cho khách.
 
 **Phụ thuộc cần các flow khác bổ sung (Flow 2 không tự sửa):**
-- Flow 1.3 đã có nhánh chỉ định lại khoang (tạo `ProposalFeedback` mới), nhưng mới dừng ở khách **chưa cọc**. Trường hợp khách **đã cọc rồi mới đổi khoang** (do từ chối tại chỗ ở 2.2) còn thiếu chính sách: chênh lệch tiền cọc, phí đổi khoang, xử lý hóa đơn cọc đã xuất, thời điểm nhả khoang cũ, số lần được đổi, thời hạn đổi trước giờ hẹn.
+- Đổi khoang sau khi khách đã cọc (do từ chối tại chỗ ở 2.2) do **Flow 1** xử lý: FM chỉ định khoang mới, hệ thống tạo `ProposalFeedback` **mới** (bản cũ giữ nguyên, khoang hiệu lực là proposal `Agreed` mới nhất), khách duyệt online. Chênh lệch mức cọc cũ/mới cộng phí `Policy.fee.unit_change`: dư thì hoàn thủ công, thiếu thì xuất hóa đơn cọc bù. Còn mở: thứ tự chuyển khoang mới sang `Reserved` so với việc hoàn tiền.
+- Vì mỗi lần đề xuất lại tạo một `ProposalFeedback` mới, **không** đặt unique index `(order_id) WHERE status = 'Agreed'` - index đó sẽ chặn đúng reject path của Flow 2.
 - `RentalOrder.status`: branch `flow-1` dùng `Pending/Deposited/Scheduled/InProgress/Canceled/Done` (tuyến tính), Flow 3 dùng bộ khác - chờ nhóm hợp nhất. `db-table-draft.md` cũng chưa có bảng `StorageUnit` (thuộc Flow 5).
 
 **Advanced Features (not MVP)**
