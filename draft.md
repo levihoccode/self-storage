@@ -162,13 +162,18 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **ĐÃ CHỐT:**
 - MVP thu **tháng đầu tiên**; chính sách trả trước N tháng để mở sau (Flow 4).
 - MVP chỉ xử lý trường hợp **khách đã đặt cọc trước ngày hẹn** - buổi hẹn là check-in + bàn giao. Lịch "tham quan kho" cho khách chưa cọc (nhiều khách chung một slot) **không thuộc MVP**, xem Advanced Features.
-- Thanh toán đi qua cổng **VNPay**, hệ thống chỉ redirect sang cổng khi cần thanh toán hóa đơn. **Không thu tiền mặt trong MVP.**
-- `ProposalFeedback` là bảng của **Flow 1** (khách duyệt online khoang FM chỉ định, trước khi chọn lịch hẹn). Phản hồi hiện trạng khoang lúc check-in ghi trong `HandoverRecord`.
+- Thanh toán đi qua cổng **VNPay**, **một phương thức duy nhất** cho MVP: hệ thống redirect sang cổng khi cần thanh toán hóa đơn. Không thu tiền mặt.
+- `ProposalFeedback` là bảng của **Flow 1** (khách duyệt online khoang FM chỉ định, trước khi chọn lịch hẹn, status `Pending/Agreed/Rejected`). Flow 2 chỉ đọc; phản hồi hiện trạng khoang lúc check-in ghi trong `HandoverRecord`.
+- **Ký hợp đồng offline cho MVP:** FS đánh dấu khách đã ký trên ứng dụng, hợp đồng giấy được chụp/scan và upload; `RentalContract.signature` lưu URL ảnh, `pdf_url` lưu bản scan. Hệ thống **không sinh PDF tự động** trong MVP; panel ký tay trên web để sau.
+- **MVP chỉ bàn giao khóa cơ** (`access_type = PhysicalKey`). Khóa mã số giữ nguyên trong schema để mở rộng, không chạy trong MVP - nên Flow 5 **không cần** thêm field cấu hình loại khóa.
+- **Không đếm capacity slot:** khách chọn ngày + khung giờ trong giờ hoạt động của cơ sở, hệ thống không giới hạn số khách trên một slot.
+- **Thông báo gửi thẳng** (email/notification tại thời điểm phát sinh), không làm hàng đợi outbox trong MVP.
+- **Ngưỡng vận hành mặc định** (Flow 4 override sau qua `Policy`): tự hủy đơn sau **7 ngày** kể từ khi cọc mà chưa check-in; khách từ chối khoang tối đa **2 lần** trên một đơn; **2 lần** no-show thì hủy đơn; dời lịch tối đa **2 lần**, báo trước ít nhất **24h**.
 
 **Dữ liệu phụ thuộc (input từ các flow khác):**
 - Flow 1: `RentalOrder` đã `Approve`, `unit_id` đã gán và khách đã duyệt qua `ProposalFeedback`, `Invoice` cọc đã `Paid`, ảnh giấy tờ tùy thân khách upload online (nếu có).
 - Flow 4: bảng giá thuê, mẫu + version điều khoản hợp đồng, chính sách mốc bắt đầu tính tiền thuê, danh mục phí.
-- Flow 5: danh sách FS thuộc cơ sở, giờ hoạt động của cơ sở (sinh slot lịch hẹn), cấu hình loại khóa (`enabledKeyAccess`, `enabledCodeAccess`).
+- Flow 5: danh sách FS thuộc cơ sở (`AccountFacilityAssignment`), giờ hoạt động của cơ sở để sinh slot lịch hẹn.
 
 **Context:** Khách đã đặt cọc giữ khoang, đến cơ sở để check-in, kiểm tra khoang, ký hợp đồng, thanh toán tháng đầu và nhận quyền truy cập.
 
@@ -209,20 +214,19 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - Điều kiện: `is_identity_verified = true` và `is_unit_inspected = true`.
 - Hệ thống sinh hợp đồng từ mẫu đang hiệu lực (Flow 4), điền sẵn: thông tin khách, cơ sở, `unit_id` khách vừa xác nhận, giá thuê, `period`, tiền cọc đã đóng, mốc bắt đầu tính tiền thuê; snapshot `terms_version` để đối chiếu về sau.
 - Hiện trạng khoang (`inspection_notes`, `inspection_photos`) ở 2.2 được gắn kèm hợp đồng - liên kết qua `order_id` nên không cần thêm khóa ngoại. Đây là căn cứ đối chiếu khi trả kho ở Flow 2.5.
-- Khách ký -> xuất PDF lưu trữ, `RentalContract.status = Signed`, set `is_contract_signed`, `contract_signed_at`.
-- **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, mặc định theo **chính sách Flow 4** (ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Cho phép FS thỏa thuận riêng với khách nhưng **phải được FM duyệt**; mặc định vẫn ưu tiên chính sách để tránh xung đột.
+- Khách ký trên bản giấy -> FS chụp/scan upload, `signature` và `pdf_url` lưu URL file, `RentalContract.status = Signed`, set `is_contract_signed`, `contract_signed_at`.
+- **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, mặc định theo **chính sách Flow 4** (`Policy.contract.start_date_rule`, ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Cho phép FS thỏa thuận riêng với khách nhưng **phải được FM duyệt**; mặc định vẫn ưu tiên chính sách để tránh xung đột.
 
 **Thanh toán tháng đầu tiên**
 - Hệ thống tạo `Invoice(type = Rental)` - prefix `RNT`, gắn `contract_id` - với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.4 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
 - Khách thanh toán qua VNPay; hệ thống nhận kết quả qua webhook/IPN -> `Invoice.status = Paid`, set `is_payment_settled`, `payment_settled_at`.
 - Chưa thanh toán xong trong buổi hẹn: `result` giữ `IN_PROGRESS`, khoang vẫn `Reserved`, **chưa bàn giao khóa**; hóa đơn nằm trong mục "Hóa đơn" của khách để thanh toán online.
+  - Khách có **`Policy.handover.payment_grace_hours`** giờ để thanh toán. Quá hạn: `RentalContract.status -> Canceled`, `HandoverRecord.result -> REJECTED` kèm lý do, `StorageUnit -> Available`, đơn `Canceled`. Cron quét hằng ngày cùng job với auto-cancel ở 2.1.
 
 #### 2.4 Bàn giao khóa và kích hoạt hợp đồng
 
 - **Điều kiện:** cả 4 cờ trên `HandoverRecord` đều `true` (`is_identity_verified`, `is_unit_inspected`, `is_contract_signed`, `is_payment_settled`). Thiếu cờ nào thì API bàn giao trả lỗi rõ ràng cho FS.
-- **FS** bàn giao quyền truy cập theo cấu hình cơ sở/khoang chứa:
-  - **Khóa cơ** (`enabledKeyAccess`): giao chìa vật lý, ghi `quantity` để đối chiếu khi trả kho.
-  - **Khóa mã số** (`enabledCodeAccess`): hệ thống sinh mã, gửi cho khách qua kênh riêng, FS hướng dẫn đổi mã lần đầu. Mã **không lưu plain text**, chỉ lưu hash.
+- **FS** giao chìa khóa vật lý (`access_type = PhysicalKey`), ghi `quantity` để đối chiếu khi trả kho. Khóa mã số không chạy trong MVP.
   - Hai bên xác nhận, khách ký nhận.
 - **Hệ thống (một transaction):** tạo `UnitAccessKey`; `StorageUnit`: `Reserved -> Rented`; `RentalContract`: `Signed -> Active`; `HandoverRecord.result = COMPLETED` + `completed_at`; **`RentalOrder.status -> Done` (Flow 2 là nơi duy nhất set `Done`)**; gửi email kèm hợp đồng và biên bản bàn giao; bắn **`RentalOrder.HandoverCompleted`** - đây là event canonical để Flow 3 bắt đầu theo dõi, Flow 3 không tự poll `status`.
 
@@ -237,10 +241,10 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - **Thanh toán (dùng chung với Flow 1):** tạo bản ghi `PaymentTransaction(status = Pending)` **trước** khi redirect sang VNPay. Webhook/IPN phải **idempotent** theo `gateway_transaction_no` - gọi lại lần 2 chỉ trả `200`, không ghi thêm và không bật lại `is_payment_settled`. Lock theo `invoice_id` khi khởi tạo phiên thanh toán để chặn double-pay từ 2 tab.
 
 **a) Lấy slot và đặt lịch (2.1)**
-- `GET /api/customer/rental-orders/{id}/appointment-slots`: sinh slot từ giờ hoạt động của cơ sở, loại bỏ slot đã đầy theo số FS khả dụng.
+- `GET /api/customer/rental-orders/{id}/appointment-slots`: sinh slot từ giờ hoạt động của cơ sở. MVP không giới hạn số khách trên một slot.
 - `POST /api/customer/rental-orders/{id}/appointments`: body `{ appointment_date, started_at, end_at }`. Validate `Invoice` cọc đã `Paid`. Tạo `Appointment(CHECKIN, Pending)` + `RentalAppointment`, bắn `Appointment.Created`.
 - `PATCH /api/customer/appointments/{id}`: dời lịch.
-- Cron: hủy `RentalOrder` đã cọc quá N ngày chưa check-in, trả khoang về `Available`.
+- Cron hằng ngày: hủy `RentalOrder` đã cọc quá `Policy.order.auto_cancel_days` (mặc định 7) chưa check-in, và hủy hợp đồng `Signed` quá `Policy.handover.payment_grace_hours` chưa thanh toán; cả hai trả khoang về `Available`.
 
 **b) Lịch trình của FS (2.1, 2.2)**
 - `GET /api/staff/appointments?date=...`: lịch trong ngày của FS đang đăng nhập.
@@ -254,7 +258,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 **d) Ký hợp đồng và thanh toán (2.3)**
 - `POST /api/customer/rental-orders/{id}/contracts`: sinh `RentalContract(Draft)`, snapshot `terms_version`, `unit_id`, giá thuê, mốc bắt đầu tính tiền theo chính sách Flow 4. Chỉ cho phép khi `is_unit_inspected = true`.
-- `POST /api/customer/contracts/{id}/sign`: ghi nhận chữ ký, xuất PDF lên storage, `status = Signed`, set `is_contract_signed`, tạo `Invoice(RNT)` tháng đầu.
+- `POST /api/staff/contracts/{id}/sign`: FS upload ảnh/scan hợp đồng đã ký, lưu `signature` + `pdf_url`, `status = Signed`, set `is_contract_signed`, tạo `Invoice(type = Rental)` tháng đầu.
 - `POST /api/invoices/{id}/pay`: khởi tạo phiên VNPay, trả URL redirect.
 - `POST /api/webhooks/vnpay`: nhận IPN, lưu `PaymentTransaction`, `Invoice.status = Paid`, set `is_payment_settled`, `payment_settled_at`.
 
@@ -290,12 +294,15 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 
 **Phụ thuộc cần các flow khác bổ sung (Flow 2 không tự sửa):**
 - Flow 1.3 đã có nhánh chỉ định lại khoang (tạo `ProposalFeedback` mới), nhưng mới dừng ở khách **chưa cọc**. Trường hợp khách **đã cọc rồi mới đổi khoang** (do từ chối tại chỗ ở 2.2) còn thiếu chính sách: chênh lệch tiền cọc, phí đổi khoang, xử lý hóa đơn cọc đã xuất, thời điểm nhả khoang cũ, số lần được đổi, thời hạn đổi trước giờ hẹn.
-- Flow 5: bổ sung `enabledKeyAccess` và `enabledCodeAccess` trên `Facility`/`StorageUnit`.
 - `RentalOrder.status`: branch `flow-1` dùng `Pending/Deposited/Scheduled/InProgress/Canceled/Done` (tuyến tính), Flow 3 dùng bộ khác - chờ nhóm hợp nhất. `db-table-draft.md` cũng chưa có bảng `StorageUnit` (thuộc Flow 5).
 
 **Advanced Features (not MVP)**
 - Lịch hẹn "tham quan kho" cho khách chưa cọc: nhiều khách chung một slot để xem cùng một khoang, cần thêm `type = TOUR` và bỏ ràng buộc 1 slot - 1 khách.
 - Chính sách trả trước N tháng thay vì cố định 1 tháng.
+- Ký hợp đồng online: panel ký tay trên web, hệ thống tự sinh PDF thay vì FS upload bản scan.
+- Bàn giao bằng khóa mã số (`access_type = AccessCode`): sinh mã, lưu hash, gửi qua kênh riêng, ép khách đổi mã lần đầu. Khi làm cần Flow 5 bổ sung cấu hình loại khóa cho `Facility`/`StorageUnit`.
+- Giới hạn số khách trên một slot theo số FS khả dụng.
+- Hàng đợi outbox cho email/notification thay vì gửi thẳng.
 - Cho khách tự chọn slot theo lịch trống thực tế của từng FS thay vì slot cố định theo giờ hoạt động cơ sở.
 - Nhắc lịch hẹn tự động qua email/SMS trước 24h.
 - Cho khách xem ảnh/video khoang chứa trước buổi hẹn để giảm tỉ lệ từ chối tại chỗ.

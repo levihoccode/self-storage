@@ -122,8 +122,8 @@
 - start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
 - end_date
 - signed_at
-- signature
-- pdf_url
+- signature - URL ảnh chữ ký; MVP là ảnh/scan trang ký của hợp đồng giấy
+- pdf_url - file hợp đồng lưu trữ; MVP là bản scan FS upload, không sinh PDF tự động
 - status (Draft/Signed/Active/Ended/Canceled)
   - Signed: đã ký nhưng chưa bàn giao
   - Active: đã bàn giao, đang có hiệu lực
@@ -132,7 +132,7 @@
 **Overview:** quyền truy cập khoang chứa đã bàn giao cho khách.
 - unit_id (N - 1: StorageUnit)
 - order_id (N - 1: RentalOrder)
-- access_type (PhysicalKey/AccessCode)
+- access_type (PhysicalKey/AccessCode) - MVP chỉ dùng `PhysicalKey`
 - quantity - số chìa đã giao, dùng khi `access_type = PhysicalKey`
 - code_hash - hash của mã truy cập, dùng khi `access_type = AccessCode`
 - issued_at, revoked_at
