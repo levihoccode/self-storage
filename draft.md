@@ -155,6 +155,36 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 ### 3. Quản lý kho đã thuê (Customer)
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 **Context:** Thiết lập môi trường để quản lý rules doanh nghiệp, khách hàng, đồng theo dõi doanh thu, khách hàng tiềm năng, chi nhánh tiềm năng giúp mở rộng chi nhánh, ...
+**Các điều cần lưu ý khi thực hiện code ở flow này:**
+- Các chính sách về mặt hình thức đều là các con chữ, cần có một chiến thuật rõ ràng để hạn thay đổi code khi chính sách bị thay đổi nhiều nhất có thể. Các giải pháp được đề xuất:
+  - Cố định các cơ chế chính sách sẽ được hỗ trợ tự động bởi hệ thống như các chức năng (ví dụ: tự động khóa hợp đồng khi quá hạn, tự động tạo bảng tính phí khi một hợp đồng quá hạn)
+  - Cho phép xử lý thủ công khi hệ thống chưa hỗ trợ cơ chế cần thiết (ví dụ: thanh lý tài sản khi quá hạn > 90 ngày, bồi thường thiệt hại đặc biệt không có trong danh mục cố định -> FM/BOM thực hiện thủ công ngoài đời với tác vụ là "Xử lý sự cố" rồi bấm nút 'Ghi nhận xử lý' trên hệ thống, chứ code không tự chạy).
+
+- Khi thực hiện phần "Thêm chính sách", cần phân chia rõ thành 2 cấp độ:
+#### Cấp độ 1: Thêm chính sách dựa trên CƠ CHẾ CÓ SẴN (Không sửa Code - Zero Code Deployment)
+Áp dụng cho các chính sách chỉ thay đổi về mặt dữ liệu, tham số hoặc danh mục lựa chọn. Cơ chế xử lý đã được lập trình sẵn trong code.
+
+* **Thao tác của BOM:** Thực hiện trực tiếp trên giao diện quản trị (Web UI).
+* **Các trường hợp hỗ trợ:**
+  - **Thêm loại phụ phí mới:** Thêm mục phí vào danh mục (VD: Thêm *"Phí mượn xe đẩy hàng quá giờ: 50.000đ/lần"*). Hệ thống tự cập nhật danh sách phụ phí để nhân viên cơ sở (FS/FM) tick chọn khi lập biên bản nghiệm thu kho.
+  - **Thêm bậc cấu hình/khuyến mãi:** Thêm rule tính toán dựa trên khung có sẵn (VD: Hợp đồng thuê trên 6 tháng -> Giảm 5% tiền cọc).
+  - **Ban hành văn bản pháp lý mới:** Tải lên nội dung/file PDF điều khoản phiên bản mới (`RentalTerm v2.0`) để áp dụng cho các hợp đồng tiếp theo.
+* **Bản chất kỹ thuật:** Thao tác tạo bản ghi mới (INSERT) vào Database (`FeeConfig`, `RentalTerm`, `PromotionRule`). Code hệ thống tự động đọc và áp dụng ngay lập tức.
+
+
+#### Cấp độ 2: Thêm chính sách mang HÀNH VI HOÀN TOÀN MỚI (Bắt buộc sửa Code - Feature Development)
+Áp dụng khi BOM ban hành một chính sách đòi hỏi hệ thống phải thực hiện một hành vi, quy trình hoặc tích hợp kỹ thuật chưa từng tồn tại trong mã nguồn.
+
+* **Thao tác của BOM:** Không thể tự cấu hình trên Web UI. Chính sách phải đi qua quy trình tiếp nhận yêu cầu thay đổi (Change Request).
+* **Ví dụ thực tế:**
+  - *"Khách quá hạn 30 ngày thì tự động gửi tin nhắn đòi nợ qua Zalo ZNS và đẩy hồ sơ sang đơn vị thu hồi nợ."*
+  - *"Nếu khách trả kho trước hạn 15 ngày, tự động đăng tin khoang trống lên website ở chế độ flash sale."*
+* **Tại sao không thể tự cấu hình trên UI?** Vì hệ thống chưa có tích hợp API bên thứ ba (Zalo Gateway, Đơn vị thu nợ), chưa có Cronjob quét mốc 30 ngày, và chưa có logic state machine tương ứng.
+* **Quy trình triển khai:**
+  1. **BOM / Nghiệp vụ:** Soạn thảo văn bản quy định chính sách mới.
+  2. **Kỹ thuật (Tech Lead / Dev):** Phân tích tác động (Impact Analysis), thiết kế Database/API và viết code bổ sung cơ chế mới.
+  3. **Kiểm thử & Triển khai (Deploy):** Đẩy phiên bản phần mềm mới lên môi trường production.
+  4. **Cung cấp giao diện quản trị:** Lúc này BOM mới có thêm các tham số mới trên Web UI để bật/tắt hoặc điều chỉnh ngưỡng (VD: đổi mốc 30 ngày thành 45 ngày).
 
 **FLOW:**
 ```
@@ -168,7 +198,8 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
  (Business Rules &       (Fee Configuration &      (Revenue Analytics &
  Operational Limits)         Surcharges)             Cash Inflow)
 ```
-
+- Những table cần được cung cấp cho Flow 4 (dựk tính): Unit, Facility, Users, Reservation, Contrasct, Rental History, Payment.
+- Các table Flow 4 tạo ra: Business rules, Fee, Account disabled
 #### 4.1 Quản lý business rules
 **Context:**BOM cần thiết lập và quản lý các quy định áp dụng cho toàn bộ hệ thống,
 **Flow tổng quát:** 
@@ -183,12 +214,20 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
     + Add: Bom chọn [Add], Sys chuyển trang (*) trắng, nơi để Bom nhập thông tin cần lưu vào hệ thống
     + View (BOM): Tại BR list, Bom chọn view với mỗi rule, Sys chuyển trang (*), nơi đã có thông tin rule, Bom có thể edit là update data.
     + Add và update gửi trên cùng 1 trang, Sys phân biệt bằng cách check ID rule đã tồn tại hay chưa 
-  
-  
+    + Một số chức năng phụ như: Deactivate-Activate (status), Expire, Version, Checking, ..
+  - Các quy định về Rule Validation:
+    + efective from < efective to
+    + Nếu depotit type = % thì deposit value thuộc [0,100];
+    + Nếu 2 rule có thời gian hiệu lực bị đan chéo -> ưu tiền rule có efective from lớn hơn 
+  - deposit type và deposit value:  nêu rõ phương thức đặt cọc là giá trị đặt cọc. Đây là hình thức được quy định chung, không được thay đổi bởi FM, FS hay Cus.
+  - Đối với các cancel-policy + return policy + renewal policy + overdue policy: Tất cả chính sách được mô tả dưới dạng text, mô tả chỉ tiếc các quy định về chính sách và quy định cần được tuần thủ của Users trong hệ thống 
+  - Tại 1 thời điểm chỉ có 1 rules được hoạt động trên hệ thống.
+  - Cus chỉ bị áp dụng rule, thứ đang hiện hành và được khách hàng đồng ý khi họ đồng ý lần đầu tiên với kho FM đưa ra
+
   --**note** 
     + Các chính sách không liên quan đến phí (vd như khoá account) chưa được xử lý
     + Ngoài ra có thể phát triển thêm bảng [discounts] hỗ trở khách hàng dùng giả giá, và [active] giúp admin quản lý hoạn động của BOM
-
+    + Chưa có idea làm version rule
    
 #### 4.2 Các loại phí
 **Context:**
@@ -202,13 +241,26 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
   - Table [Fee]: id + name + category + amount + caculaiton (fixed/daily/monthly/%) + desc + status + created by + created at
   VD1: id + Mất chìa khóa + "LOST-KEY" + 50k + fixed + "" + active + "" + ""
   VD2: id + Wifi + "WIFI" + 2tr + monthly + "" + active + "" + ""
-
+  - Caculation:
+    + fixed: fee= amount* số lần
+    + daily: fee= amount* số ngày phát sinh chi phí
+    + monthly: fee= amount /tháng
+    + %: fee= amount * giá thuê kho
+    + Lock: gửi data sang [Account disabled]
   - *BOM* Mô hình giống trang BR
     - Truy cập trang Fee Managermnet
     - Hệ thống hiển thị các fee
       + Add: Bom chọn [Add], Sys chuyển trang (*) trắng, nơi để Bom nhập thông tin cần lưu vào hệ thống
-      + View (BOM): Tại FeeMana list, Bom chọn view với mỗi Fee, Sys chuyển trang (*), nơi đã có thông tin Fee, Bom có thể edit là update data.
+      + View (BOM): Tại FeeManagement list, Bom chọn view với mỗi Fee, Sys chuyển trang (*), nơi đã có thông tin Fee, Bom có thể edit là update data.
       + Add và update gửi trên cùng 1 trang, Sys phân biệt bằng cách check ID rule đã tồn tại hay chưa 
+      + Nếu 1 fee được từng được sử dụng sẽ không được quyền delete
+  - Khi một khoản phí phát sinh cho khách hàng, hệ thống tạo thông tin khoản phải thanh toán và liên kết khoản này với Payment/Invoice tương ứng.
+
+  - Đối với các trường hợp khóa tài khoản: set up amount = thời gian khóa (MAX_VALUE = khóa vĩnh viễn), caculation= "LOCK";
+    + VD: id+ Overdue + "OVERDUE" + 10^9 + "LOCK" + ""+ active + ""+ "" ;
+  - Đối với tất cả tài khoản bị khóa sẽ được lưu vào table [Account disabled]: id, user-id, time= Fee-amount, type, efective from, 
+    + 'time' là số 'type' mà tài khoản bị khóa; VD: 3 là số tháng mà tài khoản bị khóa
+    + Hành động time-- sẽ được thực thi kể từ khi  'efective from' và lặp lại mỗi chu trình 'type'
 **Note** 
   - Phí thuê trả kho không được lưu ở đây. Nên lưu tại [Unit-type]
 
