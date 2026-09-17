@@ -157,7 +157,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 [Chọn lịch hẹn] -> [FM phân công FS] -> [Check-in & xác minh danh tính] -> [Kiểm tra & xác nhận hiện trạng khoang] -> [Ký hợp đồng] -> [Thanh toán tháng đầu] -> [Nhận khóa/mã truy cập] -> [Khoang chuyển Rented]
 ```
 
-**Vị trí trong vòng đời thuê kho:** Flow 2 bắt đầu sau khi Flow 1.3 (Đặt cọc) hoàn tất - Flow 1 **chỉ thu tiền cọc**, khoang đang ở trạng thái `Reserved`. Việc **ký hợp đồng và thanh toán tiền thuê** nằm trong Flow 2, thực hiện tại cơ sở sau khi khách check-in và xác nhận hiện trạng khoang. Flow 2 kết thúc khi `HandoverRecord.result` chuyển `COMPLETED` (khoang `Rented`, hợp đồng có hiệu lực, bàn giao sang Flow 3) hoặc `REJECTED` (đơn quay về Flow 1 để FM chỉ định khoang khác, sau đó khách hẹn lại và Flow 2 chạy lại trên `HandoverRecord` mới). Toàn bộ là thao tác on-site.
+**Vị trí trong vòng đời thuê kho:** Flow 2 bắt đầu sau khi Flow 1.4 (Đặt cọc) hoàn tất - Flow 1 **chỉ thu tiền cọc**, khoang đang ở trạng thái `Reserved`. Việc **ký hợp đồng và thanh toán tiền thuê** nằm trong Flow 2, thực hiện tại cơ sở sau khi khách check-in và xác nhận hiện trạng khoang. Flow 2 kết thúc khi `HandoverRecord.result` chuyển `COMPLETED` (khoang `Rented`, hợp đồng có hiệu lực, bàn giao sang Flow 3) hoặc `REJECTED` (đơn quay về Flow 1 để FM chỉ định khoang khác, sau đó khách hẹn lại và Flow 2 chạy lại trên `HandoverRecord` mới). Toàn bộ là thao tác on-site.
 
 **ĐÃ CHỐT:**
 - MVP thu **tháng đầu tiên**; chính sách trả trước N tháng để mở sau (Flow 4).
@@ -213,7 +213,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, mặc định theo **chính sách Flow 4** (ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Cho phép FS thỏa thuận riêng với khách nhưng **phải được FM duyệt**; mặc định vẫn ưu tiên chính sách để tránh xung đột.
 
 **Thanh toán tháng đầu tiên**
-- Hệ thống tạo `Invoice` tiền thuê (prefix `RNT`, gắn `contract_id`) với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.3 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
+- Hệ thống tạo `Invoice` tiền thuê (prefix `RNT`, gắn `contract_id`) với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.4 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
 - Khách thanh toán qua VNPay; hệ thống nhận kết quả qua webhook/IPN -> `Invoice.status = Paid`, set `is_payment_settled`, `payment_settled_at`.
 - Chưa thanh toán xong trong buổi hẹn: `result` giữ `IN_PROGRESS`, khoang vẫn `Reserved`, **chưa bàn giao khóa**; hóa đơn nằm trong mục "Hóa đơn" của khách để thanh toán online.
 
@@ -224,7 +224,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
   - **Khóa cơ** (`enabledKeyAccess`): giao chìa vật lý, ghi `quantity` để đối chiếu khi trả kho.
   - **Khóa mã số** (`enabledCodeAccess`): hệ thống sinh mã, gửi cho khách qua kênh riêng, FS hướng dẫn đổi mã lần đầu. Mã **không lưu plain text**, chỉ lưu hash.
   - Hai bên xác nhận, khách ký nhận.
-- **Hệ thống (một transaction):** tạo `UnitAccessKey`; `StorageUnit`: `Reserved -> Rented`; `RentalContract`: `Signed -> Active`; `HandoverRecord.result = COMPLETED` + `completed_at`; cập nhật `RentalOrder`; gửi email kèm PDF hợp đồng và biên bản bàn giao; bắn `RentalOrder.HandoverCompleted` để Flow 3 theo dõi.
+- **Hệ thống (một transaction):** tạo `UnitAccessKey`; `StorageUnit`: `Reserved -> Rented`; `RentalContract`: `Signed -> Active`; `HandoverRecord.result = COMPLETED` + `completed_at`; **`RentalOrder.status -> Done` (Flow 2 là nơi duy nhất set `Done`)**; gửi email kèm hợp đồng và biên bản bàn giao; bắn **`RentalOrder.HandoverCompleted`** - đây là event canonical để Flow 3 bắt đầu theo dõi, Flow 3 không tự poll `status`.
 
 #### Backend flow (chi tiết kỹ thuật)
 
@@ -233,6 +233,8 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - API của customer áp dụng **ownership check** trên `RentalOrder.customer_id`.
 - Mọi bước đổi `StorageUnit.status` chạy trong DB transaction và lock theo `unit_id` để không xung đột với luồng gán khoang của Flow 1.
 - Các API bật cờ trên `HandoverRecord` phải kiểm tra cờ tiền nhiệm, không cho nhảy bước.
+- **Validate phân công:** FS được gán cho một đơn phải thuộc đúng facility của `StorageUnit` trong đơn đó; sai facility trả `422`. FS đang đăng nhập cũng phải khớp `staff_id` của đơn mới được thao tác.
+- **Thanh toán (dùng chung với Flow 1):** tạo bản ghi `PaymentTransaction(status = Pending)` **trước** khi redirect sang VNPay. Webhook/IPN phải **idempotent** theo `gateway_transaction_no` - gọi lại lần 2 chỉ trả `200`, không ghi thêm và không bật lại `is_payment_settled`. Lock theo `invoice_id` khi khởi tạo phiên thanh toán để chặn double-pay từ 2 tab.
 
 **a) Lấy slot và đặt lịch (2.1)**
 - `GET /api/customer/rental-orders/{id}/appointment-slots`: sinh slot từ giờ hoạt động của cơ sở, loại bỏ slot đã đầy theo số FS khả dụng.
@@ -287,12 +289,9 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey) - quyền truy cập khoang chứa đã bàn giao cho khách.
 
 **Phụ thuộc cần các flow khác bổ sung (Flow 2 không tự sửa):**
-- Sơ đồ FLOW của mục 1 vẫn ghi `[Đặt cọc] -> [Ký hợp đồng] -> [Thanh toán]`; hai bước cuối đã chuyển sang Flow 2.
-- Mục 1.1 chưa có bước tạo `ProposalFeedback` cho khách duyệt khoang online, trong khi Flow 2 giả định khách đã duyệt trước khi chọn lịch hẹn.
-- Mục 1.1 tạo lựa chọn lịch hẹn ngay khi FM `Approve`, trong khi MVP chốt chỉ khách đã cọc mới được hẹn lịch.
-- Nhánh chỉ định lại khoang khi khách từ chối tại chỗ, kèm chính sách khi khách đã cọc: chênh lệch tiền cọc, phí đổi khoang, xử lý hóa đơn cọc đã xuất, thời điểm nhả khoang cũ, số lần được đổi, ai có quyền đổi, thời hạn đổi trước giờ hẹn.
+- Flow 1.3 đã có nhánh chỉ định lại khoang (tạo `ProposalFeedback` mới), nhưng mới dừng ở khách **chưa cọc**. Trường hợp khách **đã cọc rồi mới đổi khoang** (do từ chối tại chỗ ở 2.2) còn thiếu chính sách: chênh lệch tiền cọc, phí đổi khoang, xử lý hóa đơn cọc đã xuất, thời điểm nhả khoang cũ, số lần được đổi, thời hạn đổi trước giờ hẹn.
 - Flow 5: bổ sung `enabledKeyAccess` và `enabledCodeAccess` trên `Facility`/`StorageUnit`.
-- `RentalOrder.status` đang có hai bộ enum (`db-table-draft.md` vs Flow 3) và `db-table-draft.md` chưa có bảng `StorageUnit` - Levi thống nhất sau khi review xong các flow.
+- `RentalOrder.status`: branch `flow-1` dùng `Pending/Deposited/Scheduled/InProgress/Canceled/Done` (tuyến tính), Flow 3 dùng bộ khác - chờ nhóm hợp nhất. `db-table-draft.md` cũng chưa có bảng `StorageUnit` (thuộc Flow 5).
 
 **Advanced Features (not MVP)**
 - Lịch hẹn "tham quan kho" cho khách chưa cọc: nhiều khách chung một slot để xem cùng một khoang, cần thêm `type = TOUR` và bỏ ràng buộc 1 slot - 1 khách.

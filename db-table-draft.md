@@ -46,7 +46,7 @@
 - order_id (1 - 1: RentalOrder)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit)
-- status (Pending/Agree/Reject)
+- status (Pending/Agreed/Rejected)
 - note
 
 **NOTES:**
