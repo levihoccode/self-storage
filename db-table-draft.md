@@ -67,7 +67,9 @@
 # Appointment
 **Overview:** lịch hẹn dùng chung cho mọi loại cuộc hẹn tại cơ sở. Được tạo khi khách yêu cầu hoặc hệ thống tạo lịch; dùng cho check-in, bàn giao, trả kho, xử lý sự cố tại kho, ...
 - customer_id (1 - N: Account)
-- staff_id (1 - N: Account)
+- staff_id (1 - N: Account) - nullable, FM gán ở Flow 5.3
+- order_id (N - 1: RentalOrder) - nullable, null với lịch không gắn đơn (xử lý sự cố tại kho)
+- facility_id (N - 1: Facility)
 - type (CHECKIN, HANDOVER, RETURN, ...)
 - cancel_reason
 - appointment_date
@@ -81,13 +83,11 @@
 
 **NOTES:**
 - `RETURN` do Flow 2.5 thêm vào để dùng cho buổi hẹn trả kho; Levi sẽ chốt lại bộ `type` sau khi các flow ổn định.
-- Khi khách đặt lại lịch sau reject/no-show thì tạo bản ghi **mới** (`staff_id = null`) để FM phân công lại; bản ghi cũ giữ nguyên làm lịch sử.
-# RentalAppointment
-**Overview:** nối lịch hẹn với đơn hàng. Được tạo khi `Appointment.type = CHECKIN`, `HANDOVER` hoặc `RETURN`.
-- order_id (N - 1: RentalOrder)
-- appointment_id (1 - 1: Appointment)
+- Bảng nối `RentalAppointment` đã bỏ (A6/B5): `order_id` nằm thẳng trên bảng này, `facility_id` để FM lọc lịch theo cơ sở và validate FS mà không phải join `order -> unit -> facility`.
+- Vòng đời lịch check-in (tạo, dời, hủy, tạo lại sau reject/no-show) do **Flow 1** quản lý; Flow 2 chỉ set `arrived_at` + `status = Done`. Lịch `RETURN` do Flow 2.5 tạo từ `ReturnRequest`.
+- Khi đặt lại lịch sau reject/no-show thì tạo bản ghi **mới** (`staff_id = null`) để FM phân công lại; bản ghi cũ giữ nguyên làm lịch sử.
 # HandoverRecord
-**Overview:** theo dõi tiến trình on-site từ check-in tới bàn giao kho (Flow 2). Được tạo khi `RentalOrder.status = InProgress`. Khi `result = COMPLETED` hoặc `REJECTED` là Flow 2 kết thúc.
+**Overview:** theo dõi tiến trình on-site từ check-in tới bàn giao kho (Flow 2). Được tạo khi FS bấm check-in (`Appointment.arrived_at`), không gắn vào mốc `RentalOrder.status = InProgress` vì Flow 1.5 set trạng thái này ngay khi FM phân công FS. Khi `result = COMPLETED` hoặc `REJECTED` là Flow 2 kết thúc.
 - order_id (N - 1: RentalOrder)
 - unit_id (N - 1: StorageUnit)
 - staff_id (N - 1: Account)
