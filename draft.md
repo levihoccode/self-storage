@@ -201,85 +201,128 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Những table cần được cung cấp cho Flow 4 (dựk tính): Unit, Facility, Users, Reservation, Contrasct, Rental History, Payment.
 - Các table Flow 4 tạo ra: Business rules, Fee, Account disabled
 #### 4.1 Quản lý business rules
-**Context:**BOM cần thiết lập và quản lý các quy định áp dụng cho toàn bộ hệ thống,
+**Context:**BOM quản lý các chính sách nghiệp vụ được áp dụng trong hệ thống. Các chính sách được cấu hình thông qua giao diện quản trị thay vì thay đổi trực tiếp trong source
 **Flow tổng quát:** 
- - Tại BR: Sys show danh sách các rule hiện hành -> Bom thao tác các nghiệp vụ thêm xóa sửa
+    [Bom đăng nhập]->[Page quản lý rules]->[CRUD-Status-Active]->[kiểm tra hợp lệ]->[Save]
  **Details:**
- - Chính sách chỉ liên quan đến chi phí, vận hành kho, không liên quan đến các quy định khách hàng về sử dụng ứng dụng hay dịch vụ
-  
-  - Table [Business-Rules]: rental-policies: id + name + deposit type ($||%) + deposit value + cancel-policy + return policy + renewal policy + overdue policy + efective from + efective to + status + created by + created at +...
- - **BOM:**
-  - Truy cập trang B-rules
-  - Hệ thống hiển thị các rule
-    + Add: Bom chọn [Add], Sys chuyển trang (*) trắng, nơi để Bom nhập thông tin cần lưu vào hệ thống
-    + View (BOM): Tại BR list, Bom chọn view với mỗi rule, Sys chuyển trang (*), nơi đã có thông tin rule, Bom có thể edit là update data.
-    + Add và update gửi trên cùng 1 trang, Sys phân biệt bằng cách check ID rule đã tồn tại hay chưa 
-    + Một số chức năng phụ như: Deactivate-Activate (status), Expire, Version, Checking, ..
-  - Các quy định về Rule Validation:
-    + efective from < efective to
-    + Nếu depotit type = % thì deposit value thuộc [0,100];
-    + Nếu 2 rule có thời gian hiệu lực bị đan chéo -> ưu tiền rule có efective from lớn hơn 
-  - deposit type và deposit value:  nêu rõ phương thức đặt cọc là giá trị đặt cọc. Đây là hình thức được quy định chung, không được thay đổi bởi FM, FS hay Cus.
-  - Đối với các cancel-policy + return policy + renewal policy + overdue policy: Tất cả chính sách được mô tả dưới dạng text, mô tả chỉ tiếc các quy định về chính sách và quy định cần được tuần thủ của Users trong hệ thống 
-  - Tại 1 thời điểm chỉ có 1 rules được hoạt động trên hệ thống.
-  - Cus chỉ bị áp dụng rule, thứ đang hiện hành và được khách hàng đồng ý khi họ đồng ý lần đầu tiên với kho FM đưa ra
+  Business Rule quản lý các inf liên quan đến: deposit, policy, effective, status và version của từng policy
+ **Schema**
+ RentalPolicy
+  - id
+  - name
+  - deposit_type 
+  - deposit_value 
+  - cancel_policy 
+  - return_policy 
+  - renewal_policy 
+  - overdue_policy 
+  - lock_policy
+  - version 
+  - effective_from 
+  - effective_to 
+  - status 
+  - created_by 
+  - created_at 
+  - updated_at
+
+**Validetion**
+  - efective from < efective to
+  - Nếu depotit type = % thì deposit value thuộc [0,100];
+  - không cho phép các version đang active bị overlap về thời gian
+  - các Business rule đã được sử dụng không được hảd delete
+**Rule áp dụng**
+  - Deposit type chỉ có 2 loại $ hoặc %
+  - Nếu là $: sử dụng trực tiếp Deposit value tiền cọc
+  - Nếu là %: tính tiền cọc = deposit value* unit-price;
+  - Chính sách được áp dụng cho khách hàng phải được các định tại thời điểm khách hàng chập nhận đề xuất thuê kho
+  - vesion đã áp dụng cho hợp đồng phải được lưu lại để tránh việc thay đổi policy mới ảnh hưởng để hợp đồng cũ 
 
   -**note** 
-    + Các chính sách không liên quan đến phí (vd như khoá account) chưa được xử lý
     + Ngoài ra có thể phát triển thêm bảng [discounts] hỗ trở khách hàng dùng giả giá, và [active] giúp admin quản lý hoạn động của BOM
     + Chưa có idea làm version rule
   
   **Các chính sách liên quan**
-    - Đặt cọc: 
-      - Hình thức đặt cọc deposit type: $ hoặc %
-      - Giá trị đặt cọc deposit value: $(>0) hoặc % ([0;100]);
-      - deposit type và deposit value là cố định với mỗi version chính sách. Cus được chọn hình thức thông qua FS. 
-        - Nếu Cus chọn $ -> Sử dụng trực tiếp deposit value để tạo hóa đơn đặt cọc
-        - Nếu Cus chọn % -> Sử dụng deposit value và table [unit] để tính toán số tiền tạo hóa đơn đặt cọc
-      - Ngoại lệ: Khách hủy hợp đồng khi đã đặt cọc thành công: Hủy request đặt cọc của khách. Mất cọc. Kho được trả về free
     - Bảo trì:
       - Thời gian bảo trì, refresh kho cein 1 tháng kể từ khi trả kho và 1 năm kể từ lần bảo trì gần nhất. Data được lưu ở units
     - Hình thức ký: Ký điện tử + Hợp đồng giấy khi bàn giao kho
     - Hợp đồng sinh ra mỗi khi bắt đầu và kết thúc thuê kho
     - 100% Thanh toán online
     - Hiện tại chưa có chính sách hoàn tiền. Đang cân nhắc đến việc lập bảng giảm giá  [discounts];
-#### 4.2 Các loại phí
-**Context:**
-  - BOM thiết lập và quản lý các chính sách về khoản phí, chi phí đặt, thuê, gia hạn, trả, phạt, v.v. Đồng thời quản lý các loại phí, chi phí, cách tính phí. 
+    - Đối với các chính sách liên quan đến khóa tài khoản. Các tài bị khóa được lưu trong table [Account disabled]
+      - id
+      - Cus-id
+      - time (tính theo ngày, time<0 -> khóa vĩnh viễn)
+      - effective_from 
+      - description
 
+#### 4.2 Các loại kho và phí
+  **Context**
+    BOM quản lý loại kho, giá thuê và các khoản phí được áp dụng trong hệ thống. Flow 4 là nơi cấu hình dữ liệu giá để các flow khác sử dụng trong quá trình đặt, thuê, gia hạn và trả kho.
+
+##### 4.2.1 Quản lý loại kho
 **Flow**
-  - Tại Fee Managerment: Sys show danh sách các fee hiện hành -> Bom thao tác các nghiệp vụ thêm xóa sửa4
+  [BOM đăng nhập]->[Page Unit Type]->[CRUD/ kích hoạt-vô hiệu]->[kiểm tra hợp lệ]->[Save]
 
 **Details**
-  - các loại phí liên quan đến tất cả loại chi phí vận hành kho, dịch vù và phí phạt, nơi data được lưu trữ và sử dụng để tạo hóa đơn
-  - Table [Fee]: id + name + category + amount + caculaiton (fixed/daily/monthly/%) + desc + status + created by + created at
-    + VD1: id + Mất chìa khóa + "LOST-KEY" + 50k + fixed + "" + active + "" + ""
-    + VD2: id + Wifi + "WIFI" + 2tr + monthly + "" + active + "" + ""
-  - Caculation:
-    + fixed: fee= amount* số lần
-    + daily: fee= amount* số ngày phát sinh chi phí
-    + monthly: fee= amount /tháng
-    + %: fee= amount * giá thuê kho
-    + Lock: gửi data sang [Account disabled]
-  - *BOM* Mô hình giống trang BR
-    - Truy cập trang Fee Managermnet
-    - Hệ thống hiển thị các fee
-      + Add: Bom chọn [Add], Sys chuyển trang (*) trắng, nơi để Bom nhập thông tin cần lưu vào hệ thống
-      + View (BOM): Tại FeeManagement list, Bom chọn view với mỗi Fee, Sys chuyển trang (*), nơi đã có thông tin Fee, Bom có thể edit là update data.
-      + Add và update gửi trên cùng 1 trang, Sys phân biệt bằng cách check ID rule đã tồn tại hay chưa 
-      + Nếu 1 fee được từng được sử dụng sẽ không được quyền delete
-  - Khi một khoản phí phát sinh cho khách hàng, hệ thống tạo thông tin khoản phải thanh toán và liên kết khoản này với Payment/Invoice tương ứng.
+  BOM quản lý inf unit type thuê theo tháng
+**Schema**
+  UnitType 
+    - id 
+    - name 
+    - size 
+    - default-price (min-price/max-price) 
+    - description
+    - status 
+    - created_by 
+    - created_at 
+    - updated_at
 
-  - Đối với các trường hợp khóa tài khoản: set up amount = thời gian khóa (MAX_VALUE = khóa vĩnh viễn), caculation= "LOCK";
-    + VD: id+ Overdue + "OVERDUE" + 10^9 + "LOCK" + ""+ active + ""+ "" ;
-  - Đối với tất cả tài khoản bị khóa sẽ được lưu vào table [Account disabled]: id, user-id, time= Fee-amount, type, efective from, 
-    + 'time' là số 'type' mà tài khoản bị khóa; VD: 3 là số tháng mà tài khoản bị khóa
-    + Hành động time-- sẽ được thực thi kể từ khi  'efective from' và lặp lại mỗi chu trình 'type'
+**Validation**
+  - default-price >0;
+  - Unit type đã được sử dụng không được hảd delete
+  - Unit muốn check giá phải tham chiếu qua Unit type
+  - Unit type không sử dụng có thể để qua inactive
+
+##### 4.2.2 Quản lý fee
+  **Flow** 
+    [Bom đăng nhập]->[Page quản lý Fee]->[CRUD/ Kích hoạt-vô hiệu]->[kiểm tra hợp lệ]->[Save]
+  **Detail**
+    Fee dùng để định nghĩ các khoản phí phát sinh trong quá trình sử dụng hệ thống như: Booking fee, rental fee, renewal fee, return fee, penalty fee, v.v.
+  **Schema**
+    Fee:
+      - id
+      - code
+      - name
+      - category
+      - amount
+      - caculation type
+      - facility-id
+      - effective_from 
+      - effective_to 
+      - status 
+      - created_by 
+      - created_at 
+      - updated_at
+
+  **Calculation**
+    - Fixed:	amount * số lần /tháng     VD: mất chìa khóa 63 lần/tháng
+    - Daily:	amount * số ngày /tháng    VD: thuê máy kéo 13 ngày/ tháng
+    - Monthly:	amount /tháng            VD: wifi
+    - Percentage:	price * amount%        VD: Hư hỏng kho 36%
+
+  **Validation**
+    - amount >0;
+    - nếu caculation-type = % thì amount thuộc 0-100;
+    - effective_from < effective_to 
+    - Fee đã được sử dụng không được hard delete.
+    - Fee hết hiệu lực được chuyển sang Inactive/Expired. 
+
+  **Fee phát sinh**
+    [Business Transaction]->[Check fee]->[Tính fee]->[Tạo bill]->[Invoice - Payment]->[Thông báo Cus]
+    ** Sau bước tính phí áp dụng mô hình của tạo hóa đơn đặt cọc.
+
 **Note** 
 
-
-**Các chính sách liên quan**
-  - Khung giá thuê, gia hạn được lưu lại units (hoặc unit-type) 
 **Payment** 
   - Có thể ghép chung với phần tạo hóa đơn, ở đây chỉ lên idea payment cho fee
   - Table: id, cus-id, contract-id(hình như ở flow2), (reservation-id), payment-type(deposit/rental/renewal/Fee/...), amount, payment-method, code, status, paid-at, created-at.
@@ -288,20 +331,34 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 #### 4.3 Dashboard theo dõi doanh thu chi nhánh
 
 **Context:** 
-- BOM theo dõi doanh thu chi nhánh, kho cơ sở. Hệ thống tổng hợp data cho thuê theo thời gian, Bom's chi nhánh, loại kho, Cus. Dboard giúp đánh giá, so sánh giữa các chi nhánh, các khung thời gian, ... 
+  - BOM sử dụng Dashboard để theo dõi doanh thu của các Facility/chi nhánh dựa trên dữ liệu giao dịch thực tế của hệ thống.
 
 **Flow tổng quát:**
-- BOM vào Revenue Dashboard. Sys lấy data từ Contract, Fee, Payment và Rental History để tổng hợp doanh thu.
-- DBoard có thể dưới dạng các bảng hay biểu đồ cột, đường, tròn,...
-- Có thể xét theo thời gian, chi nhánh, kho, Cus, . Khi thay đổi lọc thì Sys  sẽ tính toán lại. Có thể chọn nhiều đơn vị lọc.
-  
+  [Bom đăng nhập]->[DB doanh thu]->[Chọn thời gian]->[Lọc Facility/unit type/Cus]->[Tổng hợp dữ liệu]->[Hiển thị báo cáo]
 
 **Details:**
-- BOM vào Revenue Dashboard. Sys hiện thị doang thu của chi nhánh 2 tháng gần nhất (default). Chọn các tiêu chí để hệ thống tính toán và trả về kết quả
-- Bên cạnh đó có mô hình so sánh doanh thu
-  - Trước đó BOM phải chọn (or not) biểu đồ cần so sánh (*). bên phải sẽ có phần so sánh theo từng thay đổi (data được trả về page cùng lúc với *).
-  
-**Schema liên quan:**
+  - Theo dõi doanh thu theo thời gian, facility, unit type, cus.
+  - So sánh doanh thu giữ các khoảng thời gian
+  - Theo dõi các khoản đã thanh hóa, chờ thanh toán
+**Data source**
+  Payment -> Invoice -> Contract -> StorageUnit -> Facility
+
+**Các chỉ số chính**
+  - Collected Revenue: tổng tiền thanh toán thành công.
+  - Outstanding: tổng tiền còn phải thanh toán.
+  - Refunded: tổng tiền đã hoàn.
+  - Gross Billed: tổng giá trị đã lập hóa đơn.
+
+**VD**  Hiển thị dữ liệu trong 2 tháng gần nhất và cho phép BOM thay đổi khoảng thời gian.
+
+#### Features
+  - Facility-specific pricing override.
+  - Discount/Promotion management.
+  - Dynamic pricing.
+  - Advanced revenue analytics.
+  - Automatic revenue forecasting.
+  - Custom dashboard widgets.
+Advanced policy rule engine.
 
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
