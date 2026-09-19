@@ -78,7 +78,7 @@
 [Yêu cầu chọn lại khoang]     [1.4 Đặt cọc (Deposit)]
                                    │ 
                                    ▼
-                              [1.5 Chọn lịch hẹn check-in và bàn giao]
+                              [1.5 Chọn lịch hẹn check-in sau khi đặt cọc]
 
 ```
 #### Ngưỡng mặc định (MVP)
@@ -86,7 +86,7 @@
 - Cọc xong → chọn lịch check-in trong 7 ngày; ngày hẹn cách lúc cọc tối đa 14 ngày
 - Reject khoang trước cọc tối đa 3 lần; dời lịch tối đa 2 lần
 - Khung giờ hẹn: 3 khung cố định/ngày, capacity chỉnh tay
-- Quá 30 ngày kể từ cọc mà chưa bàn giao → hủy đơn + mất cọc
+- Quá 30 ngày kể từ cọc mà chưa bàn giao → chuyển đơn sang Expired + mất cọc
 #### 1.1 Yêu cầu đặt kho
 **Context:** Khách mới, chưa từng sử dụng dịch vụ, muốn tìm cho mình một khoang chứa phù hợp với nhu cầu.
 
@@ -290,6 +290,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
         - Cập nhật bản ghi `PaymentTransaction` sang status = `Success`
         - Hệ thống cập nhật `Invoice.status` thành `Paid`
         - Hệ thống cập nhật `RentalOrder.status` thành `Deposited`
+        - Hệ thống cập nhật `RentalOrder.expires_at` thành `now + N ngày (thời gian hết hạn đơn hàng, default ở [Ngưỡng mặc định](#ngưỡng-mặc-định-mvp))`
         - Hệ thống cập nhật trạng thái khoang chứa thành `Reserved`
         - Mở khóa khoang chứa và được trạng thái `Reserved` bảo vệ
         - Hiển thị thông báo "Thanh toán thành công".
@@ -302,13 +303,13 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
 
 **NOTES:**
 - Luồng từ việc đặt khoang -> đặt cọc -> chọn lịch hẹn là tuyến tính, tức là chỉ có đặt cọc mới có thể đặt lịch hẹn (check-in và bàn giao). Vì thế nên suy nghĩ đến việc cho đặt lịch hẹn (với loại là xem kho) trước khi đặt cọc, ở luồng này, mình có thể để FS xử lý nhiều lịch hẹn xem kho cùng 1 thời điểm (giống như 1 tour du lịch).
-- Sau khi khách đã trả tiền cọc, khoang chứa phải được giữ ở trạng thái Reserved cho đến ngày hẹn check-in/bàn giao. Hết hạn nếu quá 30 ngày kể từ lúc cọc mà chưa bàn giao → mất cọc và hủy đơn. Trường hợp hủy do lỗi cơ sở (hết khoang phù hợp) → hoàn cọc thủ công (C6); chính sách chi tiết thuộc Flow 4.
+- Sau khi khách đã trả tiền cọc, khoang chứa phải được giữ ở trạng thái Reserved cho đến ngày hẹn check-in/bàn giao. Hết hạn nếu quá 30 ngày kể từ lúc cọc mà chưa bàn giao → mất cọc và chuyển đơn sang trạng thái Expired. Trường hợp hủy do lỗi cơ sở (hết khoang phù hợp) → hoàn cọc thủ công (C6); chính sách chi tiết thuộc Flow 4.
 - IPN là nguồn xác nhận thanh toán duy nhất: verify checksum, kiểm tra `vnp_TmnCode` + `vnp_Amount` khớp invoice; handler idempotent theo `vnp_txn_ref` (VNPay retry tối đa 10 lần × 5 phút); trả đúng `RspCode` theo quy định VNPay; `vnp_ReturnUrl` chỉ dùng để hiển thị kết quả.
-#### 1.5 Chọn lịch check-in và bàn giao
-**Context:** Sau khi khách đã đặt cọc thành công (`RentalOrder.status = Deposited`), đơn chưa có lịch hẹn. Hệ thống điều hướng khách hàng sang màn hình lên lịch hẹn on-site tại chi nhánh.
+#### 1.5 Chọn lịch check-in sau khi đặt cọc
+**Context:** Sau khi khách đã đặt cọc thành công (`RentalOrder.status = Deposited`), khoang chứa đã được giữ ở trạng thái `Reserved` nhưng đơn hàng chưa có lịch hẹn check-in. Flow 1 tiếp tục hỗ trợ khách hàng đặt lịch hẹn tại cơ sở, sau đó chuyển thông tin lịch hẹn cho Flow 2 để thực hiện các bước check-in và bàn giao khoang.
 
 **Flow tổng quát:** 
-Hệ thống điều hướng user đến trang đặt lịch hẹn -> Khách chọn ngày & giờ trong giới hạn quy định -> Hệ thống tạo `Appointment(type = CHECKIN, status = Pending)` + `RentalAppointment` nối với `RentalOrder` và chuyển đơn sang `Scheduled` -> FM chỉ định nhân viên FS đón tiếp -> Hệ thống gán `Appointment.staff_id` và chuyển đơn sang `InProgress`.
+Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> Khách chọn ngày và giờ trong giới hạn quy định -> Hệ thống tạo `Appointment(type = CHECKIN, status = Pending)` + `RentalAppointment` nối với `RentalOrder` + `HandoverRecord` cho đơn hàng -> Hệ thống cập nhật `RentalOrder.status` sang `Scheduled` -> FM chỉ định một nhân viên FS phụ trách -> Hệ thống gán `Appointment.staff_id` và cập nhật `RentalOrder.status` sang `InProgress`
 
 **Details:**
 - **Customer:**
@@ -316,6 +317,7 @@ Hệ thống điều hướng user đến trang đặt lịch hẹn -> Khách ch
   - Khách chọn ngày và khung giờ hẹn đến nhận khoang (Ràng buộc theo [Ngưỡng mặc định](#ngưỡng-mặc-định-mvp): chọn lịch trong vòng 7 ngày kể từ lúc cọc, ngày hẹn cách lúc cọc tối đa 14 ngày; nằm trong khung giờ làm việc của chi nhánh).
   - Khách ấn "Xác nhận".
   - Hệ thống tạo `Appointment(type = CHECKIN, status = Pending)` + `RentalAppointment` nối với `RentalOrder`.
+  - Hệ thống tạo một bản ghi `HandoverRecord` cho đơn hàng để Flow 2 tiếp tục xử lý các bước check-in và bàn giao.
   - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `Scheduled`.
   - Hệ thống gửi email/thông báo xác nhận lịch hẹn kèm địa chỉ cơ sở và hướng dẫn mang theo giấy tờ tùy thân (CCCD/Passport).
 - **FM:**
@@ -329,9 +331,11 @@ Hệ thống điều hướng user đến trang đặt lịch hẹn -> Khách ch
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
 - [**Appointment**](./db-table-draft.md#appointment)
 - [**RentalAppointment**](./db-table-draft.md#rentalappointment)
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord)
 
-**Advanced Features:**
-- Đặt lại lịch hẹn nếu khách đặt lịch nhưng không đến và vẫn còn trong thời gian hiệu lực giữ kho
+**NOTES:**
+- `HandoverRecord` được tạo cùng lúc với `Appointment`.
+- `result = IN_PROGRESS` ở thời điểm khởi tạo nghĩa là hồ sơ bàn giao đang được mở, không đồng nghĩa khách đã đến cơ sở.
 
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
@@ -346,6 +350,16 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
 ### Jobs định kỳ
 - `RentalRequest` quá `expires_at` mà vẫn `status = Approved` → set `status = Expired`.
 - `ProposalFeedback` quá `expires_at` mà khách chưa duyệt → set `status = Expired`.
-- `RentalOrder` quá 30 ngày kể từ `Deposited` mà chưa bàn giao → `status = Expired` (hủy đơn + mất cọc theo policy).
-- `Appointment` quá thời điểm hẹn mà khách chưa đến (`arrived_at` null) → set `status = Canceled` (kèm lý do "Khách không đến").
+- `Appointment` (type = `CHECKIN`) đã quá `end_at` nhưng `arrived_at` vẫn null:
+  - `Appointment.status = Canceled`, `cancel_reason = NoShow`.
+  - `HandoverRecord.result = CANCELED`.
+  - `HandoverRecord.reject_reason` = "Khách không đến nhận kho theo lịch hẹn."
+  - Nếu `now < RentalOrder.expires_at`:
+    - `RentalOrder.status` quay về `Deposited`.
+    - `StorageUnit` tiếp tục giữ `Reserved`.
+    - Gửi thông báo và cho phép khách đặt lịch mới.
+  - Nếu `now >= RentalOrder.expires_at`:
+    - `RentalOrder.status = Expired`.
+    - `StorageUnit.status` chuyển từ `Reserved` về `Available`.
+    - Xử lý mất cọc theo policy.
 - `Invoice` (DEP) quá `due_date` mà chưa thanh toán → set `status = Expired`; `RentalOrder` tương ứng chuyển `Expired` (khách không thanh toán cọc).
