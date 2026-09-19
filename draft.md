@@ -157,10 +157,11 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 [Nhận lịch hẹn từ Flow 1] -> [Check-in & xác minh danh tính] -> [Kiểm tra & xác nhận hiện trạng khoang] -> [Ký hợp đồng] -> [Thanh toán tháng đầu] -> [Nhận khóa/mã truy cập] -> [Khoang chuyển Rented]
 ```
 
-**Vị trí trong vòng đời thuê kho:** Flow 1 giữ trọn vòng đời đặt khoang `RentalRequest -> ProposalFeedback -> Deposit -> Appointment`. Flow 2 bắt đầu khi đơn đã có `Appointment(type = CHECKIN, status = Pending)` hợp lệ và đã được phân công FS - theo Flow 1.5 thì lúc này `RentalOrder.status = InProgress`, khoang `Reserved`, `Invoice` cọc đã `Paid`, chỉ chịu trách nhiệm phần on-site: check-in -> kiểm tra khoang -> ký hợp đồng -> thanh toán tháng đầu -> bàn giao. Flow 2 kết thúc khi `HandoverRecord.result` chuyển `COMPLETED` (khoang `Rented`, hợp đồng có hiệu lực, bàn giao sang Flow 3) hoặc `REJECTED` (bắn event về Flow 1 để FM đề xuất khoang khác, khách duyệt `ProposalFeedback` mới và Flow 1 tạo lịch hẹn mới; Flow 2 chạy lại trên `HandoverRecord` mới). Toàn bộ là thao tác on-site.
+**Vị trí trong vòng đời thuê kho:** Flow 1 giữ trọn vòng đời đặt khoang `RentalRequest -> ProposalFeedback -> Deposit -> Appointment`. Flow 2 bắt đầu khi đơn đã có `Appointment(type = CHECKIN, status = Pending)` và `HandoverRecord` (`result = IN_PROGRESS`) do Flow 1.5 tạo sẵn, và FS đã được phân công - theo Flow 1.5 thì lúc này `RentalOrder.status = InProgress`, khoang `Reserved`, `Invoice` cọc đã `Paid`, chỉ chịu trách nhiệm phần on-site: check-in -> kiểm tra khoang -> ký hợp đồng -> thanh toán tháng đầu -> bàn giao. Flow 2 kết thúc khi `HandoverRecord.result` chuyển `COMPLETED` (khoang `Rented`, hợp đồng có hiệu lực, bàn giao sang Flow 3) hoặc `REJECTED` (bắn event về Flow 1 để FM đề xuất khoang khác, khách duyệt `ProposalFeedback` mới và Flow 1 tạo lịch hẹn mới; Flow 2 chạy lại trên `HandoverRecord` mới). Toàn bộ là thao tác on-site.
 
 **ĐÃ CHỐT:**
 - **Vòng đời `Appointment` thuộc Flow 1**: chọn slot, đặt lịch, dời lịch, hủy lịch và tạo lại lịch sau `HandoverRecord.Rejected`/no-show. Flow 2 chỉ đọc lịch đã có và ghi đúng một field `arrived_at` (kèm `status = Done`) khi khách đến cơ sở.
+- **`HandoverRecord` cũng do Flow 1.5 tạo**, cùng lúc với `Appointment` khi khách xác nhận lịch hẹn (Flow 1 commit `0585bfb`). `result = IN_PROGRESS` lúc khởi tạo nghĩa là hồ sơ đang mở, **không** đồng nghĩa khách đã đến. Flow 2 không tạo bản ghi mới, chỉ bật cờ và chốt `result` trên bản ghi có sẵn.
 - **Bỏ bảng `RentalAppointment`** (A6/B5, Flow 1 và Flow 5 đã đồng ý): `Appointment` có `order_id` nullable trỏ thẳng `RentalOrder` và `facility_id` trỏ `Facility`. Lịch hẹn không gắn đơn (xử lý sự cố) vẫn xác định được cơ sở.
 - MVP thu **tháng đầu tiên**; chính sách trả trước N tháng để mở sau (Flow 4).
 - MVP chỉ xử lý trường hợp **khách đã đặt cọc trước ngày hẹn** - buổi hẹn là check-in + bàn giao. Lịch "tham quan kho" cho khách chưa cọc (nhiều khách chung một slot) **không thuộc MVP**, xem Advanced Features.
@@ -169,7 +170,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - **Ký hợp đồng offline cho MVP:** FS đánh dấu khách đã ký trên ứng dụng, hợp đồng giấy được chụp/scan và upload; `RentalContract.signature` lưu URL ảnh, `pdf_url` lưu bản scan. Hệ thống **không sinh PDF tự động** trong MVP; panel ký tay trên web để sau.
 - **MVP chỉ bàn giao khóa cơ** (`access_type = PhysicalKey`). Khóa mã số giữ nguyên trong schema để mở rộng, không chạy trong MVP - nên Flow 5 **không cần** thêm field cấu hình loại khóa.
 - **Thông báo gửi thẳng** (email/notification tại thời điểm phát sinh), không làm hàng đợi outbox trong MVP.
-- **Ngưỡng vận hành mặc định** (Flow 4 override sau qua `Policy`): khách từ chối khoang tối đa **2 lần** trên một đơn, và thanh toán trong `handover.payment_grace_hours` sau khi ký - hai ngưỡng này do Flow 2 kiểm tra. Các ngưỡng quanh lịch hẹn chuyển sang Flow 1 cùng vòng đời `Appointment` và **lấy theo bản Flow 1.5 đang có** (chọn lịch trong 7 ngày kể từ lúc cọc, ngày hẹn cách tối đa 14 ngày, quá 30 ngày kể từ `Deposited` mà chưa bàn giao thì đơn `Expired`); các ngưỡng Flow 2 từng đề xuất (auto-cancel 7 ngày, 2 lần no-show, dời lịch 2 lần báo trước 24h) bỏ để tránh hai nguồn.
+- **Ngưỡng vận hành mặc định** (Flow 4 override sau qua `Policy`): khách từ chối khoang tối đa **2 lần** trên một đơn, và thanh toán trong `handover.payment_grace_hours` sau khi ký - hai ngưỡng này do Flow 2 kiểm tra. Các ngưỡng quanh lịch hẹn chuyển sang Flow 1 cùng vòng đời `Appointment` và **lấy theo bản Flow 1 đang có** (chọn lịch trong 7 ngày kể từ lúc cọc, ngày hẹn cách tối đa 14 ngày, reject khoang trước cọc tối đa 3 lần, dời lịch tối đa 2 lần, thời hạn giữ kho ghi trên `RentalOrder.expires_at` mặc định 30 ngày); các ngưỡng Flow 2 từng đề xuất (auto-cancel 7 ngày, 2 lần no-show, dời lịch 2 lần báo trước 24h) bỏ để tránh hai nguồn.
 
 **Dữ liệu phụ thuộc (input từ các flow khác):**
 - Flow 1: `RentalOrder` đã `Approve`, `unit_id` đã gán và khách đã duyệt qua `ProposalFeedback`, `Invoice` cọc đã `Paid`, **`Appointment(type = CHECKIN, status = Pending)`** đã tạo kèm `facility_id`, ảnh giấy tờ tùy thân khách upload online (nếu có).
@@ -182,17 +183,17 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 Flow 2 **không tạo và không sửa** `Appointment`. Toàn bộ việc sinh slot, đặt lịch, dời lịch, hủy và đặt lại lịch do Flow 1 xử lý; Flow 2 chỉ đọc lịch đã có và ghi nhận khách đến.
 
-- **Điều kiện vào Flow 2:** `Appointment(type = CHECKIN, status = Pending)` của đơn, `facility_id` khớp cơ sở đang thao tác, `staff_id` đã được gán (Flow 1.5 đã chuyển đơn sang `InProgress` ở bước này), `Invoice` cọc đã `Paid`, khoang đang `Reserved`. Thiếu điều kiện nào thì API check-in trả lỗi, Flow 2 không tự tạo lịch bù.
+- **Điều kiện vào Flow 2:** `Appointment(type = CHECKIN, status = Pending)` của đơn, `facility_id` khớp cơ sở đang thao tác, `staff_id` đã được gán (Flow 1.5 đã chuyển đơn sang `InProgress` ở bước này), `HandoverRecord` của lịch hẹn đó đang `IN_PROGRESS`, `Invoice` cọc đã `Paid`, khoang đang `Reserved`. Thiếu điều kiện nào thì API check-in trả lỗi; Flow 2 không tự tạo lịch hẹn hay biên bản bù.
 - **FM:** xem `Appointment` của cơ sở theo ngày, lọc thẳng trên `Appointment.facility_id`, tìm lịch còn `staff_id IS NULL` để gán FS. Nghiệp vụ phân công thuộc Flow 5.3, Flow 2 chỉ tiêu thụ kết quả.
 - **FS:** xem lịch trong ngày được gán cho mình, kèm khách hàng, khoang chứa và `type`.
 
 #### 2.2 Check-in và kiểm tra khoang chứa
 
-Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_PROGRESS` của `RentalOrder` (mỗi đơn chỉ có tối đa một bản ghi như vậy), mỗi bước bật một cờ trong checklist.
+Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_PROGRESS` mà Flow 1.5 đã tạo cho lịch hẹn (mỗi `Appointment` một bản ghi, mỗi đơn tối đa một bản ghi đang mở), mỗi bước bật một cờ trong checklist.
 
 - **Check-in:**
   - FS ghi nhận khách đến: set `Appointment.arrived_at`, `status = Done`.
-  - `HandoverRecord` được tạo đúng lúc FS bấm check-in (`result = IN_PROGRESS`), **không** gắn vào mốc `RentalOrder` chuyển `InProgress` nữa: theo Flow 1.5, `InProgress` được set ngay khi FM phân công FS, tức trước khi khách tới cơ sở.
+  - FS mở `HandoverRecord` gắn với `Appointment` đó (Flow 1.5 đã tạo, `result = IN_PROGRESS`, `staff_id` được điền khi FM phân công). Flow 2 **không tạo bản ghi mới** - mốc `RentalOrder` chuyển `InProgress` không còn là điểm sinh biên bản.
   - **Xác minh danh tính:** FS đối chiếu giấy tờ tùy thân của người đến với `RentalOrder.customer_id`; nếu khách đã upload ảnh giấy tờ online thì hệ thống hiển thị lại để FS đối chiếu. Đạt -> `is_identity_verified = true`, `identity_verified_at`. Không đạt thì dừng, không cho bật các cờ sau.
 
 - **Kiểm tra khoang chứa:**
@@ -200,11 +201,11 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
   - Khách đồng ý -> `is_unit_inspected = true`, `unit_inspected_at`; đây là điều kiện mở bước ký hợp đồng.
   - Khách **không đồng ý** -> `result = REJECTED`, `reject_reason`, `completed_at`. Flow 2 kết thúc.
 
-- **Khách từ chối khoang (chuyển về Flow 1):** việc chỉ định lại khoang **không xử lý trong Flow 2**. Hệ thống bắn `HandoverRecord.Rejected`, Flow 1 cho FM chỉ định khoang khác, tạo `ProposalFeedback` mới cho khách duyệt online, xử lý chênh lệch tiền cọc rồi **tạo `Appointment` mới**. `RentalOrder` lấy khoang được chấp nhận mới nhất từ `ProposalFeedback`.
+- **Khách từ chối khoang (chuyển về Flow 1):** việc chỉ định lại khoang **không xử lý trong Flow 2**. Flow 2 chỉ cập nhật `HandoverRecord.result = REJECTED` rồi chuyển việc xử lý về Flow 1 (event `HandoverRecord.Rejected`). Flow 1 cho FM chỉ định khoang khác, tạo `ProposalFeedback` mới cho khách duyệt online, xử lý chênh lệch tiền cọc rồi **tạo `Appointment` mới**. `RentalOrder` lấy khoang được chấp nhận mới nhất từ `ProposalFeedback`.
 
-- **No-show:** hết `end_at` mà `arrived_at` vẫn null thì Flow 2 không ghi gì thêm - `HandoverRecord` chưa được tạo nên không có gì để đóng. Việc hủy `Appointment`, nhắc khách đặt lại lịch và ngưỡng tự hủy đơn thuộc **Flow 1**; khoang giữ `Reserved` cho tới khi Flow 1 hủy đơn.
+- **No-show:** hết `end_at` mà `arrived_at` vẫn null - cron của **Flow 1** xử lý: `Appointment.status = Canceled` (`cancel_reason = NoShow`) và **`HandoverRecord.result = CANCELED`** kèm lý do. Còn trong thời hạn giữ kho (`now < RentalOrder.expires_at`): đơn quay về `Deposited`, khoang giữ `Reserved`, khách đặt lịch mới. Hết hạn: đơn `Expired`, khoang về `Available`, xử lý mất cọc theo policy. Flow 2 không ghi gì trong nhánh này.
 
-- **Đặt lại lịch (sau reject hoặc no-show):** do **Flow 1** thực hiện - tạo `Appointment` **mới** (`status = Pending`, `staff_id = null`), bản cũ giữ nguyên `staff_id` và `status` làm lịch sử. FM phân công FS lại từ đầu; Flow 2 chạy lại từ 2.2 trên `HandoverRecord` mới.
+- **Đặt lại lịch (sau reject hoặc no-show):** do **Flow 1** thực hiện - tạo `Appointment` **mới** (`status = Pending`, `staff_id = null`) kèm `HandoverRecord` mới, bản cũ giữ nguyên làm lịch sử. FM phân công FS lại từ đầu; Flow 2 chạy lại từ 2.2 trên biên bản mới.
 
 #### 2.3 Ký hợp đồng và thanh toán tháng đầu tiên
 
@@ -246,7 +247,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 **b) Lịch trình của FS (2.1, 2.2)**
 - `GET /api/staff/appointments?date=...`: lịch trong ngày của FS đang đăng nhập.
 - `POST /api/staff/appointments/{id}/arrive`: set `arrived_at`, `status = Done` - đây là ghi duy nhất của Flow 2 lên `Appointment`.
-- Cron no-show (quá `end_at` mà `arrived_at` null -> `status = Canceled`, `cancel_reason = NoShow`) thuộc Flow 1.
+- Cron no-show thuộc Flow 1: `Appointment.status = Canceled` + `cancel_reason = NoShow`, `HandoverRecord.result = CANCELED`, và đơn quay về `Deposited` hoặc `Expired` tùy `RentalOrder.expires_at`.
 
 **c) Checklist on-site (2.2)**
 - `POST /api/staff/handover-records/{id}/verify-identity`: set `is_identity_verified`, `identity_verified_at`.
@@ -281,14 +282,16 @@ Các bảng đã có, Flow 2 chỉ đọc hoặc cập nhật trạng thái:
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) - dùng ở Flow 1, Flow 2 chỉ đọc.
 - [**Appointment**](./db-table-draft.md#appointment) - lịch hẹn tại cơ sở, dùng chung cho check-in, trả kho, xử lý sự cố. Vòng đời do Flow 1 quản lý, Flow 2 chỉ set `arrived_at` + `status = Done`.
 
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord) - checklist tiến trình on-site; **Flow 1.5 tạo**, Flow 2 bật cờ và chốt `result`.
+
 Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-table-draft.md`:
-- [**HandoverRecord**](./db-table-draft.md#handoverrecord) - checklist tiến trình on-site từ check-in tới bàn giao kho.
 - [**RentalContract**](./db-table-draft.md#rentalcontract) - hợp đồng thuê, sinh và ký ở 2.3.
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey) - quyền truy cập khoang chứa đã bàn giao cho khách.
 
 **Phụ thuộc cần các flow khác bổ sung (Flow 2 không tự sửa):**
 - **Flow 1 nhận lại toàn bộ vòng đời `Appointment`** (theo đề xuất đã thống nhất): sinh slot theo giờ hoạt động của cơ sở (không giới hạn số khách trên một slot trong MVP), cho khách chọn lịch sau khi cọc `Paid`, dời/hủy lịch, chuyển `RentalOrder`: `Deposited -> Scheduled`, cron no-show, cron tự hủy đơn quá `Policy.order.auto_cancel_days`, và tạo `Appointment` mới sau nhánh `HandoverRecord.Rejected`. Flow 1 cũng là nơi gửi nhắc việc trước buổi hẹn (đối chiếu giấy tờ, kiểm tra khoang, ký hợp đồng, thanh toán tháng đầu).
-- **Bỏ `RentalAppointment`** kéo theo: Flow 1 tạo `Appointment` phải set `order_id` + `facility_id`; Flow 5 lọc lịch và validate FS theo `Appointment.facility_id` (đã sửa ở 5.3); `RentalOrder` bỏ `staff_id`/`appointment_date`, lấy `Appointment` làm nguồn duy nhất. Mục **1.5** và phần schema của `specs/flow-1` hiện vẫn còn `RentalAppointment`, cần sửa theo A6.
+- **`RentalAppointment` đang bất đồng, chưa chốt (B5).** Flow 5 đã bỏ bảng này và lọc lịch theo `Appointment.facility_id` (5.3); Flow 2/2.5 viết theo hướng đó. Flow 1 commit `0585bfb` giữ lại bảng và không đặt `order_id` trên `Appointment`, dù đã nhận `facility_id`. Lập luận bỏ giờ mạnh hơn: `HandoverRecord` bản mới đã có **cả `order_id` lẫn `appointment_id`**, nên với lịch `CHECKIN` bảng nối là dư thừa hoàn toàn. Cần Levi chốt một hướng trước khi merge.
+- `RentalOrder` bỏ `staff_id`/`appointment_date`, lấy `Appointment` làm nguồn duy nhất (A6 - Flow 1 và Flow 5 đã áp).
 - Đổi khoang sau khi khách đã cọc (do từ chối tại chỗ ở 2.2) do **Flow 1** xử lý: FM chỉ định khoang mới, hệ thống tạo `ProposalFeedback` **mới** (bản cũ giữ nguyên, khoang hiệu lực là proposal `Agreed` mới nhất), khách duyệt online. Chênh lệch mức cọc cũ/mới cộng phí `Policy.fee.unit_change`: dư thì hoàn thủ công, thiếu thì xuất hóa đơn cọc bù. Còn mở: thứ tự chuyển khoang mới sang `Reserved` so với việc hoàn tiền.
 - Vì mỗi lần đề xuất lại tạo một `ProposalFeedback` mới, **không** đặt unique index `(order_id) WHERE status = 'Agreed'` - index đó sẽ chặn đúng reject path của Flow 2.
 - `RentalOrder.status`: branch `flow-1` hiện là `Pending/Deposited/Scheduled/InProgress/Canceled/Done/Expired` (tuyến tính, `Expired` cho quá hạn cọc/lịch hẹn), khác đề xuất B3 ở chỗ giữ `Pending` thay cho `AwaitingDeposit`. Flow 2 bám theo bộ này: vào flow ở `InProgress`, kết ở `Done`. `db-table-draft.md` vẫn chưa có bảng `StorageUnit` (thuộc Flow 5).
@@ -323,7 +326,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - Cơ chế khách **phản đối đánh giá hư hỏng** của FS không thuộc MVP; đánh giá của FS là kết quả cuối cùng.
 - Hệ thống **tự động tính phí lưu giữ** khi khoang còn đồ không thuộc MVP; FM hoặc FS gửi hóa đơn thủ công theo chính sách của BOM (Flow 4).
 - **Luồng hoàn tiền tự động (refund) không thuộc MVP.** Khi làm sẽ cần bổ sung chiều giao dịch cho `PaymentTransaction` hoặc bảng refund riêng, kèm mã giao dịch hoàn để đối soát. Nguyên tắc dự kiến: hoàn về đúng phương tiện khách đã thanh toán.
-- Enum `StorageUnit.status` dùng chung toàn hệ thống: `Available/OnHold/Reserved/Rented/Maintenance` (theo schema Flow 5). Flow 2 và 2.5 chỉ dùng 4 giá trị `Reserved/Rented/Maintenance/Available`; `OnHold` thuộc cơ chế giữ chỗ của Flow 1.
+- Enum `StorageUnit.status` Flow 2/2.5 dùng: `Available/Reserved/Rented/Maintenance`. Khớp bảng `StorageUnit` mới của Flow 1 (commit `0585bfb`) và của Flow 3. **`OnHold` đã bị bỏ** theo A9 (MVP không giữ chỗ, ai cọc trước được trước) - schema Flow 5 còn giá trị này, cần gỡ để ba nhánh khớp nhau.
 - Thời gian bảo trì **được cấu hình bởi BOM ở Flow 4**, không hard-code (mặc định 1-3 ngày). FM không tự sửa, chỉ gửi yêu cầu để BOM chỉnh.
 - Khách quá hạn không trả, không liên lạc được hoặc bỏ lại tài sản trong khoang: **thuộc Flow 6**, đã note để xử lý sau.
 

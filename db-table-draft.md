@@ -87,10 +87,11 @@
 - Vòng đời lịch check-in (tạo, dời, hủy, tạo lại sau reject/no-show) do **Flow 1** quản lý; Flow 2 chỉ set `arrived_at` + `status = Done`. Lịch `RETURN` do Flow 2.5 tạo từ `ReturnRequest`.
 - Khi đặt lại lịch sau reject/no-show thì tạo bản ghi **mới** (`staff_id = null`) để FM phân công lại; bản ghi cũ giữ nguyên làm lịch sử.
 # HandoverRecord
-**Overview:** theo dõi tiến trình on-site từ check-in tới bàn giao kho (Flow 2). Được tạo khi FS bấm check-in (`Appointment.arrived_at`), không gắn vào mốc `RentalOrder.status = InProgress` vì Flow 1.5 set trạng thái này ngay khi FM phân công FS. Khi `result = COMPLETED` hoặc `REJECTED` là Flow 2 kết thúc.
+**Overview:** theo dõi tiến trình check-in và bàn giao khoang chứa. **Flow 1.5 tạo** bản ghi cùng lúc với `Appointment` khi khách xác nhận lịch hẹn; Flow 2 sử dụng và cập nhật trong buổi on-site. Khi `result = COMPLETED` hoặc `REJECTED` là Flow 2 kết thúc.
 - order_id (N - 1: RentalOrder)
+- appointment_id (1 - 1: Appointment)
 - unit_id (N - 1: StorageUnit)
-- staff_id (N - 1: Account)
+- staff_id (N - 1: Account, nullable khi mới tạo; điền khi FM phân công FS)
 - **Checklist tiến trình on-site:**
   - is_identity_verified (default: false) - xác minh danh tính người đến check-in
   - identity_verified_at (nullable)
@@ -103,12 +104,14 @@
   - is_payment_settled (default: false) - khách đã thanh toán phần tiên quyết để nhận kho
   - payment_settled_at (nullable)
 - **Trạng thái cuối cùng của biên bản:**
-  - result (IN_PROGRESS/COMPLETED/REJECTED) - default: IN_PROGRESS
+  - result (IN_PROGRESS/COMPLETED/REJECTED/CANCELED) - default: IN_PROGRESS
   - completed_at (nullable)
-  - reject_reason (nullable)
+  - reject_reason (nullable, Text) - lý do từ chối hoặc hủy biên bản
 
 **NOTES:**
-- `order_id` là `N - 1` vì một đơn có thể check-in nhiều lần (khách từ chối khoang rồi được chỉ định khoang khác). Ràng buộc: mỗi đơn chỉ có tối đa một bản ghi đang `IN_PROGRESS`.
+- `IN_PROGRESS` lúc khởi tạo chỉ có nghĩa hồ sơ đang mở, **không** đồng nghĩa khách đã đến cơ sở.
+- `CANCELED` do cron no-show của Flow 1 set khi hết `Appointment.end_at` mà `arrived_at` vẫn null.
+- `order_id` là `N - 1` vì một đơn có thể check-in nhiều lần (khách từ chối khoang rồi được chỉ định khoang khác). Ràng buộc: mỗi `Appointment` tối đa một bản ghi, và mỗi đơn chỉ có tối đa một bản ghi đang `IN_PROGRESS`.
 # RentalContract
 **Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
 - order_id (1 - 1: RentalOrder)
