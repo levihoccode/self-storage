@@ -273,7 +273,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Giá thuê theo `UnitType` — **thuộc Flow 4**, Flow 5 chỉ đọc `UnitType.monthly_price` khi tạo `StorageUnit`, không tự định nghĩa lại khung giá.
 - `SupportRequest` mà 5.3 cần dùng để phân công FS xử lý sự cố — **thuộc Flow 3/7**, Flow 5 chỉ đọc/ghi field `assigned_staff_id`, không tự định nghĩa lại cấu trúc bảng.
 
-#### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
+`#### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
 
 **Context:** FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — chỉ thực hiện được sau khi Facility đã `Active`.
 
@@ -289,7 +289,7 @@ Available | OnHold | Reserved | Rented | Maintenance
 - `Rented`: đã bàn giao, đang có hợp đồng `Active` (Flow 2).
 - `Maintenance`: đang bảo trì hoặc đang sửa sự cố (Flow 2.5, hoặc FM chuyển thủ công ở mục này).
 
-**Đã chốt (A4 — owner mở lại khoang sau Maintenance):** việc tự động chuyển `Maintenance -> Available` sau khi trả kho **thuộc cron của Flow 2.5**, không phải Flow 5. Flow 5 (mục này) **chỉ** xử lý các trường hợp FM chuyển trạng thái **thủ công** cho sự cố ngoài luồng trả kho (khoang hư hỏng đột xuất khi đang `Available`/`Rented`...) — không đụng vào cron tự động của Flow 2.5.
+**Đã chốt (A4 — owner mở lại khoang sau Maintenance):** việc tự động chuyển `Maintenance -> Available` sau khi trả kho **thuộc cron của Flow 2.5**, không phải Flow 5. Flow 5 (mục này) **chỉ** xử lý các trường hợp FM chuyển trạng thái **thủ công** cho sự cố ngoài luồng trả kho (khoang hư hỏng đột xuất khi đang `Available`/`Rented`...) — không đụng vào cron tự động của Flow 2.5. **Cơ chế kỹ thuật:** khi FM chuyển `Maintenance` do sự cố, **không set `StorageUnit.maintenance_started_at`** — field này chỉ do Flow 2.5 set khi `Maintenance` phát sinh từ luồng trả kho, vì cron của Flow 2.5 chỉ quét các bản ghi có field này khác null để tự động mở lại theo `Policy.unit.maintenance_days`. Để trống field này là cách duy nhất đảm bảo cron không tự ý mở lại 1 khoang đang bị FM giữ vì sự cố.
 
 **Details:**
 
@@ -301,9 +301,13 @@ Available | OnHold | Reserved | Rented | Maintenance
     - `OnHold`/`Reserved` → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
     - `Rented` → không tự ý chuyển; tạo yêu cầu xử lý sự cố, thông báo khách, thực hiện phương án di chuyển/tạm ngưng theo nghiệp vụ đã duyệt.
     - Đang `Maintenance` → không xuất hiện trong danh sách khoang có thể đặt/assign.
-    - Sau khi xử lý xong sự cố, FM chuyển khoang về `Available`.
+    - Sau khi xử lý xong sự cố, FM chuyển khoang về `Available` thủ công (không set lại `maintenance_started_at`, field này giữ null suốt vòng đời của case sự cố).
   - Mọi thay đổi trạng thái thủ công phải ghi `AuditLog` (người thực hiện, thời điểm, lý do).
   - Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (`OnHold`/`Reserved` khi duyệt/đặt cọc), Flow 2 (`Rented` sau bàn giao), Flow 2.5 (`Maintenance` khi trả kho).
+
+**Advanced Features (not MVP):**
+
+- FM đề xuất mức giá riêng cho từng `StorageUnit` (khác với giá mặc định của `UnitType`) khi có lý do đặc biệt (vị trí xấu, hư hao 1 phần...); đề xuất chỉ **có hiệu lực sau khi BOM phê duyệt trên Flow 4** — FM không được tự áp giá, kể cả ở dạng "chờ duyệt". Khi triển khai, đây là quyết định và thao tác của BOM (Flow 4), Flow 5 chỉ là nơi FM gửi đề xuất kèm lý do, không sở hữu logic tính/áp giá.`
 
 #### 5.3 Quản lý & điều phối Facility Staff
 

@@ -12,8 +12,6 @@
 **Overview:** chứa các thông tin đơn hàng đã được `Approve` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
 - request_id (1 - 1: RentalRequest)
 - customer_id (N - 1: Account)
-- staff_id (N - 1: Account, null until the FS confirm and status pending -> in progress)
-- appointment_date (MM/DD/YYYY)
 - unit_id
 - cancel_reason
 - status: 
@@ -21,6 +19,11 @@
   - InProgress: sau FS được chỉ đã xác nhận và đang trong quá trình hẹn gặp, tư vấn
   - Canceled: hủy đơn hàng
   - Done: Khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử 
+
+  **NOTES:**
+
+- Đã bỏ `staff_id` và `appointment_date` (theo A6, thống nhất với Flow 2) — việc phân công FS và lịch hẹn không còn nằm trên RentalOrder, chuyển hẳn sang bảng Appointment (Flow 2 sở hữu), nối qua RentalAppointment. Muốn biết FS/lịch hẹn của 1 đơn thì join qua RentalAppointment.order_id → Appointment.
+- Đây là bản tham chiếu trong phạm vi Flow 5 (Flow 5 không sở hữu bảng này) — schema đầy đủ/chính thức do Flow 2 quản lý.
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (1 - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc)
@@ -169,6 +172,7 @@
 - status (Available/OnHold/Reserved/Rented/Maintenance)
 - created_at
 - updated_at
+- maintenance_started_at (nullable) — chỉ do Flow 2.5 set khi Maintenance phát sinh từ trả kho; Flow 5 để trống khi chuyển Maintenance do sự cố
 
 **NOTES:**
 - **Đã bỏ field `rental_price` và `unit_type` (string).** Giá thuê là thuộc tính của `UnitType.monthly_price` (Flow 4, BOM quản lý tập trung) — mọi `StorageUnit` cùng `unit_type_id` dùng chung một mức giá tại một thời điểm. FM không tự nhập giá cho từng khoang, nên không còn nhu cầu validate khung giá riêng lẻ.
