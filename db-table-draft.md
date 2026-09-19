@@ -68,7 +68,6 @@
 **Overview:** lịch hẹn dùng chung cho mọi loại cuộc hẹn tại cơ sở. Được tạo khi khách yêu cầu hoặc hệ thống tạo lịch; dùng cho check-in, bàn giao, trả kho, xử lý sự cố tại kho, ...
 - customer_id (1 - N: Account)
 - staff_id (1 - N: Account) - nullable, FM gán ở Flow 5.3
-- order_id (N - 1: RentalOrder) - nullable, null với lịch không gắn đơn (xử lý sự cố tại kho)
 - facility_id (N - 1: Facility)
 - type (CHECKIN, HANDOVER, RETURN, ...)
 - cancel_reason
@@ -83,9 +82,13 @@
 
 **NOTES:**
 - `RETURN` do Flow 2.5 thêm vào để dùng cho buổi hẹn trả kho; Levi sẽ chốt lại bộ `type` sau khi các flow ổn định.
-- Bảng nối `RentalAppointment` đã bỏ (A6/B5): `order_id` nằm thẳng trên bảng này, `facility_id` để FM lọc lịch theo cơ sở và validate FS mà không phải join `order -> unit -> facility`.
+- Lịch hẹn nối với đơn qua bảng `RentalAppointment` (A6). `facility_id` để FM lọc lịch theo cơ sở và validate FS trực tiếp, không phải join `RentalAppointment -> RentalOrder -> StorageUnit -> Facility`; lịch không gắn đơn (xử lý sự cố) cũng xác định được cơ sở.
 - Vòng đời lịch check-in (tạo, dời, hủy, tạo lại sau reject/no-show) do **Flow 1** quản lý; Flow 2 chỉ set `arrived_at` + `status = Done`. Lịch `RETURN` do Flow 2.5 tạo từ `ReturnRequest`.
 - Khi đặt lại lịch sau reject/no-show thì tạo bản ghi **mới** (`staff_id = null`) để FM phân công lại; bản ghi cũ giữ nguyên làm lịch sử.
+# RentalAppointment
+**Overview:** nối lịch hẹn với đơn hàng. Được tạo cùng `Appointment` khi `type = CHECKIN`, `HANDOVER` hoặc `RETURN`.
+- order_id (N - 1: RentalOrder)
+- appointment_id (1 - 1: Appointment)
 # HandoverRecord
 **Overview:** theo dõi tiến trình check-in và bàn giao khoang chứa. **Flow 1.5 tạo** bản ghi cùng lúc với `Appointment` khi khách xác nhận lịch hẹn; Flow 2 sử dụng và cập nhật trong buổi on-site. Khi `result = COMPLETED` hoặc `REJECTED` là Flow 2 kết thúc.
 - order_id (N - 1: RentalOrder)
