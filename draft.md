@@ -190,16 +190,6 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **FLOW:**
 
 ```text
-[BOM cấu hình chính sách/giá/phí] -> [Hệ thống áp dụng tự động theo Policy tại các flow tiêu thụ] -> [BOM theo dõi doanh thu theo chi nhánh/thời gian]
-```
-
-**Context:** Flow 4 là nơi tập trung mọi tham số nghiệp vụ (giá, phí, ngưỡng thời gian, điều khoản hợp đồng) mà các flow khác (1, 2, 2.5, 3, 5, 6) đọc để vận hành — không flow nào khác được tự định nghĩa lại các giá trị này. Mục tiêu là để BOM đổi chính sách bằng thao tác trên UI, không phải yêu cầu dev sửa code, trừ khi chính sách đó đòi hỏi hành vi hệ thống hoàn toàn mới.
-
-### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
-
-**FLOW:**
-
-```text
 [BOM cấu hình chính sách/giá/phí] -> [Hệ thống áp dụng tự động hoặc làm ngưỡng chặn cho thao tác thủ công] -> [BOM theo dõi doanh thu theo chi nhánh/thời gian]
 ```
 
