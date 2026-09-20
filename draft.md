@@ -187,181 +187,244 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 
-### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
+**FLOW:**
+
+```text
+[BOM cấu hình chính sách/giá/phí] -> [Hệ thống áp dụng tự động theo Policy tại các flow tiêu thụ] -> [BOM theo dõi doanh thu theo chi nhánh/thời gian]
+```
+
+**Context:** Flow 4 là nơi tập trung mọi tham số nghiệp vụ (giá, phí, ngưỡng thời gian, điều khoản hợp đồng) mà các flow khác (1, 2, 2.5, 3, 5, 6) đọc để vận hành — không flow nào khác được tự định nghĩa lại các giá trị này. Mục tiêu là để BOM đổi chính sách bằng thao tác trên UI, không phải yêu cầu dev sửa code, trừ khi chính sách đó đòi hỏi hành vi hệ thống hoàn toàn mới.
+
+### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 
 **FLOW:**
+
+```text
+[BOM cấu hình chính sách/giá/phí] -> [Hệ thống áp dụng tự động hoặc làm ngưỡng chặn cho thao tác thủ công] -> [BOM theo dõi doanh thu theo chi nhánh/thời gian]
 ```
-[BOM tạo Facility] -> [BOM chỉ định role (FM/FS) cho nhân sự] -> [Admin thực thi tạo/cập nhật Account] -> [BOM gán FM vào Facility] -> [FM setup khoang chứa tại Facility] -> [FM điều phối Facility Staff] -> [FM theo dõi báo cáo cơ sở]
+
+**Context:** Flow 4 là nơi tập trung mọi tham số nghiệp vụ (giá, phí, ngưỡng thời gian, điều khoản hợp đồng) mà các flow khác (1, 2, 2.5, 3, 5, 6) đọc để vận hành — không flow nào khác được tự định nghĩa lại các giá trị này. Mục tiêu là để BOM đổi chính sách bằng thao tác trên UI, không phải yêu cầu dev sửa code, trừ khi chính sách đó đòi hỏi hành vi hệ thống hoàn toàn mới.
+
+#### 4.0 Nguyên tắc thiết kế
+
+**2 cấp độ thay đổi chính sách:**
+
+- **Cấp độ 1 — Zero Code Deployment:** chính sách chỉ đổi về dữ liệu/tham số/danh mục. BOM thao tác trực tiếp trên UI (`Policy`/`UnitType`/`ExtraFee`/`Discount`/`RentalTerm`), code chỉ đọc theo key/id, không hard-code giá trị.
+- **Cấp độ 2 — Feature Development:** chính sách đòi hỏi hành vi/tích hợp chưa tồn tại trong code (VD: tích hợp Zalo ZNS đòi nợ, tự động đăng flash sale khi trả kho sớm). Không tự cấu hình được trên UI — phải qua Change Request: BOM soạn chính sách → dev phân tích/thiết kế/code → deploy → BOM mới có tham số mới trên UI.
+
+Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1–4.5 chỉ cung cấp **dữ liệu cấu hình**, không tự chứa logic nghiệp vụ — logic đọc/áp dụng luôn nằm ở flow tiêu thụ (1, 2, 2.5, 3, 5, 6). Flow 4 không tự chạy cron, không tự khóa account, không tự duyệt yêu cầu — đó là việc của flow sở hữu nghiệp vụ tương ứng.
+
+**Phân loại cách một giá trị `Policy` được dùng (`execution_type`):**
+
+- `Automated`: đọc bởi cron/event của flow tiêu thụ, không có con người can thiệp giữa chừng (VD: `order.auto_cancel_days`).
+- `ManualGuardrail`: là mức trần/sàn cho thao tác thủ công của FS/FM — flow tiêu thụ dùng để **chặn** nếu nhân viên vượt ngưỡng, có thể escalate lên BOM duyệt (Maker-Checker); cơ chế duyệt cụ thể (ai duyệt, trạng thái, thông báo) thuộc **flow tiêu thụ** (VD: Flow 6 cho miễn/giảm phạt quá hạn), Flow 4 chỉ giữ con số ngưỡng.
+
+#### 4.1 Quản lý giá thuê theo loại khoang (`UnitType`)
+
+**Context:** Giá thuê được chốt tập trung theo loại khoang (Small/Medium/Large...), không phải theo từng `StorageUnit` riêng lẻ (đã thống nhất với Flow 5 — FM không tự nhập giá, chọn `unit_type_id` có sẵn).
+
+**Flow tổng quát:** BOM xem danh sách `UnitType` → sửa `monthly_price` → giá mới áp dụng ngay cho mọi `StorageUnit` cùng loại kể từ thời điểm cập nhật.
+
+**Details:**
+- BOM tạo/sửa `UnitType`: tên, kích thước (width/depth/height/area), mô tả, `monthly_price` — **1 giá trị cố định duy nhất, không phải khung min–max**.
+- Đổi `monthly_price` không ảnh hưởng ngược tới các `RentalContract` đã ký (giá đã snapshot ở `RentalContract.monthly_price` tại thời điểm ký) — chỉ ảnh hưởng khách mới đặt hoặc gia hạn sau thời điểm đổi giá.
+- `UnitType` đã được dùng bởi ít nhất 1 `StorageUnit` thì không được hard-delete, chỉ chuyển `Inactive`.
+- Ghi `AuditLog` mỗi lần đổi giá (old_value/new_value).
+- MVP: 1 giá áp dụng toàn hệ thống cho mỗi `unit_type_id`, không phân biệt theo chi nhánh.
+
+**Advanced Features (not MVP):**
+- Giá khác nhau theo từng chi nhánh (bảng giá riêng theo `facility_id` + `unit_type_id`).
+- FM đề xuất giá riêng cho 1 `StorageUnit` cụ thể (case đặc biệt) — chỉ có hiệu lực sau khi BOM phê duyệt trực tiếp tại đây; Flow 5 chỉ là nơi FM gửi đề xuất kèm lý do, không sở hữu logic tính/áp giá.
+
+#### 4.2 Quản lý chính sách vận hành (`Policy`)
+
+**Context:** Toàn bộ ngưỡng thời gian, mốc tính toán, quy tắc mà các flow khác cần nhưng không nên hard-code, được gom về đây dưới dạng key–value.
+
+**Flow tổng quát:** BOM xem danh sách `Policy` theo nhóm (đặt cọc, bàn giao, gia hạn, quá hạn, bảo trì...) → sửa `value` của 1 key → các flow tiêu thụ đọc giá trị mới ngay từ lần truy vấn tiếp theo, không cần deploy lại.
+
+**Schema:**
+```
+# Policy
+- key (unique)
+- value
+- value_type (Number/Percent/Text/Boolean)
+- execution_type (Automated/ManualGuardrail)
+- description
+- updated_by
+- updated_at
+```
+
+**Danh mục key chính thức (tổng hợp từ toàn bộ các flow đã tham chiếu):**
+
+| Key | value_type | execution_type | Dùng ở | Ý nghĩa |
+|---|---|---|---|---|
+| `deposit.type` | Text (`Fixed`/`Percent`) | Automated | Flow 1 | Hình thức tính tiền cọc |
+| `deposit.value` | Number | Automated | Flow 1 | Số tiền cố định hoặc % giá thuê dùng để tính cọc |
+| `deposit.due_hours` | Number (giờ) | Automated | Flow 1 | Hạn thanh toán hóa đơn đặt cọc trước khi `Expired` |
+| `request.account_timeout_hours` | Number (giờ) | Automated | Flow 1 | Thời gian chờ khách tạo tài khoản sau khi `RentalRequest` được duyệt |
+| `order.auto_cancel_days` | Number (ngày) | Automated | Flow 2 | Số ngày kể từ khi cọc mà chưa check-in thì tự hủy đơn |
+| `handover.payment_grace_hours` | Number (giờ) | Automated | Flow 2 | Gia hạn thanh toán tháng đầu tại buổi bàn giao trước khi hủy hợp đồng |
+| `contract.start_date_rule` | Text | Automated | Flow 2 | Quy tắc tính mốc bắt đầu tính tiền thuê |
+| `contract.expiring_soon_days` | Number (ngày) | Automated | Flow 3 | Ngưỡng N ngày để cảnh báo hợp đồng sắp hết hạn |
+| `extension.invoice_due_days` | Number (ngày) | Automated | Flow 3 | Hạn thanh toán hóa đơn gia hạn kể từ khi FM duyệt |
+| `fee.unit_change` | Number | Automated | Flow 1 | Phí phát sinh khi khách đổi sang khoang tương đương sau khi bị từ chối |
+| `unit.maintenance_days` | Number (ngày) | Automated | Flow 2.5 | Số ngày bảo trì sau khi trả kho trước khi cron tự động mở lại `Available` |
+| `overdue.fee_per_day` | Number | Automated | Flow 6 | Phí phạt mỗi ngày quá hạn |
+| `overdue.lock_after_days` | Number (ngày) | Automated | Flow 6 | Số ngày nợ phí trước khi cron khóa hợp đồng/quyền truy cập |
+| `overdue.waive_max_percent` | Percent | ManualGuardrail | Flow 6 | Mức % nhân viên được tự quyết miễn giảm phạt, vượt mức phải chuyển BOM duyệt |
+| `overdue.waive_max_amount` | Number | ManualGuardrail | Flow 6 | Mức tiền tối đa nhân viên được tự quyết miễn giảm phạt |
+| `appointment.no_show_limit` | Number (lần) | Automated | Flow 2 | Số lần no-show tối đa trước khi tự hủy đơn |
+| `appointment.reject_limit` | Number (lần) | Automated | Flow 2 | Số lần khách được từ chối khoang tối đa trên 1 đơn |
+| `appointment.reschedule_limit` | Number (lần) | Automated | Flow 2 | Số lần dời lịch tối đa |
+| `appointment.reschedule_notice_hours` | Number (giờ) | Automated | Flow 2 | Thời gian báo trước tối thiểu khi dời lịch |
+
+**Details:**
+- BOM tạo/sửa `value` cho từng key qua UI dạng danh sách + filter theo nhóm (prefix key: `deposit.*`, `contract.*`, `overdue.*`...) và theo `execution_type` để tách rõ "tham số hệ thống tự chạy" với "ngưỡng cho nhân viên".
+- Validate theo `value_type` khi lưu (Number phải parse được số, Percent phải trong [0,100]).
+- Ghi `AuditLog` mỗi lần đổi giá trị policy.
+- MVP không version hoá theo khoảng thời gian hiệu lực (không `effective_from`/`effective_to` cho từng bộ policy) — mỗi key chỉ có 1 giá trị hiện hành; lịch sử tra qua `AuditLog`. Việc này không tạo rủi ro cho hợp đồng cũ vì các giá trị đã "chốt" cho khách luôn được snapshot ở nơi phát sinh (`Invoice.amount`, `RentalContract.monthly_price`, `RentalContract.terms_version`) — không phụ thuộc giá trị `Policy` hiện tại.
+- Với các tham số cần đi cùng nhau (như `overdue.waive_max_percent` + `overdue.waive_max_amount`), tách thành 2 key phẳng riêng thay vì gộp 1 giá trị JSON — giữ nhất quán với toàn bộ hệ thống, không cần logic parse JSON ở nơi tiêu thụ.
+- Thêm key mới không cần đổi schema, nhưng **code đọc key đó phải được lập trình sẵn** — thêm 1 dòng dữ liệu không tự sinh hành vi mới nếu chưa có code đọc (đúng ranh giới Cấp độ 1 vs Cấp độ 2).
+- **Cơ chế Maker-Checker cho các key `ManualGuardrail`** (VD: nhân viên xin giảm phạt vượt `overdue.waive_max_percent`) là quy trình duyệt (approval queue, trạng thái, thông báo) thuộc **flow tiêu thụ** (Flow 6), không thiết kế ở đây — Flow 4 chỉ đảm bảo giá trị ngưỡng luôn sẵn có và đúng kiểu dữ liệu.
+
+**Advanced Features (not MVP):**
+- Version hoá theo bộ chính sách (nhiều bộ `effective_from`/`effective_to`, chỉ 1 bộ active tại 1 thời điểm).
+- Validate chéo giữa các key liên quan (VD: `deposit.due_hours` phải nhỏ hơn `order.auto_cancel_days` quy đổi ra giờ).
+
+#### 4.3 Quản lý các khoản phí (`ExtraFee`)
+
+**Context:** Danh mục phí phát sinh thủ công ngoài tiền thuê định kỳ (làm lại chìa khóa, vệ sinh, hư hỏng...), dùng khi FS/FM lập biên bản có phát sinh phí (Flow 2.5/Flow 7) và tạo `Invoice(type=Penalty/Service)`.
+
+**Flow tổng quát:** BOM thêm/sửa/vô hiệu hoá `ExtraFee` → FS/FM chọn đúng khoản phí từ danh mục khi lập biên bản, hệ thống tự tính `amount` theo `calculation_type` và tạo `Invoice`.
+
+**Schema:**
+```
+# ExtraFee
+- name
+- category           -- mã ngắn, VD: LOST-KEY, CLN, DMG
+- amount
+- calculation_type (Fixed/Daily/Monthly/Percent)
+- trigger_type (ManualIncident)     -- MVP chỉ có 1 giá trị, giữ chỗ mở rộng sau
+- description
+- status (Active/Inactive)
+```
+
+**Details:**
+- Cách tính theo `calculation_type`:
+  - `Fixed`: `amount × số lần phát sinh`.
+  - `Daily`: `amount × số ngày phát sinh` (VD: phí lưu giữ tài sản theo ngày).
+  - `Monthly`: `amount` áp dụng mỗi tháng.
+  - `Percent`: `amount × giá thuê hiện hành của hợp đồng`.
+- **`trigger_type` luôn là `ManualIncident` cho MVP** — Rental Fee (tiền thuê định kỳ) và Penalty do quá hạn **không phải bản ghi trong `ExtraFee`**, chúng dùng cơ chế snapshot riêng đã có (`RentalContract.monthly_price`, `Policy.overdue.fee_per_day`). Field `trigger_type` chỉ giữ chỗ cho trường hợp tương lai thật sự cần 1 loại phí tự động theo catalog (VD: phí wifi hàng tháng tách khỏi tiền thuê chính).
+- Không cho xoá 1 `ExtraFee` đã từng được dùng để tạo `Invoice` — chỉ chuyển `Inactive`.
+- Khi tạo hóa đơn phí, hệ thống tra `ExtraFee` theo `category` để lấy `amount`/`calculation_type`, ghi `category` vào `Invoice.desc` để đối soát.
+
+**Advanced Features (not MVP):**
+- Ước tính phí hư hỏng tự động theo danh mục mức độ thiệt hại có sẵn, thay vì FS chọn phí tương ứng thủ công.
+- Phí khác nhau theo từng chi nhánh (`facility_id` riêng trên `ExtraFee`) — MVP dùng chung 1 mức phí toàn hệ thống, nhất quán với cách xử lý giá thuê ở 4.1.
+
+#### 4.4 Quản lý khuyến mãi (`Discount`)
+
+**Context:** Các chương trình giảm giá áp dụng cho hóa đơn đặt cọc/tiền thuê/gia hạn.
+
+**Flow tổng quát:** BOM tạo `Discount` (mã, loại giảm, giá trị, phạm vi áp dụng, thời hạn) → hệ thống tự áp dụng khi tạo `Invoice` thuộc loại và trong khoảng thời gian được cấu hình.
+
+**Schema:**
+```
+# Discount
+- code (unique)
+- name
+- discount_type (Percent/Fixed)
+- value
+- apply_to (Deposit/Rental/Extension/All)
+- min_months (nullable)
+- start_at
+- end_at
+- is_active
+```
+
+**Details:**
+- Tại thời điểm tạo `Invoice`, hệ thống tìm `Discount` đang `is_active` và còn hiệu lực (`start_at <= now <= end_at`) khớp `apply_to` và `min_months` (nếu có) → ghi `Invoice.discount_amount`, `Invoice.amount = giá gốc - discount_amount`.
+- MVP: mỗi hóa đơn chỉ áp dụng tối đa 1 `Discount`, không cộng dồn.
+- **Coi là MVP** (không phải Advanced Feature) — schema đã đầy đủ và đã được các flow khác tham chiếu, không có lý do kỹ thuật để lùi lại.
+
+**Advanced Features (not MVP):**
+- Cộng dồn nhiều discount theo thứ tự ưu tiên.
+- Mã giảm giá khách tự nhập (thay vì hệ thống tự động áp).
+
+#### 4.5 Quản lý điều khoản hợp đồng (`RentalTerm`)
+
+**Context:** `RentalContract.terms_version` (Flow 2) tham chiếu tới văn bản điều khoản khách đã đồng ý — Flow 4 sở hữu bảng lưu nội dung/version của điều khoản này. Đây cũng là nơi chứa các quy định dạng văn bản cho khách đọc (chính sách hủy, trả kho, gia hạn, quá hạn...), thay vì tách thành các field text riêng lẻ.
+
+**Flow tổng quát:** BOM tải lên 1 phiên bản điều khoản mới → hệ thống đặt phiên bản đó `Active`, phiên bản cũ tự động `Inactive` → Flow 2 dùng đúng version `Active` khi sinh `RentalContract` mới, snapshot `version` vào `RentalContract.terms_version`.
+
+**Schema:**
+```
+# RentalTerm
+- version (unique, VD: "v2.0")
+- file_url          -- PDF điều khoản
+- content           -- tuỳ chọn, text hiển thị inline (bao gồm chính sách hủy/trả/gia hạn/quá hạn mô tả cho khách)
+- status (Active/Inactive)
+- created_by
+- created_at
+```
+
+**Details:**
+- Ràng buộc: tại một thời điểm chỉ có đúng 1 `RentalTerm` ở trạng thái `Active`. Khi BOM kích hoạt version mới, version đang `Active` tự chuyển `Inactive` trong cùng transaction.
+- Hợp đồng đã ký giữ nguyên `terms_version` đã snapshot — đổi điều khoản mới không ảnh hưởng ngược tới hợp đồng cũ.
+
+#### 4.6 Dashboard theo dõi doanh thu chi nhánh
+
+**Context:** BOM cần so sánh doanh thu/hiệu suất giữa các chi nhánh, loại kho, khoảng thời gian.
+
+**Flow tổng quát:** BOM chọn bộ lọc (thời gian, chi nhánh, loại kho) → hệ thống tổng hợp từ `PaymentTransaction` → `Invoice` → `RentalContract` → `StorageUnit` → `Facility` → trả về số liệu dạng bảng/biểu đồ, xem song song 2 khoảng thời gian để so sánh.
+
+**Chỉ số chính:**
+- **Collected Revenue**: tổng tiền thanh toán thành công (`PaymentTransaction.status = Success`).
+- **Outstanding**: tổng tiền hóa đơn còn `Unpaid`.
+- **Refunded**: tổng tiền đã hoàn (khi Flow 2.5/6 có cơ chế hoàn tiền).
+- **Gross Billed**: tổng giá trị đã lập hóa đơn, bất kể đã thu hay chưa.
+
+**Details:**
+- Nhóm theo `Invoice.type` (Deposit/Rental/Extension/Penalty/Service) để tách doanh thu theo nguồn.
+- Bộ lọc: thời gian (mặc định 2 tháng gần nhất), chi nhánh, loại kho, khách hàng.
+- Chế độ so sánh: chọn 1 biểu đồ làm gốc → hệ thống trả thêm dữ liệu kỳ trước liền kề (hoặc kỳ do BOM chọn) để hiển thị % tăng/giảm.
+- Không lưu số liệu tổng hợp sẵn cho MVP — tính trực tiếp mỗi lần truy vấn; tối ưu (cache/index) là việc của giai đoạn sau, không phải vấn đề thiết kế MVP.
+
+**Advanced Features (not MVP):**
+- Cache/pre-aggregate số liệu doanh thu theo ngày.
+- Dự báo xu hướng doanh thu, gợi ý chi nhánh tiềm năng để mở rộng.
+- Custom dashboard widget theo nhu cầu từng BOM.
+
+---
+
+**Schema (do Flow 4 sở hữu):** `UnitType`, `Policy`, `ExtraFee`, `Discount`, `RentalTerm`.
+
+**Cross-reference (ai đọc gì từ Flow 4):**
+
+| Flow | Đọc từ Flow 4 |
+|---|---|
+| Flow 1 | `deposit.*`, `request.account_timeout_hours`, `fee.unit_change` |
+| Flow 2 | `UnitType.monthly_price`, `RentalTerm` (Active), `contract.start_date_rule`, `handover.payment_grace_hours`, `order.auto_cancel_days`, `appointment.*` |
+| Flow 2.5 | `ExtraFee` (DMG/CLN/LOST-KEY...), `unit.maintenance_days` |
+| Flow 3 | `contract.expiring_soon_days`, `extension.invoice_due_days`, `Discount` (nếu áp dụng cho gia hạn) |
+| Flow 5 | `UnitType` (chỉ đọc khi FM chọn `unit_type_id`, không đọc/ghi giá) |
+| Flow 6 | `overdue.fee_per_day`, `overdue.lock_after_days`, `overdue.waive_max_percent`, `overdue.waive_max_amount` |
+
+**NOTES:**
+
+- Mục 4.1–4.5 chỉ là **nguồn dữ liệu**, không tự chứa logic áp dụng — logic luôn nằm ở flow tiêu thụ. Nếu 1 flow cần hành vi mới mà dữ liệu ở đây không đủ diễn tả (Cấp độ 2), đó là Change Request, không phải thêm 1 dòng `Policy`.
+- Cơ chế khóa account do quá hạn (`Account disabled`) **không thuộc Flow 4** — là hệ quả nghiệp vụ của Flow 6. Flow 4 chỉ cung cấp `overdue.lock_after_days`.
+- Cơ chế Maker-Checker cho các key `ManualGuardrail` (approval queue, ai duyệt, thông báo) **không thuộc Flow 4** — thiết kế cụ thể thuộc Flow 6 (miễn/giảm phạt) hoặc Flow 2.5 (phí trả kho đặc biệt).
+- Bỏ hẳn bảng `Payment` từng được phác thảo trong bản nháp cũ — đã được thay thế hoàn toàn bởi cặp `Invoice` + `PaymentTransaction` (Flow 1/2/3).
+- Bỏ hẳn bảng `RentalPolicy` (bundle, versioned) từng được đề xuất — mô hình `Policy` key–value đã là hợp đồng ngầm giữa Flow 2/3/5, không đổi được mà không sửa lại 3 flow đó; nhu cầu "giữ nguyên chính sách cho hợp đồng cũ" đã được giải quyết bằng snapshot ở `Invoice`/`RentalContract`.
+
+**Advanced Features chung của Flow 4 (not MVP):**
+- Giao diện xây dựng "công thức" tính phí phức tạp hơn 4 loại `calculation_type` cố định.
+- Workflow duyệt nội bộ trước khi 1 thay đổi `Policy`/giá có hiệu lực (hiện tại BOM sửa là áp dụng ngay, không qua duyệt).
 ```
 
 #### 5.0 Quản lý tài khoản & phân quyền (System Administrator)
-
-**Context:** System Administrator là người duy nhất có quyền **thực thi kỹ thuật** việc tạo tài khoản và cập nhật role trong hệ thống. Admin không quyết định ai giữ role gì — quyết định đó thuộc về BOM (xem mục 5.1). Admin chỉ đảm bảo thao tác tạo/sửa account được thực hiện đúng, an toàn và có audit trail.
-
-**Flow tổng quát:** BOM chỉ định role (FM/FS) cho 1 người → gửi `AccountRoleRequest` lên Admin → Admin tra cứu email, tạo account mới hoặc cập nhật role account đã tồn tại → account đủ điều kiện hoạt động theo đúng phạm vi quyền hạn.
-
-**Details:**
-
-- **Admin:**
-  - Tạo Account cho nhân sự nội bộ (FM, FS, BOM) theo 2 cách: tạo thủ công từng account, hoặc import hàng loạt qua file Excel/Sheets (validate từng dòng, trả báo cáo lỗi). Riêng Customer tự đăng ký tài khoản (Flow 1, mục 1.2), Admin không tạo hộ.
-  - Xử lý `AccountRoleRequest` do BOM gửi lên (xem mục 5.1) — mỗi dòng kèm **role đã được BOM chỉ định trực tiếp**, không phải đề xuất chờ duyệt:
-    - Tra cứu email trong dòng đó xem đã có account chưa.
-    - **Chưa có account:** tạo mới account, gán `role_id` tương ứng.
-    - **Đã có account:** chỉ **cập nhật `role_id`** thành role BOM chỉ định — không tạo account trùng.
-    - Nếu role là **FS**: sau khi tạo/cập nhật, Admin gán luôn account vào facility dự kiến (tạo dòng `AccountFacilityAssignment`).
-    - Nếu role là **FM**: Admin chỉ tạo/cập nhật account, **không** gán facility — việc gán FM vào Facility thuộc quyền BOM (xem mục 5.1), vì `Facility.fm_account_id` là field BOM trực tiếp quản lý.
-    - Chuyển status dòng đó sang `Done`. Admin không có quyền `Reject` vì đây là lệnh thực thi, không phải đề xuất chờ xét duyệt — nếu dữ liệu dòng đó lỗi (email sai định dạng...), Admin báo lỗi lại cho BOM chứ không tự ý đổi role khác.
-  - **Đổi role account đã tồn tại đang giữ facility assignment (bắt buộc, trong 1 transaction):**
-    - Nếu account đang là FM của 1 Facility (`Facility.fm_account_id = account_id`) và bị đổi sang role khác: hệ thống **tự động clear** `Facility.fm_account_id` về `null`.
-    - Nếu account đang là FS có dòng `AccountFacilityAssignment` và bị đổi sang role khác: hệ thống **tự động xoá** dòng đó.
-    - Toàn bộ thao tác đổi role + clear/xoá assignment phải nằm trong cùng 1 transaction, tránh để lại data-scope "mồ côi".
-  - Ghi `AuditLog` cho mọi hành động nhạy cảm: tạo account, đổi role, gán/xoá facility assignment (cấu trúc bảng dùng chung với Flow 3 — xem Schema).
-  - Theo dõi lịch sử đăng nhập của từng account qua bảng `LoginHistory` (xem Schema).
-  - **Thiết lập quyền truy cập dữ liệu theo model RBAC:** Admin quản lý bảng `Role`/`Permission`/`RolePermission` — gán tập permission cho từng role qua giao diện quản trị (data-driven, không hard-code trong source code). Đây chính là cách Admin thực hiện nhiệm vụ *"Thiết lập quyền truy cập dữ liệu cho các role dựa trên model RBAC"* đã mô tả ở phần Actors.
-
-- **RBAC — Bảng phân quyền tổng quát (tham chiếu, áp dụng xuyên suốt mọi flow):**
-
-| Role | Phạm vi dữ liệu (data scope) | Nhóm quyền chính |
-|---|---|---|
-| Customer | Chỉ dữ liệu của chính mình (account_id = self) | Xem kho, đặt kho, thanh toán, quản lý kho đã thuê, gửi support request |
-| Facility Staff | Chỉ dữ liệu thuộc facility được gán (qua `AccountFacilityAssignment`) | Check-in/out, cập nhật trạng thái unit, xử lý sự cố on-site |
-| Facility Manager | Chỉ dữ liệu thuộc đúng 1 facility mà `Facility.fm_account_id` trỏ tới mình | Duyệt request, gán unit, quản lý FS, xem report của facility mình |
-| Business Operation Manager | Toàn bộ dữ liệu mọi facility | Set chính sách, giá/phí, xem report toàn hệ thống, chỉ định role nhân sự |
-| System Administrator | Toàn bộ account + config, KHÔNG thao tác nghiệp vụ thuê kho | Tạo/cập nhật account, quản lý Role/Permission, xem audit log & login history |
-
-  - Bảng trên là dữ liệu **khởi tạo mặc định** (seed data) cho `Role`/`RolePermission` ở MVP, không phải giới hạn cứng trong code — Admin có thể điều chỉnh permission chi tiết hơn qua bảng dữ liệu khi cần, không cần deploy lại.
-
-- **Cross-reference:**
-  - `Facility.fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility (1–1) — Account không lưu `facility_id` cho FM; cần biết FM phụ trách facility nào thì truy vấn ngược từ `Facility.fm_account_id`.
-  - Facility assignment cho FS liên kết với mục 5.3, qua `AccountFacilityAssignment` do Admin quản lý.
-  - Việc Customer tự tạo account thuộc Flow 1 (mục 1.2), không thuộc phạm vi Admin.
-  - Cấu trúc `AuditLog` dùng chung với quyết định ở Flow 3 (mục 3.6), không tự định nghĩa bản riêng ở Flow 5.
-
-#### 5.1 Quản lý cơ sở (Facility)
-
-**Context:** BOM là người duy nhất có quyền tạo mới và quản lý danh sách toàn bộ cơ sở/chi nhánh, đồng thời là người **quyết định role** (FM/FS) cho nhân sự và gán FM phụ trách cho từng cơ sở. Admin chỉ thực thi kỹ thuật (mục 5.0), không quyết định nghiệp vụ ai giữ role gì.
-
-**Flow tổng quát:** BOM tạo mới một Facility → điền thông tin cơ bản → chỉ định role (FM/FS) cho nhân sự cần thiết và gửi danh sách lên Admin thực thi → sau khi Admin xử lý xong, BOM gán FM vào Facility → Facility đủ điều kiện chuyển `Active` để FM tiếp tục setup khoang chứa.
-
-**Details:**
-
-- **BOM:**
-  - Tạo/sửa/vô hiệu hoá Facility (không xoá cứng vì còn liên kết `StorageUnit`, `RentalOrder`...) với thông tin: `code` (mã chi nhánh, dùng trong `Invoice.code`/`RentalContract.code` ví dụ "Q7", "TD"), tên cơ sở, địa chỉ, số điện thoại, giờ hoạt động, trạng thái (Active/Inactive).
-  - **Ràng buộc bắt buộc:** Facility mới tạo mặc định `Inactive`, chỉ được BOM chuyển sang `Active` **sau khi** `fm_account_id` đã có giá trị. Facility `Inactive` không hiển thị cho khách ở Flow 1 và FM không tạo được `StorageUnit` cho tới khi Facility `Active`.
-  - Gán/thay đổi FM phụ trách cho từng Facility bằng cách set trực tiếp `Facility.fm_account_id`. **Đã chốt: quan hệ FM–Facility là 1–1**, và đây là field duy nhất lưu quan hệ này trong toàn hệ thống.
-  - Nếu Facility chưa có FM:
-    - **Đã có sẵn account FM rảnh:** BOM chọn trực tiếp account đó, set `fm_account_id`.
-    - **Chưa có account FM phù hợp:** BOM chỉ định role FM cho 1 người và gửi vào danh sách `AccountRoleRequest`.
-  - **Tạo danh sách chỉ định nhân sự (`AccountRoleRequest` — dạng batch/list):** mỗi dòng: họ tên, email, role đã quyết định (FM hoặc FS), facility dự kiến → gửi lên Admin thực thi.
-  - Sau khi Admin xử lý xong danh sách:
-    - Dòng **FS**: Admin đã tạo/cập nhật account và gán facility xong — BOM không cần làm gì thêm.
-    - Dòng **FM**: Admin chỉ tạo/cập nhật account — BOM tự thực hiện bước "Gán/thay đổi FM phụ trách" ở trên.
-
-**Schema `AccountRoleRequest`** *(thay thế `AccountCreationRequest`)*:
-- batch_id (nullable) — nhóm các dòng cùng 1 lần BOM gửi lên.
-- requested_by (BOM)
-- target_name
-- target_email
-- role (FM hoặc FS)
-- target_facility_id
-- status (Pending/Done)
-- account_id (nullable) — gán sau khi Admin xử lý xong dòng đó.
-- created_at
-- expires_at
-
-**Phụ thuộc chưa chốt (không thuộc phạm vi thiết kế của Flow 5):**
-- Giá thuê theo `UnitType` — **thuộc Flow 4**, Flow 5 chỉ đọc `UnitType.monthly_price` khi tạo `StorageUnit`, không tự định nghĩa lại khung giá.
-- `SupportRequest` mà 5.3 cần dùng để phân công FS xử lý sự cố — **thuộc Flow 3/7**, Flow 5 chỉ đọc/ghi field `assigned_staff_id`, không tự định nghĩa lại cấu trúc bảng.
-
-`#### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
-
-**Context:** FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — chỉ thực hiện được sau khi Facility đã `Active`.
-
-**Flow tổng quát:** FM tạo mới/cập nhật StorageUnit (chọn loại, vị trí, trạng thái) → khoang chứa hiển thị cho khách xem và để FM chỉ định khi duyệt RentalRequest.
-
-**Đã chốt (B1 — Flow 5 là owner của enum `StorageUnit.status`, dùng chung toàn hệ thống):**
-```
-Available | OnHold | Reserved | Rented | Maintenance
-```
-- `Available`: sẵn sàng cho thuê.
-- `OnHold`: tạm giữ ngắn hạn sau khi FM `Approve` yêu cầu nhưng khách chưa đặt cọc (Flow 1).
-- `Reserved`: đã đặt cọc, giữ tới khi bàn giao (Flow 1 → Flow 2).
-- `Rented`: đã bàn giao, đang có hợp đồng `Active` (Flow 2).
-- `Maintenance`: đang bảo trì hoặc đang sửa sự cố (Flow 2.5, hoặc FM chuyển thủ công ở mục này).
-
-**Đã chốt (A4 — owner mở lại khoang sau Maintenance):** việc tự động chuyển `Maintenance -> Available` sau khi trả kho **thuộc cron của Flow 2.5**, không phải Flow 5. Flow 5 (mục này) **chỉ** xử lý các trường hợp FM chuyển trạng thái **thủ công** cho sự cố ngoài luồng trả kho (khoang hư hỏng đột xuất khi đang `Available`/`Rented`...) — không đụng vào cron tự động của Flow 2.5. **Cơ chế kỹ thuật:** khi FM chuyển `Maintenance` do sự cố, **không set `StorageUnit.maintenance_started_at`** — field này chỉ do Flow 2.5 set khi `Maintenance` phát sinh từ luồng trả kho, vì cron của Flow 2.5 chỉ quét các bản ghi có field này khác null để tự động mở lại theo `Policy.unit.maintenance_days`. Để trống field này là cách duy nhất đảm bảo cron không tự ý mở lại 1 khoang đang bị FM giữ vì sự cố.
-
-**Details:**
-
-- **FM:**
-  - Tạo `StorageUnit`: `unit_code`, chọn `unit_type_id` (tham chiếu tới `UnitType` do BOM quản lý ở Flow 4), `location`, trạng thái ban đầu (mặc định `Available`).
-  - **Không tự nhập giá thuê cho từng khoang.** Giá thuê là thuộc tính của `UnitType` (`UnitType.monthly_price`), do BOM cập nhật trực tiếp ở Flow 4 — mọi `StorageUnit` cùng `unit_type_id` tại một thời điểm dùng chung một mức giá. FM chỉ chọn đúng loại khoang, không có bước validate khung giá vì FM không nhập số tiền.
-  - Chuyển khoang sang `Maintenance` thủ công:
-    - `Available` → chuyển trực tiếp sang `Maintenance`.
-    - `OnHold`/`Reserved` → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
-    - `Rented` → không tự ý chuyển; tạo yêu cầu xử lý sự cố, thông báo khách, thực hiện phương án di chuyển/tạm ngưng theo nghiệp vụ đã duyệt.
-    - Đang `Maintenance` → không xuất hiện trong danh sách khoang có thể đặt/assign.
-    - Sau khi xử lý xong sự cố, FM chuyển khoang về `Available` thủ công (không set lại `maintenance_started_at`, field này giữ null suốt vòng đời của case sự cố).
-  - Mọi thay đổi trạng thái thủ công phải ghi `AuditLog` (người thực hiện, thời điểm, lý do).
-  - Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (`OnHold`/`Reserved` khi duyệt/đặt cọc), Flow 2 (`Rented` sau bàn giao), Flow 2.5 (`Maintenance` khi trả kho).
-
-**Advanced Features (not MVP):**
-
-- FM đề xuất mức giá riêng cho từng `StorageUnit` (khác với giá mặc định của `UnitType`) khi có lý do đặc biệt (vị trí xấu, hư hao 1 phần...); đề xuất chỉ **có hiệu lực sau khi BOM phê duyệt trên Flow 4** — FM không được tự áp giá, kể cả ở dạng "chờ duyệt". Khi triển khai, đây là quyết định và thao tác của BOM (Flow 4), Flow 5 chỉ là nơi FM gửi đề xuất kèm lý do, không sở hữu logic tính/áp giá.`
-
-#### 5.3 Quản lý & điều phối Facility Staff
-
-**Context:** FM điều phối các FS tại cơ sở để hỗ trợ check-in, check-out, kiểm tra khoang chứa và xử lý sự cố on-site.
-
-**Flow tổng quát:** FM xem danh sách FS thuộc cơ sở mình (qua `AccountFacilityAssignment`) → phân công FS trực tiếp trên `Appointment.staff_id` (cho lịch hẹn check-in/bàn giao/trả kho) hoặc `SupportRequest.assigned_staff_id` (cho sự cố) → theo dõi tiến độ.
-
-**Details:**
-
-- **FM:**
-  - Xem danh sách FS được gán vào cơ sở của mình.
-  - Xem `Appointment` của cơ sở theo ngày, lọc `staff_id IS NULL` để thấy lịch chưa phân công, và gán FS: set `Appointment.staff_id`.
-    **Đã chốt (A6, thống nhất với Flow 2):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — mọi việc phân công lịch hẹn chuyển hẳn sang bảng `Appointment` (Flow 2 sở hữu, Flow 5 chỉ đọc/ghi `staff_id`).
-  - Phân công FS xử lý 1 `SupportRequest`: set `SupportRequest.assigned_staff_id` (bảng do Flow 3/7 sở hữu — xem 5.1).
-  - Theo dõi tiến độ qua status của `Appointment`/`SupportRequest` tương ứng — MVP không dùng bảng `StaffAssignment` riêng.
-  - MVP scope: chỉ "phân công theo task/appointment", chưa quản lý ca làm việc (shift) chi tiết.
-  - Cross-reference: cần `Appointment` (Flow 2 sở hữu — check-in, bàn giao, trả kho) và `SupportRequest` (Flow 3/7).
-
-#### 5.4 Báo cáo cơ sở
-
-**Context:** FM cần theo dõi tình hình vận hành của riêng cơ sở mình phụ trách.
-
-**Details:**
-
-- **FM:** xem dashboard/report theo filter thời gian và loại khoang: số khoang trống/đã thuê, tỷ lệ lấp đầy, doanh thu, số ca quá hạn tại cơ sở.
-- Truy vấn report **bắt buộc lọc theo facility mà `Facility.fm_account_id` trỏ tới FM đang đăng nhập** ở tầng API (không chỉ ẩn ở FE) — tránh rủi ro IDOR.
-
-**Cross-reference:**
-- Doanh thu/phí phụ thuộc chính sách giá từ Flow 4.
-- Số ca quá hạn phụ thuộc dữ liệu từ Flow 6.
-- Report toàn hệ thống/so sánh nhiều cơ sở thuộc quyền BOM (Flow 4).
-
-**Schema (liên quan, tổng hợp toàn Flow 5):**
-
-- `Account` — `role_id (N-1: Role)`, không có field `facility_id` (xem 5.0 Cross-reference).
-- `Role`, `Permission`, `RolePermission` — mô hình RBAC data-driven do Admin quản lý (xem 5.0), thay cho phương án hard-code permission trong code.
-- `Facility` — có `code` (unique, dùng cho mã hóa đơn/hợp đồng), `fm_account_id` (1–1, nguồn duy nhất), mặc định `Inactive` khi tạo mới.
-- `AccountFacilityAssignment` — mapping FS–Facility (1–n), do Admin quản lý.
-- `AccountRoleRequest` — thay thế `AccountCreationRequest`, chỉ còn status `Pending`/`Done`.
-- `StorageUnit` — thuộc 1 Facility, tham chiếu `unit_type_id` (không tự lưu giá), trạng thái dùng chung Flow 1/2/2.5.
-- `UnitType` — **thuộc Flow 4**, Flow 5 chỉ đọc `monthly_price` khi tạo `StorageUnit`.
-- `AuditLog` — dùng chung cấu trúc với Flow 3 (`account_id`, `action`, `entity_type`, `entity_id`, `old_value`, `new_value`, `created_at`), không tự định nghĩa bản tối giản riêng.
-- `LoginHistory` — thuộc phạm vi Admin (5.0): `account_id` (nullable), `email`, `ip_address`, `user_agent`, `status`, `failure_reason`, `created_at`.
-- ~~`PricingPolicy`~~ — loại bỏ, xung đột với mô hình `UnitType.monthly_price` đã dùng ở Flow 1/2/3/4.
-- ~~`StaffAssignment`~~ — loại khỏi phạm vi MVP, dùng field trực tiếp trên `RentalOrder`/`SupportRequest`.
-- `SupportRequest` — **không định nghĩa lại ở đây**, bảng thuộc Flow 3/7; Flow 5 chỉ đọc/ghi `assigned_staff_id`.
-
-**Advanced Features (not MVP):**
-- Import hàng loạt account qua Excel/Sheets.
-- `PricingPolicy` override riêng theo từng facility (nếu sau này cần giá khác nhau theo chi nhánh, thay vì `UnitType.monthly_price` áp dụng toàn hệ thống).
-- Unique constraint DB-level cho quan hệ 1–1 FM–Facility (MVP validate ở application layer).
-- Quản lý ca làm việc (shift scheduling) chi tiết cho FS.
-- Tự động phân công FS dựa trên khối lượng công việc/vị trí.
-- Cảnh báo tự động khi tỷ lệ lấp đầy cơ sở quá thấp/cao.
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
 
 NOTE: sau khi trả hợp đồng, status của kho là MAINTANANCE trong vòng 1-3 ngày trước khi cho người khác thuê.
