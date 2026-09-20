@@ -281,10 +281,9 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 **Đã chốt (B1 — Flow 5 là owner của enum `StorageUnit.status`, dùng chung toàn hệ thống):**
 ```
-Available | OnHold | Reserved | Rented | Maintenance
+Available |Reserved | Rented | Maintenance
 ```
 - `Available`: sẵn sàng cho thuê.
-- `OnHold`: tạm giữ ngắn hạn sau khi FM `Approve` yêu cầu nhưng khách chưa đặt cọc (Flow 1).
 - `Reserved`: đã đặt cọc, giữ tới khi bàn giao (Flow 1 → Flow 2).
 - `Rented`: đã bàn giao, đang có hợp đồng `Active` (Flow 2).
 - `Maintenance`: đang bảo trì hoặc đang sửa sự cố (Flow 2.5, hoặc FM chuyển thủ công ở mục này).
@@ -298,12 +297,12 @@ Available | OnHold | Reserved | Rented | Maintenance
   - **Không tự nhập giá thuê cho từng khoang.** Giá thuê là thuộc tính của `UnitType` (`UnitType.monthly_price`), do BOM cập nhật trực tiếp ở Flow 4 — mọi `StorageUnit` cùng `unit_type_id` tại một thời điểm dùng chung một mức giá. FM chỉ chọn đúng loại khoang, không có bước validate khung giá vì FM không nhập số tiền.
   - Chuyển khoang sang `Maintenance` thủ công:
     - `Available` → chuyển trực tiếp sang `Maintenance`.
-    - `OnHold`/`Reserved` → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
+    - `Reserved` → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
     - `Rented` → không tự ý chuyển; tạo yêu cầu xử lý sự cố, thông báo khách, thực hiện phương án di chuyển/tạm ngưng theo nghiệp vụ đã duyệt.
     - Đang `Maintenance` → không xuất hiện trong danh sách khoang có thể đặt/assign.
     - Sau khi xử lý xong sự cố, FM chuyển khoang về `Available` thủ công (không set lại `maintenance_started_at`, field này giữ null suốt vòng đời của case sự cố).
   - Mọi thay đổi trạng thái thủ công phải ghi `AuditLog` (người thực hiện, thời điểm, lý do).
-  - Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (`OnHold`/`Reserved` khi duyệt/đặt cọc), Flow 2 (`Rented` sau bàn giao), Flow 2.5 (`Maintenance` khi trả kho).
+  - Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (`Reserved` khi duyệt/đặt cọc), Flow 2 (`Rented` sau bàn giao), Flow 2.5 (`Maintenance` khi trả kho).
 
 **Advanced Features (not MVP):**
 
