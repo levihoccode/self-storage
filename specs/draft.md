@@ -91,9 +91,10 @@
 | `appointment.booking_window_days` | 7 ngày |
 | `appointment.max_days_after_deposit` | 14 ngày |
 | `proposal.max_rejection_count` | 3 lần |
-| `appointment.max_reschedule_count` | 2 lần |
+| `appointment.checkin_reschedule_enabled` | false (MVP) |
 | `appointment.daily_slot_count` | 3 khung/ngày |
-| `appointment.capacity_mode` | FM chỉnh thủ công |
+| `appointment.capacity_mode` | fixed_windows |
+| `request.pending_expiry_days` | 7 ngày |
 | `order.deposit_expiry_days` | 30 ngày |
 
 #### 1.1 Yêu cầu đặt kho
@@ -111,7 +112,12 @@
     + facility
     + start_date (MM/DD/YYYY)
     + period - số tháng thuê
-  - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định) và `created_at` = thời điểm submit.
+  - Server-side constraints:
+    + `start_date` không được ở trước ngày hiện tại theo timezone của `Facility`.
+    + `period` là số nguyên dương.
+    + `normalized_customer_email` phải là email hợp lệ; `customer_phone` phải đúng format số điện thoại được hỗ trợ.
+    + `unit_type` phải tồn tại và được cung cấp tại `facility`.
+   - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định), `created_at` = thời điểm submit và `expires_at = created_at + request.pending_expiry_days`.
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
   - **Nếu khách đã có tài khoản:** hệ thống sẽ gửi thông báo vào tài khoản.
     - Khách sẽ thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc
@@ -191,7 +197,9 @@
 - Tạo một bản ghi `Account` với role là `Customer` (chưa verify).
 - Hệ thống gửi email xác minh; **đơn chỉ được liên kết sau khi khách click xác minh** (chống chiếm đơn).
 - Sau khi verify, hệ thống tìm các `RentalRequest` có `status = Approved`, chưa quá `expires_at`, khớp `normalized_customer_email` với account.
-- Với mỗi request tìm thấy:
+- Chỉ hiển thị và xử lý các request còn hạn. Request đã quá `expires_at` không được claim.
+- Khi convert, hệ thống dùng transaction và không tạo hai `RentalOrder`/proposal đang hoạt động cho cùng một account và cùng một `unit_id`. Nếu nhiều request hợp lệ trỏ đến cùng khoang, hệ thống chỉ tạo một conversion; request trùng được giữ lại để FM xử lý re-propose, không tạo đơn trùng khoang.
+- Với mỗi request hợp lệ không bị trùng khoang:
   - Hệ thống tạo `ProposalFeedback` với `unit_id` FM đã chỉ định và `status = Pending`;
   - Hệ thống tạo `RentalOrder` với `status = Pending`, chưa gán `unit_id`
   - Hệ thống chuyển `RentalRequest.status` sang `Converted`.
@@ -246,7 +254,8 @@
       ```
       Khách đã từ chối khoang [Mã khoang cũ], lý do: [note]
       ```
-    - FM vào xem khoang trống khác, chọn `unit_id` mới và bấm "Đề xuất lại".
+    - FM vào xem khoang trống khác, chọn `unit_id` mới và bấm "Đề xuất lại". Hệ thống loại các khoang mà khách đã từ chối trong cùng `RentalOrder`.
+    - Nếu FM cần đề xuất lại một khoang đã bị khách từ chối, phải dùng quyền override và nhập lý do; thao tác này được ghi vào `AuditLog`.
     - Hệ thống tạo một bản ghi `ProposalFeedback` (status = `Pending`), gắn unit_id mới vừa chọn
   - Quá `proposal.max_rejection_count` lần từ chối: hệ thống dừng đề xuất, `RentalOrder` → `Canceled` (khách không chọn được khoang), thông báo FM + khách.
 
@@ -352,7 +361,8 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - FM chỉ định một nhân viên cơ sở (`FS`) phụ trách ca tiếp đón khách:
     - Hệ thống gán `Appointment.staff_id = [FS_Account_ID]`.
     - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `InProgress`.
-    - Thông báo nhiệm vụ tiếp đón được gửi đến tài khoản của nhân viên FS tương ứng.
+     - Thông báo nhiệm vụ tiếp đón được gửi đến tài khoản của nhân viên FS tương ứng.
+   - Nếu chưa có FS phù hợp, `Appointment.staff_id` để trống, `RentalOrder` giữ `Scheduled`, và FM nhận task phân công. Không tự động gán FS.
 
 **Schema có trong phần này:**
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
@@ -363,6 +373,13 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **NOTES:**
 - `HandoverRecord` được tạo cùng lúc với `Appointment`.
 - `result = IN_PROGRESS` ở thời điểm khởi tạo nghĩa là hồ sơ bàn giao đang được mở, không đồng nghĩa khách đã đến cơ sở.
+- MVP dùng ba khung giờ cố định mỗi ngày; không có `AppointmentSlot` động và không có reschedule. Một lịch `CHECKIN` chỉ phục vụ một khách và một FS tại một thời điểm.
+- Lịch xem kho theo tour và capacity động là Advanced Feature.
+- Hủy trước khi đặt cọc không hoàn tiền vì chưa phát sinh thanh toán. Hủy sau khi đặt cọc do khách chủ động thì mất cọc; hủy do lỗi cơ sở thì hoàn thủ công theo policy và ghi `AuditLog`.
+
+**Advanced Features (not MVP):**
+- Reschedule lịch hẹn.
+- Lịch xem kho theo tour và capacity động.
 
 ### 2. Check-in và bàn giao kho
 ### 2.5 Trả kho và bảo trì
@@ -375,7 +392,7 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
 
 ## Scheduled Jobs - Cron jobs
 ### Jobs định kỳ
-- `RentalRequest` quá `expires_at` mà vẫn `status = Approved` → set `status = Expired`.
+- `RentalRequest` quá `expires_at` mà vẫn `status = Pending` hoặc `Approved` → set `status = Expired`.
 - `ProposalFeedback` quá `expires_at` mà khách chưa duyệt → set `status = Expired`.
 - `Appointment` (type = `CHECKIN`) đã quá `end_at` nhưng `arrived_at` vẫn null:
   - `Appointment.status = Canceled`, `cancel_reason = NoShow`.
