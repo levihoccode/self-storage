@@ -277,16 +277,15 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 **Schema:**
 
-Các bảng đã có, Flow 2 chỉ đọc hoặc cập nhật trạng thái:
-- [**RentalOrder**](./db-table-draft.md#rentalorder) - đơn hàng được xử lý trong buổi hẹn.
+**Flow 1 sở hữu, Flow 2 chỉ đọc hoặc cập nhật** - định nghĩa field nằm ở `specs/flow-1`, `db-table-draft.md` nhánh này chỉ ghi owner và cách Flow 2 dùng:
+- [**RentalOrder**](./db-table-draft.md#rentalorder) - đơn hàng được xử lý trong buổi hẹn; Flow 2 set `status = Done` ở 2.4.
 - [**Invoice**](./db-table-draft.md#invoice) - kiểm tra hóa đơn `type = Deposit` đã `Paid`, tạo hóa đơn `type = Rental` cho tháng đầu.
-- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) - dùng ở Flow 1, Flow 2 chỉ đọc.
-- [**Appointment**](./db-table-draft.md#appointment) - lịch hẹn tại cơ sở, dùng chung cho check-in, trả kho, xử lý sự cố. Vòng đời do Flow 1 quản lý, Flow 2 chỉ set `arrived_at` + `status = Done`.
+- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback) - chỉ đọc để biết khoang khách đã duyệt.
+- [**Appointment**](./db-table-draft.md#appointment) - lịch hẹn và FS phụ trách (`date`, `staff_id`, `facility_id`); Flow 2 chỉ set `arrived_at` + `status = Done`.
 - [**RentalAppointment**](./db-table-draft.md#rentalappointment) - nối lịch hẹn với đơn hàng; Flow 1 tạo cùng `Appointment`.
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord) - checklist tiến trình on-site; Flow 1 tạo ở 1.5, Flow 2 bật cờ và chốt `result`.
 
-- [**HandoverRecord**](./db-table-draft.md#handoverrecord) - checklist tiến trình on-site; **Flow 1.5 tạo**, Flow 2 bật cờ và chốt `result`.
-
-Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-table-draft.md`:
+**Flow 2/2.5 sở hữu**, chi tiết field trong `db-table-draft.md`:
 - [**RentalContract**](./db-table-draft.md#rentalcontract) - hợp đồng thuê, sinh và ký ở 2.3.
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey) - quyền truy cập khoang chứa đã bàn giao cho khách.
 
