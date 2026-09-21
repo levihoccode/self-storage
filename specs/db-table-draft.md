@@ -56,9 +56,19 @@
   - Approved: yêu cầu được FM duyệt
   - Converted: request đã sinh `RentalOrder` (đã liên kết account)
   - Expired: quá expires_at mà chưa liên kết account
+- reject_reason (nullable) - mã lý do từ chối
+- reject_note (nullable) - ghi chú chi tiết khi cần
 - created_at
 - responded_at
 - expires_at
+
+**CONSTRAINTS:**
+- `start_date` không được ở trước ngày hiện tại theo timezone của `Facility`.
+- `period` là số nguyên dương.
+- `unit_type` phải tồn tại và được cung cấp tại `facility`.
+- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired`.
+- Khi claim, chỉ request `Approved` chưa quá `expires_at` mới được chuyển sang `Converted`.
+- `Rejected` phải có `reject_reason`; giá trị chuẩn gồm `UNIT_UNAVAILABLE`, `UNIT_MISMATCH`, `CUSTOMER_REQUEST`, `OTHER`. `reject_note` bắt buộc khi dùng `OTHER`.
 
 **NOTES:**
 - `normalized_customer_email` là email đã chuẩn hóa `trim` + lowercase ngay tại điểm nhập (form/đăng ký/import). Đây là **khóa định danh** để nối `RentalRequest` với `Account` (mục 1.2 Case A) và xác minh quyền sở hữu đơn — không chỉ dùng để gửi thông báo.
@@ -79,6 +89,14 @@
   - Done: khách đã hoàn tất check-in, ký hợp đồng, thanh toán cần thiết và nhận bàn giao khoang
   - Expired:  quá hạn không thanh toán cọc / không đặt lịch / không đến nhận theo ngưỡng.
 - expires_at (nullable) - thời điểm hết hiệu lực giữ kho sau khi đặt cọc
+
+**CONSTRAINTS:**
+- Khi `RentalOrder` chuyển sang `Canceled`, các `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
+- `Invoice` đặt cọc chưa thanh toán chuyển sang `Canceled`.
+- `Appointment` loại `CHECKIN` đang hoạt động và `HandoverRecord` đang mở bị hủy kèm lý do.
+- Khách hủy trước khi đặt cọc: không phát sinh refund.
+- Khách hủy sau khi đặt cọc: mất cọc.
+- Cơ sở hủy do lỗi nội bộ: hoàn cọc thủ công theo policy và ghi `AuditLog`.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -152,6 +170,8 @@
 **Constraints**
 - Mọi lần đề xuất lại đều tạo bản ghi mới cho cùng `RentalOrder`; bản ghi cũ giữ nguyên (lịch sử). Khoang hiệu lực = proposal `Agreed` mới nhất.
 - 1 order có thể có nhiều proposal `Agreed` theo thời gian (khách đồng ý online nhưng từ chối khoang lúc check-in).
+- Khi re-propose, mặc định không được chọn lại `unit_id` đã bị khách từ chối trong cùng order.
+- FM có thể override rule này nhưng phải nhập lý do; thao tác được ghi vào `AuditLog`.
 
 **NOTES:**
 - field note dùng để khi khách từ chối và muốn chọn lại, sẽ nêu lý do vì sao từ chối, ...
@@ -211,6 +231,8 @@
 - Một `Appointment` chỉ có tối đa một `HandoverRecord`.
 - Một `RentalOrder` có thể có nhiều `HandoverRecord` nếu khách từ chối khoang, no-show hoặc phải đặt lại lịch.
 - Một `RentalOrder` chỉ có tối đa một `HandoverRecord` đang mở (`result = IN_PROGRESS`).
+- MVP chỉ có tối đa một appointment `CHECKIN` đang hoạt động cho mỗi `RentalOrder`; reschedule tạo nhiều appointment chỉ được bật ở giai đoạn sau.
+- Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
 # PaymentTransaction
 - invoice_id (N - 1: Invoice)
 - gateway_transaction_no (unique) - Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
