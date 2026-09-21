@@ -53,7 +53,7 @@
 **Overview:** quyền truy cập khoang chứa đã bàn giao cho khách.
 - unit_id (N - 1: StorageUnit)
 - order_id (N - 1: RentalOrder)
-- access_type (PhysicalKey/AccessCode) - MVP chỉ dùng `PhysicalKey`
+- access_type (PhysicalKey/AccessCode) - loại khóa đã bàn giao, theo cờ `enabledKeyAccess`/`enabledCodeAccess` của cơ sở/khoang (Flow 5)
 - quantity - số chìa đã giao, dùng khi `access_type = PhysicalKey`
 - code_hash - hash của mã truy cập, dùng khi `access_type = AccessCode`
 - issued_at, revoked_at
