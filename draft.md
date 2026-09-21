@@ -188,7 +188,15 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 ### 4. Quản lý business rules, các khoản phí và theo dõi doanh thu (BOM)
 
 ### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
+**Các tham số sử dụng trong Flow 5**
 
+| Tên | Giá trị | Ghi chú |
+|---|---|---|
+| `role_request_expiry_days` | *(chưa chốt, đề xuất 3 ngày)* | Số ngày `AccountRoleRequest` giữ trạng thái `Pending` trước khi hệ thống cảnh báo/escalate cho BOM và Admin — tương ứng field `expires_at` ở mục 5.1. Tham số do Flow 5 sở hữu. |
+| `unit_maintenance_days` | *(chưa chốt, đề xuất 1–3 ngày)* | Số ngày `StorageUnit.status = Maintenance` (phát sinh từ trả kho) trước khi cron tự động chuyển về `Available`. Tham số thuộc **Flow 4** (BOM cấu hình), Flow 5 chỉ tham chiếu ở mục 5.2 để giải thích vì sao `maintenance_started_at` chỉ do Flow 2.5 set, không do Flow 5 set khi FM chuyển `Maintenance` thủ công vì sự cố. |
+| `report_default_range_months` | *(chưa chốt, đề xuất 2 tháng)* | Khoảng thời gian mặc định hiển thị trên dashboard báo cáo cơ sở của FM (mục 5.4) khi chưa chọn filter — nên đồng bộ với dashboard doanh thu của BOM ở Flow 4 (mục 4.3, hiện đang đề xuất "2 tháng gần nhất") để hành vi UI nhất quán giữa 2 loại dashboard. |
+
+Mỗi Flow tự liệt kê các tham số mình sử dụng trước. Khi merge các Flow, team sẽ gộp key trùng (`unit_maintenance_days` cần đối chiếu với tên key Flow 2.5/Flow 4 đang dùng, ví dụ `unit.maintenance_days`) và thống nhất giá trị khác nhau.
 **FLOW:**
 ```
 [BOM tạo Facility] -> [BOM chỉ định role (FM/FS) cho nhân sự] -> [Admin thực thi tạo/cập nhật Account] -> [BOM gán FM vào Facility] -> [FM setup khoang chứa tại Facility] -> [FM điều phối Facility Staff] -> [FM theo dõi báo cáo cơ sở]
@@ -331,7 +339,7 @@ Available |Reserved | Rented | Maintenance
 
 **Details:**
 
-- **FM:** xem dashboard/report theo filter thời gian và loại khoang: số khoang trống/đã thuê, tỷ lệ lấp đầy, doanh thu, số ca quá hạn tại cơ sở.
+- **FM:** xem dashboard/report theo filter thời gian và loại khoang: số khoang trống/đã thuê, tỷ lệ lấp đầy, doanh thu, số ca quá hạn tại cơ sở. Khi chưa chọn filter, hệ thống hiển thị mặc định `report_default_range_months` gần nhất (đồng bộ hành vi với dashboard doanh thu của BOM ở Flow 4, mục 4.3).
 - Truy vấn report **bắt buộc lọc theo facility mà `Facility.fm_account_id` trỏ tới FM đang đăng nhập** ở tầng API (không chỉ ẩn ở FE) — tránh rủi ro IDOR.
 
 **Cross-reference:**
