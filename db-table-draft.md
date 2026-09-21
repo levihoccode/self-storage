@@ -66,18 +66,18 @@
 - NOTES: visa card only
 # Appointment
 **Overview:** lịch hẹn dùng chung cho mọi loại cuộc hẹn tại cơ sở. Được tạo khi khách yêu cầu hoặc hệ thống tạo lịch; dùng cho check-in, bàn giao, trả kho, xử lý sự cố tại kho, ...
-- customer_id (1 - N: Account)
-- staff_id (1 - N: Account) - nullable, FM gán ở Flow 5.3
+- customer_id (N - 1: Account)
 - facility_id (N - 1: Facility)
+- staff_id (N - 1: Account, nullable khi chưa được phân công - FM gán ở Flow 5.3)
 - type (CHECKIN, HANDOVER, RETURN, ...)
 - cancel_reason
-- appointment_date
+- date
 - started_at - giờ bắt đầu có thể check-in
 - end_at - giờ kết thúc ca xem kho này
 - arrived_at - giờ ghi nhận khách check-in
 - status:
   - Pending: trạng thái mặc định, trước khi khách đến
-  - Done: khách đã đến
+  - Done: đã ghi nhận khách đến cơ sở; các bước check-in và bàn giao tiếp tục theo dõi bằng `HandoverRecord`
   - Canceled: lịch hẹn bị hủy
 
 **NOTES:**
@@ -94,7 +94,6 @@
 - order_id (N - 1: RentalOrder)
 - appointment_id (1 - 1: Appointment)
 - unit_id (N - 1: StorageUnit)
-- staff_id (N - 1: Account, nullable khi mới tạo; điền khi FM phân công FS)
 - **Checklist tiến trình on-site:**
   - is_identity_verified (default: false) - xác minh danh tính người đến check-in
   - identity_verified_at (nullable)
@@ -112,6 +111,7 @@
   - reject_reason (nullable, Text) - lý do từ chối hoặc hủy biên bản
 
 **NOTES:**
+- **Không có `staff_id`** (contract Flow 1, 20/09): FS phụ trách lấy qua `Appointment.staff_id`.
 - `IN_PROGRESS` lúc khởi tạo chỉ có nghĩa hồ sơ đang mở, **không** đồng nghĩa khách đã đến cơ sở.
 - `CANCELED` do cron no-show của Flow 1 set khi hết `Appointment.end_at` mà `arrived_at` vẫn null.
 - `order_id` là `N - 1` vì một đơn có thể check-in nhiều lần (khách từ chối khoang rồi được chỉ định khoang khác). Ràng buộc: mỗi `Appointment` tối đa một bản ghi, và mỗi đơn chỉ có tối đa một bản ghi đang `IN_PROGRESS`.

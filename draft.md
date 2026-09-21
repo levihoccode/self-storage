@@ -162,6 +162,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **ĐÃ CHỐT:**
 - **Vòng đời `Appointment` thuộc Flow 1**: chọn slot, đặt lịch, dời lịch, hủy lịch và tạo lại lịch sau `HandoverRecord.Rejected`/no-show. Flow 2 chỉ đọc lịch đã có và ghi đúng một field `arrived_at` (kèm `status = Done`) khi khách đến cơ sở.
 - **`HandoverRecord` cũng do Flow 1.5 tạo**, cùng lúc với `Appointment` khi khách xác nhận lịch hẹn (Flow 1 commit `0585bfb`). `result = IN_PROGRESS` lúc khởi tạo nghĩa là hồ sơ đang mở, **không** đồng nghĩa khách đã đến. Flow 2 không tạo bản ghi mới, chỉ bật cờ và chốt `result` trên bản ghi có sẵn.
+- **Contract dùng chung với Flow 1** (chốt 20/09): `Appointment` là nguồn duy nhất cho lịch hẹn và FS phụ trách (`date`, `staff_id`, `facility_id`); `RentalAppointment` giữ để nối lịch hẹn với `RentalOrder`; `HandoverRecord` **không có `staff_id`**. Enum đối chiếu: `StorageUnit` `Available/Reserved/Rented/Maintenance`, `RentalOrder` `Pending/Deposited/Scheduled/InProgress/Done/Canceled/Expired`.
 - **Mô hình lịch hẹn theo A6/B5:** `Appointment` + bảng nối `RentalAppointment` (`order_id` - `appointment_id`), thêm `facility_id` trên `Appointment` để FM lọc lịch theo cơ sở và validate FS mà không phải join `order -> unit -> facility`; lịch hẹn không gắn đơn (xử lý sự cố) vẫn xác định được cơ sở. `RentalOrder` bỏ `staff_id`/`appointment_date`.
 - MVP thu **tháng đầu tiên**; chính sách trả trước N tháng để mở sau (Flow 4).
 - MVP chỉ xử lý trường hợp **khách đã đặt cọc trước ngày hẹn** - buổi hẹn là check-in + bàn giao. Lịch "tham quan kho" cho khách chưa cọc (nhiều khách chung một slot) **không thuộc MVP**, xem Advanced Features.
@@ -193,7 +194,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 - **Check-in:**
   - FS ghi nhận khách đến: set `Appointment.arrived_at`, `status = Done`.
-  - FS mở `HandoverRecord` gắn với `Appointment` đó (Flow 1.5 đã tạo, `result = IN_PROGRESS`, `staff_id` được điền khi FM phân công). Flow 2 **không tạo bản ghi mới** - mốc `RentalOrder` chuyển `InProgress` không còn là điểm sinh biên bản.
+  - FS mở `HandoverRecord` gắn với `Appointment` đó (Flow 1.5 đã tạo, `result = IN_PROGRESS`). Biên bản **không có `staff_id`** - FS phụ trách lấy qua `Appointment.staff_id`. Flow 2 **không tạo bản ghi mới**; mốc `RentalOrder` chuyển `InProgress` không còn là điểm sinh biên bản.
   - **Xác minh danh tính:** FS đối chiếu giấy tờ tùy thân của người đến với `RentalOrder.customer_id`; nếu khách đã upload ảnh giấy tờ online thì hệ thống hiển thị lại để FS đối chiếu. Đạt -> `is_identity_verified = true`, `identity_verified_at`. Không đạt thì dừng, không cho bật các cờ sau.
 
 - **Kiểm tra khoang chứa:**
@@ -294,7 +295,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - **Bảng nối `RentalAppointment` giữ theo A6** (Flow 1 `0585bfb`, Flow 5 `db-table-draft.md`). Phần `facility_id` trên `Appointment` đã được Flow 1 và Flow 5 áp. Đề xuất đưa `order_id` thẳng lên `Appointment` và bỏ bảng nối **không được chốt**, Flow 2/2.5 viết theo bảng nối.
 - Đổi khoang sau khi khách đã cọc (do từ chối tại chỗ ở 2.2) do **Flow 1** xử lý: FM chỉ định khoang mới, hệ thống tạo `ProposalFeedback` **mới** (bản cũ giữ nguyên, khoang hiệu lực là proposal `Agreed` mới nhất), khách duyệt online. Chênh lệch mức cọc cũ/mới cộng phí `Policy.fee.unit_change`: dư thì hoàn thủ công, thiếu thì xuất hóa đơn cọc bù. Còn mở: thứ tự chuyển khoang mới sang `Reserved` so với việc hoàn tiền.
 - Vì mỗi lần đề xuất lại tạo một `ProposalFeedback` mới, **không** đặt unique index `(order_id) WHERE status = 'Agreed'` - index đó sẽ chặn đúng reject path của Flow 2.
-- `RentalOrder.status`: branch `flow-1` hiện là `Pending/Deposited/Scheduled/InProgress/Canceled/Done/Expired` (tuyến tính, `Expired` cho quá hạn cọc/lịch hẹn), khác đề xuất B3 ở chỗ giữ `Pending` thay cho `AwaitingDeposit`. Flow 2 bám theo bộ này: vào flow ở `InProgress`, kết ở `Done`. `db-table-draft.md` vẫn chưa có bảng `StorageUnit` (thuộc Flow 5).
+- `RentalOrder.status` theo contract Flow 1 (20/09): `Pending/Deposited/Scheduled/InProgress/Done/Canceled/Expired` - khác đề xuất B3 ở chỗ giữ `Pending` thay cho `AwaitingDeposit`. Flow 2 bám theo bộ này: vào flow ở `InProgress`, kết ở `Done`. `db-table-draft.md` vẫn chưa có bảng `StorageUnit` (thuộc Flow 5).
 
 **Advanced Features (not MVP)**
 - Chính sách trả trước N tháng thay vì cố định 1 tháng.
@@ -326,7 +327,7 @@ Các bảng Flow 2 đề xuất thêm, chi tiết field đã đưa vào `db-tabl
 - Cơ chế khách **phản đối đánh giá hư hỏng** của FS không thuộc MVP; đánh giá của FS là kết quả cuối cùng.
 - Hệ thống **tự động tính phí lưu giữ** khi khoang còn đồ không thuộc MVP; FM hoặc FS gửi hóa đơn thủ công theo chính sách của BOM (Flow 4).
 - **Luồng hoàn tiền tự động (refund) không thuộc MVP.** Khi làm sẽ cần bổ sung chiều giao dịch cho `PaymentTransaction` hoặc bảng refund riêng, kèm mã giao dịch hoàn để đối soát. Nguyên tắc dự kiến: hoàn về đúng phương tiện khách đã thanh toán.
-- Enum `StorageUnit.status` Flow 2/2.5 dùng: `Available/Reserved/Rented/Maintenance`. Khớp bảng `StorageUnit` mới của Flow 1 (commit `0585bfb`) và của Flow 3. **`OnHold` đã bị bỏ** theo A9 (MVP không giữ chỗ, ai cọc trước được trước) - schema Flow 5 còn giá trị này, cần gỡ để ba nhánh khớp nhau.
+- Enum `StorageUnit.status`: `Available/Reserved/Rented/Maintenance` theo contract Flow 1 công bố ngày 20/09, khớp cả Flow 3. **`OnHold` không nằm trong contract** (A9 đã chốt MVP không giữ chỗ) - schema Flow 5 còn giá trị này, cần gỡ để ba nhánh khớp nhau.
 - Thời gian bảo trì **được cấu hình bởi BOM ở Flow 4**, không hard-code (mặc định 1-3 ngày). FM không tự sửa, chỉ gửi yêu cầu để BOM chỉnh.
 - Khách quá hạn không trả, không liên lạc được hoặc bỏ lại tài sản trong khoang: **thuộc Flow 6**, đã note để xử lý sau.
 
