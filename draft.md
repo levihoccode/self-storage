@@ -247,7 +247,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 **a) Lịch hẹn của cơ sở (2.1)**
 - `GET /api/fm/appointments?facility_id=...&date=...`: lịch của cơ sở theo ngày, lọc thẳng trên `Appointment.facility_id`, không join qua `RentalOrder -> StorageUnit -> Facility`; dùng để FM thấy lịch chưa có `staff_id`.
 - Các API sinh slot, đặt lịch, dời lịch và hủy lịch nằm ở **Flow 1**. Flow 2 không expose endpoint nào ghi lên `Appointment` ngoài `arrive` ở mục b.
-- Cron hằng ngày của Flow 2: hủy hợp đồng `Signed` quá `Policy.handover.payment_grace_hours` chưa thanh toán, trả khoang về `Available`. Cron tự hủy đơn đã cọc quá `Policy.order.auto_cancel_days` (mặc định 7) chưa check-in chuyển sang **Flow 1** cùng vòng đời `Appointment`.
+- Cron hằng ngày của Flow 2: hủy hợp đồng `Signed` quá `Policy.handover.payment_grace_hours` chưa thanh toán, trả khoang về `Available`. Việc tự hủy đơn đã cọc mà chưa bàn giao chuyển sang **Flow 1** cùng vòng đời `Appointment`, và Flow 1 dùng field `RentalOrder.expires_at` (set lúc cọc, mặc định 30 ngày) chứ không dùng `Policy` key - nên Flow 2 **không còn xin Flow 4** key `order.auto_cancel_days`.
 
 **b) Lịch trình của FS (2.1, 2.2)**
 - `GET /api/staff/appointments?date=...`: lịch trong ngày của FS đang đăng nhập.
