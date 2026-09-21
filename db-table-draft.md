@@ -15,7 +15,7 @@
 - unit_id
 - cancel_reason
 - status: 
-  - Pending: chờ FS được chỉ định xác nhận
+  - Pending: chờ khách chọn lịch hẹn on-site
   - InProgress: sau FS được chỉ đã xác nhận và đang trong quá trình hẹn gặp, tư vấn
   - Canceled: hủy đơn hàng
   - Done: Khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử 
@@ -118,6 +118,8 @@
 - status (Active/Inactive) — mặc định Inactive khi mới tạo
 - fm_account_id (1 - 1: Account, null as default)
 - created_at
+- enabledKeyAccess (boolean, default true) — facility có hỗ trợ bàn giao bằng khóa cơ (chìa vật lý)
+- enabledCodeAccess (boolean, default false) — facility có hỗ trợ bàn giao bằng mã số
 
 **NOTES:**
 - Không xóa cứng Facility vì còn liên kết StorageUnit, RentalOrder... của cơ sở.
@@ -125,6 +127,8 @@
 - Ràng buộc bắt buộc: Facility chỉ được chuyển sang `Active` sau khi `fm_account_id` đã có giá trị. Facility `Inactive` không hiển thị cho khách và FM không tạo được StorageUnit cho tới khi Facility `Active`.
 - Khi account đang là FM bị đổi sang role khác, hệ thống phải tự động set `fm_account_id = null` trong cùng transaction với thao tác đổi role (xem `AccountRoleRequest` / audit ở mục 5.0).
 - **Đã thêm field `code`:** bắt buộc phải có vì `Invoice.code` và `RentalContract.code` (Flow 1/2) dùng mã chi nhánh này làm phần giữa của mã hóa đơn/hợp đồng — trước đây Flow 5 chưa có field này dù các flow khác đã tham chiếu.
+- Ít nhất 1 trong 2 cờ phải true — 1 facility không thể không hỗ trợ loại khóa nào.
+- Khi cả 2 cờ cùng true, FS chọn loại khóa lúc bàn giao (Flow 2 mục 2.4), hệ thống ghi UnitAccessKey.access_type tương ứng.
 
 ---
 
@@ -136,9 +140,11 @@
 
 **NOTES:**
 - Khi account FS bị đổi sang role khác, dòng tương ứng phải bị xoá trong cùng transaction với thao tác đổi role, tránh để lại data-scope "mồ côi".
-- Dùng để validate Appointment.facility_id/SupportRequest.assigned_staff_id's facility khớp với facility account FS đang được gán — so sánh trực tiếp AccountFacilityAssignment.facility_id = Appointment.facility_id, không cần join qua order_id/StorageUnit nữa (kể cả lịch hẹn không gắn đơn để xử lý sự cố).
+- Dùng để validate FS được gán vào Appointment.staff_id/SupportRequest.assigned_staff_id phải thuộc đúng facility, qua 2 đường khác nhau tùy bảng:
 
----
+- SupportRequest: có sẵn unit_id → join StorageUnit.facility_id → so sánh với AccountFacilityAssignment.facility_id.
+- Appointment: không có field facility_id trực tiếp (theo schema Flow 2) — phải join qua RentalAppointment.appointment_id → RentalOrder.unit_id → StorageUnit.facility_id rồi mới so sánh với AccountFacilityAssignment.facility_id. Nếu Appointment dùng cho lịch hẹn không gắn RentalOrder (case xử lý sự cố không qua đơn thuê), không có đường join này — cần Flow 2 xác nhận: những Appointment không có RentalAppointment thì lấy facility_id để validate bằng cách nào (có thể phải thêm facility_id trực tiếp vào Appointment cho riêng case đó, hoặc case đó dùng SupportRequest thay vì Appointment).
+
 
 # AccountRoleRequest
 *(thay thế `AccountCreationRequest`)*
@@ -169,7 +175,7 @@
 - unit_type_id (N - 1: UnitType)
 - unit_code
 - location
-- status (Available/OnHold/Reserved/Rented/Maintenance)
+- status (Available/Reserved/Rented/Maintenance)
 - created_at
 - updated_at
 - maintenance_started_at (nullable) — chỉ do Flow 2.5 set khi Maintenance phát sinh từ trả kho; Flow 5 để trống khi chuyển Maintenance do sự cố
@@ -244,3 +250,29 @@
 
 **NOTES:**
 - **Đã sửa so với bản cũ:** trước đây ghi "lưu trên `RentalOrder.staff_id`" — theo quyết định chung mới nhất (A6, thống nhất với Flow 2), `staff_id`/`appointment_date` không còn nằm trên `RentalOrder` nữa mà chuyển hẳn sang bảng `Appointment`.
+
+# RentalContract
+**Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
+- order_id (1 - 1: RentalOrder)
+- customer_id (N - 1: Account)
+- unit_id (N - 1: StorageUnit)
+- code
+- terms_version - snapshot version điều khoản khách đã đồng ý (Flow 4)
+- monthly_price - giá thuê chốt tại thời điểm ký
+- deposit_amount - tiền cọc đã thu ở Flow 1.3
+- period - số tháng thuê
+- start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
+- end_date
+- signed_at
+- signature - URL ảnh chữ ký; MVP là ảnh/scan trang ký của hợp đồng giấy
+- pdf_url - file hợp đồng lưu trữ; MVP là bản scan FS upload, không sinh PDF tự động
+- status (Draft/Signed/Active/Ended/Canceled)
+  - Draft: hợp đồng đã sinh, chờ khách ký
+  - Signed: đã ký nhưng chưa bàn giao
+  - Active: đã bàn giao, đang có hiệu lực (kể cả đã quá `end_date` nhưng chưa trả kho)
+  - Ended: đã trả kho xong (Flow 2.5)
+  - Canceled: hủy trước khi bàn giao khoang
+
+**NOTES:**
+- Mỗi `StorageUnit` chỉ có tối đa 1 hợp đồng `Active` tại một thời điểm.
+- Không có status `PendingReturn` — tiến trình trả kho theo dõi ở bảng `ReturnRequest` (Flow 3), để không đè mất thông tin quá hạn của hợp đồng.

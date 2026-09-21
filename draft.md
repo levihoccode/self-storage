@@ -246,7 +246,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 **Details:**
 
 - **BOM:**
-  - Tạo/sửa/vô hiệu hoá Facility (không xoá cứng vì còn liên kết `StorageUnit`, `RentalOrder`...) với thông tin: `code` (mã chi nhánh, dùng trong `Invoice.code`/`RentalContract.code` ví dụ "Q7", "TD"), tên cơ sở, địa chỉ, số điện thoại, giờ hoạt động, trạng thái (Active/Inactive).
+  - Tạo/sửa/vô hiệu hoá Facility (không xoá cứng vì còn liên kết StorageUnit, RentalOrder...) với thông tin: code (mã chi nhánh, dùng trong Invoice.code/RentalContract.code, ví dụ "Q7", "TD"), tên cơ sở, địa chỉ, số điện thoại, giờ hoạt động, cấu hình loại khóa hỗ trợ (enabledKeyAccess/enabledCodeAccess, ít nhất 1 cờ phải bật), trạng thái (Active/Inactive).
   - **Ràng buộc bắt buộc:** Facility mới tạo mặc định `Inactive`, chỉ được BOM chuyển sang `Active` **sau khi** `fm_account_id` đã có giá trị. Facility `Inactive` không hiển thị cho khách ở Flow 1 và FM không tạo được `StorageUnit` cho tới khi Facility `Active`.
   - Gán/thay đổi FM phụ trách cho từng Facility bằng cách set trực tiếp `Facility.fm_account_id`. **Đã chốt: quan hệ FM–Facility là 1–1**, và đây là field duy nhất lưu quan hệ này trong toàn hệ thống.
   - Nếu Facility chưa có FM:
@@ -273,7 +273,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - Giá thuê theo `UnitType` — **thuộc Flow 4**, Flow 5 chỉ đọc `UnitType.monthly_price` khi tạo `StorageUnit`, không tự định nghĩa lại khung giá.
 - `SupportRequest` mà 5.3 cần dùng để phân công FS xử lý sự cố — **thuộc Flow 3/7**, Flow 5 chỉ đọc/ghi field `assigned_staff_id`, không tự định nghĩa lại cấu trúc bảng.
 
-`#### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
+#### 5.2 Quản lý khoang chứa (Storage Unit) tại cơ sở
 
 **Context:** FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — chỉ thực hiện được sau khi Facility đã `Active`.
 
@@ -306,7 +306,7 @@ Available |Reserved | Rented | Maintenance
 
 **Advanced Features (not MVP):**
 
-- FM đề xuất mức giá riêng cho từng `StorageUnit` (khác với giá mặc định của `UnitType`) khi có lý do đặc biệt (vị trí xấu, hư hao 1 phần...); đề xuất chỉ **có hiệu lực sau khi BOM phê duyệt trên Flow 4** — FM không được tự áp giá, kể cả ở dạng "chờ duyệt". Khi triển khai, đây là quyết định và thao tác của BOM (Flow 4), Flow 5 chỉ là nơi FM gửi đề xuất kèm lý do, không sở hữu logic tính/áp giá.`
+- FM đề xuất mức giá riêng cho từng `StorageUnit` (khác với giá mặc định của `UnitType`) khi có lý do đặc biệt (vị trí xấu, hư hao 1 phần...); đề xuất chỉ **có hiệu lực sau khi BOM phê duyệt trên Flow 4** — FM không được tự áp giá, kể cả ở dạng "chờ duyệt". Khi triển khai, đây là quyết định và thao tác của BOM (Flow 4), Flow 5 chỉ là nơi FM gửi đề xuất kèm lý do, không sở hữu logic tính/áp giá.
 
 #### 5.3 Quản lý & điều phối Facility Staff
 
