@@ -170,7 +170,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 - `ProposalFeedback` là bảng của **Flow 1** (khách duyệt online khoang FM chỉ định, trước khi chọn lịch hẹn, status `Pending/Agreed/Rejected`). Flow 2 chỉ đọc; phản hồi hiện trạng khoang lúc check-in ghi trong `HandoverRecord`.
 - **Ký hợp đồng offline cho MVP:** FS đánh dấu khách đã ký trên ứng dụng, hợp đồng giấy được chụp/scan và upload; `RentalContract.signature` lưu URL ảnh, `pdf_url` lưu bản scan. Hệ thống **không sinh PDF tự động** trong MVP; panel ký tay trên web để sau.
 - **MVP chỉ bàn giao khóa cơ** (`access_type = PhysicalKey`). Khóa mã số giữ nguyên trong schema để mở rộng, không chạy trong MVP - nên Flow 5 **không cần** thêm field cấu hình loại khóa.
-- **Thông báo gửi thẳng** (email/notification tại thời điểm phát sinh), không làm hàng đợi outbox trong MVP.
+- **Email/notification đi qua outbox**: ghi `OutboxEvent` trong cùng transaction với thay đổi trạng thái, worker riêng đẩy đi - theo kiến trúc chốt ở issue #15, không gửi trực tiếp trong transaction nghiệp vụ.
 - **Ngưỡng vận hành mặc định** (Flow 4 override sau qua `Policy`): khách từ chối khoang tối đa **2 lần** trên một đơn, và thanh toán trong `handover.payment_grace_hours` sau khi ký - hai ngưỡng này do Flow 2 kiểm tra. Các ngưỡng quanh lịch hẹn chuyển sang Flow 1 cùng vòng đời `Appointment` và **lấy theo bản Flow 1 đang có** (chọn lịch trong 7 ngày kể từ lúc cọc, ngày hẹn cách tối đa 14 ngày, reject khoang trước cọc tối đa 3 lần, dời lịch tối đa 2 lần, thời hạn giữ kho ghi trên `RentalOrder.expires_at` mặc định 30 ngày); các ngưỡng Flow 2 từng đề xuất (auto-cancel 7 ngày, 2 lần no-show, dời lịch 2 lần báo trước 24h) bỏ để tránh hai nguồn.
 
 **Dữ liệu phụ thuộc (input từ các flow khác):**
@@ -237,6 +237,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - API của customer áp dụng **ownership check** trên `RentalOrder.customer_id`.
 - Mọi bước đổi `StorageUnit.status` chạy trong DB transaction và lock theo `unit_id` để không xung đột với luồng gán khoang của Flow 1.
 - Các API bật cờ trên `HandoverRecord` phải kiểm tra cờ tiền nhiệm, không cho nhảy bước.
+- **Thông báo:** mọi email/notification của Flow 2 và 2.5 ghi `OutboxEvent` trong cùng transaction với thay đổi trạng thái; worker đẩy đi sau, để lỗi SMTP không rollback nghiệp vụ. Cron của hai mục này chạy kèm ShedLock (issue #15).
 - **Validate phân công:** FS được gán phải có `AccountFacilityAssignment` khớp **`Appointment.facility_id`** - so trực tiếp, không join `RentalAppointment -> RentalOrder -> StorageUnit -> Facility` (A12, thống nhất với Flow 5); sai facility trả `422`. FS đang đăng nhập cũng phải khớp `staff_id` của lịch hẹn mới được thao tác.
 - **Thanh toán (dùng chung với Flow 1):** tạo bản ghi `PaymentTransaction(status = Pending)` **trước** khi redirect sang VNPay. Webhook/IPN phải **idempotent** theo `gateway_transaction_no` - gọi lại lần 2 chỉ trả `200`, không ghi thêm và không bật lại `is_payment_settled`. Lock theo `invoice_id` khi khởi tạo phiên thanh toán để chặn double-pay từ 2 tab.
 
@@ -300,7 +301,6 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - Chính sách trả trước N tháng thay vì cố định 1 tháng.
 - Ký hợp đồng online: panel ký tay trên web, hệ thống tự sinh PDF thay vì FS upload bản scan.
 - Bàn giao bằng khóa mã số (`access_type = AccessCode`): sinh mã, lưu hash, gửi qua kênh riêng, ép khách đổi mã lần đầu. Khi làm cần Flow 5 bổ sung cấu hình loại khóa cho `Facility`/`StorageUnit`.
-- Hàng đợi outbox cho email/notification thay vì gửi thẳng.
 - Các ý tưởng quanh lịch hẹn chuyển sang Flow 1 cùng vòng đời `Appointment`: lịch "tham quan kho" cho khách chưa cọc (`type = TOUR`, nhiều khách chung một slot), giới hạn số khách trên slot theo số FS khả dụng, cho khách chọn slot theo lịch trống thực tế của từng FS, nhắc lịch tự động trước 24h.
 - Cho khách xem ảnh/video khoang chứa trước buổi hẹn để giảm tỉ lệ từ chối tại chỗ.
 - eKYC khi đăng ký tài khoản, bước xác minh on-site rút gọn còn đối chiếu nhanh.
@@ -320,7 +320,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - Việc dời vòng đời `Appointment` sang Flow 1 chỉ áp cho **lịch check-in** (thuộc booking lifecycle). Lịch `RETURN` vẫn do Flow 2.5 tạo từ `ReturnRequest` của Flow 3, vì nó không nằm trong vòng đời đặt khoang.
 - MVP chỉ hỗ trợ **luồng trả do khách chủ động yêu cầu**; FM hủy hộ yêu cầu trả kho không thuộc MVP.
 - Biên bản trả kho tách thành bảng **`CheckoutRecord`** riêng, vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao và kết thúc vòng đời sau đó.
-- Phí phát sinh khi trả kho (hư hỏng, vệ sinh, mất chìa, trả trễ) dùng **`Invoice.type = Penalty`** (prefix `PEN`), theo bộ `type` đã thống nhất ở schema chung: `Deposit/Rental/Extension/Penalty/Service`. Phân loại chi tiết từng khoản ghi ở `title`/`desc`.
+- Phí phát sinh khi trả kho (hư hỏng, vệ sinh, mất chìa, trả trễ) dùng **`Invoice.type = Penalty`** theo bộ `type` của schema chung `Deposit/Rental/Extension/Penalty/Service`; **tiền tố trong `code` lấy theo bảng Service Code của Flow 1**: `CLN` cho phí dọn dẹp, `DMG` cho phí hư hại. Hai thứ này ở hai tầng khác nhau - `type` phân loại hóa đơn, prefix chỉ nằm trong `code` - nên không xung đột. Khoản chưa có mã riêng (mất chìa, trả trễ) ghi phân loại ở `title`/`desc`.
 - Khi phát sinh phí, **FS hoặc FM tạo hóa đơn trong hệ thống**, khách thanh toán qua VNPay. Không thu tiền mặt trong MVP.
 - Tiền cọc **được hoàn lại cho khách** sau khi đối trừ hết các khoản phát sinh, không trừ vào kỳ thuê cuối.
 - Cơ chế khách **phản đối đánh giá hư hỏng** của FS không thuộc MVP; đánh giá của FS là kết quả cuối cùng.
@@ -418,6 +418,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - Flow 3 mô tả nhánh thuận: FS xác nhận hoàn tất, không phát sinh phí hư hại -> `StorageUnit.status = MAINTENANCE`, `RentalContract.status = Completed`. Flow 2.5 viết khớp với mô tả đó và bổ sung nhánh **có** phát sinh phí.
 - Toàn bộ mức phí trong Flow 2.5 phụ thuộc cấu hình của Flow 4. Nếu Flow 4 chưa chốt danh mục phí thì phần này chỉ dừng ở mô tả nghiệp vụ, chưa code được.
 - **Flow 2.5 sở hữu cron mở lại khoang sau bảo trì** (`Maintenance -> Available`, mô tả ở 2.5.4). Schema Flow 3 đã ghi rõ việc chuyển/mở lại `StorageUnit` do Flow 2.5 thực hiện; Flow 5 chỉ giữ thao tác chuyển `Maintenance` **thủ công** của FM cho các sự cố ngoài luồng trả kho, không đụng cron này.
+- **Prefix `code` của `Invoice` đang lệch giữa Flow 1 và Flow 3, cần nhóm chốt.** Flow 1 dùng bảng `Service Code` riêng (`DEP/RNT/CLN/DMG/EXT`, trong đó `EXT` = dịch vụ phát sinh); Flow 3 suy prefix thẳng từ `type` (`DEP/RNT/EXT/PEN/SVC`, trong đó `EXT` = gia hạn). Cùng một mã `EXT` đang mang hai nghĩa. Flow 2.5 viết theo bảng của Flow 1 (`CLN`/`DMG`) vì đó là bản schema `Invoice` đang được dùng làm chuẩn.
 - Trường hợp khách quá hạn không trả, không liên lạc được, hoặc bỏ lại tài sản quá thời hạn dọn: thuộc Flow 6.
 
 **Advanced Features (not MVP)**
