@@ -20,6 +20,7 @@
 - unit_type_id (N - 1: UnitType)
 - size - kích thước khoang
 - monthly_price (Decimal, nullable) - Giá override được BOM phê duyệt
+- maintenance_started_at (nullable) - chỉ do Flow 2.5 set khi `Maintenance` phát sinh từ trả kho, để cron tính `unit.maintenance_days`; FM chuyển `Maintenance` do sự cố thì để trống
 - status:
   - Available: khoang sẵn sàng cho thuê
   - Reserved: khoang đã được giữ sau khi khách đặt cọc
@@ -260,9 +261,8 @@
 # CheckoutRecord
 **Overview:** biên bản trả kho (Flow 2.5). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
 - order_id (1 - 1: RentalOrder)
-- appointment_id (N - 1: Appointment) - lịch hẹn trả kho đang xử lý; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
+- appointment_id (1 - 1: Appointment) - lịch hẹn trả kho **đang xử lý**; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
 - unit_id (N - 1: StorageUnit)
-- staff_id (N - 1: Account) - FS lập biên bản
 - **Checklist cột mốc trả kho** (buổi trả kho có thể kéo dài vài ngày, mỗi cột mốc có timestamp để FM/FS theo dõi tiến độ):
   - is_unit_emptied (default: false) - khoang đã dọn trống hoàn toàn
   - unit_emptied_at (nullable)
@@ -285,10 +285,11 @@
   - completed_at (nullable)
 - note
 - created_at
+- updated_at
 
 **NOTES:**
-- **Giữ `staff_id`** dù `HandoverRecord` đã bỏ: một biên bản trả kho có thể trải qua nhiều `Appointment` (nhánh `PENDING_ITEMS` sinh lịch hẹn mới cho khách quay lại dọn), nên không suy được FS từ một lịch hẹn duy nhất như `HandoverRecord`.
-- `PENDING_ITEMS`: khoang còn tài sản, chưa hoàn tất trả kho, **chưa thu hồi `UnitAccessKey`** vì khách còn cần vào lấy đồ. Khách quay lại dọn thì cập nhật tiếp trên **cùng một bản ghi**, không tạo mới.
+- **Không có `staff_id`**, giống `HandoverRecord`: FS đang xử lý lấy qua `appointment_id -> Appointment.staff_id`. Một biên bản có thể trải qua nhiều `Appointment` ở nhánh `PENDING_ITEMS`, `appointment_id` luôn trỏ lịch đang xử lý nên vẫn xác định được FS của buổi hiện tại; lịch sử FS các buổi trước tra qua `AuditLog`.
+- `PENDING_ITEMS`: khoang còn tài sản, chưa hoàn tất trả kho, **chưa thu hồi `UnitAccessKey`** vì khách còn cần vào lấy đồ. Khách quay lại dọn thì cập nhật tiếp trên **cùng một bản ghi**, không tạo mới: `PENDING_ITEMS -> IN_PROGRESS` khi FS mở lại buổi kiểm tra, rồi `-> COMPLETED` hoặc quay lại `PENDING_ITEMS`. Mỗi lần cập nhật ghi `updated_at`.
 - `COMPLETED`: đủ 5 cột mốc `true`, khoang sẵn sàng chuyển `Maintenance`.
 # PaymentTransaction
 - invoice_id (N - 1: Invoice)
