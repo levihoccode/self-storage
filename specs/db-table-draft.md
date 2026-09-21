@@ -128,7 +128,10 @@
 - monthly_price - giá thuê chốt tại thời điểm ký
 - deposit_amount - tiền cọc đã thu ở Flow 1.3
 - period - số tháng thuê
-- start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
+- start_date - mốc bắt đầu tính tiền thuê, mặc định theo `contract.start_date_rule` của Flow 4
+- start_date_override_requested (Date, nullable) - ngày FS đề nghị thay cho ngày theo chính sách
+- start_date_override_reason (Text, nullable) - lý do FS thỏa thuận riêng với khách
+- start_date_override_status (nullable: Pending/Approved/Rejected) - `Pending` thì chặn bước ký cho tới khi FM xử lý
 - end_date
 - signed_at
 - signature - URL ảnh chữ ký; MVP là ảnh/scan trang ký của hợp đồng giấy

@@ -464,7 +464,14 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 - Hệ thống sinh hợp đồng từ mẫu đang hiệu lực (Flow 4), điền sẵn: thông tin khách, cơ sở, `unit_id` khách vừa xác nhận, giá thuê, `period`, tiền cọc đã đóng, mốc bắt đầu tính tiền thuê; snapshot `terms_version` để đối chiếu về sau.
 - Hiện trạng khoang (`inspection_notes`, `inspection_photos`) ở 2.2 được gắn kèm hợp đồng - liên kết qua `order_id` nên không cần thêm khóa ngoại. Đây là căn cứ đối chiếu khi trả kho ở Flow 2.5.
 - Khách ký trên bản giấy -> FS chụp/scan upload, `signature` và `pdf_url` lưu URL file, `RentalContract.status = Signed`, set `is_contract_signed`, `contract_signed_at`.
-- **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, mặc định theo **chính sách Flow 4** (`contract_start_date_rule`, ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Cho phép FS thỏa thuận riêng với khách nhưng **phải được FM duyệt**; mặc định vẫn ưu tiên chính sách để tránh xung đột.
+- **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, **luôn điền sẵn theo chính sách Flow 4** (`contract.start_date_rule`, ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Đây là đường đi thông thường; thỏa thuận riêng chỉ là ngoại lệ, để tránh xung đột khi phát sinh yếu tố tự phát.
+- **Thỏa thuận riêng mốc tính tiền - phải được FM duyệt:**
+  - FS **không tự sửa** `start_date`. Muốn đổi thì nhập ngày đề nghị kèm lý do lên hợp đồng đang `Draft`: `start_date_override_requested`, `start_date_override_reason`, `start_date_override_status = Pending`.
+  - Còn `Pending` thì **chặn bước ký** - API ký trả lỗi cho tới khi FM xử lý xong, tránh việc hợp đồng được ký rồi mới đi xin duyệt.
+  - FM xem các yêu cầu đang chờ của cơ sở mình:
+    - **Duyệt:** `start_date` nhận ngày đề nghị, `start_date_override_status = Approved`, mở lại bước ký.
+    - **Từ chối:** `start_date` giữ nguyên ngày theo chính sách, `status = Rejected`, mở lại bước ký. FS có thể gửi đề nghị khác nếu khách vẫn không đồng ý.
+  - Cả ba thao tác (gửi đề nghị, duyệt, từ chối) đều ghi `AuditLog` kèm `old_value`/`new_value`/`reason` - đây là thay đổi ảnh hưởng tới tiền nên bắt buộc có vết.
 
 **Thanh toán tháng đầu tiên**
 - Hệ thống tạo `Invoice(type = Rental)` - prefix `RNT`, gắn `contract_id` - với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.4 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
@@ -515,7 +522,10 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 **d) Ký hợp đồng và thanh toán (2.3)**
 - `POST /api/staff/rental-orders/{id}/contracts`: FS sinh `RentalContract(Draft)` tại buổi check-in, snapshot `terms_version`, `unit_id`, giá thuê, mốc bắt đầu tính tiền theo chính sách Flow 4. Chỉ cho phép khi `is_unit_inspected = true`.
-- `POST /api/staff/contracts/{id}/sign`: FS upload ảnh/scan hợp đồng đã ký, lưu `signature` + `pdf_url`, `status = Signed`, set `is_contract_signed`, và **tạo `Invoice(type = Rental)` tháng đầu ngay trong cùng transaction**. Event `RentalContract.Signed` chỉ để Flow 4 ghi nhận, **không** phải trigger tạo hóa đơn - tránh hai nơi cùng tạo.
+- `POST /api/staff/contracts/{id}/start-date-override`: body `{ requested_start_date, reason }`. Chỉ cho phép khi hợp đồng `Draft` và chưa có yêu cầu nào `Pending`. Set ba field override, ghi `AuditLog`.
+- `GET /api/fm/contracts/start-date-overrides?status=Pending`: danh sách yêu cầu chờ duyệt của cơ sở FM phụ trách.
+- `POST /api/fm/contracts/{id}/start-date-override/approve` và `.../reject`: body `{ note? }`. Duyệt thì ghi đè `start_date`; từ chối thì giữ ngày theo chính sách. Cả hai ghi `AuditLog` kèm giá trị trước/sau.
+- `POST /api/staff/contracts/{id}/sign`: FS upload ảnh/scan hợp đồng đã ký, lưu `signature` + `pdf_url`, `status = Signed`, set `is_contract_signed`, và **tạo `Invoice(type = Rental)` tháng đầu ngay trong cùng transaction**. Trả lỗi nếu còn yêu cầu đổi `start_date` đang `Pending`. Event `RentalContract.Signed` chỉ để Flow 4 ghi nhận, **không** phải trigger tạo hóa đơn - tránh hai nơi cùng tạo.
 - `POST /api/invoices/{id}/pay`: khởi tạo phiên VNPay, trả URL redirect.
 - `POST /api/webhooks/vnpay`: nhận IPN, lưu `PaymentTransaction`, `Invoice.status = Paid`, set `is_payment_settled`, `payment_settled_at`.
 
@@ -541,6 +551,9 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 | `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
 | `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ 4 cờ | `HandoverRecord` | FS |
+| `START_DATE_OVERRIDE_REQUESTED` | FS đề nghị đổi mốc tính tiền | `RentalContract` | FS |
+| `START_DATE_OVERRIDE_APPROVED` | FM duyệt đổi mốc tính tiền | `RentalContract` | FM |
+| `START_DATE_OVERRIDE_REJECTED` | FM từ chối đổi mốc tính tiền | `RentalContract` | FM |
 | `CONTRACT_SIGNED` | FS ghi nhận khách đã ký hợp đồng | `RentalContract` | FS |
 | `CONTRACT_ACTIVATED` | Hợp đồng có hiệu lực sau bàn giao | `RentalContract` | System |
 | `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` | `RentalContract` | System |
