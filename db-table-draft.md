@@ -190,18 +190,11 @@
 ---
 
 # AuditLog
-**Overview:** ghi nhận các hành động nhạy cảm (tạo account, đổi role, gán/xoá facility assignment, đổi trạng thái StorageUnit thủ công, duyệt/từ chối yêu cầu...). Dùng chung cấu trúc với quyết định của Flow 3 (mục 3.6), không phải bản riêng của Flow 5.
-- account_id (N - 1: Account) — người thực hiện
-- action — ví dụ: `RentalRequest.Approve`, `Account.UpdateRole`, `Facility.AssignFM`
-- entity_type — tên bảng bị tác động
-- entity_id
-- old_value (JSON, nullable)
-- new_value (JSON, nullable)
-- created_at
+**Không định nghĩa ở đây.** Bảng này cùng action catalog dùng chung do **Flow 1** sở hữu — xem `specs/flow-1/db-table-draft.md`. Flow 5 chỉ bổ sung các action nghiệp vụ thuộc phạm vi mình vào catalog chung (danh sách xem mục 5.0/5.4 của `draft.md`), không tự định nghĩa lại schema.
 
 **NOTES:**
-- **Đã thay thế bản tối giản (`actor_account_id`/`action_description` dạng text) bằng cấu trúc đầy đủ này** để khớp với Flow 3 — Flow 3 (mục 3.6) đã tham chiếu tới "cấu trúc bảng AuditLog theo quyết định chung", nên Flow 5 không tự định nghĩa bản khác.
-- Chỉ ghi các thao tác làm thay đổi quyền lợi/quyền hạn (đổi role, gán facility, duyệt yêu cầu...), không ghi mọi hành động đọc dữ liệu.
+- Mọi thay đổi trạng thái, quyền sở hữu hoặc tiền trong phạm vi Flow 5 đều phải ghi `AuditLog` theo contract chung: `entity_id` lưu dạng String/Text; nếu 1 action đổi nhiều entity (ví dụ đổi role account đang là FM → tác động cả `Account` và `Facility`) thì ghi **một bản ghi riêng cho mỗi entity**, không gộp chung.
+- Không ghi lượt đọc dữ liệu, click giao diện, secret hoặc raw payment payload.
 
 ---
 

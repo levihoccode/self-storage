@@ -223,7 +223,19 @@ Mỗi Flow tự liệt kê các tham số mình sử dụng trước. Khi merge 
     - Nếu account đang là FM của 1 Facility (`Facility.fm_account_id = account_id`) và bị đổi sang role khác: hệ thống **tự động clear** `Facility.fm_account_id` về `null`.
     - Nếu account đang là FS có dòng `AccountFacilityAssignment` và bị đổi sang role khác: hệ thống **tự động xoá** dòng đó.
     - Toàn bộ thao tác đổi role + clear/xoá assignment phải nằm trong cùng 1 transaction, tránh để lại data-scope "mồ côi".
-  - Ghi `AuditLog` cho mọi hành động nhạy cảm: tạo account, đổi role, gán/xoá facility assignment (cấu trúc bảng dùng chung với Flow 3 — xem Schema).
+  - Ghi `AuditLog` cho mọi hành động nhạy cảm theo action catalog chung do **Flow 1** sở hữu (schema xem `specs/flow-1/db-table-draft.md`). Các action Flow 5 bổ sung vào catalog:
+  - `Account.Create` — Admin tạo account mới từ `AccountRoleRequest`.
+  - `Account.UpdateRole` — Admin đổi `role_id` của account đã tồn tại.
+  - `Facility.AssignFM` — BOM set `Facility.fm_account_id`.
+  - `Facility.UnassignFM` — hệ thống tự clear `fm_account_id` khi FM bị đổi role.
+  - `Facility.Activate` / `Facility.Deactivate` — BOM đổi trạng thái Facility.
+  - `AccountFacilityAssignment.Create` — Admin gán FS vào facility.
+  - `AccountFacilityAssignment.Delete` — hệ thống tự xoá khi FS bị đổi role.
+  - `AccountRoleRequest.Process` — Admin xử lý xong 1 dòng, chuyển `Done`.
+  - `StorageUnit.UpdateStatus` — FM chuyển trạng thái thủ công (đặc biệt sang/khỏi `Maintenance` do sự cố).
+  - `RolePermission.Update` — Admin chỉnh permission cho 1 role.
+
+  **Lưu ý khi 1 thao tác đổi nhiều entity:** ví dụ đổi role 1 account đang là FM → tác động cả `Account` (đổi `role_id`) và `Facility` (clear `fm_account_id`) → phải ghi **2 bản ghi AuditLog riêng** (`Account.UpdateRole` + `Facility.UnassignFM`), không gộp thành 1 bản ghi.
   - Theo dõi lịch sử đăng nhập của từng account qua bảng `LoginHistory` (xem Schema).
   - **Thiết lập quyền truy cập dữ liệu theo model RBAC:** Admin quản lý bảng `Role`/`Permission`/`RolePermission` — gán tập permission cho từng role qua giao diện quản trị (data-driven, không hard-code trong source code). Đây chính là cách Admin thực hiện nhiệm vụ *"Thiết lập quyền truy cập dữ liệu cho các role dựa trên model RBAC"* đã mô tả ở phần Actors.
 
@@ -243,7 +255,7 @@ Mỗi Flow tự liệt kê các tham số mình sử dụng trước. Khi merge 
   - `Facility.fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility (1–1) — Account không lưu `facility_id` cho FM; cần biết FM phụ trách facility nào thì truy vấn ngược từ `Facility.fm_account_id`.
   - Facility assignment cho FS liên kết với mục 5.3, qua `AccountFacilityAssignment` do Admin quản lý.
   - Việc Customer tự tạo account thuộc Flow 1 (mục 1.2), không thuộc phạm vi Admin.
-  - Cấu trúc `AuditLog` dùng chung với quyết định ở Flow 3 (mục 3.6), không tự định nghĩa bản riêng ở Flow 5.
+  - `AuditLog` (schema + action catalog) do **Flow 1** sở hữu — xem `specs/flow-1/db-table-draft.md`. Flow 5 chỉ bổ sung các action thuộc phạm vi mình vào catalog chung (danh sách đầy đủ ở Details phía trên), không tự định nghĩa bảng riêng.
 
 #### 5.1 Quản lý cơ sở (Facility)
 
@@ -356,7 +368,7 @@ Available |Reserved | Rented | Maintenance
 - `AccountRoleRequest` — thay thế `AccountCreationRequest`, chỉ còn status `Pending`/`Done`.
 - `StorageUnit` — thuộc 1 Facility, tham chiếu `unit_type_id` (không tự lưu giá), trạng thái dùng chung Flow 1/2/2.5.
 - `UnitType` — **thuộc Flow 4**, Flow 5 chỉ đọc `monthly_price` khi tạo `StorageUnit`.
-- `AuditLog` — dùng chung cấu trúc với Flow 3 (`account_id`, `action`, `entity_type`, `entity_id`, `old_value`, `new_value`, `created_at`), không tự định nghĩa bản tối giản riêng.
+- `AuditLog` — **không sở hữu, không định nghĩa schema ở đây.** Bảng + action catalog do **Flow 1** sở hữu; Flow 5 chỉ bổ sung action thuộc phạm vi mình (xem danh sách action ở mục 5.0)..
 - `LoginHistory` — thuộc phạm vi Admin (5.0): `account_id` (nullable), `email`, `ip_address`, `user_agent`, `status`, `failure_reason`, `created_at`.
 - ~~`PricingPolicy`~~ — loại bỏ, xung đột với mô hình `UnitType.monthly_price` đã dùng ở Flow 1/2/3/4.
 - ~~`StaffAssignment`~~ — loại khỏi phạm vi MVP, dùng field trực tiếp trên `RentalOrder`/`SupportRequest`.
