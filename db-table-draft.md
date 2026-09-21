@@ -20,10 +20,10 @@
   - Canceled: hủy đơn hàng
   - Done: Khách hoàn tất các thủ tục, thanh toán các chi phí cần thiết và đã thiết lập hợp đồng điện tử 
 
-  **NOTES:**
+**NOTES:**
 
-- Đã bỏ `staff_id` và `appointment_date` (theo A6, thống nhất với Flow 2) — việc phân công FS và lịch hẹn không còn nằm trên RentalOrder, chuyển hẳn sang bảng Appointment (Flow 2 sở hữu), nối qua RentalAppointment. Muốn biết FS/lịch hẹn của 1 đơn thì join qua RentalAppointment.order_id → Appointment.
-- Đây là bản tham chiếu trong phạm vi Flow 5 (Flow 5 không sở hữu bảng này) — schema đầy đủ/chính thức do Flow 2 quản lý.
+- Đã bỏ `staff_id` và `appointment_date` (theo A6, thống nhất với Flow 1) — việc phân công FS và lịch hẹn không còn nằm trên RentalOrder, chuyển hẳn sang bảng `Appointment` (**Flow 1 sở hữu**, có sẵn `facility_id` trực tiếp — xem `specs/flow-1/db-table-draft.md`). Muốn biết FS/lịch hẹn của 1 đơn có gắn appointment (check-in/bàn giao/trả kho) thì join qua `RentalAppointment.order_id`; lịch xử lý sự cố tại kho không gắn `RentalAppointment`.
+- Đây là bản tham chiếu trong phạm vi Flow 5 (Flow 5 không sở hữu bảng này) — schema đầy đủ/chính thức do Flow 1 quản lý.
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (1 - 1: RentalOrder) -> null as default -> Được gán nếu hóa đơn phát sinh từ `RentalOrder` (Đặt cọc)
@@ -140,10 +140,11 @@
 
 **NOTES:**
 - Khi account FS bị đổi sang role khác, dòng tương ứng phải bị xoá trong cùng transaction với thao tác đổi role, tránh để lại data-scope "mồ côi".
-- Dùng để validate FS được gán vào Appointment.staff_id/SupportRequest.assigned_staff_id phải thuộc đúng facility, qua 2 đường khác nhau tùy bảng:
+- Dùng để validate FS được gán vào Appointment.staff_id/SupportRequest.assigned_staff_id phải thuộc đúng facility — so sánh trực tiếp, không cần join qua bảng trung gian nào:
 
-- SupportRequest: có sẵn unit_id → join StorageUnit.facility_id → so sánh với AccountFacilityAssignment.facility_id.
-- Appointment: không có field facility_id trực tiếp (theo schema Flow 2) — phải join qua RentalAppointment.appointment_id → RentalOrder.unit_id → StorageUnit.facility_id rồi mới so sánh với AccountFacilityAssignment.facility_id. Nếu Appointment dùng cho lịch hẹn không gắn RentalOrder (case xử lý sự cố không qua đơn thuê), không có đường join này — cần Flow 2 xác nhận: những Appointment không có RentalAppointment thì lấy facility_id để validate bằng cách nào (có thể phải thêm facility_id trực tiếp vào Appointment cho riêng case đó, hoặc case đó dùng SupportRequest thay vì Appointment).
+- SupportRequest: AccountFacilityAssignment.facility_id = SupportRequest.unit_id → StorageUnit.facility_id (qua unit_id).
+- Appointment: AccountFacilityAssignment.facility_id = Appointment.facility_id (field có sẵn trực tiếp trên Appointment, do Flow 1 sở hữu — xem specs/flow-1/db-table-draft.md). Không phải mọi Appointment đều gắn RentalOrder qua RentalAppointment (lịch xử lý sự cố tại kho không gắn đơn) — đây chính là lý do facility_id được đặt thẳng trên Appointment thay vì suy qua đơn, nên validate luôn dùng được cho cả 2 loại lịch hẹn.
+
 
 
 # AccountRoleRequest
@@ -246,33 +247,7 @@
 ---
 
 ~~# StaffAssignment~~
-**Đã loại khỏi phạm vi MVP.** Phân công FS lưu trực tiếp trên `Appointment.staff_id` (cho lịch hẹn check-in/bàn giao/trả kho — bảng do Flow 2 sở hữu) và `SupportRequest.assigned_staff_id` (cho sự cố) — không dùng bảng riêng, tránh 2 nguồn dữ liệu song song cho cùng 1 mục đích.
+**Đã loại khỏi phạm vi MVP.** Phân công FS lưu trực tiếp trên `Appointment.staff_id` (cho lịch hẹn check-in/bàn giao/trả kho — bảng do **Flow 1** sở hữu) và `SupportRequest.assigned_staff_id` (cho sự cố) — không dùng bảng riêng, tránh 2 nguồn dữ liệu song song cho cùng 1 mục đích.
 
 **NOTES:**
-- **Đã sửa so với bản cũ:** trước đây ghi "lưu trên `RentalOrder.staff_id`" — theo quyết định chung mới nhất (A6, thống nhất với Flow 2), `staff_id`/`appointment_date` không còn nằm trên `RentalOrder` nữa mà chuyển hẳn sang bảng `Appointment`.
-
-# RentalContract
-**Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
-- order_id (1 - 1: RentalOrder)
-- customer_id (N - 1: Account)
-- unit_id (N - 1: StorageUnit)
-- code
-- terms_version - snapshot version điều khoản khách đã đồng ý (Flow 4)
-- monthly_price - giá thuê chốt tại thời điểm ký
-- deposit_amount - tiền cọc đã thu ở Flow 1.3
-- period - số tháng thuê
-- start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
-- end_date
-- signed_at
-- signature - URL ảnh chữ ký; MVP là ảnh/scan trang ký của hợp đồng giấy
-- pdf_url - file hợp đồng lưu trữ; MVP là bản scan FS upload, không sinh PDF tự động
-- status (Draft/Signed/Active/Ended/Canceled)
-  - Draft: hợp đồng đã sinh, chờ khách ký
-  - Signed: đã ký nhưng chưa bàn giao
-  - Active: đã bàn giao, đang có hiệu lực (kể cả đã quá `end_date` nhưng chưa trả kho)
-  - Ended: đã trả kho xong (Flow 2.5)
-  - Canceled: hủy trước khi bàn giao khoang
-
-**NOTES:**
-- Mỗi `StorageUnit` chỉ có tối đa 1 hợp đồng `Active` tại một thời điểm.
-- Không có status `PendingReturn` — tiến trình trả kho theo dõi ở bảng `ReturnRequest` (Flow 3), để không đè mất thông tin quá hạn của hợp đồng.
+- **Đã sửa so với bản cũ:** trước đây ghi "lưu trên `RentalOrder.staff_id`" — theo quyết định chung mới nhất (A6, thống nhất với **Flow 1**), `staff_id`/`appointment_date` không còn nằm trên `RentalOrder` nữa mà chuyển hẳn sang bảng `Appointment`.

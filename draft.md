@@ -312,18 +312,18 @@ Available |Reserved | Rented | Maintenance
 
 **Context:** FM điều phối các FS tại cơ sở để hỗ trợ check-in, check-out, kiểm tra khoang chứa và xử lý sự cố on-site.
 
-**Flow tổng quát:** FM xem danh sách FS thuộc cơ sở mình (qua `AccountFacilityAssignment`) → phân công FS trực tiếp trên `Appointment.staff_id` (cho lịch hẹn check-in/bàn giao/trả kho) hoặc `SupportRequest.assigned_staff_id` (cho sự cố) → theo dõi tiến độ.
+**Flow tổng quát:** FM xem danh sách FS thuộc cơ sở mình (qua `AccountFacilityAssignment`) → phân công FS trực tiếp trên Appointment.staff_id... (bảng do Flow 1 sở hữu — xem specs/flow-1/db-table-draft.md, không phải Flow 2 như ghi trước đó)
 
 **Details:**
 
 - **FM:**
   - Xem danh sách FS được gán vào cơ sở của mình.
   - Xem `Appointment` của cơ sở theo ngày, lọc `staff_id IS NULL` để thấy lịch chưa phân công, và gán FS: set `Appointment.staff_id`.
-    **Đã chốt (A6, thống nhất với Flow 2):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — mọi việc phân công lịch hẹn chuyển hẳn sang bảng `Appointment` (Flow 2 sở hữu, Flow 5 chỉ đọc/ghi `staff_id`).
+    **Đã chốt (A6, thống nhất với Flow 2):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — chuyển hẳn sang bảng Appointment (Flow 1 sở hữu), Flow 5 chỉ đọc/ghi `staff_id`..
   - Phân công FS xử lý 1 `SupportRequest`: set `SupportRequest.assigned_staff_id` (bảng do Flow 3/7 sở hữu — xem 5.1).
   - Theo dõi tiến độ qua status của `Appointment`/`SupportRequest` tương ứng — MVP không dùng bảng `StaffAssignment` riêng.
   - MVP scope: chỉ "phân công theo task/appointment", chưa quản lý ca làm việc (shift) chi tiết.
-  - Cross-reference: cần `Appointment` (Flow 2 sở hữu — check-in, bàn giao, trả kho) và `SupportRequest` (Flow 3/7).
+  - Cross-reference: cần `Appointment` (Flow 1 sở hữu — check-in, bàn giao, trả kho) và `SupportRequest` (Flow 3/7).
 
 #### 5.4 Báo cáo cơ sở
 
