@@ -28,7 +28,6 @@ export function ThemeToggle({
           {isLight ? <Moon size={13} strokeWidth={2.2} /> : <Sun size={13} strokeWidth={2.2} />}
         </span>
       </span>
-      <span className="theme-toggle-label">{isLight ? "Tối" : "Sáng"}</span>
     </button>
   );
 }
