@@ -1,4 +1,6 @@
 # RentalRequest
+**⚠️ Bản tham khảo — KHÔNG phải nguồn chính thức.** Bảng này do **Flow 1** sở hữu và đã tiến xa hơn bản dưới đây (thêm `normalized_customer_email`, status `Converted` thay vì suy ra qua `customer_id IS NULL`, ...). Flow 3 giữ lại bản cũ này chỉ để tra cứu ngữ cảnh lịch sử (Flow 3 không đọc/ghi trực tiếp bảng này) — khi cần schema mới nhất, xem `specs/flow-1/db-table-draft.md`.
+
 **Overview:** chứa các thông tin được gửi từ form trên website.
 - facility_id (N - 1: Facility)
 - customer_id (N - 1: Account, null as default) - được gán khi FM duyệt (nếu email đã có tài khoản) hoặc khi khách đăng ký tài khoản trong thời gian quy định
@@ -23,6 +25,8 @@
 - Job định kỳ chuyển các bản ghi `status = Approved AND customer_id IS NULL AND processed_at < now - timeout` sang `Expired`
 - Nếu chốt Phương án 2 (Wishlist) ở Flow 1.1 thì bổ sung status `Wishlisted`
 # RentalOrder
+**⚠️ Bản tham khảo — KHÔNG phải nguồn chính thức.** Owner: Flow 1 (tạo) → Flow 2 (vận hành tiếp tới `Done`). Bộ `status` hiện có nhiều bản khác nhau giữa các branch, **chưa hợp nhất** (xem `db-table-draft-central.md` mục 2.2) — đây là xung đột P0 của toàn hệ thống, không phải việc Flow 3 tự quyết. Flow 3 **chỉ đọc gián tiếp** qua `RentalContract.order_id` (để lấy hóa đơn đặt cọc ở 3.2), không phụ thuộc `RentalOrder.status` cụ thể là gì — nên xung đột này không chặn Flow 3. Schema chính thức xem `specs/flow-1` / `specs/flow-2-2.5`.
+
 **Overview:** chứa các thông tin đơn hàng đã được `Approved` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
 - request_id (1 - 1: RentalRequest)
 - customer_id (N - 1: Account)
@@ -52,7 +56,7 @@
 - terms_version - snapshot version điều khoản khách đã đồng ý (Flow 4)
 - monthly_price - giá thuê chốt tại thời điểm ký (không phụ thuộc giá hiện tại của unit)
 - deposit_amount - tiền cọc đã thu ở Flow 1.3
-- period - số tháng thuê
+- period - số tháng thuê (Flow 3 cộng thêm `extra_months` mỗi lần gia hạn thành công — xem `ExtendRequest.Completed` và review PR #4 mục A3 — để khớp với `end_date`)
 - start_date - mốc bắt đầu tính tiền thuê, theo chính sách Flow 4
 - end_date - được cập nhật khi gia hạn thành công (Flow 3.3)
 - signed_at
@@ -89,7 +93,7 @@
   - Rejected: FM từ chối
   - ApprovedPendingPayment: FM đã duyệt, hệ thống tạo `Invoice` và chờ khách thanh toán, khách không được hủy qua web
   - Expired: quá `Invoice.due_date` mà khách chưa thanh toán -> hóa đơn gia hạn chuyển `Canceled` (job định kỳ, Flow 3.6 g)
-  - Completed: thanh toán thành công, `RentalContract.end_date += extra_months`
+  - Completed: thanh toán thành công, `RentalContract.end_date += extra_months`, `RentalContract.period += extra_months` (PR #4, A3)
 
 **NOTES:**
 - Chỉ được tạo khi `today <= RentalContract.end_date` (so sánh theo ngày; hợp đồng quá hạn không được gia hạn qua web)
@@ -101,7 +105,7 @@
 **Overview:** chứa các yêu cầu trả kho do khách gửi (Flow 3.4), FM phân công FS xử lý on-site (Flow 2.5). Tách bảng riêng thay vì dùng `RentalContract.status = PendingReturn` để không đè mất thông tin quá hạn của hợp đồng.
 - contract_id (N - 1: RentalContract)
 - assigned_staff_id (N - 1: Account, null until FM assign)
-- preferred_date (MM/DD/YYYY) - ngày khách mong muốn trả kho, phải `>= today` lúc tạo; được gửi cả khi hợp đồng đã quá hạn
+- preferred_date (MM/DD/YYYY) - ngày khách **đề xuất ban đầu** để trả kho, phải `>= today` lúc tạo; được gửi cả khi hợp đồng đã quá hạn. **Không cập nhật lại sau khi tạo** — chỉ mang tính lịch sử/căn cứ ban đầu cho FM. Ngày hẹn thực tế sau khi `Assigned` đọc từ `Appointment` (Flow 2.5), không đọc field này (PR #4, A2)
 - reason (nullable) - lý do trả kho (tùy chọn)
 - cancel_reason (null as default) - lý do khách tự hủy (tùy chọn)
 - created_at
@@ -118,6 +122,7 @@
 - `assigned_staff_id` phải là FS có `AccountFacilityAssignment` với facility của khoang
 - Không cần `customer_id` vì đã xác định qua `RentalContract.customer_id`
 - Các bước on-site chi tiết (lịch hẹn trả kho, kiểm tra tình trạng, phí hư hỏng, đối trừ cọc) theo dõi ở `Appointment` + `CheckoutRecord` của Flow 2.5
+- **PR #4, A2:** nếu khoang còn đồ lúc kiểm tra (`CheckoutRecord.result = PENDING_ITEMS`), Flow 2.5 tạo `Appointment` mới cho lần hẹn lại — `ReturnRequest.preferred_date`/`status` giữ nguyên `Assigned`, không đổi theo. FE đọc ngày hẹn hiện tại từ `Appointment` mới nhất, không phải `preferred_date`.
 # SupportRequest
 **Overview:** chứa các yêu cầu hỗ trợ sự cố do khách gửi (Flow 3.5) hoặc FS ghi nhận tại kho, FM phân công FS xử lý on-site (Flow 7). Không ảnh hưởng tới `RentalContract`.
 - unit_id (N - 1: StorageUnit)
@@ -140,6 +145,7 @@
 - Khi Customer gửi: `contract_id` bắt buộc và phải thuộc về khách (`RentalContract.customer_id = reporter_id`)
 - Khi FS ghi nhận (`POST /api/staff/support-requests`): FS phải thuộc facility của khoang; `contract_id` tự gán theo hợp đồng `Active` của khoang, không có thì null
 - Chỉ phát sinh `invoice_id` khi có `contract_id` (có khách để thu phí). Hóa đơn `Invoice(type=Service)` do Flow 7 tạo theo `ExtraFee`
+- **PR #4, A5:** chỉ dùng bảng này khi sự cố phát hiện **giữa kỳ thuê** (hợp đồng còn `Active`). Sự cố phát hiện **trong lúc trả kho** (vd mất chìa khi FS kiểm tra `CheckoutRecord`) không tạo `SupportRequest` — tính phí trực tiếp qua `Invoice(type=Penalty)` của Flow 2.5. Ranh giới là thời điểm phát hiện, không phải loại sự cố.
 - `assigned_staff_id` phải là FS có `AccountFacilityAssignment` với facility của khoang
 - Một hợp đồng có thể có nhiều `SupportRequest` cùng lúc (khác với `ExtendRequest`/`ReturnRequest`)
 - Chi tiết xử lý on-site và quy tắc đóng yêu cầu sẽ bổ sung khi chốt Flow 7
@@ -182,17 +188,9 @@
   - `Service` -> `contract_id` + truy ngược qua `SupportRequest.invoice_id`
 - Khi `PaymentTransaction` của hóa đơn thành công, xử lý theo `type`:
   - `Deposit` -> `RentalOrder.status = Pending`, `StorageUnit.status = Reserved`
-  - `Extension` -> cập nhật `RentalContract.end_date` và `ExtendRequest.status = Completed`
+  - `Extension` -> cập nhật `RentalContract.end_date`, `RentalContract.period` (PR #4, A3) và `ExtendRequest.status = Completed`
 # ProposalFeedback
-- order_id (N - 1: RentalOrder) - một đơn có thể được đề xuất nhiều lần nếu khách từ chối và chọn lại
-- customer_id (N - 1: Account)
-- unit_id (N - 1: StorageUnit)
-- status (Pending/Agree/Reject)
-- note
-
-**NOTES:**
-- field note dùng để khi khách từ chối và muốn chọn lại, sẽ nêu lý do vì sao từ chối, ...
-- **Chưa được sử dụng ở flow nào trong draft.md** — cần xác định bước đề xuất khoang nằm trước hay sau khi đặt cọc (Flow 1/2), nếu không dùng thì bỏ bảng này
+**Không thuộc phạm vi Flow 3.** Owner: Flow 1 (tạo lần đầu khi FM chỉ định khoang) · Dùng bởi: Flow 2 (khách từ chối khoang lúc check-in, FM đề xuất lại). Ghi chú cũ ở đây ("chưa dùng ở flow nào, cân nhắc bỏ") **đã lỗi thời** — flow-1 và flow-2-2.5 đều dùng bảng này rõ ràng (status `Pending/Agreed/Rejected/Expired`, có `expires_at`, ràng buộc không chọn lại `unit_id` đã bị từ chối). Flow 3 không đọc/ghi bảng này. Schema chính thức xem `specs/flow-1/db-table-draft.md`.
 
 # PaymentTransaction
 - invoice_id (N - 1: Invoice)
@@ -248,14 +246,20 @@
 - failure_reason (null as default)
 - created_at
 # AuditLog
-**Overview:** lịch sử hoạt động của users (duyệt yêu cầu, cập nhật trạng thái, đổi giá, đổi role, ...), System Administrator theo dõi.
-- account_id (N - 1: Account) - người thực hiện
-- action - ví dụ: `RentalRequest.Approve`, `Policy.Update`, `Account.UpdateRole`
-- entity_type - tên bảng bị tác động
-- entity_id
-- old_value (JSON, nullable)
-- new_value (JSON, nullable)
-- created_at
+**Không thuộc phạm vi Flow 3 để tự định nghĩa lại.** **Contract dùng chung giữa các flow** — chốt bởi lead ở PR #4 (21/9): không flow nào sở hữu riêng bảng này, mỗi flow giữ đúng 1 định nghĩa giống nhau trong `db-table-draft.md` của mình, gộp lại khi merge.
+
+**Field (theo contract chung):** `actor_account_id` (nullable — null nếu do hệ thống/cron/IPN), `action`, `entity_type`, `entity_id` (**String/Text** — hỗ trợ ID số, UUID hoặc chuỗi), `old_value`/`new_value` (JSON, nullable), `created_at`.
+
+**Quy tắc chung:**
+- Audit nghiệp vụ lưu trong database, không thay bằng application log.
+- Mọi thay đổi trạng thái, quyền sở hữu hoặc tiền phải ghi audit.
+- 1 action đổi nhiều entity → ghi **một bản ghi riêng cho mỗi entity**, không gộp chung.
+- Không ghi lượt đọc dữ liệu, click giao diện, secret hoặc raw payment payload.
+
+**Action Flow 3 bổ sung vào catalog chung khi merge (không tạo bảng riêng):**
+- `EXTEND_REQUEST_APPROVED` / `EXTEND_REQUEST_REJECTED` — FM duyệt/từ chối gia hạn, entity `ExtendRequest`
+- `RETURN_REQUEST_ASSIGNED` — FM phân công FS xử lý trả kho, entity `ReturnRequest`
+- `SUPPORT_REQUEST_ASSIGNED` — FM phân công FS xử lý sự cố, entity `SupportRequest`
 # Facility
 **Overview:** chi nhánh kho, có đúng 1 FM phụ trách (1 - 1), được tham chiếu bởi `RentalRequest.facility_id`, `StorageUnit.facility_id`, `AccountFacilityAssignment.facility_id`.
 - code (unique) - mã chi nhánh dùng trong mã hóa đơn/hợp đồng (Q7 - Quận 7, TD - Thủ Đức, ...)
@@ -296,6 +300,8 @@
 - `RentalContract.monthly_price` lưu giá tại thời điểm ký, không phụ thuộc giá hiện tại ở bảng này
 - Nếu mỗi chi nhánh có giá khác nhau thì tách giá ra bảng riêng theo (`facility_id`, `unit_type_id`)
 # StorageUnit
+**Owner: Flow 5** (giữ nguyên đây vì Flow 3 đọc trực tiếp `status`/`facility_id` ở 3.2 — không redefine, chỉ đồng bộ theo bản mới nhất của Flow 5).
+
 **Overview:** từng khoang chứa cụ thể tại chi nhánh, FM quản lý và chỉ định cho khách.
 - facility_id (N - 1: Facility)
 - unit_type_id (N - 1: UnitType)
@@ -311,42 +317,20 @@
 
 **NOTES:**
 - `code` unique trong phạm vi một `facility_id`
-- Nếu chốt trạng thái `OnHold` (xem draft.md mục Storage unit) thì bổ sung vào `status`
+- Cập nhật 22/9: bản Flow 5 mới nhất (Sep 21) vẫn giữ 4 giá trị như trên, **chưa thêm `OnHold`** — ý tưởng `OnHold` (chống Holding Attack, xem draft.md mục Storage unit) vẫn đang là thảo luận mở, chưa vào schema chính thức. Flow 3 không tự thêm giá trị này khi chưa thấy Flow 5 chốt.
+- Flow 5 mới thêm `maintenance_started_at` (nullable) để Flow 2.5 phân biệt `Maintenance` phát sinh từ trả kho hay từ sự cố FM tự chuyển thủ công — Flow 3 không đọc/ghi field này, chỉ nêu ở đây để không nhầm là thiếu sót.
 # Policy
-**Overview:** các chính sách chung do BOM đề ra (cho thuê, đặt cọc, gia hạn, hủy, trả khoang chứa, xử lý quá hạn), lưu dạng key - value để không hardcode.
-- key (unique) - ví dụ:
-  - `deposit.amount_months` - số tháng tiền thuê cần đặt cọc
-  - `deposit.due_hours` - hạn thanh toán hóa đơn đặt cọc
-  - `request.account_timeout_hours` - thời gian chờ khách tạo tài khoản sau khi yêu cầu được duyệt
-  - `contract.expiring_soon_days` - số ngày N để cảnh báo hợp đồng sắp hết hạn (Flow 3)
-  - `overdue.fee_per_day` - phí quá hạn mỗi ngày
-  - `unit.maintenance_days` - số ngày bảo trì sau khi trả kho
-- value
-- value_type (Number/Percent/Text/Boolean)
-- description
-- updated_by (N - 1: Account) - BOM cập nhật
-- updated_at
+**Không thuộc phạm vi Flow 3 — chỉ giữ lại đây phần Flow 3 tiêu thụ.** Owner chính thức: **Flow 4** (`specs/flow-4-2.0`), cùng mô hình key-value như Flow 3 từng đề xuất, có thêm `execution_type` (Automated/ManualGuardrail). Schema đầy đủ xem `specs/flow-4-2.0/db-table-draft.md`.
+
+**2 key Flow 3 đọc (đã được Flow 4 xác nhận, đúng tên — không còn là đề xuất chờ duyệt):**
+- `contract.expiring_soon_days` (Number, ngày) — N trong bảng action 3.2 và thông báo sắp hết hạn 3.1
+- `extension.invoice_due_days` (Number, ngày) — `Invoice.due_date` của hóa đơn gia hạn = ngày FM duyệt + giá trị này
+
+`overdue.fee_per_day` thuộc phạm vi Flow 6, không phải Flow 3 (Flow 3 chỉ hiển thị hóa đơn phạt đã được tạo, không tự đọc key này).
 # ExtraFee
-**Overview:** các khoản phí extra do BOM quản lý, dùng khi tạo hóa đơn dịch vụ/sự cố (`Invoice.type = Service`).
-- name - ví dụ: Làm lại chìa khóa, Reset mã cửa
-- amount
-- description
-- is_active
-- updated_by (N - 1: Account)
-- updated_at
+**Không thuộc phạm vi Flow 3.** Owner chính thức: **Flow 4** (`specs/flow-4-2.0`), giữ nguyên tên `ExtraFee` nhưng bổ sung `calculation_type` (Fixed/Daily/Monthly/Percent) — hỗ trợ tính phí trả trễ theo "amount × số ngày" mà Flow 2.5 cần, điều bản cũ của Flow 3 (chỉ có `amount` cố định) không làm được. Flow 3 không tự tạo hóa đơn Service — việc này thuộc Flow 7, Flow 3 chỉ hiển thị hóa đơn đã tạo ở trang chi tiết hợp đồng (3.2). Schema đầy đủ xem `specs/flow-4-2.0/db-table-draft.md`.
 # Discount
-**Overview:** các chương trình giảm giá do BOM quản lý.
-- code (unique)
-- name
-- discount_type (Percent/Fixed)
-- value
-- apply_to (Deposit/Rental/Extension/All) - loại hóa đơn được áp dụng (theo `Invoice.type`)
-- min_months (nullable) - số tháng thuê/gia hạn tối thiểu để được áp dụng
-- start_at
-- end_at
-- is_active
-- created_by (N - 1: Account)
-- created_at
+**Không thuộc phạm vi Flow 3 (not MVP theo report #9).** Owner chính thức: **Flow 4** (`specs/flow-4-2.0`), schema khớp gần như nguyên vẹn với đề xuất cũ của Flow 3 (`code`, `discount_type`, `apply_to` theo `Invoice.type`, `min_months`, `start_at`/`end_at`, `is_active`). Áp dụng tự động khi tạo `Invoice`, mỗi hóa đơn tối đa 1 `Discount`. Schema đầy đủ xem `specs/flow-4-2.0/db-table-draft.md`.
 # Notification
 **Overview:** thông báo gửi đến khách hàng/nhân viên qua web, email (duyệt/từ chối yêu cầu, hóa đơn cần thanh toán, hợp đồng sắp hết hạn, ...).
 - account_id (N - 1: Account, nullable) - null khi gửi email cho người chưa có tài khoản (Flow 1.1)
@@ -373,3 +357,4 @@
 
 **NOTES:**
 - Phụ thuộc Phương án 2 ở Flow 1.1 (chưa chốt), có thể để ngoài MVP
+- Cập nhật 22/9: bản mới nhất của Flow 1 **không còn nhắc tới** ý tưởng Wishlist/Phương án 2 — nhiều khả năng team đã nghiêng về Phương án 1 (gợi ý khoang tương đương). Giữ bảng này ở trạng thái Advanced Feature, không tính vào MVP cho tới khi Flow 1 xác nhận lại.
