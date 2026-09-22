@@ -457,7 +457,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
   - **Không đếm `CANCELED`**: no-show và quá hạn thanh toán không phải khách từ chối khoang.
   - Tách hẳn `proposal.max_rejection_count` của Flow 1 (đếm lần từ chối proposal **trước khi cọc**).
 
-- **Nhánh thường (chưa chạm ngưỡng):** ghi `result = REJECTED`, bắn `HandoverRecord.Rejected` để Flow 1 đề xuất khoang khác.
+- **Nhánh thường (chưa chạm ngưỡng):** ghi `result = REJECTED`, `reject_reason`, `completed_at` rồi bắn `HandoverRecord.Rejected`. Việc chỉ định lại khoang **không xử lý trong Flow 2**: Flow 1 cho FM chỉ định khoang khác, tạo `ProposalFeedback` mới cho khách duyệt online, xử lý chênh lệch tiền cọc rồi tạo `Appointment` mới. `RentalOrder` lấy khoang được chấp nhận mới nhất từ `ProposalFeedback` và **không bị hủy**.
 
 - **Nhánh chạm ngưỡng - phải xác nhận trước khi hủy:** Flow 2 **tự hủy đơn**, không quay về Flow 1.
   - **Chưa ghi `REJECTED` ngay.** Hệ thống hiện xác nhận cho khách, nêu rõ hệ quả: đơn sẽ bị hủy vì đã từ chối tối đa N khoang, **và tiền cọc không được hoàn**.
@@ -465,7 +465,6 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
   - **Khách không xác nhận:** không ghi gì, giữ nguyên hiện trạng. Nếu khách cũng không nhận khoang thì để cron no-show của Flow 1 xử lý khi quá `end_at`.
   - **Sau khi hủy:** gửi thông báo xác nhận hủy cho khách (email + thông báo website) theo contract notification MVP.
 
-- **Khách từ chối khoang (chuyển về Flow 1):** việc chỉ định lại khoang **không xử lý trong Flow 2**. Flow 2 chỉ cập nhật `HandoverRecord.result = REJECTED` rồi chuyển việc xử lý về Flow 1 (event `HandoverRecord.Rejected`). Flow 1 cho FM chỉ định khoang khác, tạo `ProposalFeedback` mới cho khách duyệt online, xử lý chênh lệch tiền cọc rồi **tạo `Appointment` mới**. `RentalOrder` lấy khoang được chấp nhận mới nhất từ `ProposalFeedback`.
 
 - **No-show:** hết `end_at` mà `arrived_at` vẫn null - cron của **Flow 1** xử lý: `Appointment.status = Canceled` (`cancel_reason = NoShow`) và **`HandoverRecord.result = CANCELED`** kèm lý do. Còn trong thời hạn giữ kho (`now < RentalOrder.expires_at`): đơn quay về `Deposited`, khoang giữ `Reserved`, khách đặt lịch mới. Hết hạn: đơn `Expired`, khoang về `Available`, xử lý mất cọc theo policy. Flow 2 không ghi gì trong nhánh này.
 
