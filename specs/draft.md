@@ -206,8 +206,10 @@ Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1
 
 **Phân loại cách một giá trị `Policy` được dùng (`execution_type`):**
 
-- `Automated`: đọc bởi cron/event của flow tiêu thụ, không có con người can thiệp giữa chừng (VD: `order.auto_cancel_days`).
+- `Automated`: đọc bởi cron/event của flow tiêu thụ, không có con người can thiệp giữa chừng (VD: `unit.maintenance_days`).
 - `ManualGuardrail`: là mức trần/sàn cho thao tác thủ công của FS/FM — flow tiêu thụ dùng để **chặn** nếu nhân viên vượt ngưỡng, có thể escalate lên BOM duyệt (Maker-Checker); cơ chế duyệt cụ thể (ai duyệt, trạng thái, thông báo) thuộc **flow tiêu thụ** (VD: Flow 6 cho miễn/giảm phạt quá hạn), Flow 4 chỉ giữ con số ngưỡng.
+
+> **Chưa chốt:** Flow 1 hiện ghi các mốc thời gian của mình (`account.claim_ttl_days`, `invoice.deposit_due_days`...) như số cố định trực tiếp trong bảng tham số riêng, không ghi chú rõ đây là giá trị `Policy` do BOM cấu hình hay là hằng số cố định trong code. Bảng 4.2 dưới đây giả định đây là các giá trị **default seed** cho `Policy`, BOM chỉnh được qua UI như mọi key khác — cần Flow 1 xác nhận lại điều này trước khi merge.
 
 #### 4.1 Quản lý giá thuê theo loại khoang (`UnitType`)
 
@@ -230,7 +232,7 @@ Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1
 
 **Context:** Toàn bộ ngưỡng thời gian, mốc tính toán, quy tắc mà các flow khác cần nhưng không nên hard-code, được gom về đây dưới dạng key–value.
 
-**Flow tổng quát:** BOM xem danh sách `Policy` theo nhóm (đặt cọc, bàn giao, gia hạn, quá hạn, bảo trì...) → sửa `value` của 1 key → các flow tiêu thụ đọc giá trị mới ngay từ lần truy vấn tiếp theo, không cần deploy lại.
+**Flow tổng quát:** BOM xem danh sách `Policy` theo nhóm (đặt kho, đặt cọc, bàn giao, gia hạn, quá hạn, bảo trì...) → sửa `value` của 1 key → các flow tiêu thụ đọc giá trị mới ngay từ lần truy vấn tiếp theo, không cần deploy lại.
 
 **Schema:**
 ```
@@ -244,42 +246,81 @@ Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1
 - updated_at
 ```
 
-**Danh mục key chính thức (tổng hợp từ toàn bộ các flow đã tham chiếu):**
+**Danh mục key chính thức (tổng hợp từ toàn bộ các flow đã tham chiếu, đối chiếu lại theo bản Flow 1/2/2.5/3/5 mới nhất):**
 
-| Key | value_type | execution_type | Dùng ở | Ý nghĩa |
-|---|---|---|---|---|
-| `deposit.type` | Text (`Fixed`/`Percent`) | Automated | Flow 1 | Hình thức tính tiền cọc |
-| `deposit.value` | Number | Automated | Flow 1 | Số tiền cố định hoặc % giá thuê dùng để tính cọc |
-| `deposit.due_hours` | Number (giờ) | Automated | Flow 1 | Hạn thanh toán hóa đơn đặt cọc trước khi `Expired` |
-| `request.account_timeout_hours` | Number (giờ) | Automated | Flow 1 | Thời gian chờ khách tạo tài khoản sau khi `RentalRequest` được duyệt |
-| `order.auto_cancel_days` | Number (ngày) | Automated | Flow 2 | Số ngày kể từ khi cọc mà chưa check-in thì tự hủy đơn |
-| `handover.payment_grace_hours` | Number (giờ) | Automated | Flow 2 | Gia hạn thanh toán tháng đầu tại buổi bàn giao trước khi hủy hợp đồng |
-| `contract.start_date_rule` | Text | Automated | Flow 2 | Quy tắc tính mốc bắt đầu tính tiền thuê |
-| `contract.expiring_soon_days` | Number (ngày) | Automated | Flow 3 | Ngưỡng N ngày để cảnh báo hợp đồng sắp hết hạn |
-| `extension.invoice_due_days` | Number (ngày) | Automated | Flow 3 | Hạn thanh toán hóa đơn gia hạn kể từ khi FM duyệt |
-| `fee.unit_change` | Number | Automated | Flow 1 | Phí phát sinh khi khách đổi sang khoang tương đương sau khi bị từ chối |
-| `unit.maintenance_days` | Number (ngày) | Automated | Flow 2.5 | Số ngày bảo trì sau khi trả kho trước khi cron tự động mở lại `Available` |
-| `overdue.fee_per_day` | Number | Automated | Flow 6 | Phí phạt mỗi ngày quá hạn |
-| `overdue.lock_after_days` | Number (ngày) | Automated | Flow 6 | Số ngày nợ phí trước khi cron khóa hợp đồng/quyền truy cập |
-| `overdue.waive_max_percent` | Percent | ManualGuardrail | Flow 6 | Mức % nhân viên được tự quyết miễn giảm phạt, vượt mức phải chuyển BOM duyệt |
-| `overdue.waive_max_amount` | Number | ManualGuardrail | Flow 6 | Mức tiền tối đa nhân viên được tự quyết miễn giảm phạt |
-| `appointment.no_show_limit` | Number (lần) | Automated | Flow 2 | Số lần no-show tối đa trước khi tự hủy đơn |
-| `appointment.reject_limit` | Number (lần) | Automated | Flow 2 | Số lần khách được từ chối khoang tối đa trên 1 đơn |
-| `appointment.reschedule_limit` | Number (lần) | Automated | Flow 2 | Số lần dời lịch tối đa |
-| `appointment.reschedule_notice_hours` | Number (giờ) | Automated | Flow 2 | Thời gian báo trước tối thiểu khi dời lịch |
+| Key | value_type | execution_type | Dùng ở | Ý nghĩa | Giá trị mặc định |
+|---|---|---|---|---|---:|
+| `request.pending_expiry_days` | Number (ngày) | Automated | Flow 1 | Hạn `RentalRequest` còn `Pending` trước khi tự `Expired` | 7 |
+| `account.claim_ttl_days` | Number (ngày) | Automated | Flow 1 | Hạn khách tạo tài khoản sau khi `RentalRequest` được duyệt, tính từ `responded_at` | 7 |
+| `proposal.response_ttl_days` | Number (ngày) | Automated | Flow 1 | Hạn khách phản hồi 1 `ProposalFeedback` trước khi tự `Expired` | 3 |
+| `invoice.deposit_due_days` | Number (ngày) | Automated | Flow 1 | Hạn thanh toán hóa đơn đặt cọc trước khi `Expired` | 3 |
+| `appointment.booking_window_days` | Number (ngày) | Automated | Flow 1 | Khách phải chọn lịch check-in trong vòng N ngày kể từ lúc cọc | 7 |
+| `appointment.max_days_after_deposit` | Number (ngày) | Automated | Flow 1 | Ngày hẹn check-in tối đa cách lúc cọc bao lâu | 14 |
+| `appointment.daily_slot_count` | Number (khung) | Automated | Flow 1 | Số khung giờ cố định mỗi ngày cho lịch check-in/trả kho | 3 |
+| `appointment.capacity_mode` | Text | Automated | Flow 1 | Chế độ sinh slot (MVP chỉ có `fixed_windows`) | `fixed_windows` |
+| `appointment.checkin_reschedule_enabled` | Boolean | Automated | Flow 1 | Bật/tắt dời lịch check-in | `false` |
+| `proposal.max_rejection_count` | Number (lần) | Automated | Flow 1 | Số lần khách được từ chối `ProposalFeedback` **trước khi cọc** trên 1 đơn | 3 |
+| `order.deposit_expiry_days` | Number (ngày) | Automated | Flow 1 | Hạn giữ khoang `Reserved` kể từ lúc cọc tới khi bàn giao xong, dùng để set `RentalOrder.expires_at` | 30 |
+| `fee.unit_change` | Number | Automated | Flow 1 | Phí phát sinh khi khách đổi sang khoang tương đương sau khi bị từ chối (trước hoặc sau cọc) | chờ BOM |
+| `handover.max_rejection_count` | Number (lần) | Automated | Flow 2 | Số lần khách được từ chối khoang **tại chỗ, sau khi đã cọc** trên 1 đơn — tách khỏi `proposal.max_rejection_count` | 2 |
+| `handover.payment_grace_hours` | Number (giờ) | Automated | Flow 2 | Thời gian gia hạn thanh toán tháng đầu tại buổi bàn giao trước khi cron hủy hợp đồng | chờ BOM |
+| `contract.start_date_rule` | Text | Automated | Flow 2 | Quy tắc tính mốc bắt đầu tính tiền thuê (VD: 1 tuần sau ngày ký, ngày 15 hàng tháng...) | chờ BOM |
+| `contract.prepaid_months` | Number (tháng) | Automated | Flow 2 | Số tháng thu trước tại buổi bàn giao | 1 |
+| `contract.expiring_soon_days` | Number (ngày) | Automated | Flow 3 | Ngưỡng N ngày trước `end_date` để cảnh báo hợp đồng sắp hết hạn | chờ BOM |
+| `extension.invoice_due_days` | Number (ngày) | Automated | Flow 3 | Hạn thanh toán hóa đơn gia hạn, tính từ lúc FM duyệt | chờ BOM |
+| `unit.maintenance_days` | Number (ngày) | Automated | Flow 2.5, Flow 5 | Số ngày `StorageUnit.status = Maintenance` (phát sinh từ trả kho, `maintenance_started_at IS NOT NULL`) trước khi cron tự động chuyển về `Available` | 1–3 |
+| `report.default_range_months` | Number (tháng) | Automated | Flow 4, Flow 5 | Khoảng thời gian mặc định hiển thị trên dashboard doanh thu của BOM (4.6) và báo cáo cơ sở của FM (Flow 5, mục 5.4) — dùng chung 1 key để 2 dashboard nhất quán hành vi | 2 |
+| `overdue.fee_per_day` | Number | Automated | Flow 6 | Phí phạt mỗi ngày quá hạn — nơi **duy nhất** trong hệ thống tính phí trễ hạn (bao gồm cả trễ trả kho, xem NOTES bên dưới) | chờ BOM |
+| `overdue.lock_after_days` | Number (ngày) | Automated | Flow 6 | Số ngày nợ phí quá hạn trước khi cron khóa hợp đồng/quyền truy cập | chờ BOM |
+| `overdue.waive_max_percent` | Percent | ManualGuardrail | Flow 6 | Mức % nhân viên được tự quyết miễn giảm phạt, vượt mức phải chuyển BOM duyệt | chờ BOM |
+| `overdue.waive_max_amount` | Number | ManualGuardrail | Flow 6 | Mức tiền tối đa nhân viên được tự quyết miễn giảm phạt | chờ BOM |
 
 **Details:**
-- BOM tạo/sửa `value` cho từng key qua UI dạng danh sách + filter theo nhóm (prefix key: `deposit.*`, `contract.*`, `overdue.*`...) và theo `execution_type` để tách rõ "tham số hệ thống tự chạy" với "ngưỡng cho nhân viên".
-- Validate theo `value_type` khi lưu (Number phải parse được số, Percent phải trong [0,100]).
+- BOM tạo/sửa `value` cho từng key qua UI dạng danh sách + filter theo nhóm (prefix key: `request.*`, `account.*`, `proposal.*`, `appointment.*`, `invoice.*`, `order.*`, `handover.*`, `contract.*`, `extension.*`, `unit.*`, `overdue.*`, `report.*`...) và theo `execution_type` để tách rõ "tham số hệ thống tự chạy" với "ngưỡng cho nhân viên".
+- Validate theo `value_type` khi lưu (Number phải parse được số, Percent phải trong [0,100], Boolean chỉ nhận true/false).
 - Ghi `AuditLog` mỗi lần đổi giá trị policy.
-- MVP không version hoá theo khoảng thời gian hiệu lực (không `effective_from`/`effective_to` cho từng bộ policy) — mỗi key chỉ có 1 giá trị hiện hành; lịch sử tra qua `AuditLog`. Việc này không tạo rủi ro cho hợp đồng cũ vì các giá trị đã "chốt" cho khách luôn được snapshot ở nơi phát sinh (`Invoice.amount`, `RentalContract.monthly_price`, `RentalContract.terms_version`) — không phụ thuộc giá trị `Policy` hiện tại.
+- MVP không version hoá theo khoảng thời gian hiệu lực (không `effective_from`/`effective_to` cho từng bộ policy) — mỗi key chỉ có 1 giá trị hiện hành; lịch sử tra qua `AuditLog`. Việc này không tạo rủi ro cho hợp đồng cũ vì các giá trị đã "chốt" cho khách luôn được snapshot ở nơi phát sinh (`Invoice.amount`, `RentalContract.monthly_price`, `RentalContract.terms_version`, `RentalOrder.expires_at`) — không phụ thuộc giá trị `Policy` hiện tại.
 - Với các tham số cần đi cùng nhau (như `overdue.waive_max_percent` + `overdue.waive_max_amount`), tách thành 2 key phẳng riêng thay vì gộp 1 giá trị JSON — giữ nhất quán với toàn bộ hệ thống, không cần logic parse JSON ở nơi tiêu thụ.
 - Thêm key mới không cần đổi schema, nhưng **code đọc key đó phải được lập trình sẵn** — thêm 1 dòng dữ liệu không tự sinh hành vi mới nếu chưa có code đọc (đúng ranh giới Cấp độ 1 vs Cấp độ 2).
 - **Cơ chế Maker-Checker cho các key `ManualGuardrail`** (VD: nhân viên xin giảm phạt vượt `overdue.waive_max_percent`) là quy trình duyệt (approval queue, trạng thái, thông báo) thuộc **flow tiêu thụ** (Flow 6), không thiết kế ở đây — Flow 4 chỉ đảm bảo giá trị ngưỡng luôn sẵn có và đúng kiểu dữ liệu.
 
+**NOTES:**
+- **`fee.late_return_per_day` đã bị loại khỏi danh mục.** Flow 3 (mục 3.6, A4) đã chốt: Flow 6 là nơi duy nhất tính phí trễ hạn qua `overdue.fee_per_day`, tính từ `end_date` tới thời điểm chốt biên bản trả kho; Flow 2.5 không tự tính phí trả trễ riêng để tránh 2 flow cùng thu phí trùng khoảng ngày. Nếu Flow 2.5 vẫn còn tham chiếu `fee.late_return_per_day` ở đâu đó, đó là phần Flow 2.5 cần sửa theo, không phải việc thêm lại key này ở Flow 4.
+- **`order.auto_cancel_days` đã bị loại khỏi danh mục.** Flow 2 đã xác nhận không còn cần key này — hạn giữ kho sau khi cọc mà chưa bàn giao nay dùng thẳng field `RentalOrder.expires_at` (set = `now + order.deposit_expiry_days` ngay lúc cọc thành công), không tra `Policy` mỗi lần cron chạy.
+- **Các key `deposit.type`/`deposit.value`/`deposit.due_hours`/`request.account_timeout_hours`/`appointment.no_show_limit`/`appointment.reject_limit` đã bị loại khỏi danh mục** vì không khớp với bất kỳ field nào Flow 1/2 thực sự dùng trong bản mới nhất — đây là tên key sót lại từ bản nháp cũ, dùng sai đơn vị hoặc gộp nhầm 2 khái niệm khác nhau thành 1 key.
+- `appointment.checkin_reschedule_enabled = false` là giá trị mặc định của MVP; khi bật dời lịch (Advanced Feature) mới cần thêm `appointment.reschedule_limit`/`appointment.reschedule_notice_hours`, xem Advanced Features bên dưới.
+
 **Advanced Features (not MVP):**
 - Version hoá theo bộ chính sách (nhiều bộ `effective_from`/`effective_to`, chỉ 1 bộ active tại 1 thời điểm).
-- Validate chéo giữa các key liên quan (VD: `deposit.due_hours` phải nhỏ hơn `order.auto_cancel_days` quy đổi ra giờ).
+- Validate chéo giữa các key liên quan (VD: `invoice.deposit_due_days` quy đổi giờ phải nhỏ hơn `order.deposit_expiry_days`).
+- Bổ sung `appointment.reschedule_limit` (số lần dời lịch tối đa) và `appointment.reschedule_notice_hours` (giờ báo trước tối thiểu) khi Flow 1 bật tính năng dời lịch check-in.
+
+---
+
+**Schema (do Flow 4 sở hữu):** `UnitType`, `Policy`, `ExtraFee`, `Discount`, `RentalTerm`.
+
+**Cross-reference (ai đọc gì từ Flow 4):**
+
+| Flow | Đọc từ Flow 4 |
+|---|---|
+| Flow 1 | `request.pending_expiry_days`, `account.claim_ttl_days`, `proposal.response_ttl_days`, `invoice.deposit_due_days`, `appointment.booking_window_days`, `appointment.max_days_after_deposit`, `appointment.daily_slot_count`, `appointment.capacity_mode`, `appointment.checkin_reschedule_enabled`, `proposal.max_rejection_count`, `order.deposit_expiry_days`, `fee.unit_change` |
+| Flow 2 | `UnitType.monthly_price`, `RentalTerm` (Active), `contract.start_date_rule`, `contract.prepaid_months`, `handover.payment_grace_hours`, `handover.max_rejection_count` |
+| Flow 2.5 | `ExtraFee` (DMG/CLN/LOST-KEY...), `unit.maintenance_days` |
+| Flow 3 | `contract.expiring_soon_days`, `extension.invoice_due_days`, `Discount` (nếu áp dụng cho gia hạn) |
+| Flow 5 | `UnitType` (chỉ đọc khi FM chọn `unit_type_id`, không đọc/ghi giá), `unit.maintenance_days` (tham chiếu để giải thích cơ chế `maintenance_started_at`), `report.default_range_months` |
+| Flow 6 | `overdue.fee_per_day`, `overdue.lock_after_days`, `overdue.waive_max_percent`, `overdue.waive_max_amount` |
+
+**NOTES:**
+
+- Mục 4.1–4.5 chỉ là **nguồn dữ liệu**, không tự chứa logic áp dụng — logic luôn nằm ở flow tiêu thụ. Nếu 1 flow cần hành vi mới mà dữ liệu ở đây không đủ diễn tả (Cấp độ 2), đó là Change Request, không phải thêm 1 dòng `Policy`.
+- Cơ chế khóa account do quá hạn (`Account disabled`) **không thuộc Flow 4** — là hệ quả nghiệp vụ của Flow 6. Flow 4 chỉ cung cấp `overdue.lock_after_days`.
+- Cơ chế Maker-Checker cho các key `ManualGuardrail` (approval queue, ai duyệt, thông báo) **không thuộc Flow 4** — thiết kế cụ thể thuộc Flow 6 (miễn/giảm phạt) hoặc Flow 2.5 (phí trả kho đặc biệt).
+- Bỏ hẳn bảng `Payment` từng được phác thảo trong bản nháp cũ — đã được thay thế hoàn toàn bởi cặp `Invoice` + `PaymentTransaction` (Flow 1/2/3).
+- Bỏ hẳn bảng `RentalPolicy` (bundle, versioned) từng được đề xuất — mô hình `Policy` key–value đã là hợp đồng ngầm giữa Flow 1/2/3/5, không đổi được mà không sửa lại các flow đó; nhu cầu "giữ nguyên chính sách cho hợp đồng cũ" đã được giải quyết bằng snapshot ở `Invoice`/`RentalContract`/`RentalOrder.expires_at`.
+
+**Advanced Features chung của Flow 4 (not MVP):**
+- Giao diện xây dựng "công thức" tính phí phức tạp hơn 4 loại `calculation_type` cố định.
+- Workflow duyệt nội bộ trước khi 1 thay đổi `Policy`/giá có hiệu lực (hiện tại BOM sửa là áp dụng ngay, không qua duyệt).
 
 #### 4.3 Quản lý các khoản phí (`ExtraFee`)
 
@@ -412,7 +453,6 @@ Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1
 **Advanced Features chung của Flow 4 (not MVP):**
 - Giao diện xây dựng "công thức" tính phí phức tạp hơn 4 loại `calculation_type` cố định.
 - Workflow duyệt nội bộ trước khi 1 thay đổi `Policy`/giá có hiệu lực (hiện tại BOM sửa là áp dụng ngay, không qua duyệt).
-```
 
 #### 5.0 Quản lý tài khoản & phân quyền (System Administrator)
 ### 6. Xử lý quá hạn/gia hạn (BOM & FM)
