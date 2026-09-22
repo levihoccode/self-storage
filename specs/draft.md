@@ -702,9 +702,9 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 
 #### 2.5.4 Bảo trì và mở lại cho thuê
 
-- Sau khi `CheckoutRecord` được xác nhận và không còn khoản phải thu bắt buộc: `StorageUnit.status -> Maintenance` kèm `maintenance_started_at`, `RentalContract.status -> Ended`. **`RentalOrder` giữ nguyên `Done`** - đơn đã kết thúc từ lúc bàn giao ở 2.4, việc trả kho thể hiện qua `RentalContract.Ended` chứ không thêm trạng thái mới vào enum của Flow 1. (`Appointment.status` đã được set `Done` ở 2.5.2 khi ghi nhận khách đến, không set lại ở đây.)
-- Hết thời gian bảo trì (theo cấu hình của BOM ở Flow 4), khoang tự chuyển về `Available` và có thể được gán cho yêu cầu mới ở Flow 1.
-- Khoang hư hỏng cần sửa dài hơn: FM giữ ở `Maintenance` cho tới khi xử lý xong, không để cron tự mở.
+- Sau khi `CheckoutRecord` được xác nhận và không còn khoản phải thu bắt buộc: `StorageUnit.status -> Maintenance` kèm `maintenance_started_at`, `RentalContract.status -> Ended`, **`ReturnRequest.status -> Completed`** kèm `completed_at` (Flow 3 định nghĩa giá trị này là do Flow 2.5 set; không đóng thì yêu cầu kẹt ở `Assigned` và Flow 3 vĩnh viễn ẩn nút [Gia hạn]/[Trả kho] của khách). **`RentalOrder` giữ nguyên `Done`** - đơn đã kết thúc từ lúc bàn giao ở 2.4, việc trả kho thể hiện qua `RentalContract.Ended` chứ không thêm trạng thái mới vào enum của Flow 1. (`Appointment.status` đã được set `Done` ở 2.5.2 khi ghi nhận khách đến, không set lại ở đây.)
+- Hết `unit.maintenance_days` (BOM cấu hình ở Flow 4), khoang tự chuyển về `Available` và có thể được gán cho yêu cầu mới ở Flow 1. Chỉ áp dụng cho khoang có `maintenance_started_at` khác null, tức `Maintenance` phát sinh từ luồng trả kho.
+- Khoang hư hỏng cần sửa dài hơn: FM chuyển `Maintenance` thủ công ở Flow 5.2 và **không set `maintenance_started_at`**, nên cron không đụng tới; FM tự chuyển về `Available` khi xong.
 
 #### Backend flow (chi tiết kỹ thuật)
 
@@ -722,8 +722,8 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 - Dư: MVP ghi nhận số tiền phải hoàn để FM xử lý thủ công.
 
 **d) Bảo trì và mở lại (2.5.4)**
-- Transaction khi hoàn tất: `StorageUnit.status = Maintenance` + `maintenance_started_at`, `RentalContract.status = Ended`. Không đụng `RentalOrder` (đã `Done` từ 2.4).
-- Cron hằng ngày quét các khoang `Maintenance` đã đủ thời gian cấu hình và không bị FM giữ lại, chuyển về `Available`, bắn `StorageUnit.BecameAvailable`.
+- Transaction khi hoàn tất: `StorageUnit.status = Maintenance` + `maintenance_started_at`, `RentalContract.status = Ended`, `ReturnRequest.status = Completed` + `completed_at`. Không đụng `RentalOrder` (đã `Done` từ 2.4).
+- Cron hằng ngày quét các khoang `Maintenance` có **`maintenance_started_at IS NOT NULL`** và đã đủ `unit.maintenance_days`, chuyển về `Available`, bắn `StorageUnit.BecameAvailable`. Điều kiện `IS NOT NULL` chính là cách phân biệt với khoang FM tự chuyển `Maintenance` do sự cố - Flow 5 chốt FM không set field này nên cron không bao giờ tự mở lại khoang FM đang giữ.
 - Lock theo `unit_id` khi chuyển trạng thái để không xung đột với luồng gán khoang của Flow 1.
 
 **Events phát ra từ Flow 2.5:**
