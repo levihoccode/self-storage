@@ -91,6 +91,7 @@
 - MVP: 1 giá áp dụng toàn hệ thống cho mỗi `UnitType`, không phân biệt theo chi nhánh.
 - `StorageUnit.monthly_price` (nullable) là giá override riêng cho 1 khoang cụ thể, chỉ có hiệu lực sau khi BOM phê duyệt (Advanced Feature) — MVP luôn để `null`, giá hiệu lực lấy từ `UnitType.monthly_price`.
 - Ghi `AuditLog` mỗi lần đổi `monthly_price` (old_value/new_value).
+- Giá override theo từng `StorageUnit` **không thuộc MVP** — `StorageUnit` (Flow 5) hiện không có field giá riêng. Khi triển khai Advanced Feature này, Flow 5 sẽ bổ sung field `monthly_price` (nullable) vào `StorageUnit` cùng lúc với cơ chế phê duyệt của BOM ở đây.
 
 ---
 
@@ -136,6 +137,7 @@
 | `overdue.lock_after_days` | Number (ngày) | Automated | Flow 6 | Số ngày nợ phí trước khi cron khóa hợp đồng/quyền truy cập | chờ BOM |
 | `overdue.waive_max_percent` | Percent | ManualGuardrail | Flow 6 | Mức % nhân viên tự quyết miễn giảm phạt | chờ BOM |
 | `overdue.waive_max_amount` | Number | ManualGuardrail | Flow 6 | Mức tiền tối đa nhân viên tự quyết miễn giảm phạt | chờ BOM |
+| `account_role_request.expiry_days` | Number (ngày) | Automated | Flow 5 (`AccountRoleRequest.expires_at`) | Hạn Admin xử lý 1 dòng AccountRoleRequest trước khi hệ thống cảnh báo/escalate cho BOM | 3 |
 
 **NOTES:**
 - MVP không version hoá theo khoảng thời gian hiệu lực — mỗi key chỉ có 1 giá trị hiện hành; lịch sử tra qua `AuditLog`. Không rủi ro cho hợp đồng cũ vì giá trị đã "chốt" luôn được snapshot ở nơi phát sinh (`Invoice.amount`, `RentalContract.monthly_price`, `RentalOrder.expires_at`).
@@ -227,5 +229,5 @@
 | Flow 2 | `UnitType.monthly_price`, `RentalTerm` (Active), `contract.start_date_rule`, `contract.prepaid_months`, `handover.payment_grace_hours`, `handover.max_rejection_count` |
 | Flow 2.5 | `ExtraFee` (LOST-KEY/CLEANING/DAMAGE...), `unit.maintenance_days` |
 | Flow 3 | `contract.expiring_soon_days`, `extension.invoice_due_days`, `Discount` (nếu áp dụng cho gia hạn) |
-| Flow 5 | `UnitType` (chỉ đọc `unit_type_id`, `monthly_price`), `unit.maintenance_days`, `report.default_range_months` |
+| Flow 5 | `UnitType` (chỉ đọc `unit_type_id`, `monthly_price`), `unit.maintenance_days`, `report.default_range_months`, `account_role_request.expiry_days` |
 | Flow 6 | `overdue.fee_per_day`, `overdue.lock_after_days`, `overdue.waive_max_percent`, `overdue.waive_max_amount` |
