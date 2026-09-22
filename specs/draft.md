@@ -426,7 +426,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 #### 2.1 Tiếp nhận lịch hẹn check-in
 
-Flow 2 **không tạo và không sửa** `Appointment`. Toàn bộ việc sinh slot, đặt lịch, dời lịch, hủy và đặt lại lịch do Flow 1 xử lý; Flow 2 chỉ đọc lịch đã có và ghi nhận khách đến.
+Flow 2 **không tạo và không sửa** `Appointment`. Toàn bộ việc sinh slot, đặt lịch, hủy và đặt lại lịch do Flow 1 xử lý; Flow 2 chỉ đọc lịch đã có và ghi nhận khách đến.
 
 - **Điều kiện vào Flow 2:** `Appointment(type = CHECKIN, status = Pending)` của đơn, `facility_id` khớp cơ sở đang thao tác, `staff_id` đã được gán (Flow 1.5 đã chuyển đơn sang `InProgress` ở bước này), `HandoverRecord` của lịch hẹn đó đang `IN_PROGRESS`, `Invoice` cọc đã `Paid`, khoang đang `Reserved`. Thiếu điều kiện nào thì API check-in trả lỗi; Flow 2 không tự tạo lịch hẹn hay biên bản bù.
 - **FM:** xem `Appointment` của cơ sở theo ngày, lọc thẳng trên `Appointment.facility_id`, tìm lịch còn `staff_id IS NULL` để gán FS. Nghiệp vụ phân công thuộc Flow 5.3, Flow 2 chỉ tiêu thụ kết quả.
@@ -446,16 +446,43 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
   - Khách đồng ý -> `is_unit_inspected = true`, `unit_inspected_at`; đây là điều kiện mở bước ký hợp đồng.
   - Khách **không đồng ý** -> `result = REJECTED`, `reject_reason`, `completed_at`. Flow 2 kết thúc.
 
-- **Đếm số lần từ chối:** trước khi cho FS bấm từ chối, Flow 2 đếm số `HandoverRecord` có `result = REJECTED` trên cùng `order_id`.
-  - Chưa đạt `handover.max_rejection_count`: ghi nhận từ chối bình thường, bắn `HandoverRecord.Rejected` để Flow 1 đề xuất khoang khác.
-  - Lần từ chối làm **đạt ngưỡng**: vẫn ghi `result = REJECTED` nhưng event mang cờ `limit_reached = true`. Flow 1 dừng đề xuất, chuyển `RentalOrder -> Canceled` và xử lý mất cọc theo chính sách Flow 4 - đúng cách Flow 1 đang xử `proposal.max_rejection_count`. Flow 2 không tự set `Canceled`.
-  - Hai bộ đếm độc lập: `proposal.max_rejection_count` đếm lần từ chối proposal **trước khi cọc**, `handover.max_rejection_count` đếm lần từ chối **tại chỗ sau khi cọc**.
+- **Đếm số lần từ chối:** trước khi ghi nhận từ chối, Flow 2 đếm trong **cùng transaction** với bước ghi `REJECTED` để hai FS thao tác song song không đếm lệch:
+
+  ```text
+  count = số HandoverRecord có order_id = :order AND result = REJECTED
+  count + 1 >= handover.max_rejection_count → nhánh chạm ngưỡng
+  ```
+
+  - Tính trên **toàn lịch sử đơn** - mỗi vòng re-propose tạo `HandoverRecord` mới, bản cũ giữ `REJECTED`.
+  - **Không đếm `CANCELED`**: no-show và quá hạn thanh toán không phải khách từ chối khoang.
+  - Tách hẳn `proposal.max_rejection_count` của Flow 1 (đếm lần từ chối proposal **trước khi cọc**).
+
+- **Nhánh thường (chưa chạm ngưỡng):** ghi `result = REJECTED`, bắn `HandoverRecord.Rejected` để Flow 1 đề xuất khoang khác.
+
+- **Nhánh chạm ngưỡng - phải xác nhận trước khi hủy:** Flow 2 **tự hủy đơn**, không quay về Flow 1.
+  - **Chưa ghi `REJECTED` ngay.** Hệ thống hiện xác nhận cho khách, nêu rõ hệ quả: đơn sẽ bị hủy vì đã từ chối tối đa N khoang, **và tiền cọc không được hoàn**.
+  - **Khách xác nhận:** ghi `HandoverRecord.result = REJECTED`, `RentalOrder -> Canceled`, khoang `Reserved -> Available`, `ProposalFeedback` đang `Agreed -> Expired`, cọc xử lý theo chính sách Flow 4. **Không** tạo proposal hay appointment mới.
+  - **Khách không xác nhận:** không ghi gì, giữ nguyên hiện trạng. Nếu khách cũng không nhận khoang thì để cron no-show của Flow 1 xử lý khi quá `end_at`.
+  - **Sau khi hủy:** gửi thông báo xác nhận hủy cho khách (email + thông báo website) theo contract notification MVP.
 
 - **Khách từ chối khoang (chuyển về Flow 1):** việc chỉ định lại khoang **không xử lý trong Flow 2**. Flow 2 chỉ cập nhật `HandoverRecord.result = REJECTED` rồi chuyển việc xử lý về Flow 1 (event `HandoverRecord.Rejected`). Flow 1 cho FM chỉ định khoang khác, tạo `ProposalFeedback` mới cho khách duyệt online, xử lý chênh lệch tiền cọc rồi **tạo `Appointment` mới**. `RentalOrder` lấy khoang được chấp nhận mới nhất từ `ProposalFeedback`.
 
 - **No-show:** hết `end_at` mà `arrived_at` vẫn null - cron của **Flow 1** xử lý: `Appointment.status = Canceled` (`cancel_reason = NoShow`) và **`HandoverRecord.result = CANCELED`** kèm lý do. Còn trong thời hạn giữ kho (`now < RentalOrder.expires_at`): đơn quay về `Deposited`, khoang giữ `Reserved`, khách đặt lịch mới. Hết hạn: đơn `Expired`, khoang về `Available`, xử lý mất cọc theo policy. Flow 2 không ghi gì trong nhánh này.
 
 - **Đặt lịch mới (sau reject hoặc no-show):** do **Flow 1** thực hiện. Lịch cũ phải ở `Canceled` và `HandoverRecord` cũ đã chốt (`REJECTED`/`CANCELED`) trước khi tạo `Appointment` mới (`status = Pending`, `staff_id = null`) kèm `RentalAppointment` và `HandoverRecord` mới - ràng buộc mỗi đơn chỉ có một lịch `CHECKIN` đang hoạt động. Đây **không phải** reschedule: dời lịch không thuộc MVP. FM phân công FS lại từ đầu; Flow 2 chạy lại từ 2.2 trên biên bản mới.
+
+**NOTES:**
+
+```text
+Hủy ở nhánh này khác hủy ở Flow 1 (trước check-in):
+- Cùng dùng block CANCELLATION CONSTRAINTS; khác trigger và actor:
+  Flow 2 tự hủy sau xác nhận của khách, không quay về Flow 1.
+- HandoverRecord giữ REJECTED, không chuyển CANCELED
+  (CANCELED dành cho no-show / quá hạn thanh toán).
+- Appointment CHECKIN đã Done nên không hủy; Flow 1 hủy lịch đang hoạt động.
+- Đơn đang InProgress, không phải Pending/Deposited/Scheduled.
+- Cọc: mất theo chính sách Flow 4 vì khách chủ động từ chối.
+```
 
 #### 2.3 Ký hợp đồng và thanh toán tháng đầu tiên
 
@@ -507,7 +534,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 **a) Lịch hẹn của cơ sở (2.1)**
 - `GET /api/fm/appointments?facility_id=...&date=...`: lịch của cơ sở theo ngày, lọc thẳng trên `Appointment.facility_id`, không join qua `RentalOrder -> StorageUnit -> Facility`; dùng để FM thấy lịch chưa có `staff_id`.
-- Các API sinh slot, đặt lịch, dời lịch và hủy lịch nằm ở **Flow 1**. Flow 2 không expose endpoint nào ghi lên `Appointment` ngoài `arrive` ở mục b.
+- Các API sinh slot, đặt lịch và hủy lịch nằm ở **Flow 1**. Flow 2 không expose endpoint nào ghi lên `Appointment` ngoài `arrive` ở mục b.
 - Cron hằng ngày của Flow 2: hủy hợp đồng `Signed` quá `payment_grace_hours` chưa thanh toán, trả khoang về `Available`. Việc tự hủy đơn đã cọc mà chưa bàn giao chuyển sang **Flow 1** cùng vòng đời `Appointment`, và Flow 1 dùng field `RentalOrder.expires_at` (set lúc cọc, mặc định 30 ngày) chứ không dùng `Policy` key - nên Flow 2 **không còn xin Flow 4** key `order.auto_cancel_days`.
 
 **b) Lịch trình của FS (2.1, 2.2)**
@@ -518,7 +545,9 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 **c) Checklist on-site (2.2)**
 - `POST /api/staff/handover-records/{id}/verify-identity`: set `is_identity_verified`, `identity_verified_at`.
 - `POST /api/staff/handover-records/{id}/inspection`: body `{ inspection_notes, inspection_photos[] }`, set `is_unit_inspected`, `unit_inspected_at`.
-- `POST /api/staff/handover-records/{id}/reject`: body `{ reject_reason }`, set `result = REJECTED`, `completed_at`. Backend đếm số bản ghi `REJECTED` của `order_id` rồi bắn `HandoverRecord.Rejected` kèm `limit_reached` để Flow 1 biết còn đề xuất tiếp hay hủy đơn.
+- `POST /api/staff/handover-records/{id}/reject`: body `{ reject_reason }`. Backend đếm số bản ghi `REJECTED` của `order_id` **trong cùng transaction** với bước ghi, rồi rẽ hai nhánh:
+  - **Chưa chạm ngưỡng:** set `result = REJECTED`, `completed_at`, bắn `HandoverRecord.Rejected` để quay về luồng re-propose của Flow 1.
+  - **Chạm ngưỡng:** chưa ghi gì, trả về trạng thái **yêu cầu khách xác nhận hủy** kèm hệ quả mất cọc. Chỉ khi khách xác nhận qua `POST /api/staff/handover-records/{id}/confirm-cancel` mới ghi `REJECTED` + `RentalOrder -> Canceled` + khoang về `Available` + proposal `Agreed -> Expired`, tất cả trong một transaction. Không bắn `HandoverRecord.Rejected` ở nhánh này.
 
 **d) Ký hợp đồng và thanh toán (2.3)**
 - `POST /api/staff/rental-orders/{id}/contracts`: FS sinh `RentalContract(Draft)` tại buổi check-in, snapshot `terms_version`, `unit_id`, giá thuê, mốc bắt đầu tính tiền theo chính sách Flow 4. Chỉ cho phép khi `is_unit_inspected = true`.
@@ -538,7 +567,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 
 | Event | Consumer |
 |---|---|
-| `HandoverRecord.Rejected` | Flow 1 (FM chỉ định lại khoang, tạo `ProposalFeedback` mới và `Appointment` mới) |
+| `HandoverRecord.Rejected` | Flow 1 (FM chỉ định lại khoang, tạo `ProposalFeedback` mới và `Appointment` mới). **Chỉ bắn ở nhánh chưa chạm ngưỡng**; nhánh chạm `handover.max_rejection_count` do Flow 2 tự hủy đơn, không handoff về Flow 1 |
 | `RentalContract.Signed` | Flow 4 (ghi nhận hợp đồng mới). Hóa đơn tháng đầu tạo trong transaction ký, không tạo từ event này |
 | `Invoice.Created` (RNT tháng đầu) | Flow 4 (theo dõi doanh thu) |
 | `RentalOrder.HandoverCompleted` | Flow 3 (bắt đầu theo dõi khoang đang thuê) |
@@ -550,6 +579,7 @@ Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_
 | `IDENTITY_VERIFIED` | FS xác minh danh tính người đến | `HandoverRecord` | FS |
 | `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
+| `RENTAL_ORDER_CANCELED` | Hủy đơn khi chạm `handover.max_rejection_count`, sau khi khách xác nhận | `RentalOrder`, `StorageUnit`, `ProposalFeedback` - một bản ghi cho mỗi entity | FS |
 | `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ 4 cờ | `HandoverRecord` | FS |
 | `START_DATE_OVERRIDE_REQUESTED` | FS đề nghị đổi mốc tính tiền | `RentalContract` | FS |
 | `START_DATE_OVERRIDE_APPROVED` | FM duyệt đổi mốc tính tiền | `RentalContract` | FM |
@@ -579,10 +609,11 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey) - quyền truy cập khoang chứa đã bàn giao cho khách.
 
 **Phụ thuộc cần các flow khác bổ sung (Flow 2 không tự sửa):**
-- **Flow 1 nhận lại toàn bộ vòng đời `Appointment`** (theo đề xuất đã thống nhất): sinh slot theo giờ hoạt động của cơ sở (không giới hạn số khách trên một slot trong MVP), cho khách chọn lịch sau khi cọc `Paid`, dời/hủy lịch, chuyển `RentalOrder`: `Deposited -> Scheduled`, cron no-show, cron tự hủy đơn theo `RentalOrder.expires_at`, và tạo `Appointment` mới sau nhánh `HandoverRecord.Rejected`. Flow 1 cũng là nơi gửi nhắc việc trước buổi hẹn (đối chiếu giấy tờ, kiểm tra khoang, ký hợp đồng, thanh toán tháng đầu).
+- **Flow 1 nhận lại toàn bộ vòng đời `Appointment`** (theo đề xuất đã thống nhất): sinh slot theo giờ hoạt động của cơ sở (không giới hạn số khách trên một slot trong MVP), cho khách chọn lịch sau khi cọc `Paid`, hủy lịch, chuyển `RentalOrder`: `Deposited -> Scheduled`, cron no-show, cron tự hủy đơn theo `RentalOrder.expires_at`, và tạo `Appointment` mới sau nhánh `HandoverRecord.Rejected`. Flow 1 cũng là nơi gửi nhắc việc trước buổi hẹn (đối chiếu giấy tờ, kiểm tra khoang, ký hợp đồng, thanh toán tháng đầu).
 - **Bảng nối `RentalAppointment` giữ theo A6** (Flow 1 `0585bfb`, Flow 5 `db-table-draft.md`). Phần `facility_id` trên `Appointment` đã được Flow 1 và Flow 5 áp. Đề xuất đưa `order_id` thẳng lên `Appointment` và bỏ bảng nối **không được chốt**, Flow 2/2.5 viết theo bảng nối.
 - Đổi khoang sau khi khách đã cọc (do từ chối tại chỗ ở 2.2) do **Flow 1** xử lý: FM chỉ định khoang mới, hệ thống tạo `ProposalFeedback` **mới** (bản cũ giữ nguyên, khoang hiệu lực là proposal `Agreed` mới nhất), khách duyệt online. Flow 1 đã chốt (E6): khi đề xuất lại, hệ thống **loại các khoang khách đã từ chối** trong cùng đơn; FM muốn đề xuất lại khoang đã bị từ chối thì phải override kèm lý do và ghi `AuditLog`. Quá `proposal.max_rejection_count` lần thì Flow 1 hủy đơn. Chênh lệch mức cọc cũ/mới cộng phí đổi khoang: dư thì hoàn thủ công, thiếu thì xuất hóa đơn cọc bù. Còn mở: thứ tự chuyển khoang mới sang `Reserved` so với việc hoàn tiền.
 - Vì mỗi lần đề xuất lại tạo một `ProposalFeedback` mới, **không** đặt unique index `(order_id) WHERE status = 'Agreed'` - index đó sẽ chặn đúng reject path của Flow 2.
+- **Block `CANCELLATION CONSTRAINTS` chưa tồn tại trong spec.** NOTES của 2.2 tham chiếu block này để so sánh hai kiểu hủy đơn, nhưng hiện chưa mục nào định nghĩa. Cần Flow 1 viết block dùng chung, nếu không thì câu tham chiếu treo.
 - **Flow 5 bổ sung `enabledKeyAccess` và `enabledCodeAccess`** trên `Facility`/`StorageUnit` để bật tắt từng loại khóa (theo review của Levi ở PR #6). Chưa có hai field này thì 2.4 không xác định được cơ sở đang dùng loại khóa nào; schema Flow 5 hiện vẫn chưa có.
 - `RentalOrder.status` theo contract Flow 1 (20/09): `Pending/Deposited/Scheduled/InProgress/Done/Canceled/Expired` - khác đề xuất B3 ở chỗ giữ `Pending` thay cho `AwaitingDeposit`. Flow 2 bám theo bộ này: vào flow ở `InProgress`, kết ở `Done`.
 
