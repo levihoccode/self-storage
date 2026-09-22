@@ -7,6 +7,11 @@
 ## Mục đích
 BOM theo dõi doanh thu toàn chuỗi, tổng hợp dữ liệu cho thuê theo thời gian/chi nhánh/loại kho/khách hàng để đánh giá và so sánh.
 
+## Navigation
+
+- **Vào từ:** BOM shell sau login.
+- **Đi tới:** `/bom/reports`, `/bom/facilities`, `/bom/unit-types`, `/bom/fees` từ các drill-down; export nếu được chốt.
+
 ## Dữ liệu hiển thị
 - Doanh thu mặc định 2 tháng gần nhất khi vào trang
 - Dữ liệu tổng hợp từ `Contract`, `Fee`, `Payment`, `Rental History`

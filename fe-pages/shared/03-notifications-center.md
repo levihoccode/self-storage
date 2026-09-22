@@ -7,6 +7,11 @@
 ## Mục đích
 Hiển thị thông báo web (channel = Web) cho user — duyệt/từ chối yêu cầu, hóa đơn cần thanh toán, hợp đồng sắp hết hạn, phân công công việc (FM/FS), v.v.
 
+## Navigation
+
+- **Vào từ:** notification bell trong shell hoặc deep link `/notifications`.
+- **Đi tới:** resource liên quan như `/my-storage/:id`, `/invoices/:id`, `/appointments`, `/staff/...`, `/fm/...`; giữ filter khi mark read nếu có thể.
+
 ## Dữ liệu hiển thị
 - Danh sách `Notification WHERE account_id = current_user AND channel = Web`, sort `sent_at desc`
 - Mỗi item: `type`, `title`, `content`, `is_read`, thời gian

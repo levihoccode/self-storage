@@ -7,6 +7,11 @@
 ## Mục đích
 Admin xử lý danh sách `AccountRoleRequest` do BOM gửi lên — mỗi dòng kèm role đã được BOM **chỉ định trực tiếp** (không phải đề xuất chờ duyệt).
 
+## Navigation
+
+- **Vào từ:** `/admin/accounts`, notification hoặc admin shell.
+- **Đi tới:** `/admin/accounts` sau khi thực thi; `/admin/audit-log`; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `AccountRoleRequest WHERE status = Pending`: `batch_id`, `target_name`, `target_email`, `role` (FM/FS), `target_facility_id`, `requested_by`, `created_at`
 

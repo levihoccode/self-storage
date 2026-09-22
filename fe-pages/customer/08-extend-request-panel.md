@@ -7,6 +7,11 @@
 ## Mục đích
 Cho khách gửi yêu cầu gia hạn thêm N tháng, theo dõi trạng thái duyệt của FM và thanh toán hóa đơn gia hạn khi được duyệt.
 
+## Navigation
+
+- **Vào từ:** panel trên `/my-storage/:id`.
+- **Đi tới:** quay lại `/my-storage/:id` sau khi gửi/hủy; `/invoices/:id` khi request được duyệt và có hóa đơn gia hạn; `/notifications` để theo dõi cập nhật.
+
 ## Dữ liệu hiển thị
 - Form nhập `extra_months`
 - Sau khi tạo: trạng thái `ExtendRequest.status` (PendingApproval / ApprovedPendingPayment / Rejected / Expired / Completed)

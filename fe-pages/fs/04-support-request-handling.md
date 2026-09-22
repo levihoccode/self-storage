@@ -7,6 +7,11 @@
 ## Mục đích
 FS xem và xử lý các `SupportRequest` được FM phân công cho mình (`assigned_staff_id = current_user`).
 
+## Navigation
+
+- **Vào từ:** `/staff/schedule` hoặc FM assign từ `/fm/support-requests`.
+- **Đi tới:** giữ tại queue khi chuyển status; `/staff/incidents/new` nếu phát hiện incident mới; customer nhận cập nhật qua `/notifications`.
+
 ## Dữ liệu hiển thị
 - Danh sách `SupportRequest WHERE assigned_staff_id = current_user AND status IN (Assigned, InProgress)`
 - `issue_type`, `description`, khoang, hợp đồng liên quan (nếu có)

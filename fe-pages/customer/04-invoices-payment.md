@@ -7,6 +7,11 @@
 ## Mục đích
 Trang trung tâm để khách xem và thanh toán mọi loại hóa đơn phát sinh trong suốt vòng đời thuê kho: cọc, tiền thuê tháng đầu, gia hạn, phạt, dịch vụ.
 
+## Navigation
+
+- **Vào từ:** `/my-storage`, `/proposals`, notification hoặc redirect sau khi đồng ý proposal.
+- **Đi tới:** `/invoices/:id` từ danh sách; `/appointments/new?orderId=:id` sau khi thanh toán cọc thành công; `/my-storage` sau khi hoàn tất flow.
+
 ## Dữ liệu hiển thị
 - Danh sách `Invoice WHERE customer_id = current_user`, mỗi dòng: `code`, `type` (badge màu riêng theo Deposit/Rental/Extension/Penalty/Service), `title`, `amount`, `discount_amount`, `status` (Unpaid/Paid/Canceled), `due_date`
 - Chi tiết 1 hóa đơn: `desc`, liên kết ngược tới `order_id`/`contract_id` (hiển thị tên khoang, hợp đồng liên quan)

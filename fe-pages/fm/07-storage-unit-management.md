@@ -7,6 +7,11 @@
 ## Mục đích
 FM khai báo và duy trì dữ liệu các khoang chứa vật lý tại cơ sở mình phụ trách — chỉ thực hiện được sau khi `Facility` đã `Active`.
 
+## Navigation
+
+- **Vào từ:** FM shell hoặc facility detail.
+- **Đi tới:** `/fm/contracts` để xem khoang đã thuê; `/fm/rental-requests` khi chọn khoang cho request; `/fm/reports` để xem tác động occupancy.
+
 ## Dữ liệu hiển thị
 - Danh sách `StorageUnit` của facility: `unit_code`, `unit_type` (tên/kích thước, giá — chỉ đọc từ `UnitType`), `location`, `status`
 - Enum `status` dùng chung toàn hệ thống: `Available | OnHold | Reserved | Rented | Maintenance`

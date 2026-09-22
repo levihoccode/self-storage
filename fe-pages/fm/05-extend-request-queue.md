@@ -7,6 +7,11 @@
 ## Mục đích
 FM duyệt hoặc từ chối các yêu cầu gia hạn hợp đồng do khách gửi.
 
+## Navigation
+
+- **Vào từ:** FM shell, notification hoặc `/fm/contracts`.
+- **Đi tới:** `/fm/contracts` sau khi duyệt/từ chối; customer `/invoices/:id` khi tạo hóa đơn gia hạn; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `ExtendRequest WHERE status = PendingApproval` thuộc facility của FM, JOIN hợp đồng/khách
 - `extra_months`, `requested_at`, hợp đồng hiện tại (`end_date`, `monthly_price`)

@@ -7,6 +7,11 @@
 ## Mục đích
 Trang tổng quan để khách xem toàn bộ hợp đồng đang `Active`, nhóm theo chi nhánh, nhanh chóng nhận biết hợp đồng nào sắp hết hạn/quá hạn.
 
+## Navigation
+
+- **Vào từ:** `/login` sau khi đăng nhập; sidebar customer; notification.
+- **Đi tới:** `/my-storage/:id` khi chọn một kho; `/invoices`; `/appointments`; `/notifications`; `/rental-requests/new` khi muốn thuê thêm kho.
+
 ## Dữ liệu hiển thị
 - `RentalContract WHERE customer_id = current_user AND status = Active`, JOIN `StorageUnit`, `Facility`
 - Nhóm kết quả theo `facility_id` (tách danh sách con theo từng chi nhánh — đã chốt)

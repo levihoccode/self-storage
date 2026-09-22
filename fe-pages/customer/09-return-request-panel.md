@@ -7,6 +7,11 @@
 ## Mục đích
 Cho khách gửi yêu cầu trả kho, chọn ngày mong muốn, theo dõi tiến trình FM phân công nhân viên xử lý on-site (chi tiết on-site thuộc Flow 2.5, không xử lý ở panel này).
 
+## Navigation
+
+- **Vào từ:** panel trên `/my-storage/:id`.
+- **Đi tới:** quay lại `/my-storage/:id` sau khi gửi/hủy; `/appointments` khi FM tạo lịch trả kho; `/notifications` để theo dõi phân công/trạng thái.
+
 ## Dữ liệu hiển thị
 - Form nhập `preferred_date` (validate `>= today`), `reason` (tuỳ chọn)
 - Sau khi tạo: trạng thái `ReturnRequest.status` (Pending / Assigned / Canceled / Completed)

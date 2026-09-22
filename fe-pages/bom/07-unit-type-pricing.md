@@ -7,6 +7,11 @@
 ## Mục đích
 BOM định nghĩa các loại khoang chứa (kích thước, mô tả) và quản lý mức giá thuê áp dụng toàn hệ thống — đây là nguồn giá **duy nhất**, FM không tự đặt giá cho từng khoang.
 
+## Navigation
+
+- **Vào từ:** BOM shell hoặc revenue/facility context.
+- **Đi tới:** unit type detail/edit surface; public `/units` để preview customer-facing catalog; `/bom/revenue`; `/notifications` sau cập nhật giá.
+
 ## Dữ liệu hiển thị
 - Danh sách `UnitType`: `name` (Small/Medium/Large), `width`/`depth`/`height`/`area`, `description`, `monthly_price`, `updated_by`, `updated_at`
 

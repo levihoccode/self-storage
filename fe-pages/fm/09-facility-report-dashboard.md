@@ -7,6 +7,11 @@
 ## Mục đích
 FM theo dõi tình hình vận hành của riêng cơ sở mình phụ trách.
 
+## Navigation
+
+- **Vào từ:** FM shell.
+- **Đi tới:** `/fm/storage-units`, `/fm/contracts`, `/fm/invoices`, `/fm/support-requests` từ các KPI hoặc drill-down.
+
 ## Dữ liệu hiển thị
 - Số khoang trống/đã thuê, tỷ lệ lấp đầy
 - Doanh thu (phụ thuộc chính sách giá từ Flow 4)

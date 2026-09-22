@@ -7,6 +7,11 @@
 ## Mục đích
 BOM là người duy nhất có quyền tạo mới cơ sở/chi nhánh và gán FM phụ trách.
 
+## Navigation
+
+- **Vào từ:** BOM shell hoặc system report.
+- **Đi tới:** facility detail/edit surface; `/bom/staff-requests`; `/bom/reports`; `/notifications` sau assignment/status change.
+
 ## Dữ liệu hiển thị
 - Danh sách `Facility`: `code` (mã chi nhánh, vd "Q7"), `name`, `address`, `phone`, `operating_hours`, `fm_account_id` (tên FM phụ trách, có thể trống), `status` (Active/Inactive)
 

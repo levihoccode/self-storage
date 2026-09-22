@@ -7,6 +7,11 @@
 ## Mục đích
 FM xử lý các `RentalRequest` gửi tới chi nhánh mình phụ trách: gán khoang phù hợp hoặc từ chối.
 
+## Navigation
+
+- **Vào từ:** FM shell sau login hoặc notification về request mới.
+- **Đi tới:** details/approve/reject surface; `/fm/rental-orders/:id/re-propose` khi cần đề xuất lại; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `RentalRequest WHERE facility_id = FM.facility AND status = Pending` (danh sách entry, có nút details/response/update status)
 - Filter theo `status` (Pending/Approved/Rejected/Expired/Wishlisted)

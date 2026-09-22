@@ -7,6 +7,11 @@
 ## Mục đích
 FS xem toàn bộ `Appointment` (check-in, trả kho) được FM phân công cho mình trong ngày, làm điểm bắt đầu cho các thao tác on-site.
 
+## Navigation
+
+- **Vào từ:** `/login` sau khi FS đăng nhập; staff shell.
+- **Đi tới:** `/staff/appointments/:id/handover` cho check-in; `/staff/appointments/:id/return` cho return; `/staff/support-requests`; `/staff/incidents/new`.
+
 ## Dữ liệu hiển thị
 - `Appointment WHERE staff_id = current_user AND appointment_date = :date`: khách hàng, khoang chứa, `type` (CHECKIN/RETURN), khung giờ, `status`
 - Chọn ngày để xem lịch khác (mặc định hôm nay)

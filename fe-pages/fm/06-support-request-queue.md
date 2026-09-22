@@ -7,6 +7,11 @@
 ## Mục đích
 FM phân công FS xử lý các yêu cầu hỗ trợ sự cố do khách gửi hoặc do FS tự ghi nhận tại kho.
 
+## Navigation
+
+- **Vào từ:** FM shell hoặc notification về support request.
+- **Đi tới:** `/staff/support-requests` sau khi assign; `/fm/contracts` hoặc unit detail để xem context; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `SupportRequest WHERE status = Open` thuộc facility của khoang
 - `issue_type` (LostKey/AccessCode/UnitDamage/Other), `description`, người báo (`reporter_id` — Customer hoặc FS), `contract_id` (nullable)

@@ -7,6 +7,11 @@
 ## Mục đích
 Admin là người **duy nhất có quyền thực thi kỹ thuật** việc tạo tài khoản/cập nhật role. Admin không quyết định ai giữ role gì (đó là quyền BOM) — chỉ đảm bảo thao tác được thực hiện đúng, an toàn, có audit trail.
 
+## Navigation
+
+- **Vào từ:** `/login` sau khi Admin đăng nhập; admin shell.
+- **Đi tới:** `/admin/staff-requests` để xử lý request; `/admin/rbac`; `/admin/login-history`; `/admin/audit-log`; account detail/edit surface.
+
 ## Dữ liệu hiển thị
 - Danh sách `Account`: họ tên, email, `role`, `status` (Active/Inactive/Locked), facility (nếu FM/FS — tra ngược qua `Facility.fm_account_id`/`AccountFacilityAssignment`)
 - Filter theo role, status

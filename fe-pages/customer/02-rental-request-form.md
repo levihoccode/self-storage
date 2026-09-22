@@ -7,6 +7,11 @@
 ## Mục đích
 Cho khách điền nhu cầu thuê kho mà không cần chỉ định khoang cụ thể — FM sẽ xét duyệt và gán khoang phù hợp sau.
 
+## Navigation
+
+- **Vào từ:** `/units`, CTA public hoặc link trực tiếp.
+- **Đi tới:** trạng thái success; customer có thể sang `/register` nếu cần tạo tài khoản; quay lại `/units` để tiếp tục xem kho.
+
 ## Dữ liệu hiển thị / Input form
 - `customer_name`, `customer_email` (normalize trước khi lưu), `customer_phone`
 - `unit_type` (chọn từ danh sách `UnitType`)

@@ -7,6 +7,11 @@
 ## Mục đích
 FM xem toàn bộ hợp đồng đang hiệu lực tại cơ sở mình, tình trạng thanh toán, để chủ động theo dõi thay vì chờ khách chủ động thao tác.
 
+## Navigation
+
+- **Vào từ:** FM shell, `/fm/reports` hoặc notification.
+- **Đi tới:** contract detail surface; `/fm/invoices`; `/fm/return-requests`; `/fm/extend-requests`; `/my-storage/:id` chỉ là customer-facing counterpart, không phải link mặc định cho FM.
+
 ## Dữ liệu hiển thị
 - Danh sách `RentalContract WHERE facility (qua StorageUnit) = FM.facility`: khách hàng, khoang, `start_date`/`end_date`, `status`, tình trạng thanh toán (tổng hợp `Invoice`)
 - Badge "còn hiệu lực / sắp hết hạn / quá hạn" tính từ `end_date` giống dashboard khách

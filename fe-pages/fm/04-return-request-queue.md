@@ -7,6 +7,11 @@
 ## Mục đích
 FM phân công FS xử lý các yêu cầu trả kho do khách gửi từ trang chi tiết hợp đồng.
 
+## Navigation
+
+- **Vào từ:** FM shell, notification hoặc contract overview.
+- **Đi tới:** `/fm/appointments` sau khi phân công; `/fm/contracts` để xem contract; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `ReturnRequest WHERE status = Pending` thuộc facility của FM, JOIN thông tin hợp đồng/khách/khoang
 - `preferred_date`, `reason` (nếu có)

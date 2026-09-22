@@ -7,6 +7,11 @@
 ## Mục đích
 Cho FS chủ động ghi nhận sự cố phát hiện tại kho (kể cả khi khoang không có hợp đồng `Active`, ví dụ khoang trống bị hư hỏng), khác với `fs/04-support-request-handling.md` (xử lý request đã được phân công).
 
+## Navigation
+
+- **Vào từ:** staff shell hoặc support handling khi phát hiện sự cố.
+- **Đi tới:** `/staff/support-requests` sau khi gửi; `/staff/schedule` để quay lại việc đang làm.
+
 ## Dữ liệu hiển thị / Input form
 - Chọn `unit_id` (khoang tại facility mình phụ trách)
 - `issue_type` (LostKey/AccessCode/UnitDamage/Other)

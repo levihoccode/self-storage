@@ -7,6 +7,11 @@
 ## Mục đích
 Sau khi đặt cọc thành công (`RentalOrder.status = Deposited`), khách chọn ngày giờ đến cơ sở để check-in, kiểm tra khoang, ký hợp đồng và nhận bàn giao.
 
+## Navigation
+
+- **Vào từ:** `/invoices/:id` sau khi thanh toán cọc; notification hoặc link từ order.
+- **Đi tới:** `/staff/schedule` là workspace của FS sau khi appointment được tạo; customer quay lại `/my-storage` hoặc `/notifications`.
+
 ## Dữ liệu hiển thị
 - Thông tin cơ sở: địa chỉ, giờ hoạt động
 - Danh sách khung giờ khả dụng, sinh từ giờ hoạt động `Facility` (MVP: 3 khung cố định/ngày, không giới hạn capacity theo số khách)

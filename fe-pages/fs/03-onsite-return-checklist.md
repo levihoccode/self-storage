@@ -7,6 +7,11 @@
 ## Mục đích
 Một trang duy nhất dẫn dắt FS qua tiến trình kiểm tra và bàn giao lại khoang, ghi nhận trên `CheckoutRecord`, tính phí phát sinh và đối trừ cọc.
 
+## Navigation
+
+- **Vào từ:** `/staff/schedule` từ appointment RETURN.
+- **Đi tới:** `/staff/schedule` sau khi hoàn tất; `/staff/support-requests` nếu phát hiện sự cố; customer nhận cập nhật qua `/notifications`.
+
 ## Dữ liệu hiển thị
 - Hiện trạng khoang **lúc bàn giao** (đọc từ `HandoverRecord` của Flow 2 — `inspection_notes`, `inspection_photos`) để đối chiếu, hiển thị song song với form nhập hiện trạng lúc trả
 - Checklist: đã dọn trống (`is_empty`), tình trạng vệ sinh (`cleanliness`), hư hỏng (`damages[]`, `photos[]`), số chìa khóa trả lại (`returned_key_quantity`)

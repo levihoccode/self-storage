@@ -7,6 +7,11 @@
 ## Mục đích
 Sau khi FM duyệt `RentalRequest` và chỉ định khoang, khách cần xác nhận đồng ý hoặc từ chối khoang được đề xuất (`ProposalFeedback`) trước khi được phép đặt cọc.
 
+## Navigation
+
+- **Vào từ:** `/login` sau khi đăng nhập hoặc notification liên quan đến proposal.
+- **Đi tới:** `/invoices/:id` sau khi đồng ý; giữ tại page và chờ FM đề xuất lại sau khi từ chối; `/notifications` để xem event liên quan.
+
 ## Dữ liệu hiển thị
 - Danh sách `ProposalFeedback.status = Pending` của khách, mỗi entry gồm: thông tin khoang (`unit_id` → code, `unit_type`, `facility`), giá thuê, ngày đề xuất
 - Gợi ý chia 2 tab (theo NOTES của flow-1):

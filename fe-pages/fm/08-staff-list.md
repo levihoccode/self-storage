@@ -7,6 +7,11 @@
 ## Mục đích
 FM xem danh sách FS được gán vào cơ sở mình phụ trách, làm cơ sở để phân công công việc ở các trang khác (lịch hẹn, return/support request).
 
+## Navigation
+
+- **Vào từ:** FM shell hoặc `/fm/appointments`.
+- **Đi tới:** `/fm/appointments` để phân công; `/staff/schedule` là workspace của FS; `/fm/support-requests` và `/fm/return-requests` để xem workload.
+
 ## Dữ liệu hiển thị
 - Danh sách FS qua `AccountFacilityAssignment WHERE facility_id = FM.facility`: tên, email, `assigned_at`
 - Số lượng công việc đang xử lý của mỗi FS (tổng hợp từ `Appointment`/`SupportRequest`/`ReturnRequest` đang mở, nếu BE hỗ trợ — không thấy chốt rõ trong tài liệu, đề xuất bổ sung)

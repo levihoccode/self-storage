@@ -7,6 +7,11 @@
 ## Mục đích
 Admin theo dõi lịch sử hoạt động nhạy cảm của nhân viên trong hệ thống (duyệt yêu cầu, cập nhật trạng thái, đổi giá, đổi role...).
 
+## Navigation
+
+- **Vào từ:** admin shell hoặc detail/action surface.
+- **Đi tới:** `/admin/accounts`, `/admin/rbac`, `/admin/login-history` từ actor/entity context; detail drawer cho diff lớn.
+
 ## Dữ liệu hiển thị
 - Danh sách `AuditLog`: `account_id` (người thực hiện), `action` (vd `RentalRequest.Approve`, `Policy.Update`, `Account.UpdateRole`), `entity_type`, `entity_id`, `old_value`/`new_value` (JSON, dạng diff), `created_at`
 - Filter theo `account_id`, `entity_type`, khoảng thời gian

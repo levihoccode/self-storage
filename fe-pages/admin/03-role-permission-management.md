@@ -7,6 +7,11 @@
 ## Mục đích
 Admin thiết lập quyền truy cập dữ liệu cho từng role theo model RBAC — data-driven, không hard-code trong source code.
 
+## Navigation
+
+- **Vào từ:** admin shell hoặc account management.
+- **Đi tới:** `/admin/accounts` để xem account chịu ảnh hưởng; `/admin/audit-log` sau thay đổi; permission detail/edit surface.
+
 ## Dữ liệu hiển thị
 - Danh sách `Role` (Admin/BOM/FM/FS/Customer) với mô tả
 - Danh sách `Permission`: `code` (vd `rental_request.approve`, `invoice.read`, `policy.update`), `description`

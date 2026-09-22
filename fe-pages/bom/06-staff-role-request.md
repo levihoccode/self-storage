@@ -7,6 +7,11 @@
 ## Mục đích
 BOM quyết định role (FM/FS) cho nhân sự và gửi danh sách lên Admin để Admin thực thi kỹ thuật (tạo/cập nhật account). BOM **quyết định nghiệp vụ**, Admin **chỉ thực thi**.
 
+## Navigation
+
+- **Vào từ:** BOM shell hoặc facility detail.
+- **Đi tới:** `/admin/staff-requests` sau khi gửi; giữ tại batch history để theo dõi Pending/Done; `/notifications` sau cập nhật.
+
 ## Dữ liệu hiển thị
 - Form tạo batch `AccountRoleRequest`: mỗi dòng gồm họ tên, email, `role` (FM hoặc FS), `target_facility_id`
 - Lịch sử các batch đã gửi: `status` (Pending/Done), `account_id` (gán sau khi Admin xử lý xong)

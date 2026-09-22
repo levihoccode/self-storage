@@ -7,6 +7,11 @@
 ## Mục đích
 BOM thiết lập và quản lý các chính sách vận hành áp dụng toàn hệ thống: đặt cọc, hủy, trả kho, gia hạn, xử lý quá hạn.
 
+## Navigation
+
+- **Vào từ:** BOM shell sau login.
+- **Đi tới:** policy detail/edit surface; `/bom/fees`, `/bom/discounts`, `/bom/reports`; `/notifications` sau thay đổi cần theo dõi.
+
 ## Dữ liệu hiển thị
 - Danh sách chính sách hiện hành (theo bản flow-4: bảng `rental-policies` — `id`, `name`, `deposit_type` ($/%), `deposit_value`, `cancel_policy`, `return_policy`, `renewal_policy`, `overdue_policy`, `effective_from`, `effective_to`, `status`, `created_by`, `created_at`)
 - **Tại 1 thời điểm chỉ có 1 policy đang hoạt động** trên hệ thống

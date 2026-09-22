@@ -7,6 +7,12 @@
 ## Mục đích
 Cổng vào chung cho mọi loại tài khoản, điều hướng theo `role_id` sau khi đăng nhập thành công.
 
+## Navigation
+
+- **Vào từ:** public header, protected deep link hoặc `/`.
+- **Đi tới:** customer → `/my-storage`; FM → `/fm/rental-requests`; FS → `/staff/schedule`; BOM → `/bom/revenue`; Admin → `/admin/accounts`.
+- **Failure:** giữ tại `/login` và hiển thị lỗi; nếu có `returnTo`, quay lại deep link sau khi đăng nhập thành công.
+
 ## Dữ liệu hiển thị / Input form
 - Email, mật khẩu
 - [Quên mật khẩu]

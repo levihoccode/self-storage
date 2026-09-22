@@ -7,6 +7,11 @@
 ## Mục đích
 BOM thiết lập và quản lý danh mục các khoản phí (phạt, dịch vụ, phụ phí) dùng để tạo hóa đơn xuyên suốt hệ thống.
 
+## Navigation
+
+- **Vào từ:** BOM shell hoặc policy/invoice context.
+- **Đi tới:** fee detail/edit surface; `/bom/policies`; `/bom/reports`; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `Fee`: `id`, `name`, `category`, `amount`, `calculation` (fixed/daily/monthly/%), `desc`, `status`, `created_by`, `created_at`
 - Ví dụ: "Mất chìa khóa" (LOST-KEY, 50k, fixed); "Wifi" (WIFI, 2tr, monthly)

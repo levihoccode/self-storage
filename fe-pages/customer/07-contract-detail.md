@@ -7,6 +7,11 @@
 ## Mục đích
 Trang trung tâm để khách xem đầy đủ thông tin 1 hợp đồng và thực hiện các action: gia hạn, trả kho, báo sự cố — theo đúng danh sách `available_actions` do BE trả về.
 
+## Navigation
+
+- **Vào từ:** `/my-storage` khi chọn kho; notification hoặc deep link hợp đồng.
+- **Đi tới:** panel gia hạn, panel trả kho, panel báo sự cố; `/invoices/:id`; `/appointments`; quay lại `/my-storage`.
+
 ## Dữ liệu hiển thị
 - Thông tin khoang: facility, vị trí, type, size (chỉ đọc)
 - `RentalContract`: `signed_at`, `start_date`/`end_date`, `deposit_amount`, `monthly_price`; nút [Tải hợp đồng] chỉ hiện khi có `pdf_url`

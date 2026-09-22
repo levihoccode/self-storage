@@ -7,6 +7,11 @@
 ## Mục đích
 Một trang duy nhất dẫn dắt FS qua toàn bộ tiến trình bàn giao khoang cho khách theo dạng checklist tuần tự, ghi nhận trên `HandoverRecord` (mỗi bước bật 1 cờ kèm timestamp).
 
+## Navigation
+
+- **Vào từ:** `/staff/schedule` từ appointment CHECKIN.
+- **Đi tới:** `/staff/schedule` sau khi hoàn tất; incident/support surface nếu có vấn đề; customer theo dõi contract/appointment qua notification.
+
 ## Dữ liệu hiển thị
 - Thông tin đơn: khách hàng, khoang, `RentalOrder`
 - 4 bước checklist theo thứ tự bắt buộc (không cho nhảy bước):

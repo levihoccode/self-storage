@@ -7,6 +7,11 @@
 ## Mục đích
 FM xem toàn bộ `Appointment` (check-in, trả kho) của cơ sở theo ngày và phân công FS phụ trách từng lịch hẹn.
 
+## Navigation
+
+- **Vào từ:** FM shell hoặc notification.
+- **Đi tới:** `/staff/schedule` sau khi phân công; customer appointment context; `/fm/contracts` hoặc `/fm/return-requests` khi cần xem contract/request liên quan.
+
 ## Dữ liệu hiển thị
 - `Appointment` của facility, theo ngày, gồm `type` (CHECKIN/RETURN), khách hàng, khung giờ, `staff_id` (null nếu chưa phân công)
 - Filter `staff_id IS NULL` để xem nhanh lịch chưa phân công

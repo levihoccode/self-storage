@@ -7,6 +7,11 @@
 ## Mục đích
 Cho phép BOM so sánh hiệu suất/doanh thu **giữa nhiều chi nhánh** cùng lúc — khác với `bom/04-revenue-dashboard.md` vốn tập trung vào số liệu doanh thu tổng, trang này thiên về so sánh chi nhánh với chi nhánh (tỷ lệ lấp đầy, số ca quá hạn, hiệu suất vận hành).
 
+## Navigation
+
+- **Vào từ:** BOM shell hoặc revenue dashboard.
+- **Đi tới:** `/bom/revenue`, `/bom/facilities`, `/bom/fees`, `/bom/unit-types` từ drill-down; export nếu được chốt.
+
 ## Dữ liệu hiển thị
 - Bảng so sánh nhiều `Facility`: tỷ lệ lấp đầy, doanh thu, số ca quá hạn, số sự cố phát sinh — theo khoảng thời gian chọn
 - Biểu đồ xếp hạng chi nhánh (top/bottom performer)

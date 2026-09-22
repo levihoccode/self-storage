@@ -7,6 +7,11 @@
 ## Mục đích
 Cho khách mới tạo tài khoản. Nếu email trùng với 1 `RentalRequest` đã được FM duyệt (`status=Approved`) trong thời hạn quy định, hệ thống tự động liên kết và tạo `RentalOrder` + `ProposalFeedback`/`Invoice` cọc ngay sau khi xác minh email.
 
+## Navigation
+
+- **Vào từ:** `/login` hoặc public request flow.
+- **Đi tới:** `/verify-email?token=...` sau đăng ký; `/login` sau khi xác minh thành công; quay lại `/register` khi resend hoặc sửa thông tin.
+
 ## Dữ liệu hiển thị / Input form
 - **Đăng ký:** họ tên, email, số điện thoại, mật khẩu
 - **Xác minh:** trang thông báo "Vui lòng kiểm tra email" sau đăng ký; trang kết quả khi khách bấm link xác minh trong email

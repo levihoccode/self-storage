@@ -7,6 +7,12 @@
 ## Mục đích
 Trang giới thiệu để khách vãng lai tìm hiểu dịch vụ trước khi điền form yêu cầu đặt kho (1.1). Đóng vai trò landing/marketing + tra cứu nhanh loại kho, giá, chi nhánh.
 
+## Navigation
+
+- **Vào từ:** `/` hoặc public navigation.
+- **Đi tới:** `/units` để xem danh sách; `/rental-requests/new` khi khách chọn gửi nhu cầu.
+- **Surface phụ:** Unit details mở bằng modal trên page.
+
 ## Dữ liệu hiển thị
 - Danh sách `Facility` (chi nhánh) đang `Active`: tên, địa chỉ, giờ hoạt động
 - Danh sách `UnitType`: tên loại (Small/Medium/Large), kích thước (width/depth/height/area), `monthly_price`, mô tả

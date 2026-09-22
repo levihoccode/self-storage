@@ -7,6 +7,11 @@
 ## Mục đích
 Khi khách từ chối khoang được đề xuất, hoặc khoang bị người khác chiếm mất trước khi khách kịp đồng ý/đặt cọc, FM cần chọn khoang khác và gửi đề xuất mới.
 
+## Navigation
+
+- **Vào từ:** `/fm/rental-requests` hoặc notification khi proposal bị từ chối/mất khoang.
+- **Đi tới:** quay lại request/order queue sau khi gửi; customer theo dõi tại `/proposals`; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Thông tin đơn: khách hàng, `unit_type` mong muốn, lịch sử các `ProposalFeedback` trước đó (kèm `note` lý do từ chối nếu có)
 - Danh sách khoang `Available` còn lại cùng `unit_type`/`facility`

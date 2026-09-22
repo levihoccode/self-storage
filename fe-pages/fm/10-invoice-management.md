@@ -7,6 +7,11 @@
 ## Mục đích
 FM xem toàn bộ hóa đơn phát sinh từ khách hàng thuộc cơ sở mình phụ trách, phục vụ theo dõi công nợ/thanh toán tổng quát (không phải trang tạo hóa đơn thủ công — hóa đơn được hệ thống tự tạo theo từng flow).
 
+## Navigation
+
+- **Vào từ:** FM shell, `/fm/contracts` hoặc notification.
+- **Đi tới:** invoice detail surface; `/fm/contracts` để xem contract; `/notifications` sau khi có cập nhật trạng thái.
+
 ## Dữ liệu hiển thị
 - Danh sách `Invoice` thuộc các hợp đồng/đơn có `StorageUnit.facility_id = FM.facility`: `code`, `type`, khách hàng, `amount`, `status`, `due_date`
 - Filter theo `type` (Deposit/Rental/Extension/Penalty/Service), `status`

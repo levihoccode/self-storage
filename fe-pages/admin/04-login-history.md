@@ -7,6 +7,11 @@
 ## Mục đích
 Admin theo dõi hoạt động và lịch sử đăng nhập của toàn bộ user trong hệ thống.
 
+## Navigation
+
+- **Vào từ:** admin shell hoặc account detail.
+- **Đi tới:** `/admin/accounts` khi cần xử lý account; `/admin/audit-log` để xem hành động liên quan.
+
 ## Dữ liệu hiển thị
 - Danh sách `LoginHistory`: `account_id` (nullable — null khi đăng nhập bằng email không tồn tại), `email`, `ip_address`, `user_agent`, `status` (Success/Failed), `failure_reason`, `created_at`
 - Filter theo email, khoảng thời gian, `status`

@@ -7,6 +7,11 @@
 ## Mục đích
 Cho khách báo các sự cố liên quan tới khoang/khóa truy cập trong lúc hợp đồng còn `Active`, không phụ thuộc trạng thái quá hạn hay đang có request khác mở.
 
+## Navigation
+
+- **Vào từ:** panel trên `/my-storage/:id`.
+- **Đi tới:** quay lại `/my-storage/:id` sau khi gửi; `/notifications` để theo dõi request; staff xử lý tại `/staff/support-requests`.
+
 ## Dữ liệu hiển thị / Input form
 - `issue_type` (LostKey / AccessCode / UnitDamage / Other)
 - `description` (mô tả chi tiết)

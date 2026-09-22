@@ -7,6 +7,11 @@
 ## Mục đích
 BOM quản lý các chương trình giảm giá áp dụng cho hóa đơn (đặt cọc, tiền thuê, gia hạn).
 
+## Navigation
+
+- **Vào từ:** BOM shell hoặc invoice/policy context.
+- **Đi tới:** discount detail/edit surface; `/bom/policies`; `/bom/revenue`; `/notifications` sau mutation.
+
 ## Dữ liệu hiển thị
 - Danh sách `Discount`: `code` (unique), `name`, `discount_type` (Percent/Fixed), `value`, `apply_to` (Deposit/Rental/Extension/All), `min_months` (nullable), `start_at`, `end_at`, `is_active`
 
