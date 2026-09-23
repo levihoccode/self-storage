@@ -274,6 +274,8 @@ Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1
 | `overdue.lock_after_days` | Number (ngày) | Automated | Flow 6 | Số ngày nợ phí quá hạn trước khi cron khóa hợp đồng/quyền truy cập | chờ BOM |
 | `overdue.waive_max_percent` | Percent | ManualGuardrail | Flow 6 | Mức % nhân viên được tự quyết miễn giảm phạt, vượt mức phải chuyển BOM duyệt | chờ BOM |
 | `overdue.waive_max_amount` | Number | ManualGuardrail | Flow 6 | Mức tiền tối đa nhân viên được tự quyết miễn giảm phạt | chờ BOM |
+| `deposit.type` | Text (`Fixed`/`Percent`) | Automated | Flow 1 (`Invoice.amount`, type=Deposit) | Hình thức tính tiền cọc | `Percent` |
+| `deposit.value` | Number | Automated | Flow 1 | Số tiền cố định hoặc % `UnitType.monthly_price` dùng để tính cọc | 50 |
 
 **Details:**
 - BOM tạo/sửa `value` cho từng key qua UI dạng danh sách + filter theo nhóm (prefix key: `request.*`, `account.*`, `proposal.*`, `appointment.*`, `invoice.*`, `order.*`, `handover.*`, `contract.*`, `extension.*`, `unit.*`, `overdue.*`, `report.*`...) và theo `execution_type` để tách rõ "tham số hệ thống tự chạy" với "ngưỡng cho nhân viên".
@@ -282,6 +284,9 @@ Ranh giới này quyết định toàn bộ thiết kế bên dưới: mục 4.1
 - MVP không version hoá theo khoảng thời gian hiệu lực (không `effective_from`/`effective_to` cho từng bộ policy) — mỗi key chỉ có 1 giá trị hiện hành; lịch sử tra qua `AuditLog`. Việc này không tạo rủi ro cho hợp đồng cũ vì các giá trị đã "chốt" cho khách luôn được snapshot ở nơi phát sinh (`Invoice.amount`, `RentalContract.monthly_price`, `RentalContract.terms_version`, `RentalOrder.expires_at`) — không phụ thuộc giá trị `Policy` hiện tại.
 - Với các tham số cần đi cùng nhau (như `overdue.waive_max_percent` + `overdue.waive_max_amount`), tách thành 2 key phẳng riêng thay vì gộp 1 giá trị JSON — giữ nhất quán với toàn bộ hệ thống, không cần logic parse JSON ở nơi tiêu thụ.
 - Thêm key mới không cần đổi schema, nhưng **code đọc key đó phải được lập trình sẵn** — thêm 1 dòng dữ liệu không tự sinh hành vi mới nếu chưa có code đọc (đúng ranh giới Cấp độ 1 vs Cấp độ 2).
+- `Percent`: `deposit_amount = UnitType.monthly_price (hoặc StorageUnit.monthly_price nếu có override) × deposit.value / 100`.
+- `Fixed`: `deposit_amount = deposit.value` (không nhân với giá thuê) — giữ chỗ cho trường hợp BOM muốn cọc cố định không theo % (VD: khoang nhỏ cọc tối thiểu 500k dù giá thuê thấp hơn).
+- `Invoice.amount` (Flow 1 sở hữu) vẫn đúng như thiết kế hiện tại: chỉ lưu **kết quả snapshot**, không lưu công thức — công thức nằm ở `Policy`, chỉ áp dụng tại thời điểm tạo hóa đơn.
 - **Cơ chế Maker-Checker cho các key `ManualGuardrail`** (VD: nhân viên xin giảm phạt vượt `overdue.waive_max_percent`) là quy trình duyệt (approval queue, trạng thái, thông báo) thuộc **flow tiêu thụ** (Flow 6), không thiết kế ở đây — Flow 4 chỉ đảm bảo giá trị ngưỡng luôn sẵn có và đúng kiểu dữ liệu.
 
 **NOTES:**

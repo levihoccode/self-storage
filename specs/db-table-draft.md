@@ -95,6 +95,7 @@
 
 ---
 
+```markdown
 # Policy
 **Overview:** toàn bộ ngưỡng thời gian, mốc tính toán, quy tắc mà các flow khác cần nhưng không nên hard-code, dưới dạng key–value. BOM sửa `value` trên UI, flow tiêu thụ đọc theo key ngay lần truy vấn tiếp theo, không cần deploy lại.
 - key (unique)
@@ -117,6 +118,8 @@
 | `account.claim_ttl_days` | Number (ngày) | Automated | Flow 1 (`RentalRequest.expires_at`) | Hạn khách tạo tài khoản sau khi được duyệt, tính từ `responded_at` | 7 |
 | `proposal.response_ttl_days` | Number (ngày) | Automated | Flow 1 (`ProposalFeedback.expires_at`) | Hạn khách phản hồi 1 `ProposalFeedback` trước khi tự `Expired` | 3 |
 | `invoice.deposit_due_days` | Number (ngày) | Automated | Flow 1 (`Invoice.due_date`, type=Deposit) | Hạn thanh toán hóa đơn đặt cọc | 3 |
+| `deposit.type` | Text (`Fixed`/`Percent`) | Automated | Flow 1 (`Invoice.amount`, type=Deposit) | Hình thức tính tiền cọc | `Percent` |
+| `deposit.value` | Number | Automated | Flow 1 | Số tiền cố định hoặc % `UnitType.monthly_price` dùng để tính cọc | 50 |
 | `appointment.booking_window_days` | Number (ngày) | Automated | Flow 1 | Khách phải chọn lịch check-in trong vòng N ngày kể từ lúc cọc | 7 |
 | `appointment.max_days_after_deposit` | Number (ngày) | Automated | Flow 1 | Ngày hẹn check-in tối đa cách lúc cọc bao lâu | 14 |
 | `appointment.daily_slot_count` | Number (khung) | Automated | Flow 1 | Số khung giờ cố định mỗi ngày cho lịch check-in/trả kho | 3 |
@@ -139,10 +142,16 @@
 | `overdue.waive_max_amount` | Number | ManualGuardrail | Flow 6 | Mức tiền tối đa nhân viên tự quyết miễn giảm phạt | chờ BOM |
 | `account_role_request.expiry_days` | Number (ngày) | Automated | Flow 5 (`AccountRoleRequest.expires_at`) | Hạn Admin xử lý 1 dòng AccountRoleRequest trước khi hệ thống cảnh báo/escalate cho BOM | 3 |
 
+**Details:**
+- `Percent`: `deposit_amount = UnitType.monthly_price (hoặc StorageUnit.monthly_price nếu có override) × deposit.value / 100`.
+- `Fixed`: `deposit_amount = deposit.value` (không nhân với giá thuê) — giữ chỗ cho trường hợp BOM muốn cọc cố định không theo % (VD: khoang nhỏ cọc tối thiểu 500k dù giá thuê thấp hơn).
+- `Invoice.amount` (Flow 1 sở hữu) chỉ lưu **kết quả snapshot**, không lưu công thức — công thức nằm ở `Policy`, chỉ áp dụng tại thời điểm tạo hóa đơn.
+
 **NOTES:**
 - MVP không version hoá theo khoảng thời gian hiệu lực — mỗi key chỉ có 1 giá trị hiện hành; lịch sử tra qua `AuditLog`. Không rủi ro cho hợp đồng cũ vì giá trị đã "chốt" luôn được snapshot ở nơi phát sinh (`Invoice.amount`, `RentalContract.monthly_price`, `RentalOrder.expires_at`).
 - Key mới không cần đổi schema, nhưng code đọc key đó phải được lập trình sẵn (Cấp độ 1 vs Cấp độ 2, xem 4.0).
-- `deposit.type`, `deposit.value`, `deposit.due_hours`, `request.account_timeout_hours`, `order.auto_cancel_days`, `appointment.no_show_limit`, `appointment.reject_limit` đã bị loại khỏi danh mục vì không khớp field nào thực sự tồn tại trong schema Flow 1/2 hiện tại.
+- `deposit.due_hours`, `request.account_timeout_hours`, `order.auto_cancel_days`, `appointment.no_show_limit`, `appointment.reject_limit` đã bị loại khỏi danh mục vì không khớp field nào thực sự tồn tại trong schema Flow 1/2 hiện tại — đây là tên key sót lại từ bản nháp cũ, dùng sai đơn vị hoặc gộp nhầm 2 khái niệm khác nhau thành 1 key.
+- `deposit.type`/`deposit.value` **đã được thêm lại** vào danh mục (trước đó từng bị loại nhầm do không thấy field nào đối chiếu trong schema hiện tại — thực ra nghiệp vụ tính cọc theo BOM vẫn cần công thức tường minh, xem review giữa Flow 1/Flow 4).
 
 ---
 
@@ -165,7 +174,7 @@
 - Cách tính theo `calculation_type`: `Fixed` = amount × số lần; `Daily` = amount × số ngày; `Monthly` = amount mỗi tháng; `Percent` = amount × `RentalContract.monthly_price`.
 - `trigger_type` luôn `ManualIncident` cho MVP — tiền thuê định kỳ và phạt quá hạn không phải bản ghi trong `ExtraFee`, dùng cơ chế snapshot riêng đã có (`RentalContract.monthly_price`, `Policy.overdue.fee_per_day`).
 - Khi tạo hóa đơn phí, hệ thống tra `ExtraFee` theo `category` để lấy `amount`/`calculation_type`, ghi `category` vào `Invoice.desc` để đối soát.
-- **`ExtraFee.category` không phải là prefix của `Invoice.code`.** Bảng "Service Code" trong schema `Invoice` (Flow 1) phục vụ mục đích khác (đặt tên mã hóa đơn hiển thị cho khách) — 2 bảng độc lập, có thể tình cờ trùng ký hiệu (`CLN`/`DMG`) nhưng không tự đồng bộ với nhau. Xem comment gửi Flow 1 bên dưới.
+- **`ExtraFee.category` không phải là prefix của `Invoice.code`.** Bảng "Service Code" trong schema `Invoice` (Flow 1) phục vụ mục đích khác (đặt tên mã hóa đơn hiển thị cho khách) — 2 bảng độc lập, cố tình dùng dạng ký hiệu khác nhau (`category` viết đầy đủ, Service Code viết tắt 3 ký tự) để không bị nhầm là cùng 1 bảng.
 
 ---
 
@@ -184,11 +193,18 @@
 - updated_at
 
 **CONSTRAINTS:**
-- Tại thời điểm tạo `Invoice`, hệ thống tìm `Discount` đang `is_active` và còn hiệu lực (`start_at <= now <= end_at`) khớp `apply_to` và `min_months` (nếu có) → ghi `Invoice.discount_amount`, `Invoice.amount = giá gốc - discount_amount`.
-- Mỗi hóa đơn chỉ áp dụng tối đa 1 `Discount`, không cộng dồn.
+- Tại thời điểm tạo `Invoice`, hệ thống tìm `Discount` đang `is_active` và còn hiệu lực (`start_at <= now <= end_at`) khớp `apply_to` và `min_months` (nếu có), áp dụng **sau khi** đã tính xong giá gốc của hóa đơn (deposit theo `Policy.deposit.*`, rental theo `monthly_price`, extension theo `extra_months × monthly_price`).
+- Mỗi hóa đơn chỉ áp dụng tối đa 1 `Discount`, không cộng dồn, không stacking/priority.
+- Không áp dụng cho `Invoice.type = Penalty/Service`.
 
 **NOTES:**
-- **Phụ thuộc Flow 1 bổ sung field `discount_amount` vào `Invoice`** — xem comment gửi Flow 1 bên dưới, đây là điều kiện tiên quyết để `Discount` hoạt động được.
+- **Phụ thuộc Flow 1 bổ sung 3 field vào `Invoice`** (thay vì tạo bảng `InvoiceDiscount` riêng — MVP giới hạn 1 discount/hóa đơn nên quan hệ là 1–1, tách bảng là dư thừa):
+  ```
+  - original_amount (nullable) - giá trước khi trừ discount, để đối soát
+  - discount_amount (default 0) - số tiền đã giảm
+  - discount_code (nullable) - snapshot Discount.code đã áp dụng tại thời điểm tạo hóa đơn (không phải FK cứng, vì Discount có thể bị BOM sửa/Inactive sau đó nhưng invoice cũ vẫn cần biết đã dùng mã nào)
+  ```
+  `amount = original_amount - discount_amount` (giữ nguyên ý nghĩa "số tiền khách phải trả" như thiết kế hiện tại của `Invoice.amount`).
 
 ---
 
@@ -225,7 +241,7 @@
 
 | Flow | Đọc từ Flow 4 |
 |---|---|
-| Flow 1 | `request.pending_expiry_days`, `account.claim_ttl_days`, `proposal.response_ttl_days`, `invoice.deposit_due_days`, `appointment.booking_window_days`, `appointment.max_days_after_deposit`, `appointment.daily_slot_count`, `appointment.capacity_mode`, `appointment.checkin_reschedule_enabled`, `proposal.max_rejection_count`, `order.deposit_expiry_days`, `fee.unit_change` |
+| Flow 1 | `request.pending_expiry_days`, `account.claim_ttl_days`, `proposal.response_ttl_days`, `invoice.deposit_due_days`, `deposit.type`, `deposit.value`, `appointment.booking_window_days`, `appointment.max_days_after_deposit`, `appointment.daily_slot_count`, `appointment.capacity_mode`, `appointment.checkin_reschedule_enabled`, `proposal.max_rejection_count`, `order.deposit_expiry_days`, `fee.unit_change` |
 | Flow 2 | `UnitType.monthly_price`, `RentalTerm` (Active), `contract.start_date_rule`, `contract.prepaid_months`, `handover.payment_grace_hours`, `handover.max_rejection_count` |
 | Flow 2.5 | `ExtraFee` (LOST-KEY/CLEANING/DAMAGE...), `unit.maintenance_days` |
 | Flow 3 | `contract.expiring_soon_days`, `extension.invoice_due_days`, `Discount` (nếu áp dụng cho gia hạn) |
