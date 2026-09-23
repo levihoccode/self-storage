@@ -412,7 +412,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - Thanh toán đi qua cổng **VNPay**, **một phương thức duy nhất** cho MVP: hệ thống redirect sang cổng khi cần thanh toán hóa đơn. Không thu tiền mặt.
 - `ProposalFeedback` là bảng của **Flow 1** (khách duyệt online khoang FM chỉ định, trước khi chọn lịch hẹn, status `Pending/Agreed/Rejected`). Flow 2 chỉ đọc; phản hồi hiện trạng khoang lúc check-in ghi trong `HandoverRecord`.
 - **Ký hợp đồng offline cho MVP:** FS đánh dấu khách đã ký trên ứng dụng, hợp đồng giấy được chụp/scan và upload; `RentalContract.signature` lưu URL ảnh, `pdf_url` lưu bản scan. Hệ thống **không sinh PDF tự động** trong MVP; panel ký tay trên web để sau.
-- **Hỗ trợ cả hai loại khóa**: khóa cơ (`access_type = PhysicalKey`) và khóa mã số (`access_type = AccessCode`). Mỗi cơ sở/khoang bật tắt từng loại bằng hai cờ **`enabledKeyAccess`** và **`enabledCodeAccess`** - hai field này thuộc `Facility`/`StorageUnit` của **Flow 5**, Flow 2 chỉ nêu nhu cầu, không tự thêm.
+- **Hỗ trợ cả hai loại khóa**: khóa cơ (`access_type = PhysicalKey`) và khóa mã số (`access_type = AccessCode`). Mỗi cơ sở bật tắt từng loại bằng hai cờ **`enabledKeyAccess`** và **`enabledCodeAccess`** trên bảng `Facility` của **Flow 5** (đã có trong schema Flow 5 từ 23/09). Cấu hình theo cơ sở chứ không theo từng khoang.
 - **Audit (contract MVP):** dùng chung bảng `AuditLog` của Flow 1, **không tạo bảng riêng**. Mọi thao tác đổi trạng thái, quyền sở hữu hoặc tiền trong Flow 2/2.5 phải ghi một bản ghi cho **mỗi entity** bị thay đổi; `entity_id` lưu dạng `String/Text`. Không ghi lượt đọc, click, secret hay raw payload thanh toán. Flow 2 chỉ bổ sung action của mình vào catalog chung.
 - **Thông báo (contract MVP):** gửi email cho các sự kiện cần thông báo, đồng thời tạo thông báo để khách xem trên website - thông báo web là kênh chính để không mất thông tin khi email lỗi. **Lỗi gửi email không được rollback** thay đổi nghiệp vụ đã thành công. Flow 2 **không bắt buộc** `OutboxEvent` trong MVP; outbox, retry và bảo đảm giao email là quyết định kỹ thuật lúc code.
 - **Ngưỡng vận hành mặc định** (BOM cấu hình sau ở Flow 4): `handover.max_rejection_count` và `handover.payment_grace_hours` là hai ngưỡng duy nhất do Flow 2 kiểm tra. Các ngưỡng quanh lịch hẹn thuộc Flow 1 và lấy theo bảng tham số của Flow 1 (`appointment.booking_window_days` 7, `appointment.max_days_after_deposit` 14, `appointment.daily_slot_count` 3, `order.deposit_expiry_days` 30, `appointment.checkin_reschedule_enabled` false); các ngưỡng Flow 2 từng đề xuất (auto-cancel 7 ngày, 2 lần no-show, dời lịch 2 lần báo trước 24h) bỏ để tránh hai nguồn.
@@ -613,7 +613,7 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 - Đổi khoang sau khi khách đã cọc (do từ chối tại chỗ ở 2.2) do **Flow 1** xử lý: FM chỉ định khoang mới, hệ thống tạo `ProposalFeedback` **mới** (bản cũ giữ nguyên, khoang hiệu lực là proposal `Agreed` mới nhất), khách duyệt online. Flow 1 đã chốt (E6): khi đề xuất lại, hệ thống **loại các khoang khách đã từ chối** trong cùng đơn; FM muốn đề xuất lại khoang đã bị từ chối thì phải override kèm lý do và ghi `AuditLog`. Quá `proposal.max_rejection_count` lần thì Flow 1 hủy đơn. Chênh lệch mức cọc cũ/mới cộng phí đổi khoang: dư thì hoàn thủ công, thiếu thì xuất hóa đơn cọc bù. Còn mở: thứ tự chuyển khoang mới sang `Reserved` so với việc hoàn tiền.
 - Vì mỗi lần đề xuất lại tạo một `ProposalFeedback` mới, **không** đặt unique index `(order_id) WHERE status = 'Agreed'` - index đó sẽ chặn đúng reject path của Flow 2.
 - **Block `CANCELLATION CONSTRAINTS` chưa tồn tại trong spec.** NOTES của 2.2 tham chiếu block này để so sánh hai kiểu hủy đơn, nhưng hiện chưa mục nào định nghĩa. Cần Flow 1 viết block dùng chung, nếu không thì câu tham chiếu treo.
-- **Flow 5 bổ sung `enabledKeyAccess` và `enabledCodeAccess`** trên `Facility`/`StorageUnit` để bật tắt từng loại khóa (theo review của Levi ở PR #6). Chưa có hai field này thì 2.4 không xác định được cơ sở đang dùng loại khóa nào; schema Flow 5 hiện vẫn chưa có.
+- ~~Flow 5 bổ sung `enabledKeyAccess` và `enabledCodeAccess`~~ - **đã xong**: Flow 5 thêm hai cờ vào bảng `Facility` ngày 23/09, mục 2.4 đọc theo cơ sở.
 - `RentalOrder.status` theo contract Flow 1 (20/09): `Pending/Deposited/Scheduled/InProgress/Done/Canceled/Expired` - khác đề xuất B3 ở chỗ giữ `Pending` thay cho `AwaitingDeposit`. Flow 2 bám theo bộ này: vào flow ở `InProgress`, kết ở `Done`.
 
 **Advanced Features (not MVP)**
@@ -636,11 +636,11 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 
 | Tên | Giá trị |
 |---|---:|
-| `fee.cleaning` | chờ BOM |
-| `fee.damage` | chờ BOM |
-| `fee.lost_key` | chờ BOM |
-| `fee.late_return_per_day` | chờ BOM |
 | `unit.maintenance_days` | 1-3 ngày |
+
+Mức phí phát sinh lúc trả kho **không phải tham số `Policy`** mà là bản ghi trong bảng `ExtraFee` của Flow 4, tra theo `category`: `CLEANING`, `DAMAGE`, `LOST-KEY`. Mỗi bản ghi có `amount` và `calculation_type` (`Fixed`/`Daily`/`Monthly`/`Percent`) riêng, Flow 2.5 chỉ đọc chứ không tự định nghĩa mức.
+
+**Phí trả kho trễ không thuộc Flow 2.5.** Flow 4 chốt `overdue.fee_per_day` và Flow 6 là **nơi duy nhất** tính phí quá hạn, tính từ `end_date` của hợp đồng. Flow 2.5 chỉ gom các hóa đơn phạt đã có vào bước đối trừ cọc.
 
 **Vị trí trong vòng đời thuê kho:** Flow 2.5 nhận đầu vào từ Flow 3.4 (khách bấm yêu cầu trả kho) và xử lý toàn bộ phần on-site. Kết thúc khi khoang hoàn tất bảo trì và quay về `Available`, sẵn sàng cho yêu cầu mới ở Flow 1. Đây là điểm đóng vòng đời của một `RentalOrder`.
 
@@ -649,7 +649,7 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 - Việc dời vòng đời `Appointment` sang Flow 1 chỉ áp cho **lịch check-in** (thuộc booking lifecycle). Lịch `RETURN` vẫn do Flow 2.5 tạo từ `ReturnRequest` của Flow 3, vì nó không nằm trong vòng đời đặt khoang.
 - MVP chỉ hỗ trợ **luồng trả do khách chủ động yêu cầu**; FM hủy hộ yêu cầu trả kho không thuộc MVP.
 - Biên bản trả kho tách thành bảng **`CheckoutRecord`** riêng, vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao và kết thúc vòng đời sau đó.
-- Phí phát sinh khi trả kho (hư hỏng, vệ sinh, mất chìa, trả trễ) dùng **`Invoice.type = Penalty`** theo bộ `type` của schema chung `Deposit/Rental/Extension/Penalty/Service`; **tiền tố trong `code` lấy theo bảng Service Code của Flow 1**: `CLN` cho phí dọn dẹp, `DMG` cho phí hư hại. Hai thứ này ở hai tầng khác nhau - `type` phân loại hóa đơn, prefix chỉ nằm trong `code` - nên không xung đột. Khoản chưa có mã riêng (mất chìa, trả trễ) ghi phân loại ở `title`/`desc`.
+- Phí phát sinh khi trả kho (hư hỏng, vệ sinh, mất chìa) dùng **`Invoice.type = Penalty`** theo bộ `type` của schema chung `Deposit/Rental/Extension/Penalty/Service`; **tiền tố trong `code` lấy theo bảng Service Code của Flow 1**: `CLN` cho phí dọn dẹp, `DMG` cho phí hư hại. Hai thứ này ở hai tầng khác nhau - `type` phân loại hóa đơn, prefix chỉ nằm trong `code` - nên không xung đột. Khoản chưa có mã riêng (mất chìa, trả trễ) ghi phân loại ở `title`/`desc`.
 - Khi phát sinh phí, **FS hoặc FM tạo hóa đơn trong hệ thống**, khách thanh toán qua VNPay. Không thu tiền mặt trong MVP.
 - Tiền cọc **được hoàn lại cho khách** sau khi đối trừ hết các khoản phát sinh, không trừ vào kỳ thuê cuối.
 - Cơ chế khách **phản đối đánh giá hư hỏng** của FS không thuộc MVP; đánh giá của FS là kết quả cuối cùng.
@@ -662,7 +662,7 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 **Dữ liệu phụ thuộc (input từ các flow khác):**
 - Flow 3: bản ghi `ReturnRequest` (`status = Assigned`, đã có `assigned_staff_id` do FM phân công ở Flow 3.4).
 - Flow 2: `HandoverRecord` của đơn (`inspection_notes`, `inspection_photos`) để đối chiếu hiện trạng lúc nhận và lúc trả; `UnitAccessKey` để thu hồi quyền truy cập.
-- Flow 4: mức phí hư hỏng, vệ sinh, trả trễ, lưu giữ; chính sách xử lý tiền cọc; thời gian bảo trì do BOM cấu hình.
+- Flow 4: bảng `ExtraFee` (`CLEANING`, `DAMAGE`, `LOST-KEY`) cho mức phí phát sinh; `Policy.unit.maintenance_days` cho thời gian bảo trì; chính sách xử lý tiền cọc. Phí quá hạn (`overdue.fee_per_day`) thuộc Flow 6, Flow 2.5 không đọc.
 
 **Context:** Khách kết thúc nhu cầu thuê và muốn trả lại khoang chứa, cần có người kiểm tra hiện trạng, xử lý các khoản phát sinh và thu hồi quyền truy cập trước khi khoang được cho thuê lại.
 
@@ -683,7 +683,7 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
     - **Đạt yêu cầu:** không phát sinh phí, sang 2.5.3.
     - **Còn tài sản trong khoang:** FS ghi nhận, `CheckoutRecord.result = PENDING_ITEMS`, **không hoàn tất trả kho**. Hệ thống tạo một `Appointment(type = RETURN)` mới để khách quay lại dọn nốt và trỏ `CheckoutRecord.appointment_id` sang lịch mới. Khi khách quay lại và FS bắt đầu kiểm tra lần nữa, `result` chuyển **`PENDING_ITEMS -> IN_PROGRESS`** trên cùng bản ghi; vòng này lặp cho tới khi khoang trống hẳn. Trong thời gian này:
       - **Không thu hồi `UnitAccessKey`** - khách vẫn cần quyền truy cập để vào lấy đồ.
-      - Khoang giữ `Rented`, `RentalContract` giữ `Active`; nếu vượt hạn hợp đồng thì phát sinh phí trả kho trễ theo Flow 4.
+      - Khoang giữ `Rented`, `RentalContract` giữ `Active`; vượt hạn hợp đồng thì phí quá hạn do **Flow 6** tính theo `overdue.fee_per_day`, Flow 2.5 không tự tính.
       - Thời hạn cho dọn tiếp và mức phí lưu giữ theo **chính sách do BOM viết ở Flow 4**. Hệ thống **không tự động tính phí** khi khoang còn đồ - ngoài MVP; FM hoặc FS gửi hóa đơn thủ công.
     - **Khoang bẩn hoặc hư hỏng:** FS ghi nhận chi tiết kèm ảnh, hệ thống tạo hóa đơn phí tương ứng ở 2.5.3.
 
@@ -695,7 +695,8 @@ Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không �
 
 #### 2.5.3 Xử lý phí phát sinh và tiền cọc
 
-- **Các khoản có thể phát sinh** (đều tạo dưới `Invoice.type = Penalty`): phí vệ sinh, phí hư hỏng, phí mất chìa/thay khóa, phí trả kho trễ; cộng thêm các hóa đơn `Unpaid` còn tồn đọng của hợp đồng. Mức phí lấy theo cấu hình Flow 4, Flow 2.5 **không tự định nghĩa mức phí**.
+- **Các khoản Flow 2.5 tạo** (đều dưới `Invoice.type = Penalty`): phí vệ sinh (`ExtraFee.category = CLEANING`), phí hư hỏng (`DAMAGE`), phí mất chìa hoặc thay khóa (`LOST-KEY`). Mức tiền và cách tính đọc từ `ExtraFee`, Flow 2.5 **không tự định nghĩa mức phí**.
+- **Các khoản chỉ gom vào để đối trừ, không do Flow 2.5 tạo**: hóa đơn phạt quá hạn của Flow 6 và mọi hóa đơn `Unpaid` còn tồn đọng của hợp đồng.
 - **Đối trừ tiền cọc:**
   - Cọc lớn hơn tổng phí: hoàn lại phần chênh lệch cho khách (MVP ghi nhận số tiền phải hoàn, FM xử lý thủ công).
   - Cọc nhỏ hơn tổng phí: tạo hóa đơn phần còn thiếu, khách phải thanh toán trước khi hoàn tất trả kho.
