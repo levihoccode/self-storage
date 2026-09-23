@@ -204,25 +204,6 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Thanh toán" 
 
 #### 5.0 Quản lý tài khoản & phân quyền (System Administrator)
 
-### 5. Quản lý chi nhánh và nhân sự (BOM & FM)
-
-**Các tham số sử dụng trong Flow 5**
-
-| Tên | Giá trị | Ghi chú |
-|---|---|---|
-| `account_role_request.expiry_days` | *(chưa chốt, đề xuất 3 ngày)* | Số ngày `AccountRoleRequest` giữ trạng thái `Pending` trước khi hệ thống cảnh báo/escalate cho BOM và Admin — tương ứng field `expires_at` ở mục 5.1. **Đề xuất mới:** key này chưa nằm trong danh mục `Policy` chính thức của Flow 4 — Flow 5 gửi yêu cầu Flow 4 bổ sung vào bảng Policy dùng chung (thay vì giữ tham số "trôi nổi" ngoài hệ thống Policy tập trung), để BOM có chỗ chỉnh trên UI như mọi key khác. |
-| `unit.maintenance_days` | Do Flow 4 quản lý, xem `Policy` | Số ngày `StorageUnit.status = Maintenance` (phát sinh từ trả kho) trước khi cron tự động chuyển về `Available`. **Đã đổi tên khớp key chính thức của Flow 4** (trước đây Flow 5 ghi nhầm `unit_maintenance_days`, dạng underscore không khớp convention namespaced-dot của Policy). Flow 5 chỉ tham chiếu ở mục 5.2 để giải thích vì sao `maintenance_started_at` chỉ do Flow 2.5 set, không do Flow 5 set khi FM chuyển `Maintenance` thủ công vì sự cố. |
-| `report.default_range_months` | Do Flow 4 quản lý, xem `Policy` | Khoảng thời gian mặc định hiển thị trên dashboard báo cáo cơ sở của FM (mục 5.4) khi chưa chọn filter. **Đã đổi tên khớp key chính thức của Flow 4** (trước đây ghi `report_default_range_months`) — Flow 4 đã xác nhận key này dùng chung cho cả dashboard BOM (4.3 — "Dashboard theo dõi doanh thu chi nhánh") và dashboard FM (Flow 5, 5.4), mặc định đề xuất 2 tháng. |
-
-Mỗi Flow tự liệt kê các tham số mình sử dụng trước. Khi merge các Flow, team sẽ gộp key trùng và thống nhất giá trị khác nhau. Với 2 key đã có trong `Policy` của Flow 4 (`unit.maintenance_days`, `report.default_range_months`), Flow 5 không tự giữ giá trị riêng nữa — chỉ đọc từ `Policy` dùng chung; bảng trên chỉ còn tác dụng tra cứu nhanh, không phải nguồn sự thật.
-
-**FLOW:**
-```
-[BOM tạo Facility] -> [BOM chỉ định role (FM/FS) cho nhân sự] -> [Admin thực thi tạo/cập nhật Account] -> [BOM gán FM vào Facility] -> [FM setup khoang chứa tại Facility] -> [FM điều phối Facility Staff] -> [FM theo dõi báo cáo cơ sở]
-```
-
-#### 5.0 Quản lý tài khoản & phân quyền (System Administrator)
-
 **Context:** System Administrator là người duy nhất có quyền **thực thi kỹ thuật** việc tạo tài khoản và cập nhật role trong hệ thống. Admin không quyết định ai giữ role gì — quyết định đó thuộc về BOM (xem mục 5.1). Admin chỉ đảm bảo thao tác tạo/sửa account được thực hiện đúng, an toàn và có audit trail.
 
 **Flow tổng quát:** BOM chỉ định role (FM/FS) cho 1 người → gửi `AccountRoleRequest` lên Admin → Admin tra cứu email, tạo account mới hoặc cập nhật role account đã tồn tại → account đủ điều kiện hoạt động theo đúng phạm vi quyền hạn.
@@ -307,16 +288,17 @@ Mỗi Flow tự liệt kê các tham số mình sử dụng trước. Khi merge 
 **Flow tổng quát:** FM tạo mới/cập nhật StorageUnit (chọn loại, vị trí, trạng thái) → khoang chứa hiển thị cho khách xem và để FM chỉ định khi duyệt RentalRequest.
 
 **Đã chốt (B1 — Flow 5 là owner của enum `StorageUnit.status`, dùng chung toàn hệ thống):**
-```
-Available | OnHold | Reserved | Rented | Maintenance
-```
+
+Available | Reserved | Rented | Maintenance
+
 - `Available`: sẵn sàng cho thuê.
-- `OnHold`: tạm giữ ngắn hạn sau khi FM `Approve` yêu cầu nhưng khách chưa đặt cọc (Flow 1).
 - `Reserved`: đã đặt cọc, giữ tới khi bàn giao (Flow 1 → Flow 2).
 - `Rented`: đã bàn giao, đang có hợp đồng `Active` (Flow 2).
 - `Maintenance`: đang bảo trì hoặc đang sửa sự cố (Flow 2.5, hoặc FM chuyển thủ công ở mục này).
 
-**Đã chốt (A4 — owner mở lại khoang sau Maintenance):** việc tự động chuyển `Maintenance -> Available` sau khi trả kho **thuộc cron của Flow 2.5**, không phải Flow 5. Flow 5 (mục này) **chỉ** xử lý các trường hợp FM chuyển trạng thái **thủ công** cho sự cố ngoài luồng trả kho (khoang hư hỏng đột xuất khi đang `Available`/`Rented`...) — không đụng vào cron tự động của Flow 2.5.
+**Đã chốt (A9 — không dùng `OnHold`):** khoang không có trạng thái tạm giữ riêng cho đơn `Approved` nhưng chưa đặt cọc. Rủi ro Holding Attack (nêu ở mục Storage Unit đầu file) được xử lý ở tầng khác (rate limit/pre-authorization), không đưa thêm trạng thái vào enum dùng chung — tránh 3 nhánh Flow 1/3/5 lệch nhau.
+
+**Đã chốt (A4 — owner mở lại khoang sau Maintenance):** việc tự động chuyển `Maintenance -> Available` sau khi trả kho **thuộc cron của Flow 2.5**, không phải Flow 5. Flow 5 (mục này) **chỉ** xử lý các trường hợp FM chuyển trạng thái **thủ công** cho sự cố ngoài luồng trả kho (khoang hư hỏng đột xuất khi đang `Available`/`Rented`...) — không đụng vào cron tự động của Flow 2.5. **Cơ chế kỹ thuật:** khi FM chuyển `Maintenance` do sự cố, **không set `StorageUnit.maintenance_started_at`** — field này chỉ do Flow 2.5 set khi `Maintenance` phát sinh từ luồng trả kho, vì cron của Flow 2.5 chỉ quét các bản ghi có field này khác null để tự động mở lại theo `Policy.unit.maintenance_days`. Để trống field này là cách duy nhất đảm bảo cron không tự ý mở lại 1 khoang đang bị FM giữ vì sự cố.
 
 **Details:**
 
@@ -325,12 +307,12 @@ Available | OnHold | Reserved | Rented | Maintenance
   - **Không tự nhập giá thuê cho từng khoang.** Giá thuê là thuộc tính của `UnitType` (`UnitType.monthly_price`), do BOM cập nhật trực tiếp ở Flow 4 — mọi `StorageUnit` cùng `unit_type_id` tại một thời điểm dùng chung một mức giá. FM chỉ chọn đúng loại khoang, không có bước validate khung giá vì FM không nhập số tiền.
   - Chuyển khoang sang `Maintenance` thủ công:
     - `Available` → chuyển trực tiếp sang `Maintenance`.
-    - `OnHold`/`Reserved` → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
+    - `Reserved` → không chuyển trực tiếp, phải xử lý request/order liên quan và thông báo khách trước.
     - `Rented` → không tự ý chuyển; tạo yêu cầu xử lý sự cố, thông báo khách, thực hiện phương án di chuyển/tạm ngưng theo nghiệp vụ đã duyệt.
     - Đang `Maintenance` → không xuất hiện trong danh sách khoang có thể đặt/assign.
-    - Sau khi xử lý xong sự cố, FM chuyển khoang về `Available`.
+    - Sau khi xử lý xong sự cố, FM chuyển khoang về `Available` thủ công (không set lại `maintenance_started_at`, field này giữ null suốt vòng đời của case sự cố).
   - Mọi thay đổi trạng thái thủ công phải ghi `AuditLog` (người thực hiện, thời điểm, lý do).
-  - Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (`OnHold`/`Reserved` khi duyệt/đặt cọc), Flow 2 (`Rented` sau bàn giao), Flow 2.5 (`Maintenance` khi trả kho).
+  - Cross-reference: trạng thái StorageUnit dùng chung xuyên suốt Flow 1 (`Reserved` khi duyệt/đặt cọc), Flow 2 (`Rented` sau bàn giao), Flow 2.5 (`Maintenance` khi trả kho).
 
 #### 5.3 Quản lý & điều phối Facility Staff
 
@@ -342,11 +324,11 @@ Available | OnHold | Reserved | Rented | Maintenance
 
 - **FM:**
   - Xem danh sách FS được gán vào cơ sở của mình.
-  - Xem `Appointment` của cơ sở theo ngày, lọc `staff_id IS NULL` để thấy lịch chưa phân công, và gán FS: set `Appointment.staff_id`. **Đã chốt (A6, thống nhất với Flow 2):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — mọi việc phân công lịch hẹn chuyển hẳn sang bảng `Appointment` (Flow 2 sở hữu, Flow 5 chỉ đọc/ghi `staff_id`).
+  - Xem `Appointment` của cơ sở theo ngày, lọc `staff_id IS NULL` để thấy lịch chưa phân công, và gán FS: set `Appointment.staff_id`. **Đã chốt (A6, thống nhất với Flow 1):** `staff_id`/`appointment_date` **không** còn nằm trên `RentalOrder` — mọi việc phân công lịch hẹn chuyển hẳn sang bảng `Appointment` (**Flow 1 sở hữu**, có sẵn `facility_id` trực tiếp — xem `specs/flow-1/db-table-draft.md`), Flow 5 chỉ đọc/ghi `staff_id`.
   - Phân công FS xử lý 1 `SupportRequest`: set `SupportRequest.assigned_staff_id` (bảng do Flow 3/7 sở hữu — xem 5.1).
   - Theo dõi tiến độ qua status của `Appointment`/`SupportRequest` tương ứng — MVP không dùng bảng `StaffAssignment` riêng.
   - MVP scope: chỉ "phân công theo task/appointment", chưa quản lý ca làm việc (shift) chi tiết.
-  - Cross-reference: cần `Appointment` (Flow 2 sở hữu — check-in, bàn giao, trả kho) và `SupportRequest` (Flow 3/7).
+  - Cross-reference: cần `Appointment` (**Flow 1 sở hữu** — check-in, bàn giao, trả kho) và `SupportRequest` (Flow 3/7).
 
 #### 5.4 Báo cáo cơ sở
 
@@ -366,15 +348,15 @@ Available | OnHold | Reserved | Rented | Maintenance
 
 - `Account` — `role_id (N-1: Role)`, không có field `facility_id` (xem 5.0 Cross-reference).
 - `Role`, `Permission`, `RolePermission` — mô hình RBAC data-driven do Admin quản lý (xem 5.0), thay cho phương án hard-code permission trong code.
-- `Facility` — có `code` (unique, dùng cho mã hóa đơn/hợp đồng), `fm_account_id` (1–1, nguồn duy nhất), mặc định `Inactive` khi tạo mới.
+- `Facility` — có `code` (unique, dùng cho mã hóa đơn/hợp đồng), `fm_account_id` (1–1, nguồn duy nhất), mặc định `Inactive` khi tạo mới, `enabledKeyAccess`/`enabledCodeAccess` (ít nhất 1 cờ phải bật).
 - `AccountFacilityAssignment` — mapping FS–Facility (1–n), do Admin quản lý.
 - `AccountRoleRequest` — thay thế `AccountCreationRequest`, chỉ còn status `Pending`/`Done`.
-- `StorageUnit` — thuộc 1 Facility, tham chiếu `unit_type_id` (không tự lưu giá), trạng thái dùng chung Flow 1/2/2.5.
+- `StorageUnit` — thuộc 1 Facility, tham chiếu `unit_type_id` (không tự lưu giá), trạng thái dùng chung Flow 1/2/2.5, có `maintenance_started_at` (chỉ Flow 2.5 set).
 - `UnitType` — **thuộc Flow 4**, Flow 5 chỉ đọc `monthly_price` khi tạo `StorageUnit`.
-- `AuditLog` — dùng chung cấu trúc với Flow 3 (`account_id`, `action`, `entity_type`, `entity_id`, `old_value`, `new_value`, `created_at`), không tự định nghĩa bản tối giản riêng.
+- `AuditLog` — **không định nghĩa ở đây.** Bảng + action catalog do **Flow 1** sở hữu — xem `specs/flow-1/db-table-draft.md`. Flow 5 chỉ bổ sung các action thuộc phạm vi mình vào catalog chung (xem danh sách ở mục 5.0), không tự định nghĩa lại schema.
 - `LoginHistory` — thuộc phạm vi Admin (5.0): `account_id` (nullable), `email`, `ip_address`, `user_agent`, `status`, `failure_reason`, `created_at`.
 - ~~`PricingPolicy`~~ — loại bỏ, xung đột với mô hình `UnitType.monthly_price` đã dùng ở Flow 1/2/3/4.
-- ~~`StaffAssignment`~~ — loại khỏi phạm vi MVP, dùng field trực tiếp trên `RentalOrder`/`SupportRequest`.
+- ~~`StaffAssignment`~~ — loại khỏi phạm vi MVP, dùng field trực tiếp trên `Appointment`/`SupportRequest`.
 - `SupportRequest` — **không định nghĩa lại ở đây**, bảng thuộc Flow 3/7; Flow 5 chỉ đọc/ghi `assigned_staff_id`.
 
 **Advanced Features (not MVP):**
