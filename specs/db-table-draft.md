@@ -91,13 +91,14 @@
   - Expired:  quá hạn không thanh toán cọc / không đặt lịch / không đến nhận theo ngưỡng.
 - expires_at (nullable) - thời điểm hết hiệu lực giữ kho sau khi đặt cọc
 
-**CONSTRAINTS:**
-- Khi `RentalOrder` chuyển sang `Canceled`, các `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
-- `Invoice` đặt cọc chưa thanh toán chuyển sang `Canceled`.
-- `Appointment` loại `CHECKIN` đang hoạt động và `HandoverRecord` đang mở bị hủy kèm lý do.
-- Khách hủy trước khi đặt cọc: không phát sinh refund.
-- Khách hủy sau khi đặt cọc: mất cọc.
-- Cơ sở hủy do lỗi nội bộ: hoàn cọc thủ công theo policy và ghi `AuditLog`.
+**Cancellation Cascade:**
+- `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
+- Khoang được giải phóng: `StorageUnit.status -> Available`.
+- Tiền cọc xử lý theo chính sách Flow 4.
+- Ghi `cancel_reason`.
+- Ghi `AuditLog` cho từng entity bị thay đổi.
+- Gửi email và thông báo trên website.
+- Không tạo proposal hoặc Appointment mới.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -213,6 +214,9 @@
   - Canceled: lịch hẹn bị hủy
 - created_at
 - updated_at
+
+**CONSTRAINTS:**
+- Không chuyển `Appointment` sang trạng thái kết thúc khi `HandoverRecord` liên kết vẫn là `IN_PROGRESS`.
 # RentalAppointment
 **Overview:** nối lịch hẹn với đơn hàng.
 
@@ -245,7 +249,11 @@
 - is_payment_settled (default: false) - khách đã thanh toán khoản cần thiết để nhận kho
 - payment_settled_at (nullable)
 
-- result (IN_PROGRESS/COMPLETED/REJECTED/CANCELED) - default: IN_PROGRESS
+- result
+  - IN_PROGRESS: trạng thái mặc định
+  - COMPLETED: tất cả các items trong checklist của bảng này đều dã được tick
+  - REJECTED: khách từ chối khoang
+  - CANCELED: khách hủy đơn
 - completed_at (nullable)
 - reject_reason (nullable, Text) - lý do từ chối hoặc hủy biên bản
 - created_at
@@ -349,4 +357,19 @@
 | `FS_ASSIGNED` | FM phân công FS | `Appointment` | FM |
 | `APPOINTMENT_RESCHEDULED` | Lịch hẹn được đặt lại | `Appointment` | Customer/FM |
 | `APPOINTMENT_CANCELED_NO_SHOW` | Cron xử lý khách không đến | `Appointment` | System |
+| `IDENTITY_VERIFIED` | FS xác minh danh tính người đến | `HandoverRecord` | FS |
+| `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
+| `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
+| `RENTAL_ORDER_CANCELED` | Hủy đơn khi chạm `handover.max_rejection_count`, sau khi khách xác nhận | `RentalOrder`, `StorageUnit`, `ProposalFeedback` | FS |
+| `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ các cờ bắt buộc | `HandoverRecord` | FS |
+| `START_DATE_OVERRIDE_REQUESTED` | FS đề nghị đổi mốc tính tiền | `RentalContract` | FS |
+| `START_DATE_OVERRIDE_APPROVED` | FM duyệt đổi mốc tính tiền | `RentalContract` | FM |
+| `START_DATE_OVERRIDE_REJECTED` | FM từ chối đổi mốc tính tiền | `RentalContract` | FM |
+| `CONTRACT_SIGNED` | FS ghi nhận khách đã ký hợp đồng | `RentalContract` | FS |
+| `CONTRACT_ACTIVATED` | Hợp đồng có hiệu lực sau bàn giao | `RentalContract` | System |
+| `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` | `RentalContract` | System |
+| `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán | `HandoverRecord` | System |
+| `ACCESS_KEY_ISSUED` | Bàn giao chìa hoặc mã truy cập | `UnitAccessKey` | FS |
+| `STORAGE_UNIT_RENTED` | Khoang chuyển `Rented` sau bàn giao | `StorageUnit` | System |
+| `RENTAL_ORDER_DONE` | Đơn chuyển `Done` sau bàn giao | `RentalOrder` | System |
 | `HANDOVER_RECORD_CREATED` | Tạo hồ sơ bàn giao | `HandoverRecord` | System |

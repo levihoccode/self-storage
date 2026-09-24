@@ -388,7 +388,29 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 [Nhận lịch hẹn từ Flow 1] -> [Check-in & xác minh danh tính] -> [Kiểm tra & xác nhận hiện trạng khoang] -> [Ký hợp đồng] -> [Thanh toán tháng đầu] -> [Nhận khóa/mã truy cập] -> [Khoang chuyển Rented]
 ```
 
-#### Các tham số sử dụng trong Flow 2
+#### Điều kiện và dữ liệu đầu vào
+- **Flow 1:**
+  - `RentalOrder.status = InProgress`.
+  - `RentalOrder.unit_id` đã được gán.
+  - `StorageUnit.status = Reserved`.
+  - `ProposalFeedback.status = Agreed`.
+  - Invoice đặt cọc có `status = Paid`.
+  - Có `Appointment(type = CHECKIN, status = Pending)`.
+  - `Appointment.facility_id` đã được gán.
+  - Có `RentalAppointment` nối `Appointment` với `RentalOrder`.
+  - Có `HandoverRecord` tương ứng với `Appointment`, với `result = IN_PROGRESS`.
+
+- **Flow 5:**
+  - `Appointment.staff_id` đã được FM phân công.
+  - FS thuộc cơ sở của `Appointment`.
+
+- **Flow 4:**
+  - Bảng giá thuê.
+  - Mẫu và version điều khoản hợp đồng.
+  - Chính sách mốc bắt đầu tính tiền thuê.
+  - Danh mục phí.
+
+#### Các tham số sử dụng
 
 | Tên | Giá trị |
 |---|---:|
@@ -417,108 +439,191 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - **Thông báo (contract MVP):** gửi email cho các sự kiện cần thông báo, đồng thời tạo thông báo để khách xem trên website - thông báo web là kênh chính để không mất thông tin khi email lỗi. **Lỗi gửi email không được rollback** thay đổi nghiệp vụ đã thành công. Flow 2 **không bắt buộc** `OutboxEvent` trong MVP; outbox, retry và bảo đảm giao email là quyết định kỹ thuật lúc code.
 - **Ngưỡng vận hành mặc định** (BOM cấu hình sau ở Flow 4): `handover.max_rejection_count` và `handover.payment_grace_hours` là hai ngưỡng duy nhất do Flow 2 kiểm tra. Các ngưỡng quanh lịch hẹn thuộc Flow 1 và lấy theo bảng tham số của Flow 1 (`appointment.booking_window_days` 7, `appointment.max_days_after_deposit` 14, `appointment.daily_slot_count` 3, `order.deposit_expiry_days` 30, `appointment.checkin_reschedule_enabled` false); các ngưỡng Flow 2 từng đề xuất (auto-cancel 7 ngày, 2 lần no-show, dời lịch 2 lần báo trước 24h) bỏ để tránh hai nguồn.
 
-**Dữ liệu phụ thuộc (input từ các flow khác):**
-- Flow 1: `RentalOrder` đã `Approve`, `unit_id` đã gán và khách đã duyệt qua `ProposalFeedback`, `Invoice` cọc đã `Paid`, **`Appointment(type = CHECKIN, status = Pending)`** đã tạo kèm `facility_id`, ảnh giấy tờ tùy thân khách upload online (nếu có).
-- Flow 4: bảng giá thuê, mẫu + version điều khoản hợp đồng, chính sách mốc bắt đầu tính tiền thuê, danh mục phí.
-- Flow 5: danh sách FS thuộc cơ sở (`AccountFacilityAssignment`), kết quả phân công FS lên `Appointment.staff_id` (Flow 5.3), và cấu hình loại khóa của cơ sở/khoang (`enabledKeyAccess`, `enabledCodeAccess`).
-
 **Context:** Khách đã đặt cọc giữ khoang, đến cơ sở để check-in, kiểm tra khoang, ký hợp đồng, thanh toán tháng đầu và nhận quyền truy cập.
 
 #### 2.1 Tiếp nhận lịch hẹn check-in
 
-Flow 2 **không tạo và không sửa** `Appointment`. Toàn bộ việc sinh slot, đặt lịch, hủy và đặt lại lịch do Flow 1 xử lý; Flow 2 chỉ đọc lịch đã có và ghi nhận khách đến.
+**Context:** Sau khi khách đã đặt cọc, Flow 1 tạo lịch hẹn `CHECKIN` và `HandoverRecord`. Flow 2 tiếp nhận lịch đã được phân công để thực hiện phần check-in và bàn giao tại cơ sở.
 
-- **Điều kiện vào Flow 2:** `Appointment(type = CHECKIN, status = Pending)` của đơn, `facility_id` khớp cơ sở đang thao tác, `staff_id` đã được gán (Flow 1.5 đã chuyển đơn sang `InProgress` ở bước này), `HandoverRecord` của lịch hẹn đó đang `IN_PROGRESS`, `Invoice` cọc đã `Paid`, khoang đang `Reserved`. Thiếu điều kiện nào thì API check-in trả lỗi; Flow 2 không tự tạo lịch hẹn hay biên bản bù.
-- **FM:** xem `Appointment` của cơ sở theo ngày, lọc thẳng trên `Appointment.facility_id`, tìm lịch còn `staff_id IS NULL` để gán FS. Nghiệp vụ phân công thuộc Flow 5.3, Flow 2 chỉ tiêu thụ kết quả.
-- **FS:** xem lịch trong ngày được gán cho mình, kèm khách hàng, khoang chứa và `type`.
+**Flow tổng quát:** Flow 2 đọc lịch hẹn do Flow 1 tạo -> kiểm tra điều kiện vào flow -> FM phân công FS -> FS tiếp nhận khách theo lịch được phân công.
+
+**Details:**
+- **FM:**
+  - FM xem danh sách `Appointment` của cơ sở theo ngày.
+  - Hệ thống hiển thị các lịch được lọc trực tiếp dựa trên `Appointment.facility_id`. -> FM chỉ thấy lịch của cơ sở mình đảm nhận
+  - FM tìm các lịch chưa có `staff_id` để phân công FS.
+  - Nghiệp vụ phân công thuộc Flow 5.3; Flow 2 chỉ sử dụng kết quả phân công.
+- **FS:**
+  - FS xem các lịch trong ngày được phân công cho mình.
+  - Hệ thống hiển thị thông tin khách hàng, khoang chứa và `type` của lịch hẹn.
+  - FS chọn lịch hẹn và bấm nút **Done** để xác nhận khách đã đến cơ sở.
+  - Hệ thống ghi nhận `Appointment.arrived_at` và cập nhật `Appointment.status = Done`.
+  - Trong trường hợp **khách không đến**, cron job của Flow 1 sẽ tự động cập nhật trạng thái của `Appointment` theo [Scheduled Jobs - Cron jobs](#scheduled-jobs---cron-jobs).
+- **Hệ thống:**
+  - Kiểm tra các điều kiện:
+    - `Appointment(type = CHECKIN, status = Pending)` thuộc đơn.
+    - `facility_id` khớp cơ sở đang thao tác.
+    - `staff_id` đã được gán; Flow 1.5 đã chuyển `RentalOrder.status` sang `InProgress` ở bước này.
+    - `HandoverRecord` của lịch hẹn đang có `result = IN_PROGRESS`.
+    - Invoice cọc đã có `status = Paid`.
+    - Khoang đang có `status = Reserved`.
+  - Nếu thiếu bất kỳ điều kiện nào, API check-in trả lỗi.
+
+**Schema có trong phần này:**
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+- [**Appointment**](./db-table-draft.md#appointment)
+- [**RentalAppointment**](./db-table-draft.md#rentalappointment)
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord)
+
+**NOTES:**
+- Flow 2 không tạo hoặc đặt lại `Appointment`.
+- Flow 1 sở hữu việc sinh slot, đặt lịch, hủy và đặt lại lịch.
+- Nghiệp vụ phân công FS thuộc Flow 5.3.
 
 #### 2.2 Check-in và kiểm tra khoang chứa
 
-Toàn bộ tiến trình on-site ghi trên bản ghi `HandoverRecord` đang `IN_PROGRESS` mà Flow 1.5 đã tạo cho lịch hẹn (mỗi `Appointment` một bản ghi, mỗi đơn tối đa một bản ghi đang mở), mỗi bước bật một cờ trong checklist.
+**Context:** Khách đã đến cơ sở theo lịch `CHECKIN`. FS cần xác minh danh tính và cùng khách kiểm tra hiện trạng khoang trên `HandoverRecord` do Flow 1.5 tạo.
 
-- **Check-in:**
-  - FS ghi nhận khách đến: set `Appointment.arrived_at`, `status = Done`.
-  - FS mở `HandoverRecord` gắn với `Appointment` đó (Flow 1.5 đã tạo, `result = IN_PROGRESS`). Biên bản **không có `staff_id`** - FS phụ trách lấy qua `Appointment.staff_id`. Flow 2 **không tạo bản ghi mới**; mốc `RentalOrder` chuyển `InProgress` không còn là điểm sinh biên bản.
-  - **Xác minh danh tính:** FS đối chiếu giấy tờ tùy thân của người đến với `RentalOrder.customer_id`; nếu khách đã upload ảnh giấy tờ online thì hệ thống hiển thị lại để FS đối chiếu. Đạt -> `is_identity_verified = true`, `identity_verified_at`. Không đạt thì dừng, không cho bật các cờ sau.
+**Flow tổng quát:** FS xác minh danh tính -> kiểm tra hiện trạng khoang -> khách đồng ý hoặc từ chối -> hệ thống tiếp tục bàn giao hoặc chuyển thông tin về Flow 1.
 
-- **Kiểm tra khoang chứa:**
-  - FS dẫn khách kiểm tra toàn bộ hiện trạng: kích thước, vị trí, vệ sinh, kết cấu, cửa/khóa, hư hại sẵn có. FS nhập `inspection_notes`, `inspection_photos`.
-  - Khách đồng ý -> `is_unit_inspected = true`, `unit_inspected_at`; đây là điều kiện mở bước ký hợp đồng.
-  - Khách **không đồng ý** -> `result = REJECTED`, `reject_reason`, `completed_at`. Flow 2 kết thúc.
+**Details:**
+- FS phụ trách được xác định qua `Appointment.staff_id`.
+- **FS:**
+  - FS mở `HandoverRecord` gắn với `Appointment` đó; Flow 1.5 đã tạo record với `result = IN_PROGRESS`.
+  - FS đối chiếu giấy tờ tùy thân của người đến với `RentalOrder.customer_id`.
+  - Nếu khách đã upload ảnh giấy tờ online, FS đối chiếu với ảnh hiển thị trên hệ thống.
+  - Nếu xác minh **đạt**, hệ thống bật `is_identity_verified = true`, `identity_verified_at`.
+  - Nếu xác minh **không đạt**, FS dừng quy trình; các cờ tiếp theo không được bật. -> buổi hẹn đó sẽ bị hủy hoặc nếu đã xác nhận với người đặt tùy theo chính sách 
+  - FS dẫn khách kiểm tra toàn bộ hiện trạng: kích thước, vị trí, vệ sinh, kết cấu, cửa/khóa và hư hại sẵn có.
+  - FS nhập `HandoverRecord.inspection_notes` và `HandoverRecord.inspection_photos`.
+- **Customer:**
+  - Khách vào trang **Kho của tôi**
+  - Khách chọn khoang đang bàn giao (`StorageUnit.status = Reserved`)
+  - Ấn vào nút "Bàn giao" để chuyển hướng qua trang để thao tác bàn giao
+  - Khách xác nhận hiện trạng khoang sau khi kiểm tra.
+  - Khách chọn một trong hai thao tác:
+    - **Đồng ý:** 
+      - Hệ thống cập nhật `HandoverRecord.is_unit_inspected = true`, `HandoverRecord.unit_inspected_at`
+      - Khách có thể nhập những thứ cơ sở cần lưu ý (`HandoverRecord.inspection_notes`). -> không bắt buộc
+    - **Không đồng ý:** 
+      - hệ thống cập nhật `HandoverRecord.is_unit_inspected = false`, `HandoverRecord.unit_inspected_at`
+      - hệ thống cập nhật `HandoverRecord.result = REJECTED`
+      - Khách nhập lý do (`HandoverRecord.reject_reason`).
+  - Nếu khách chọn **từ chối khoang này**:
+    - Khách nhập lý do (`HandoverRecord.reject_reason`).
+    - Trước khi ghi nhận lần từ chối, hệ thống đếm số `HandoverRecord` thuộc cùng `RentalOrder` có `result = REJECTED`.
+      - Việc đếm và cập nhật bản ghi nằm trong cùng transaction.
+      - Trong trường hợp:
+        - **Chưa chạm ngưỡng** số lần từ chối:
+          - Cập nhật `HandoverRecord.result = REJECTED`.
+          - Bắn event `HandoverRecord.Rejected` cho Flow 1.
+          - Flow 2 kết thúc.
+          - Flow 1 thực hiện re-propose theo [Flow 1.3 Kiểm tra kho của tôi](#13-kiểm-tra-kho-của-tôi).
+          - Sau khi khách duyệt proposal mới và Flow 1 hoàn tất các bước liên quan, Flow 2 bắt đầu lại trên `Appointment` và `HandoverRecord` mới.
+        - **Chạm ngưỡng** số lần từ chối:
+          - Hệ thống hiện xác nhận cho khách, nêu rõ đơn sẽ bị hủy vì đã từ chối tối đa N khoang và tiền cọc không được hoàn.
+          - **Khách xác nhận:**
+            - Cập nhật `HandoverRecord.result = REJECTED`.
+            - Cập nhật `RentalOrder.status = Canceled`.
+            - Cập nhật `StorageUnit.status = Available`.
+            - Cập nhật `ProposalFeedback.status = Expired`.
+            - Cọc xử lý theo chính sách Flow 4. (MVP là mất cọc)
+            - Gửi thông báo xác nhận hủy qua email và website.
+            - Kết thúc Flow 2
+          - **Khách không xác nhận:**
+            - Không ghi gì và giữ nguyên hiện trạng.
+  - Nếu khách **yêu cầu hủy đơn**:
+    - Hệ thống yêu cầu khách xác nhận việc hủy và thông báo hậu quả theo chính sách.
+    - Khách xác nhận:
+      - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade).
+      - Appointment đã `Done` nên giữ nguyên.
+      - `HandoverRecord` hiện tại chuyển `IN_PROGRESS -> CANCELED`.
+      - Flow 2 kết thúc.
+    - Khách không xác nhận:
+      - Không ghi gì.
+      - Giữ nguyên `HandoverRecord` để khách tiếp tục kiểm tra hoặc chọn từ chối khoang.
 
-- **Đếm số lần từ chối:** trước khi ghi nhận từ chối, Flow 2 đếm trong **cùng transaction** với bước ghi `REJECTED` để hai FS thao tác song song không đếm lệch:
+- **Hệ thống:**
+  - Nếu khách không đến, cron của Flow 1 xử lý theo [Scheduled Jobs - Cron jobs](#scheduled-jobs---cron-jobs).
 
-  ```text
-  count = số HandoverRecord có order_id = :order AND result = REJECTED
-  count + 1 >= handover.max_rejection_count → nhánh chạm ngưỡng
-  ```
-
-  - Tính trên **toàn lịch sử đơn** - mỗi vòng re-propose tạo `HandoverRecord` mới, bản cũ giữ `REJECTED`.
-  - **Không đếm `CANCELED`**: no-show và quá hạn thanh toán không phải khách từ chối khoang.
-  - Tách hẳn `proposal.max_rejection_count` của Flow 1 (đếm lần từ chối proposal **trước khi cọc**).
-
-- **Nhánh thường (chưa chạm ngưỡng):** ghi `result = REJECTED`, `reject_reason`, `completed_at` rồi bắn `HandoverRecord.Rejected`. Việc chỉ định lại khoang **không xử lý trong Flow 2**: Flow 1 cho FM chỉ định khoang khác, tạo `ProposalFeedback` mới cho khách duyệt online, xử lý chênh lệch tiền cọc rồi tạo `Appointment` mới. `RentalOrder` lấy khoang được chấp nhận mới nhất từ `ProposalFeedback` và **không bị hủy**.
-
-- **Nhánh chạm ngưỡng - phải xác nhận trước khi hủy:** Flow 2 **tự hủy đơn**, không quay về Flow 1.
-  - **Chưa ghi `REJECTED` ngay.** Hệ thống hiện xác nhận cho khách, nêu rõ hệ quả: đơn sẽ bị hủy vì đã từ chối tối đa N khoang, **và tiền cọc không được hoàn**.
-  - **Khách xác nhận:** ghi `HandoverRecord.result = REJECTED`, `RentalOrder -> Canceled`, khoang `Reserved -> Available`, `ProposalFeedback` đang `Agreed -> Expired`, cọc xử lý theo chính sách Flow 4. **Không** tạo proposal hay appointment mới.
-  - **Khách không xác nhận:** không ghi gì, giữ nguyên hiện trạng. Nếu khách cũng không nhận khoang thì để cron no-show của Flow 1 xử lý khi quá `end_at`.
-  - **Sau khi hủy:** gửi thông báo xác nhận hủy cho khách (email + thông báo website) theo contract notification MVP.
-
-
-- **No-show:** hết `end_at` mà `arrived_at` vẫn null - cron của **Flow 1** xử lý: `Appointment.status = Canceled` (`cancel_reason = NoShow`) và **`HandoverRecord.result = CANCELED`** kèm lý do. Còn trong thời hạn giữ kho (`now < RentalOrder.expires_at`): đơn quay về `Deposited`, khoang giữ `Reserved`, khách đặt lịch mới. Hết hạn: đơn `Expired`, khoang về `Available`, xử lý mất cọc theo policy. Flow 2 không ghi gì trong nhánh này.
-
-- **Đặt lịch mới (sau reject hoặc no-show):** do **Flow 1** thực hiện. Lịch cũ phải ở `Canceled` và `HandoverRecord` cũ đã chốt (`REJECTED`/`CANCELED`) trước khi tạo `Appointment` mới (`status = Pending`, `staff_id = null`) kèm `RentalAppointment` và `HandoverRecord` mới - ràng buộc mỗi đơn chỉ có một lịch `CHECKIN` đang hoạt động. Đây **không phải** reschedule: dời lịch không thuộc MVP. FM phân công FS lại từ đầu; Flow 2 chạy lại từ 2.2 trên biên bản mới.
-
-**NOTES:**
-
-```text
-Hủy ở nhánh này khác hủy ở Flow 1 (trước check-in):
-- Cùng dùng block CANCELLATION CONSTRAINTS; khác trigger và actor:
-  Flow 2 tự hủy sau xác nhận của khách, không quay về Flow 1.
-- HandoverRecord giữ REJECTED, không chuyển CANCELED
-  (CANCELED dành cho no-show / quá hạn thanh toán).
-- Appointment CHECKIN đã Done nên không hủy; Flow 1 hủy lịch đang hoạt động.
-- Đơn đang InProgress, không phải Pending/Deposited/Scheduled.
-- Cọc: mất theo chính sách Flow 4 vì khách chủ động từ chối.
-```
+**Schema có trong phần này:**
+- [**Appointment**](./db-table-draft.md#appointment)
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord)
+- [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
+- [**StorageUnit**](./db-table-draft.md#storageunit)
 
 #### 2.3 Ký hợp đồng và thanh toán tháng đầu tiên
 
-**Ký hợp đồng (sinh `RentalContract`)**
-- Điều kiện: `is_identity_verified = true` và `is_unit_inspected = true`.
-- Hệ thống sinh hợp đồng từ mẫu đang hiệu lực (Flow 4), điền sẵn: thông tin khách, cơ sở, `unit_id` khách vừa xác nhận, giá thuê, `period`, tiền cọc đã đóng, mốc bắt đầu tính tiền thuê; snapshot `terms_version` để đối chiếu về sau.
-- Hiện trạng khoang (`inspection_notes`, `inspection_photos`) ở 2.2 được gắn kèm hợp đồng - liên kết qua `order_id` nên không cần thêm khóa ngoại. Đây là căn cứ đối chiếu khi trả kho ở Flow 2.5.
-- Khách ký trên bản giấy -> FS chụp/scan upload, `signature` và `pdf_url` lưu URL file, `RentalContract.status = Signed`, set `is_contract_signed`, `contract_signed_at`.
-- **Mốc bắt đầu tính tiền thuê** ghi trên hợp đồng, **luôn điền sẵn theo chính sách Flow 4** (`contract.start_date_rule`, ví dụ: 1 tuần sau ngày ký, ngày 15 hàng tháng...). Đây là đường đi thông thường; thỏa thuận riêng chỉ là ngoại lệ, để tránh xung đột khi phát sinh yếu tố tự phát.
-- **Thỏa thuận riêng mốc tính tiền - phải được FM duyệt:**
-  - FS **không tự sửa** `start_date`. Muốn đổi thì nhập ngày đề nghị kèm lý do lên hợp đồng đang `Draft`: `start_date_override_requested`, `start_date_override_reason`, `start_date_override_status = Pending`.
-  - Còn `Pending` thì **chặn bước ký** - API ký trả lỗi cho tới khi FM xử lý xong, tránh việc hợp đồng được ký rồi mới đi xin duyệt.
-  - FM xem các yêu cầu đang chờ của cơ sở mình:
-    - **Duyệt:** `start_date` nhận ngày đề nghị, `start_date_override_status = Approved`, mở lại bước ký.
-    - **Từ chối:** `start_date` giữ nguyên ngày theo chính sách, `status = Rejected`, mở lại bước ký. FS có thể gửi đề nghị khác nếu khách vẫn không đồng ý.
-  - Cả ba thao tác (gửi đề nghị, duyệt, từ chối) đều ghi `AuditLog` kèm `old_value`/`new_value`/`reason` - đây là thay đổi ảnh hưởng tới tiền nên bắt buộc có vết.
+**Context:** Khách đã hoàn tất xác minh danh tính và xác nhận hiện trạng khoang. Flow 2 cần tạo hợp đồng, xử lý thỏa thuận riêng về mốc tính tiền nếu có, và thu thanh toán tháng đầu.
 
-**Thanh toán tháng đầu tiên**
-- Hệ thống tạo `Invoice(type = Rental)` - prefix `RNT`, gắn `contract_id` - với số tiền **tháng đầu tiên**. Tiền cọc ở Flow 1.4 **không** trừ vào hóa đơn này, cọc giữ riêng tới khi trả kho (2.5.3).
-- Khách thanh toán qua VNPay; kết quả xác nhận từ phía server/gateway -> `PaymentTransaction = Success`, `Invoice.status = Paid`, set `is_payment_settled`, `payment_settled_at`. Thất bại -> `PaymentTransaction = Failed`, hóa đơn giữ nguyên chưa thanh toán và **không đi tiếp sang bàn giao**.
-- Chưa thanh toán xong trong buổi hẹn: `result` giữ `IN_PROGRESS`, khoang vẫn `Reserved`, **chưa bàn giao khóa**; hóa đơn nằm trong mục "Hóa đơn" của khách để thanh toán online.
-  - Khách có **`payment_grace_hours`** giờ để thanh toán. Quá hạn, cron xử lý **giống nhánh no-show của Flow 1** để một đơn chậm tiền không bị đối xử nặng hơn một đơn không đến:
-    - `RentalContract.status -> Canceled`, `HandoverRecord.result -> **CANCELED**` kèm lý do "Quá hạn thanh toán tháng đầu". Dùng `CANCELED` chứ **không** dùng `REJECTED`, vì `REJECTED` là tín hiệu để Flow 1 đề xuất khoang khác - ở đây khoang không có vấn đề gì.
-    - Còn trong thời hạn giữ kho (`now < RentalOrder.expires_at`): đơn quay về `Deposited`, **giữ cọc**, khoang vẫn `Reserved`, khách đặt lịch check-in mới ở Flow 1 và làm lại từ 2.2.
-    - Hết thời hạn giữ kho: đơn `Expired`, khoang về `Available`, xử lý mất cọc theo chính sách Flow 4.
-    - Cron này là cron duy nhất của Flow 2, chạy hằng ngày; 2.1 không còn cron auto-cancel nào.
+**Flow tổng quát:** Đủ điều kiện ký -> sinh hợp đồng -> khách ký -> tạo hóa đơn tháng đầu -> khách thanh toán hoặc chờ xử lý quá hạn.
+
+**Details:**
+- **Hệ thống:**
+  - Chỉ cho phép tiếp tục khi `is_identity_verified = true` và `is_unit_inspected = true`.
+  - Sinh hợp đồng từ mẫu đang hiệu lực của Flow 4, điền thông tin khách, cơ sở, `unit_id` khách vừa xác nhận, giá thuê, `period`, tiền cọc đã đóng, mốc bắt đầu tính tiền thuê và snapshot `terms_version`.
+  - Gắn hiện trạng khoang (`inspection_notes`, `inspection_photos`) ở 2.2 với hợp đồng qua `order_id`; đây là căn cứ đối chiếu khi trả kho ở Flow 2.5.
+  - Mốc bắt đầu tính tiền thuê luôn được điền sẵn theo chính sách Flow 4 (`contract.start_date_rule`).
+- **FS:**
+  - Nếu khách ký trên bản giấy, FS chụp/scan và upload hợp đồng.
+  - Hệ thống lưu URL vào `signature` và `pdf_url`, cập nhật `RentalContract.status = Signed`, `is_contract_signed`, `contract_signed_at`.
+  - FS không tự sửa `start_date`. Nếu cần thỏa thuận riêng, FS nhập ngày đề nghị và lý do vào hợp đồng `Draft`: `start_date_override_requested`, `start_date_override_reason`, `start_date_override_status = Pending`.
+- **FM:**
+  - FM xem các yêu cầu đổi mốc tính tiền đang chờ của cơ sở mình.
+  - Khi duyệt, hệ thống dùng ngày đề nghị cho `start_date`, cập nhật `start_date_override_status = Approved` và mở lại bước ký.
+  - Khi từ chối, hệ thống giữ ngày theo chính sách, cập nhật `status = Rejected` và mở lại bước ký. FS có thể gửi đề nghị khác nếu khách vẫn không đồng ý.
+  - Việc gửi đề nghị, duyệt và từ chối đều ghi `AuditLog` kèm `old_value`/`new_value`/`reason`.
+- **Customer:**
+  - Khách thanh toán hóa đơn tháng đầu qua VNPay.
+- **Hệ thống:**
+  - Khi yêu cầu đổi mốc tính tiền còn `Pending`, chặn bước ký cho tới khi FM xử lý.
+  - Tạo `Invoice(type = Rental)`, prefix `RNT`, gắn `contract_id`, với số tiền tháng đầu. Tiền cọc ở Flow 1.4 không trừ vào hóa đơn này và được giữ riêng tới khi trả kho ở 2.5.3.
+  - Khi gateway xác nhận thành công, cập nhật `PaymentTransaction = Success`, `Invoice.status = Paid`, `is_payment_settled`, `payment_settled_at`.
+  - Khi thanh toán thất bại, cập nhật `PaymentTransaction = Failed`; hóa đơn giữ nguyên chưa thanh toán và không tiếp tục bàn giao.
+  - Nếu chưa thanh toán xong trong buổi hẹn, giữ `HandoverRecord.result = IN_PROGRESS`, giữ khoang `Reserved`, chưa bàn giao khóa; hóa đơn nằm trong mục "Hóa đơn" của khách.
+  - Khách có `payment_grace_hours` giờ để thanh toán. Quá hạn, cron xử lý giống nhánh no-show của Flow 1:
+    - `RentalContract.status -> Canceled`, `HandoverRecord.result -> CANCELED` với lý do "Quá hạn thanh toán tháng đầu".
+    - Nếu `now < RentalOrder.expires_at`, đơn quay về `Deposited`, giữ cọc, khoang vẫn `Reserved`, khách đặt lịch check-in mới ở Flow 1 và làm lại từ 2.2.
+    - Nếu `now >= RentalOrder.expires_at`, đơn `Expired`, khoang về `Available`, xử lý mất cọc theo chính sách Flow 4.
+    - Đây là cron duy nhất của Flow 2, chạy hằng ngày; 2.1 không còn cron auto-cancel.
+
+**Schema có trong phần này:**
+- [**RentalContract**](./db-table-draft.md#rentalcontract)
+- [**Invoice**](./db-table-draft.md#invoice)
+- [**PaymentTransaction**](./db-table-draft.md#paymenttransaction)
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord)
+
+**NOTES:**
+- Mốc bắt đầu tính tiền thuê mặc định theo chính sách Flow 4; thỏa thuận riêng phải được FM duyệt.
 
 #### 2.4 Bàn giao khóa và kích hoạt hợp đồng
 
-- **Điều kiện:** cả 4 cờ trên `HandoverRecord` đều `true` (`is_identity_verified`, `is_unit_inspected`, `is_contract_signed`, `is_payment_settled`). Thiếu cờ nào thì API bàn giao trả lỗi rõ ràng cho FS.
-- **FS** bàn giao quyền truy cập theo loại khóa mà cơ sở/khoang đang bật:
-  - **Khóa cơ** (`enabledKeyAccess`): giao chìa vật lý, ghi `quantity` để đối chiếu khi trả kho.
-  - **Khóa mã số** (`enabledCodeAccess`): hệ thống sinh mã gắn với đơn và **chỉ hiển thị một lần trong tài khoản khách sau khi đăng nhập** - không gửi qua email, không hiện trên màn hình của FS, không trả trong response của API bàn giao. FS hướng dẫn khách mở app xem mã và đổi mã ngay lần dùng đầu. Mã **không lưu plain text**, chỉ lưu `code_hash`.
-  - Cơ sở bật cả hai cờ thì FS chọn loại bàn giao trong buổi hẹn; `UnitAccessKey` ghi đúng `access_type` đã giao.
-  - Hai bên xác nhận, khách ký nhận.
-- **Hệ thống (một transaction):** tạo `UnitAccessKey`; `StorageUnit`: `Reserved -> Rented`; `RentalContract`: `Signed -> Active`; `HandoverRecord.result = COMPLETED` + `completed_at`; **`RentalOrder.status -> Done` (Flow 2 là nơi duy nhất set `Done`)**; bắn **`RentalOrder.HandoverCompleted`** - đây là event canonical để Flow 3 bắt đầu theo dõi, Flow 3 không tự poll `status`.
-- **Sau transaction:** gửi email kèm hợp đồng và biên bản bàn giao, đồng thời tạo thông báo trên website cho khách. Hai việc này nằm **ngoài** transaction, lỗi gửi không rollback bàn giao.
+**Context:** Hợp đồng đã được ký, hóa đơn tháng đầu đã thanh toán và khách đủ điều kiện nhận quyền truy cập khoang.
+
+**Flow tổng quát:** Kiểm tra checklist -> FS bàn giao chìa hoặc mã truy cập -> hệ thống cập nhật trạng thái khoang, hợp đồng, biên bản và đơn hàng.
+
+**Details:**
+- **FS:**
+  - Chỉ thực hiện bàn giao khi bốn cờ trên `HandoverRecord` đều `true`: `is_identity_verified`, `is_unit_inspected`, `is_contract_signed`, `is_payment_settled`.
+  - Với khóa cơ (`enabledKeyAccess`), giao chìa vật lý và ghi `quantity`.
+  - Với khóa mã số (`enabledCodeAccess`), hướng dẫn khách đăng nhập để xem mã. Mã chỉ hiển thị một lần trong tài khoản khách, không gửi email, không hiện trên màn hình FS và không trả trong response API bàn giao.
+  - Nếu cơ sở bật cả hai loại khóa, FS chọn loại bàn giao; `UnitAccessKey` ghi đúng `access_type`.
+  - Hai bên xác nhận và khách ký nhận.
+- **Hệ thống:**
+  - Nếu thiếu một cờ bắt buộc, API bàn giao trả lỗi cho FS.
+  - Với khóa mã số, sinh mã gắn với đơn, lưu `code_hash`, không lưu plain text.
+  - Trong một transaction, tạo `UnitAccessKey`, chuyển `StorageUnit: Reserved -> Rented`, `RentalContract: Signed -> Active`, `HandoverRecord.result = COMPLETED` với `completed_at`, và `RentalOrder.status -> Done`.
+  - Flow 2 là nơi duy nhất set `RentalOrder.status = Done`.
+  - Bắn `RentalOrder.HandoverCompleted` để Flow 3 bắt đầu theo dõi; Flow 3 không tự poll status.
+  - Sau transaction, gửi email kèm hợp đồng và biên bản bàn giao, đồng thời tạo thông báo trên website. Lỗi gửi không rollback bàn giao.
+
+**Schema có trong phần này:**
+- [**StorageUnit**](./db-table-draft.md#storageunit)
+- [**RentalContract**](./db-table-draft.md#rentalcontract)
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord)
+- [**RentalOrder**](./db-table-draft.md#rentalorder)
+- [**UnitAccessKey**](./db-table-draft.md#unitaccesskey)
 
 #### Backend flow (chi tiết kỹ thuật)
 
@@ -570,28 +675,6 @@ Hủy ở nhánh này khác hủy ở Flow 1 (trước check-in):
 | `RentalContract.Signed` | Flow 4 (ghi nhận hợp đồng mới). Hóa đơn tháng đầu tạo trong transaction ký, không tạo từ event này |
 | `Invoice.Created` (RNT tháng đầu) | Flow 4 (theo dõi doanh thu) |
 | `RentalOrder.HandoverCompleted` | Flow 3 (bắt đầu theo dõi khoang đang thuê) |
-
-**Audit action Flow 2 bổ sung vào catalog chung:**
-
-| Action | Khi nào ghi | Entity | Actor |
-|---|---|---|---|
-| `IDENTITY_VERIFIED` | FS xác minh danh tính người đến | `HandoverRecord` | FS |
-| `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
-| `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
-| `RENTAL_ORDER_CANCELED` | Hủy đơn khi chạm `handover.max_rejection_count`, sau khi khách xác nhận | `RentalOrder`, `StorageUnit`, `ProposalFeedback` - một bản ghi cho mỗi entity | FS |
-| `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ 4 cờ | `HandoverRecord` | FS |
-| `START_DATE_OVERRIDE_REQUESTED` | FS đề nghị đổi mốc tính tiền | `RentalContract` | FS |
-| `START_DATE_OVERRIDE_APPROVED` | FM duyệt đổi mốc tính tiền | `RentalContract` | FM |
-| `START_DATE_OVERRIDE_REJECTED` | FM từ chối đổi mốc tính tiền | `RentalContract` | FM |
-| `CONTRACT_SIGNED` | FS ghi nhận khách đã ký hợp đồng | `RentalContract` | FS |
-| `CONTRACT_ACTIVATED` | Hợp đồng có hiệu lực sau bàn giao | `RentalContract` | System |
-| `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` | `RentalContract` | System |
-| `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán | `HandoverRecord` | System |
-| `ACCESS_KEY_ISSUED` | Bàn giao chìa hoặc mã truy cập | `UnitAccessKey` | FS |
-| `STORAGE_UNIT_RENTED` | Khoang chuyển `Rented` sau bàn giao | `StorageUnit` | System |
-| `RENTAL_ORDER_DONE` | Đơn chuyển `Done` sau bàn giao | `RentalOrder` | System |
-
-Các action đã có sẵn trong catalog của Flow 1 thì dùng lại, không đặt tên mới: `INVOICE_CREATED` cho hóa đơn `type = Rental` tháng đầu, `PAYMENT_SUCCEEDED`/`PAYMENT_FAILED` cho kết quả IPN.
 
 **Schema:**
 
@@ -668,44 +751,105 @@ Mức phí phát sinh lúc trả kho **không phải tham số `Policy`** mà l�
 
 #### 2.5.1 Tiếp nhận yêu cầu và hẹn lịch trả kho
 
-- **Hệ thống:** khi `ReturnRequest` chuyển `Assigned` ở Flow 3.4, tạo `Appointment(type = RETURN, status = Pending)` kèm `RentalAppointment`, gán `facility_id`, `staff_id` lấy từ `ReturnRequest.assigned_staff_id`. Lịch `RETURN` **dùng chung 3 khung giờ cố định** với `CHECKIN` (`appointment.daily_slot_count`) vì cùng FS phục vụ: `preferred_date` của khách được map vào khung còn trống trong ngày đó; hết khung thì đẩy sang ngày gần nhất và báo khách. Việc phân công FS đã do FM làm ở Flow 3, Flow 2.5 không lặp lại.
-- **Customer:** trước ngày hẹn phải tự dọn toàn bộ tài sản ra khỏi khoang. Hệ thống nhắc các điều kiện để được nhận lại cọc: khoang trống, không hư hỏng, không còn hóa đơn `Unpaid`.
+**Context:** Khách đã gửi yêu cầu trả kho. `ReturnRequest` được Flow 3 chuyển sang `Assigned` và đã có FS do FM phân công.
+
+**Flow tổng quát:** Hệ thống tạo lịch `RETURN` -> khách chuẩn bị khoang trước ngày hẹn -> FS tiếp nhận buổi trả kho.
+
+**Details:**
+- **Hệ thống:**
+  - Khi `ReturnRequest` chuyển `Assigned` ở Flow 3.4, tạo `Appointment(type = RETURN, status = Pending)` kèm `RentalAppointment`.
+  - Gán `facility_id` và `staff_id` từ `ReturnRequest.assigned_staff_id`.
+  - Lịch `RETURN` dùng chung ba khung giờ cố định với `CHECKIN` (`appointment.daily_slot_count`) vì cùng FS phục vụ.
+  - Map `preferred_date` của khách vào khung còn trống trong ngày đó. Nếu hết khung, đẩy sang ngày gần nhất và báo khách.
+  - Việc phân công FS đã do FM làm ở Flow 3; Flow 2.5 không lặp lại.
+- **Customer:**
+  - Trước ngày hẹn, khách tự dọn toàn bộ tài sản ra khỏi khoang.
+  - Hệ thống nhắc điều kiện để được nhận lại cọc: khoang trống, không hư hỏng và không còn hóa đơn `Unpaid`.
+
+**Schema có trong phần này:**
+- [**ReturnRequest**](./db-table-draft.md#returnrequest)
+- [**Appointment**](./db-table-draft.md#appointment)
+- [**RentalAppointment**](./db-table-draft.md#rentalappointment)
 
 #### 2.5.2 Kiểm tra và bàn giao lại khoang chứa
 
+**Context:** Khách đến theo lịch `RETURN`. FS đối chiếu hiện trạng khoang lúc trả với hiện trạng đã ghi trong `HandoverRecord` của Flow 2.
+
+**Flow tổng quát:** FS ghi nhận khách đến -> đối chiếu hiện trạng -> lập `CheckoutRecord` -> xử lý nhánh khoang trống hoặc còn tài sản -> thu hồi quyền truy cập khi đủ điều kiện.
+
+**Details:**
 - **FS:**
   - Ghi nhận khách đến: set `Appointment.arrived_at`, `status = Done`.
-  - Mở `HandoverRecord` đã lập ở **Flow 2** để lấy hiện trạng khoang **lúc bàn giao** (`inspection_notes`, `inspection_photos`). Flow 2.5 chỉ **đọc** bảng này, không tạo mới - đây là hiện trạng hai bên đã cùng xác nhận trước khi khách ký hợp đồng, nên là căn cứ đối chiếu duy nhất.
-  - Kiểm tra hiện trạng **lúc trả** theo checklist rồi so với mốc trên: khoang đã dọn trống chưa, tình trạng vệ sinh, hư hỏng kết cấu/cửa/khóa/thiết bị, chụp ảnh hiện trạng.
-  - Chênh lệch giữa hai mốc chính là căn cứ tính phí hư hỏng/vệ sinh ở 2.5.3.
-  - Lập `CheckoutRecord`, khách ký xác nhận. Mỗi cột mốc (dọn trống, kiểm tra xong, thu hồi quyền truy cập, thanh toán phí, xử lý cọc) bật một cờ kèm timestamp để FM/FS theo dõi tiến độ khi buổi trả kho kéo dài nhiều ngày.
-  - Các trường hợp:
-    - **Đạt yêu cầu:** không phát sinh phí, sang 2.5.3.
-    - **Còn tài sản trong khoang:** FS ghi nhận, `CheckoutRecord.result = PENDING_ITEMS`, **không hoàn tất trả kho**. Hệ thống tạo một `Appointment(type = RETURN)` mới để khách quay lại dọn nốt và trỏ `CheckoutRecord.appointment_id` sang lịch mới. Khi khách quay lại và FS bắt đầu kiểm tra lần nữa, `result` chuyển **`PENDING_ITEMS -> IN_PROGRESS`** trên cùng bản ghi; vòng này lặp cho tới khi khoang trống hẳn. Trong thời gian này:
-      - **Không thu hồi `UnitAccessKey`** - khách vẫn cần quyền truy cập để vào lấy đồ.
-      - Khoang giữ `Rented`, `RentalContract` giữ `Active`; vượt hạn hợp đồng thì phí quá hạn do **Flow 6** tính theo `overdue.fee_per_day`, Flow 2.5 không tự tính.
-      - Thời hạn cho dọn tiếp và mức phí lưu giữ theo **chính sách do BOM viết ở Flow 4**. Hệ thống **không tự động tính phí** khi khoang còn đồ - ngoài MVP; FM hoặc FS gửi hóa đơn thủ công.
-    - **Khoang bẩn hoặc hư hỏng:** FS ghi nhận chi tiết kèm ảnh, hệ thống tạo hóa đơn phí tương ứng ở 2.5.3.
+  - Mở `HandoverRecord` đã lập ở Flow 2 để lấy `inspection_notes`, `inspection_photos`; Flow 2.5 chỉ đọc bảng này.
+  - Kiểm tra hiện trạng lúc trả: khoang đã dọn trống chưa, tình trạng vệ sinh, hư hỏng kết cấu/cửa/khóa/thiết bị và chụp ảnh hiện trạng.
+  - Dùng chênh lệch giữa hai mốc làm căn cứ tính phí hư hỏng/vệ sinh ở 2.5.3.
+  - Lập `CheckoutRecord`, cho khách ký xác nhận. Mỗi cột mốc bật một cờ kèm timestamp để FM/FS theo dõi khi buổi trả kho kéo dài nhiều ngày.
+  - Nếu khoang bẩn hoặc hư hỏng, ghi nhận chi tiết kèm ảnh; hệ thống tạo hóa đơn phí tương ứng ở 2.5.3.
+- **Customer:**
+  - Ký xác nhận biên bản trả kho.
+- **Hệ thống:**
+  - Nếu khoang đạt yêu cầu, không phát sinh phí và chuyển sang 2.5.3.
+  - Nếu còn tài sản, ghi `CheckoutRecord.result = PENDING_ITEMS` và chưa hoàn tất trả kho.
+  - Tạo `Appointment(type = RETURN)` mới để khách quay lại dọn nốt và trỏ `CheckoutRecord.appointment_id` sang lịch mới.
+  - Khi khách quay lại và FS bắt đầu kiểm tra lần nữa, chuyển `result` trên cùng bản ghi từ `PENDING_ITEMS -> IN_PROGRESS`. Vòng này lặp tới khi khoang trống.
+  - Trong thời gian `PENDING_ITEMS`, không thu hồi `UnitAccessKey`; khách vẫn cần quyền truy cập để lấy đồ.
+  - Trong thời gian `PENDING_ITEMS`, khoang giữ `Rented`, hợp đồng giữ `Active`. Phí quá hạn do Flow 6 tính theo `overdue.fee_per_day`; Flow 2.5 không tự tính.
+  - Thời hạn dọn tiếp và phí lưu giữ theo chính sách BOM ở Flow 4. Hệ thống không tự động tính phí lưu giữ trong MVP; FM hoặc FS gửi hóa đơn thủ công.
+  - Chỉ thu hồi quyền truy cập khi `CheckoutRecord.result` không phải `PENDING_ITEMS`.
+  - Với khóa cơ, FS thu lại chìa và đối chiếu `UnitAccessKey.quantity`. Thiếu chìa thì tính `fee.lost_key`, set `UnitAccessKey.status = Lost` thay vì `Revoked`, ghi số chìa thu được vào `returned_key_quantity`; khoang phải thay khóa trước khi cho thuê lại.
+  - Với khóa mã số, vô hiệu hóa mã ngay khi biên bản được xác nhận.
+  - Thu đủ chìa hoặc vô hiệu hóa mã thì `UnitAccessKey.status -> Revoked`, ghi `revoked_at`. Thiếu chìa thì `-> Lost`, cũng ghi `revoked_at`; khoang phải thay khóa trong kỳ bảo trì ở 2.5.4.
 
-- **Thu hồi quyền truy cập:**
-  - Chỉ thực hiện khi `CheckoutRecord.result` **không phải** `PENDING_ITEMS` (khoang đã dọn trống hoàn toàn).
-  - Khóa cơ: FS thu lại chìa, đối chiếu `UnitAccessKey.quantity` đã giao ở 2.4. Thiếu chìa thì tính phí `fee.lost_key` và set `UnitAccessKey.status = Lost` thay vì `Revoked` - `Lost` nghĩa là **không thu hồi được quyền truy cập vật lý**, phải thay khóa trước khi cho thuê lại; số chìa thu được ghi ở `returned_key_quantity` để tính số lượng thiếu.
-  - Khóa mã số: hệ thống vô hiệu hóa mã ngay khi biên bản được xác nhận.
-  - Thu đủ chìa hoặc đã vô hiệu hóa mã: `UnitAccessKey.status` -> `Revoked`, ghi `revoked_at`. Thiếu chìa: `-> Lost`, cũng ghi `revoked_at` và khoang phải thay khóa trong kỳ bảo trì ở 2.5.4.
+**Schema có trong phần này:**
+- [**Appointment**](./db-table-draft.md#appointment)
+- [**HandoverRecord**](./db-table-draft.md#handoverrecord)
+- [**CheckoutRecord**](./db-table-draft.md#checkoutrecord)
+- [**UnitAccessKey**](./db-table-draft.md#unitaccesskey)
+- [**RentalContract**](./db-table-draft.md#rentalcontract)
 
 #### 2.5.3 Xử lý phí phát sinh và tiền cọc
 
-- **Các khoản Flow 2.5 tạo** (đều dưới `Invoice.type = Penalty`): phí vệ sinh (`ExtraFee.category = CLEANING`), phí hư hỏng (`DAMAGE`), phí mất chìa hoặc thay khóa (`LOST-KEY`). Mức tiền và cách tính đọc từ `ExtraFee`, Flow 2.5 **không tự định nghĩa mức phí**.
-- **Các khoản chỉ gom vào để đối trừ, không do Flow 2.5 tạo**: hóa đơn phạt quá hạn của Flow 6 và mọi hóa đơn `Unpaid` còn tồn đọng của hợp đồng.
-- **Đối trừ tiền cọc:**
-  - Cọc lớn hơn tổng phí: hoàn lại phần chênh lệch cho khách (MVP ghi nhận số tiền phải hoàn, FM xử lý thủ công).
-  - Cọc nhỏ hơn tổng phí: tạo hóa đơn phần còn thiếu, khách phải thanh toán trước khi hoàn tất trả kho.
+**Context:** FS đã kiểm tra khoang và xác định các khoản phí phát sinh hoặc các hóa đơn còn tồn đọng cần đối trừ với tiền cọc.
+
+**Flow tổng quát:** Tập hợp phí -> đối trừ với tiền cọc -> hoàn phần dư hoặc yêu cầu khách thanh toán phần thiếu.
+
+**Details:**
+- **FS/FM:**
+  - Tạo hóa đơn cho phí vệ sinh (`CLEANING`), phí hư hỏng (`DAMAGE`), phí mất chìa hoặc thay khóa (`LOST-KEY`) dưới `Invoice.type = Penalty`.
+  - Mức tiền và cách tính đọc từ `ExtraFee`; Flow 2.5 không tự định nghĩa mức phí.
+- **Hệ thống:**
+  - Gom hóa đơn phạt quá hạn của Flow 6 và các hóa đơn `Unpaid` còn tồn đọng của hợp đồng để đối trừ; Flow 2.5 không tạo các khoản này.
+  - Nếu cọc lớn hơn tổng phí, ghi nhận phần chênh lệch phải hoàn cho khách; MVP để FM xử lý thủ công.
+  - Nếu cọc nhỏ hơn tổng phí, tạo hóa đơn phần còn thiếu. Khách phải thanh toán trước khi hoàn tất trả kho.
+
+**Schema có trong phần này:**
+- [**Invoice**](./db-table-draft.md#invoice)
+- [**PaymentTransaction**](./db-table-draft.md#paymenttransaction)
 
 #### 2.5.4 Bảo trì và mở lại cho thuê
 
-- Sau khi `CheckoutRecord` được xác nhận và không còn khoản phải thu bắt buộc: `StorageUnit.status -> Maintenance` kèm `maintenance_started_at`, `RentalContract.status -> Ended`, **`ReturnRequest.status -> Completed`** kèm `completed_at` (Flow 3 định nghĩa giá trị này là do Flow 2.5 set; không đóng thì yêu cầu kẹt ở `Assigned` và Flow 3 vĩnh viễn ẩn nút [Gia hạn]/[Trả kho] của khách). **`RentalOrder` giữ nguyên `Done`** - đơn đã kết thúc từ lúc bàn giao ở 2.4, việc trả kho thể hiện qua `RentalContract.Ended` chứ không thêm trạng thái mới vào enum của Flow 1. (`Appointment.status` đã được set `Done` ở 2.5.2 khi ghi nhận khách đến, không set lại ở đây.)
-- Hết `unit.maintenance_days` (BOM cấu hình ở Flow 4), khoang tự chuyển về `Available` và có thể được gán cho yêu cầu mới ở Flow 1. Chỉ áp dụng cho khoang có `maintenance_started_at` khác null, tức `Maintenance` phát sinh từ luồng trả kho.
-- Khoang hư hỏng cần sửa dài hơn: FM chuyển `Maintenance` thủ công ở Flow 5.2 và **không set `maintenance_started_at`**, nên cron không đụng tới; FM tự chuyển về `Available` khi xong.
+**Context:** `CheckoutRecord` đã được xác nhận, khoang không còn khoản phải thu bắt buộc và có thể chuyển sang giai đoạn bảo trì trước khi cho thuê lại.
+
+**Flow tổng quát:** Chuyển khoang sang `Maintenance` -> kết thúc hợp đồng và yêu cầu trả kho -> hết thời hạn bảo trì -> khoang về `Available`.
+
+**Details:**
+- **Hệ thống:**
+  - Sau khi `CheckoutRecord` được xác nhận và không còn khoản phải thu bắt buộc, cập nhật `StorageUnit.status -> Maintenance` kèm `maintenance_started_at`.
+  - Cập nhật `RentalContract.status -> Ended`.
+  - Cập nhật `ReturnRequest.status -> Completed` kèm `completed_at`. Flow 3 định nghĩa giá trị này do Flow 2.5 set; nếu không đóng, yêu cầu kẹt ở `Assigned` và Flow 3 vĩnh viễn ẩn nút [Gia hạn]/[Trả kho].
+  - Giữ `RentalOrder.status = Done`. Đơn đã kết thúc từ lúc bàn giao ở 2.4; việc trả kho thể hiện qua `RentalContract.Ended`, không thêm trạng thái mới vào enum Flow 1.
+  - `Appointment.status` đã được set `Done` ở 2.5.2 khi ghi nhận khách đến, không set lại ở đây.
+  - Hết `unit.maintenance_days` do BOM cấu hình ở Flow 4, chuyển khoang về `Available` để Flow 1 có thể gán cho yêu cầu mới.
+  - Chỉ áp dụng cron mở lại cho khoang có `maintenance_started_at` khác null, tức `Maintenance` phát sinh từ luồng trả kho.
+- **FM:**
+  - Nếu khoang hư hỏng cần sửa lâu hơn, FM chuyển `Maintenance` thủ công ở Flow 5.2 và không set `maintenance_started_at`.
+  - FM tự chuyển khoang về `Available` khi sửa xong; cron không xử lý khoang này.
+
+**Schema có trong phần này:**
+- [**StorageUnit**](./db-table-draft.md#storageunit)
+- [**RentalContract**](./db-table-draft.md#rentalcontract)
+- [**ReturnRequest**](./db-table-draft.md#returnrequest)
+- [**CheckoutRecord**](./db-table-draft.md#checkoutrecord)
 
 #### Backend flow (chi tiết kỹ thuật)
 
