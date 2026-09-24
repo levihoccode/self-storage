@@ -1,8 +1,9 @@
 import { FormEvent, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
 import { Navigate } from "../app/types";
 import { facilities, unitTypes } from "../mocks/catalog";
 import { FormField, SelectField } from "../components/ui/FormField";
+import { SuccessState } from "../components/ui/SuccessState";
 
 export function RequestPage({ navigate }: { navigate: Navigate }) {
   const [submitted, setSubmitted] = useState(false);
@@ -14,16 +15,15 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
     return (
       <section className="form-page">
         <div className="container narrow-container">
-          <div className="success-panel">
-            <span className="success-icon">
-              <Check size={25} />
-            </span>
-            <h1>Đã nhận nhu cầu.</h1>
-            <p>Đội ngũ vận hành sẽ kiểm tra phương án và phản hồi qua email hoặc số điện thoại.</p>
-            <button className="button button-primary" onClick={() => navigate("/units")}>
-              Xem lại phương án kho <ArrowRight size={16} />
-            </button>
-          </div>
+          <SuccessState
+            title="Đã nhận nhu cầu."
+            description="Đội ngũ vận hành sẽ kiểm tra phương án và phản hồi qua email hoặc số điện thoại."
+            action={
+              <button className="button button-primary" onClick={() => navigate("/units")}>
+                Xem lại phương án kho <ArrowRight size={16} />
+              </button>
+            }
+          />
         </div>
       </section>
     );
