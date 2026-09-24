@@ -1,0 +1,88 @@
+/*
+ * Explicit layer order so migrated components can actually win. Unlayered
+ * CSS always beats layered CSS regardless of specificity (CSS Cascade
+ * Layers spec) — styles.css/theme.css must be IN a layer, placed below
+ * `utilities`, or every Tailwind utility silently loses to any base-element
+ * rule in the legacy stylesheets (e.g. `a { color: inherit }` beating
+ * `hover:text-white`, which is exactly what happened in PublicFooter).
+ *
+ * Tailwind is imported without its preflight/reset layer on purpose: styles.css
+ * already owns the base reset (box-sizing, button/input normalization, focus
+ * rings), and running both resets risks the exact regressions issue #25 calls
+ * out (form, button, heading, select behavior changing). Once styles.css's
+ * reset is fully migrated, this can switch to the plain `@import "tailwindcss";`
+ * form.
+ */
+@layer theme, legacy, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "./styles.css" layer(legacy);
+@import "./theme.css" layer(legacy);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/*
+ * Bridge Tailwind's theme to the existing runtime CSS variables instead of
+ * hard-coding color values here. styles.css still owns the actual values
+ * (--brand, --surface, ...) in :root and [data-theme="light"], so utilities
+ * like bg-brand or text-ink keep switching with the dark/light toggle for
+ * free — no duplicated color logic, no Tailwind-vs-CSS-variable drift.
+ */
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-info: var(--info);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-dark: var(--dark);
+  --color-cream: var(--cream);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-card: var(--radius-card);
+
+  --shadow-soft: var(--shadow-soft);
+
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Named text styles from DESIGN.md's typography hierarchy: font-size plus
+     its paired weight/line-height/letter-spacing, so e.g. `text-title` alone
+     reproduces the full spec instead of stacking four separate utilities. */
+  --text-display: clamp(3.25rem, 7vw, 6rem);
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.055em;
+  --text-display--font-weight: 760;
+
+  --text-title: clamp(2.15rem, 4.5vw, 3.7rem);
+  --text-title--line-height: 1.03;
+  --text-title--letter-spacing: -0.045em;
+  --text-title--font-weight: 750;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.55;
+  --text-body--font-weight: 400;
+
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.35;
+  --text-label--font-weight: 750;
+
+  --text-mono: 0.625rem;
+  --text-mono--line-height: 1.4;
+  --text-mono--font-weight: 500;
+}
+
+/*
+ * No custom spacing scale: Tailwind's default 4px base unit already lines up
+ * exactly with DESIGN.md's spacing tokens (xs=4px -> p-1, sm=8px -> p-2,
+ * md=16px -> p-4, lg=24px -> p-6, xl=32px -> p-8, 2xl=48px -> p-12,
+ * 3xl=64px -> p-16), so the stock scale is used as-is.
+ */

@@ -3,7 +3,13 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Navigate, Notice } from "../../app/types";
 import { authGateway, DEMO_EMAIL, DEMO_PASSWORD } from "../../app/auth";
 import { DemoNotice } from "../../components/ui/DemoNotice";
-import { FormField } from "../../components/ui/FormField";
+import {
+  FIELD_GROUP,
+  FIELD_LABEL,
+  FormField,
+  INPUT_ELEMENT,
+  INPUT_WRAP,
+} from "../../components/ui/FormField";
 
 export function LoginForm({ navigate }: { navigate: Navigate }) {
   const [notice, setNotice] = useState<Notice>(null);
@@ -42,14 +48,14 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
           placeholder="ban@example.com"
           icon={<Mail size={17} />}
         />
-        <div className="field-group">
-          <div className="field-label-row">
-            <label className="field-label" htmlFor="password">
+        <div className={FIELD_GROUP}>
+          <div className="flex items-center justify-between gap-4">
+            <label className={FIELD_LABEL} htmlFor="password">
               Mật khẩu
             </label>
             <button
               type="button"
-              className="inline-link"
+              className="self-start border-0 bg-transparent p-0 text-[10px] font-extrabold text-brand"
               onClick={() =>
                 setNotice({
                   tone: "info",
@@ -60,7 +66,7 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
               Quên mật khẩu?
             </button>
           </div>
-          <div className="input-wrap">
+          <div className={INPUT_WRAP}>
             <LockKeyhole size={17} />
             <input
               id="password"
@@ -68,10 +74,11 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
               type={showPassword ? "text" : "password"}
               placeholder="Nhập mật khẩu"
               autoComplete="current-password"
+              className={INPUT_ELEMENT}
             />
             <button
               type="button"
-              className="password-toggle"
+              className="grid place-items-center border-0 bg-transparent p-[3px] text-muted"
               onClick={() => setShowPassword((current) => !current)}
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >

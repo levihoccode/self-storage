@@ -30,6 +30,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
+    document.documentElement.dataset.theme = theme;
 
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
