@@ -45,7 +45,7 @@ export function PublicHeader({
       }`}
     >
       <div
-        className={`container flex min-h-[68px] items-center justify-between ${isScrolled ? "min-h-[56px]" : ""}`}
+        className={`container flex min-h-[68px] items-center justify-between px-6 max-[760px]:px-4 ${isScrolled ? "min-h-[56px]" : ""}`}
       >
         <Brand onClick={() => go("/")} compact={isScrolled} />
         <button

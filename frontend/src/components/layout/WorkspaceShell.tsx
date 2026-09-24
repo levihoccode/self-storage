@@ -69,7 +69,7 @@ export function WorkspaceShell({
         <div className="workspace-sidebar-top">
           <Brand onClick={onBrandClick} />
           <button
-            className="workspace-close grid h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink"
+            className="workspace-close hidden h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink max-[760px]:grid"
             onClick={() => setMenuOpen(false)}
             aria-label="Đóng menu"
           >
@@ -111,7 +111,7 @@ export function WorkspaceShell({
       <section className="workspace-main">
         <header className="workspace-topbar">
           <button
-            className="workspace-menu grid h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink"
+            className="workspace-menu hidden h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink max-[760px]:grid"
             onClick={() => setMenuOpen(true)}
             aria-label="Mở menu"
           >
