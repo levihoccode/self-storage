@@ -198,7 +198,7 @@
 - Không áp dụng cho `Invoice.type = Penalty/Service`.
 
 **NOTES:**
-- **Phụ thuộc Flow 1 bổ sung 3 field vào `Invoice`** (thay vì tạo bảng `InvoiceDiscount` riêng — MVP giới hạn 1 discount/hóa đơn nên quan hệ là 1–1, tách bảng là dư thừa):
+- Cần `Invoice` bổ sung field `discount_amount` để `Discount` ghi được số tiền đã giảm. Đây là schema thuộc ownership của Flow 1 — không phải blocker của Flow 4, Flow 1 tự quyết định thời điểm thêm field này khi cần dùng tới `Discount`. Cho tới lúc đó, thiết kế `Discount` ở đây vẫn giữ nguyên, chỉ chưa có nơi để ghi kết quả áp dụng.
   ```
   - original_amount (nullable) - giá trước khi trừ discount, để đối soát
   - discount_amount (default 0) - số tiền đã giảm
