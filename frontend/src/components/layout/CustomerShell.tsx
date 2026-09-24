@@ -72,7 +72,7 @@ export function CustomerShell({
         <div className="customer-sidebar-top">
           <Brand onClick={() => navigate("/")} />
           <button
-            className="icon-button customer-close"
+            className="customer-close grid h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink"
             onClick={() => setMenuOpen(false)}
             aria-label="Đóng menu"
           >
@@ -117,7 +117,7 @@ export function CustomerShell({
       <section className="customer-main">
         <header className={`customer-topbar ${isScrolled ? "is-scrolled" : ""}`}>
           <button
-            className="icon-button customer-menu"
+            className="customer-menu grid h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink"
             onClick={() => setMenuOpen(true)}
             aria-label="Mở menu"
           >

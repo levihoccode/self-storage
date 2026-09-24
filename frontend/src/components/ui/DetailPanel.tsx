@@ -28,7 +28,7 @@ export function DetailPanel({
       onClick={onClose}
     >
       <aside
-        className="flex h-full w-[min(480px,100%)] flex-col border-l border-border bg-surface shadow-[var(--shadow-soft)] max-[760px]:w-full"
+        className="flex h-full w-[min(480px,100%)] flex-col border-l border-border bg-surface shadow-soft-token max-[760px]:w-full"
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-panel-title"
@@ -36,12 +36,20 @@ export function DetailPanel({
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 pb-4 pt-6">
           <div>
-            {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+            {eyebrow && (
+              <p className="font-mono text-mono uppercase tracking-[0.08em] text-brand">
+                {eyebrow}
+              </p>
+            )}
             <h2 id="detail-panel-title" className="mt-1 text-[19px] tracking-[-0.03em]">
               {title}
             </h2>
           </div>
-          <button className="icon-button" onClick={onClose} aria-label="Đóng">
+          <button
+            className="grid h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink transition-colors hover:border-brand hover:text-brand"
+            onClick={onClose}
+            aria-label="Đóng"
+          >
             <X size={18} />
           </button>
         </header>

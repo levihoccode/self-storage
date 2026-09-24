@@ -21,7 +21,9 @@ export function ComingSoonDialog({ onClose }: { onClose: () => void }) {
         >
           <X size={18} />
         </button>
-        <p className="eyebrow">Đang hoàn thiện</p>
+        <p className="font-mono text-mono uppercase tracking-[0.08em] text-brand">
+          Đang hoàn thiện
+        </p>
         <h2
           id="coming-soon-title"
           className="mb-3 mt-2 max-w-[300px] text-[26px] leading-[1.08] tracking-[-0.04em]"
@@ -31,7 +33,10 @@ export function ComingSoonDialog({ onClose }: { onClose: () => void }) {
         <p className="mb-6 text-[13px] text-muted">
           Tính năng này sẽ sớm có mặt trong không gian của bạn.
         </p>
-        <button className="button button-primary w-full" onClick={onClose}>
+        <button
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-sm border-0 bg-brand px-[18px] text-label text-background transition-colors hover:bg-brand-strong"
+          onClick={onClose}
+        >
           Đã hiểu
         </button>
       </div>

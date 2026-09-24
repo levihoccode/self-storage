@@ -20,11 +20,15 @@ export function RegisterForm({ navigate }: { navigate: Navigate }) {
   }
   return (
     <>
-      <div className="auth-heading">
-        <h1>Tạo tài khoản</h1>
-        <p>Đăng ký Customer để theo dõi nhu cầu lưu trữ, hợp đồng và hóa đơn.</p>
+      <div className="mb-6">
+        <h1 className="m-0 text-[32px] leading-tight tracking-[-0.045em] text-ink">
+          Tạo tài khoản
+        </h1>
+        <p className="mt-3 text-[13px] text-muted">
+          Đăng ký Customer để theo dõi nhu cầu lưu trữ, hợp đồng và hóa đơn.
+        </p>
       </div>
-      <form className="auth-form" onSubmit={submit}>
+      <form className="grid gap-0" onSubmit={submit}>
         <FormField
           label="Họ và tên / doanh nghiệp"
           name="name"
@@ -54,17 +58,26 @@ export function RegisterForm({ navigate }: { navigate: Navigate }) {
           placeholder="Tối thiểu 8 ký tự"
           icon={<LockKeyhole size={17} />}
         />
-        <label className="checkbox-row">
-          <input type="checkbox" required />
+        <label className="mb-[18px] flex items-start gap-2 text-[11px] text-muted">
+          <input className="mt-px h-[15px] w-[15px] accent-brand" type="checkbox" required />
           <span>Tôi đồng ý với điều khoản sử dụng của Kho Mộc.</span>
         </label>
-        <button className="button button-primary button-full" type="submit">
+        <button
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-sm border-0 bg-brand px-[18px] text-label text-background transition-colors hover:bg-brand-strong"
+          type="submit"
+        >
           Tạo tài khoản <ArrowRight size={17} />
         </button>
         {notice && <DemoNotice tone={notice.tone}>{notice.message}</DemoNotice>}
       </form>
-      <p className="auth-switch">
-        Đã có tài khoản? <button onClick={() => navigate("/login")}>Đăng nhập</button>
+      <p className="mt-5 text-center text-xs text-muted">
+        Đã có tài khoản?{" "}
+        <button
+          className="border-0 bg-transparent p-0 font-bold text-brand"
+          onClick={() => navigate("/login")}
+        >
+          Đăng nhập
+        </button>
       </p>
     </>
   );

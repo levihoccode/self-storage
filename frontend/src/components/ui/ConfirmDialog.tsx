@@ -31,7 +31,7 @@ export function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="w-[min(420px,100%)] rounded-md border border-border bg-surface p-7 shadow-[var(--shadow-soft)]"
+        className="w-[min(420px,100%)] rounded-md border border-border bg-surface p-7 shadow-soft-token"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
@@ -47,14 +47,18 @@ export function ConfirmDialog({
           <p className="mb-[22px] mt-0 text-[13px] leading-normal text-muted">{description}</p>
         )}
         <div className="flex justify-end gap-2.5">
-          <button className="button button-secondary" onClick={onCancel} disabled={isPending}>
+          <button
+            className="inline-flex min-h-11 items-center justify-center rounded-sm border border-brand bg-transparent px-[18px] text-label text-brand transition-colors hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={onCancel}
+            disabled={isPending}
+          >
             {cancelLabel}
           </button>
           <button
             className={
               tone === "danger"
-                ? "button bg-danger text-white hover:bg-danger hover:brightness-[0.92]"
-                : "button button-primary"
+                ? "inline-flex min-h-11 items-center justify-center gap-2 rounded-sm border-0 bg-danger px-[18px] text-label text-white transition-[filter] hover:brightness-[0.92] disabled:cursor-not-allowed disabled:opacity-60"
+                : "inline-flex min-h-11 items-center justify-center gap-2 rounded-sm border-0 bg-brand px-[18px] text-label text-background transition-colors hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60"
             }
             onClick={onConfirm}
             disabled={isPending}

@@ -49,7 +49,7 @@ export function PublicHeader({
       >
         <Brand onClick={() => go("/")} compact={isScrolled} />
         <button
-          className="icon-button hidden max-[760px]:inline-grid"
+          className="hidden h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink max-[760px]:inline-grid"
           onClick={() => setOpen((current) => !current)}
           aria-label={open ? "Đóng menu" : "Mở menu"}
           aria-expanded={open}

@@ -35,11 +35,11 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
   }
   return (
     <>
-      <div className="auth-heading">
-        <h1>Đăng nhập</h1>
-        <p>Quản lý nhu cầu lưu trữ của bạn tại Kho Mộc.</p>
+      <div className="mb-6">
+        <h1 className="m-0 text-[32px] leading-tight tracking-[-0.045em] text-ink">Đăng nhập</h1>
+        <p className="mt-3 text-[13px] text-muted">Quản lý nhu cầu lưu trữ của bạn tại Kho Mộc.</p>
       </div>
-      <form className="auth-form" onSubmit={submit}>
+      <form className="grid gap-0" onSubmit={submit}>
         <FormField
           label="Email"
           name="email"
@@ -86,20 +86,29 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
             </button>
           </div>
         </div>
-        <button className="button button-primary button-full" type="submit" disabled={isSubmitting}>
+        <button
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-sm border-0 bg-brand px-[18px] text-label text-background transition-colors hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60"
+          type="submit"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "Đang kiểm tra…" : "Đăng nhập"}{" "}
           {!isSubmitting && <ArrowRight size={17} />}
         </button>
-        <div className="demo-credentials">
-          <strong>Tài khoản demo</strong>
+        <div className="mt-5 grid gap-1 rounded-sm border border-dashed border-border p-3 font-mono text-[11px] leading-relaxed text-muted">
+          <strong className="font-sans text-xs text-ink">Tài khoản demo</strong>
           <span>Email: {DEMO_EMAIL}</span>
           <span>Mật khẩu: {DEMO_PASSWORD}</span>
         </div>
         {notice && <DemoNotice tone={notice.tone}>{notice.message}</DemoNotice>}
       </form>
-      <p className="auth-switch">
+      <p className="mt-5 text-center text-xs text-muted">
         Bạn chưa có tài khoản?{" "}
-        <button onClick={() => navigate("/register")}>Đăng ký miễn phí</button>
+        <button
+          className="border-0 bg-transparent p-0 font-bold text-brand"
+          onClick={() => navigate("/register")}
+        >
+          Đăng ký miễn phí
+        </button>
       </p>
     </>
   );

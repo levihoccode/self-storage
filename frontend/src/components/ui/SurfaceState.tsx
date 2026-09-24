@@ -52,7 +52,10 @@ export function SurfaceState({
         <p className="-mt-1 max-w-[380px] text-xs leading-normal text-muted">{description}</p>
       )}
       {action && (
-        <button className="button button-secondary mt-2" onClick={action.onClick}>
+        <button
+          className="mt-2 inline-flex min-h-11 items-center justify-center rounded-sm border border-brand bg-transparent px-[18px] text-label text-brand transition-colors hover:bg-brand hover:text-background"
+          onClick={action.onClick}
+        >
           {action.label}
         </button>
       )}
