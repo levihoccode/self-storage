@@ -1432,6 +1432,9 @@ select:focus-visible {
     border: 0;
     background: rgba(0, 0, 0, 0.52);
   }
+  .customer-main {
+    margin-left: 0;
+  }
   .customer-topbar {
     justify-content: space-between;
     width: calc(100% - 16px);
