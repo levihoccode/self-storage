@@ -18,7 +18,7 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
   if (submitted)
     return (
       <section className={FORM_PAGE}>
-        <div className="container narrow-container">
+        <div className="mx-auto w-[min(620px,calc(100%-40px))]">
           <SuccessState
             title="Đã nhận nhu cầu."
             description="Đội ngũ vận hành sẽ kiểm tra phương án và phản hồi qua email hoặc số điện thoại."
@@ -48,7 +48,7 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
             Chọn điểm kho, quy mô và thời gian bắt đầu.
           </p>
         </div>
-        <form className="request-form" onSubmit={submit}>
+        <form onSubmit={submit}>
           <div className="rounded-md border border-border bg-surface p-7">
             <div className="flex items-start gap-[14px] border-b border-border pb-[22px]">
               <div>
