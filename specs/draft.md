@@ -416,6 +416,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 |---|---:|
 | `handover.payment_grace_hours` | chờ BOM |
 | `handover.max_rejection_count` | 2 lần |
+| `handover.due_days` | chờ BOM (gợi ý 1–2 ngày) |
 | `contract.start_date_rule` | chờ BOM |
 | `contract.prepaid_months` | 1 tháng |
 
@@ -445,7 +446,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 **Context:** Sau khi khách đã đặt cọc, Flow 1 tạo lịch hẹn `CHECKIN` và `HandoverRecord`. Flow 2 tiếp nhận lịch đã được phân công để thực hiện phần check-in và bàn giao tại cơ sở.
 
-**Flow tổng quát:** Flow 2 đọc lịch hẹn do Flow 1 tạo -> kiểm tra điều kiện vào flow -> FM phân công FS -> FS tiếp nhận khách theo lịch được phân công.
+**Flow tổng quát:** Flow 2 đọc lịch hẹn do Flow 1 tạo -> kiểm tra điều kiện vào flow -> FS tiếp nhận khách theo lịch được phân công.
 
 **Details:**
 - **FM:**
@@ -457,7 +458,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - FS xem các lịch trong ngày được phân công cho mình.
   - Hệ thống hiển thị thông tin khách hàng, khoang chứa và `type` của lịch hẹn.
   - FS chọn lịch hẹn và bấm nút **Done** để xác nhận khách đã đến cơ sở.
-  - Hệ thống ghi nhận `Appointment.arrived_at` và cập nhật `Appointment.status = Done`.
+  - Hệ thống ghi nhận `Appointment.arrived_at`, cập nhật `Appointment.status = Done` và set `HandoverRecord.due_at = now + handover.due_days`.
   - Trong trường hợp **khách không đến**, cron job của Flow 1 sẽ tự động cập nhật trạng thái của `Appointment` theo [Scheduled Jobs - Cron jobs](#scheduled-jobs---cron-jobs).
 - **Hệ thống:**
   - Kiểm tra các điều kiện:
@@ -476,6 +477,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**HandoverRecord**](./db-table-draft.md#handoverrecord)
 
 **NOTES:**
+- FS đang đăng nhập phải khớp Appointment.staff_id; sai thì chặn thao tác.
 - Flow 2 không tạo hoặc đặt lại `Appointment`.
 - Flow 1 sở hữu việc sinh slot, đặt lịch, hủy và đặt lại lịch.
 - Nghiệp vụ phân công FS thuộc Flow 5.3.
@@ -490,58 +492,55 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - FS phụ trách được xác định qua `Appointment.staff_id`.
 - **FS:**
   - FS mở `HandoverRecord` gắn với `Appointment` đó; Flow 1.5 đã tạo record với `result = IN_PROGRESS`.
-  - FS đối chiếu giấy tờ tùy thân của người đến với `RentalOrder.customer_id`.
+  - FS đối chiếu giấy tờ người đến với thông tin Account của `RentalOrder.customer_id`.
   - Nếu khách đã upload ảnh giấy tờ online, FS đối chiếu với ảnh hiển thị trên hệ thống.
   - Nếu xác minh **đạt**, hệ thống bật `is_identity_verified = true`, `identity_verified_at`.
-  - Nếu xác minh **không đạt**, FS dừng quy trình; các cờ tiếp theo không được bật. -> buổi hẹn đó sẽ bị hủy hoặc nếu đã xác nhận với người đặt tùy theo chính sách 
+  - Nếu xác minh **không đạt**, FS dừng quy trình, không bật các cờ tiếp theo và mời khách ra về; **không hủy lịch/đơn** ở bước này.
+    - MVP chỉ chấp nhận đúng người trên đơn (RentalOrder.customer_id); không xử lý người nhận thay.
+    - `HandoverRecord` giữ `IN_PROGRESS`; quá `due_at` thì cron của Flow 2 xử lý như no-show ([2.3](#23-ký-hợp-đồng-và-thanh-toán-tháng-đầu-tiên) / [Cron jobs](#scheduled-jobs---cron-jobs)).
   - FS dẫn khách kiểm tra toàn bộ hiện trạng: kích thước, vị trí, vệ sinh, kết cấu, cửa/khóa và hư hại sẵn có.
   - FS nhập `HandoverRecord.inspection_notes` và `HandoverRecord.inspection_photos`.
 - **Customer:**
-  - Khách vào trang **Kho của tôi**
-  - Khách chọn khoang đang bàn giao (`StorageUnit.status = Reserved`)
-  - Ấn vào nút "Bàn giao" để chuyển hướng qua trang để thao tác bàn giao
+  - Khách vào trang **Kho của tôi**.
+  - Khách chọn khoang đang bàn giao (`StorageUnit.status = Reserved`).
+  - Ấn vào nút "Bàn giao" để chuyển hướng qua trang để thao tác bàn giao.
   - Khách xác nhận hiện trạng khoang sau khi kiểm tra.
-  - Khách chọn một trong hai thao tác:
+  - Khách chọn một trong 3 thao tác:
     - **Đồng ý:** 
       - Hệ thống cập nhật `HandoverRecord.is_unit_inspected = true`, `HandoverRecord.unit_inspected_at`
-      - Khách có thể nhập những thứ cơ sở cần lưu ý (`HandoverRecord.inspection_notes`). -> không bắt buộc
+      - Khách có thể nhập những thứ cơ sở cần lưu ý (`HandoverRecord.inspection_notes`, vd khoang chưa sạch). -> không bắt buộc
     - **Không đồng ý:** 
-      - hệ thống cập nhật `HandoverRecord.is_unit_inspected = false`, `HandoverRecord.unit_inspected_at`
-      - hệ thống cập nhật `HandoverRecord.result = REJECTED`
+      - Hệ thống giữ nguyên `is_unit_inspected = false` (không ghi `unit_inspected_at`)
       - Khách nhập lý do (`HandoverRecord.reject_reason`).
+    - **Yêu cầu hủy đơn**:
+      - Hệ thống yêu cầu khách xác nhận việc hủy và thông báo hậu quả theo chính sách.
+      - Khách xác nhận:
+        - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade).
+        - Appointment đã `Done` nên giữ nguyên.
+        - `HandoverRecord` hiện tại chuyển `IN_PROGRESS -> CANCELED`.
+        - Flow 2 kết thúc.
+      - Khách không xác nhận:
+        - Không ghi gì.
+        - Giữ nguyên `HandoverRecord` để khách tiếp tục kiểm tra hoặc chọn từ chối khoang.
+        - Nếu quá `due_at`, cron của Flow 2 đóng biên bản và xử lý như no-show (xem [2.3](#23-ký-hợp-đồng-và-thanh-toán-tháng-đầu-tiên) và [Cron jobs](#scheduled-jobs---cron-jobs)).
   - Nếu khách chọn **từ chối khoang này**:
-    - Khách nhập lý do (`HandoverRecord.reject_reason`).
-    - Trước khi ghi nhận lần từ chối, hệ thống đếm số `HandoverRecord` thuộc cùng `RentalOrder` có `result = REJECTED`.
-      - Việc đếm và cập nhật bản ghi nằm trong cùng transaction.
-      - Trong trường hợp:
-        - **Chưa chạm ngưỡng** số lần từ chối:
+    - Trước khi ghi nhận lần từ chối, hệ thống đếm số `HandoverRecord` cùng `RentalOrder` có `result = REJECTED` (không đếm `CANCELED`, tính trên toàn lịch sử đơn); việc đếm và cập nhật nằm trong cùng transaction.
+    - Điều kiện chạm ngưỡng: `count + 1 >= handover.max_rejection_count`.
+      - **Chưa chạm ngưỡng** số lần từ chối:
+        - Cập nhật `HandoverRecord.result = REJECTED`.
+        - Bắn event `HandoverRecord.Rejected` cho Flow 1.
+        - Flow 2 kết thúc.
+        - Flow 1 thực hiện re-propose theo [Flow 1.3 Kiểm tra kho của tôi](#13-kiểm-tra-kho-của-tôi).
+        - Sau khi khách duyệt proposal mới và Flow 1 hoàn tất các bước liên quan, Flow 2 bắt đầu lại trên `Appointment` và `HandoverRecord` mới.
+      - **Chạm ngưỡng** số lần từ chối:
+        - Hệ thống hiển thị xác nhận cho khách, nêu rõ đơn sẽ bị hủy vì đã từ chối tối đa N khoang và tiền cọc không được hoàn.
+        - **Khách xác nhận:**
           - Cập nhật `HandoverRecord.result = REJECTED`.
-          - Bắn event `HandoverRecord.Rejected` cho Flow 1.
-          - Flow 2 kết thúc.
-          - Flow 1 thực hiện re-propose theo [Flow 1.3 Kiểm tra kho của tôi](#13-kiểm-tra-kho-của-tôi).
-          - Sau khi khách duyệt proposal mới và Flow 1 hoàn tất các bước liên quan, Flow 2 bắt đầu lại trên `Appointment` và `HandoverRecord` mới.
-        - **Chạm ngưỡng** số lần từ chối:
-          - Hệ thống hiện xác nhận cho khách, nêu rõ đơn sẽ bị hủy vì đã từ chối tối đa N khoang và tiền cọc không được hoàn.
-          - **Khách xác nhận:**
-            - Cập nhật `HandoverRecord.result = REJECTED`.
-            - Cập nhật `RentalOrder.status = Canceled`.
-            - Cập nhật `StorageUnit.status = Available`.
-            - Cập nhật `ProposalFeedback.status = Expired`.
-            - Cọc xử lý theo chính sách Flow 4. (MVP là mất cọc)
-            - Gửi thông báo xác nhận hủy qua email và website.
-            - Kết thúc Flow 2
-          - **Khách không xác nhận:**
-            - Không ghi gì và giữ nguyên hiện trạng.
-  - Nếu khách **yêu cầu hủy đơn**:
-    - Hệ thống yêu cầu khách xác nhận việc hủy và thông báo hậu quả theo chính sách.
-    - Khách xác nhận:
-      - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade).
-      - Appointment đã `Done` nên giữ nguyên.
-      - `HandoverRecord` hiện tại chuyển `IN_PROGRESS -> CANCELED`.
-      - Flow 2 kết thúc.
-    - Khách không xác nhận:
-      - Không ghi gì.
-      - Giữ nguyên `HandoverRecord` để khách tiếp tục kiểm tra hoặc chọn từ chối khoang.
+          - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade).
+          - Kết thúc Flow 2
+        - **Khách không xác nhận:**
+          - Không ghi gì và giữ nguyên hiện trạng.
+          - Nếu `HandoverRecord` quá `due_at`, cron của Flow 2 đóng biên bản và xử lý như no-show theo [Cron jobs](#scheduled-jobs---cron-jobs).
 
 - **Hệ thống:**
   - Nếu khách không đến, cron của Flow 1 xử lý theo [Scheduled Jobs - Cron jobs](#scheduled-jobs---cron-jobs).
@@ -582,7 +581,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - Khi gateway xác nhận thành công, cập nhật `PaymentTransaction = Success`, `Invoice.status = Paid`, `is_payment_settled`, `payment_settled_at`.
   - Khi thanh toán thất bại, cập nhật `PaymentTransaction = Failed`; hóa đơn giữ nguyên chưa thanh toán và không tiếp tục bàn giao.
   - Nếu chưa thanh toán xong trong buổi hẹn, giữ `HandoverRecord.result = IN_PROGRESS`, giữ khoang `Reserved`, chưa bàn giao khóa; hóa đơn nằm trong mục "Hóa đơn" của khách.
-  - Khách có `payment_grace_hours` giờ để thanh toán. Quá hạn, cron xử lý giống nhánh no-show của Flow 1:
+  - Khách có `payment_grace_hours` giờ để thanh toán. Quá hạn, [cron](#scheduled-jobs---cron-jobs) xử lý giống nhánh no-show của Flow 1:
     - `RentalContract.status -> Canceled`, `HandoverRecord.result -> CANCELED` với lý do "Quá hạn thanh toán tháng đầu".
     - Nếu `now < RentalOrder.expires_at`, đơn quay về `Deposited`, giữ cọc, khoang vẫn `Reserved`, khách đặt lịch check-in mới ở Flow 1 và làm lại từ 2.2.
     - Nếu `now >= RentalOrder.expires_at`, đơn `Expired`, khoang về `Available`, xử lý mất cọc theo chính sách Flow 4.
@@ -695,7 +694,6 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - **Bảng nối `RentalAppointment` giữ theo A6** (Flow 1 `0585bfb`, Flow 5 `db-table-draft.md`). Phần `facility_id` trên `Appointment` đã được Flow 1 và Flow 5 áp. Đề xuất đưa `order_id` thẳng lên `Appointment` và bỏ bảng nối **không được chốt**, Flow 2/2.5 viết theo bảng nối.
 - Đổi khoang sau khi khách đã cọc (do từ chối tại chỗ ở 2.2) do **Flow 1** xử lý: FM chỉ định khoang mới, hệ thống tạo `ProposalFeedback` **mới** (bản cũ giữ nguyên, khoang hiệu lực là proposal `Agreed` mới nhất), khách duyệt online. Flow 1 đã chốt (E6): khi đề xuất lại, hệ thống **loại các khoang khách đã từ chối** trong cùng đơn; FM muốn đề xuất lại khoang đã bị từ chối thì phải override kèm lý do và ghi `AuditLog`. Quá `proposal.max_rejection_count` lần thì Flow 1 hủy đơn. Chênh lệch mức cọc cũ/mới cộng phí đổi khoang: dư thì hoàn thủ công, thiếu thì xuất hóa đơn cọc bù. Còn mở: thứ tự chuyển khoang mới sang `Reserved` so với việc hoàn tiền.
 - Vì mỗi lần đề xuất lại tạo một `ProposalFeedback` mới, **không** đặt unique index `(order_id) WHERE status = 'Agreed'` - index đó sẽ chặn đúng reject path của Flow 2.
-- **Block `CANCELLATION CONSTRAINTS` chưa tồn tại trong spec.** NOTES của 2.2 tham chiếu block này để so sánh hai kiểu hủy đơn, nhưng hiện chưa mục nào định nghĩa. Cần Flow 1 viết block dùng chung, nếu không thì câu tham chiếu treo.
 - ~~Flow 5 bổ sung `enabledKeyAccess` và `enabledCodeAccess`~~ - **đã xong**: Flow 5 thêm hai cờ vào bảng `Facility` ngày 23/09, mục 2.4 đọc theo cơ sở.
 - `RentalOrder.status` theo contract Flow 1 (20/09): `Pending/Deposited/Scheduled/InProgress/Done/Canceled/Expired` - khác đề xuất B3 ở chỗ giữ `Pending` thay cho `AwaitingDeposit`. Flow 2 bám theo bộ này: vào flow ở `InProgress`, kết ở `Done`.
 
@@ -941,4 +939,8 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
     - `RentalOrder.status = Expired`.
     - `StorageUnit.status` chuyển từ `Reserved` về `Available`.
     - Xử lý mất cọc theo policy.
+- `HandoverRecord` (`result = IN_PROGRESS`, `arrived_at` đã có) quá `due_at`:
+  - `HandoverRecord.result = CANCELED`, `reject_reason` = "Chưa hoàn tất bàn giao trong hạn".
+  - `RentalContract` (`Draft`/`Signed`) chuyển `Canceled`.
+  - Đơn, khoang và cọc xử lý như nhánh no-show ở trên.
 - `Invoice` (DEP) quá `due_date` mà chưa thanh toán → set `status = Expired`; `RentalOrder` tương ứng chuyển `Expired` (khách không thanh toán cọc).

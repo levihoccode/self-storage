@@ -242,7 +242,7 @@
 - identity_verified_at (nullable)
 - is_unit_inspected (default: false) - hiện trạng kho được khách xác nhận
 - unit_inspected_at (nullable)
-- inspection_notes (nullable)
+- inspection_notes (nullable) - chỉ cho ghi chú hiện trạng
 - inspection_photos - List<String> (nullable), ảnh chụp thực tế lúc check-in
 - is_contract_signed (default: false) - hợp đồng đã được ký
 - contract_signed_at (nullable)
@@ -251,21 +251,23 @@
 
 - result
   - IN_PROGRESS: trạng thái mặc định
-  - COMPLETED: tất cả các items trong checklist của bảng này đều dã được tick
+  - COMPLETED: tất cả các items trong checklist của bảng này đều đã được tick
   - REJECTED: khách từ chối khoang
-  - CANCELED: khách hủy đơn
+  - CANCELED: biên bản bị đóng mà không nhận khoang — khách hủy đơn, khách không đến, quá hạn thanh toán hoặc quá hạn hoàn tất bàn giao.
 - completed_at (nullable)
 - reject_reason (nullable, Text) - lý do từ chối hoặc hủy biên bản
 - created_at
 - updated_at
+- due_at - hạn khách phải hoàn tất bàn giao, set khi ghi nhận khách đến
 
 **NOTES:**
 - HandoverRecord được thiết kế như một checklist nhằm tối đa sự linh hoạt khi checkin, ví dụ, khách có thể đến xác nhận danh tính (is_identity_verified) và đồng thời xác nhận kho luôn (is_unit_inspected).
 - Để `result = COMPLETED`, tất cả các mục bắt buộc trong checklist phải được hoàn tất. Trường hợp `REJECTED` hoặc `CANCELED` có thể kết thúc khi checklist chưa hoàn tất và phải ghi nhận lý do tương ứng.
 
 **CONSTRAINTS:**
+- `due_at` chỉ có giá trị khi `arrived_at` đã được ghi; không đổi sau khi set.
 - Một `Appointment` chỉ có tối đa một `HandoverRecord`.
-- Một `RentalOrder` có thể có nhiều `HandoverRecord` nếu khách từ chối khoang, no-show hoặc phải đặt lại lịch.
+- Một `RentalOrder` có thể có nhiều `HandoverRecord` nếu khách từ chối khoang, no-show, quá hạn hoàn tất hoặc phải đặt lại lịch.
 - Một `RentalOrder` chỉ có tối đa một `HandoverRecord` đang mở (`result = IN_PROGRESS`).
 - MVP chỉ có tối đa một appointment `CHECKIN` đang hoạt động cho mỗi `RentalOrder`; reschedule tạo nhiều appointment chỉ được bật ở giai đoạn sau.
 - Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
