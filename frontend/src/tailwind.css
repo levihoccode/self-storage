@@ -44,6 +44,9 @@
   --color-danger: var(--danger);
   --color-dark: var(--dark);
   --color-cream: var(--cream);
+  --color-unit-sand: var(--unit-accent-sand);
+  --color-unit-teal: var(--unit-accent-teal);
+  --color-unit-ink: var(--unit-accent-ink);
 
   --radius-sm: 4px;
   --radius-md: 8px;
