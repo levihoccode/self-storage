@@ -10,6 +10,13 @@ type FieldProps = {
   suffix?: string;
 };
 
+export const FIELD_GROUP = "mb-[17px]";
+export const FIELD_LABEL = "mb-[7px] block text-[13px] font-bold text-ink";
+export const INPUT_WRAP =
+  "relative flex min-h-[46px] items-center gap-2.5 rounded-sm border border-border bg-surface-subtle px-[13px] text-muted focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)] [&>svg:last-child]:pointer-events-none [&>svg:last-child]:ml-auto";
+export const INPUT_ELEMENT =
+  "min-h-[43px] w-full min-w-0 appearance-none border-0 bg-transparent text-[14px] text-ink outline-0 placeholder:text-[#7d8882]";
+
 export function FormField({
   label,
   name,
@@ -20,12 +27,16 @@ export function FormField({
   suffix,
 }: FieldProps) {
   return (
-    <div className="field-group">
-      <label className="field-label" htmlFor={name}>
+    <div className={FIELD_GROUP}>
+      <label className={FIELD_LABEL} htmlFor={name}>
         {label}
-        {required && <span aria-hidden="true"> *</span>}
+        {required && (
+          <span className="text-danger" aria-hidden="true">
+            {" *"}
+          </span>
+        )}
       </label>
-      <div className="input-wrap">
+      <div className={INPUT_WRAP}>
         {icon}
         <input
           id={name}
@@ -34,8 +45,9 @@ export function FormField({
           required={required}
           placeholder={placeholder}
           autoComplete={name === "email" ? "email" : undefined}
+          className={INPUT_ELEMENT}
         />
-        {suffix && <span className="input-suffix">{suffix}</span>}
+        {suffix && <span className="shrink-0 text-[11px] text-muted">{suffix}</span>}
       </div>
     </div>
   );
@@ -53,13 +65,22 @@ export function SelectField({
   required?: boolean;
 }) {
   return (
-    <div className="field-group">
-      <label className="field-label" htmlFor={name}>
+    <div className={FIELD_GROUP}>
+      <label className={FIELD_LABEL} htmlFor={name}>
         {label}
-        {required && <span aria-hidden="true"> *</span>}
+        {required && (
+          <span className="text-danger" aria-hidden="true">
+            {" *"}
+          </span>
+        )}
       </label>
-      <div className="input-wrap select-input">
-        <select id={name} name={name} required={required}>
+      <div className={INPUT_WRAP}>
+        <select
+          id={name}
+          name={name}
+          required={required}
+          className={`${INPUT_ELEMENT} invalid:text-muted`}
+        >
           <option value="">Chọn một lựa chọn</option>
           {options.map((option) => (
             <option key={option.value} value={option.value}>

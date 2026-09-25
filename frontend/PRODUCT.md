@@ -41,6 +41,7 @@ Trải nghiệm cần làm cho quy trình **nhanh chóng, thuận tiện và min
 
 - Page inventory hiện có 42 page cho Customer, Shared/Auth, FM, FS, BOM và Admin.
 - Frontend hiện là prototype React + TypeScript + Vite với dữ liệu mock.
+- Styling dùng Tailwind CSS v4 qua `@tailwindcss/vite`. Design token runtime nằm trong `src/styles.css` và được bridge sang Tailwind trong `src/tailwind.css`.
 - Prototype hiện có public browsing, rental request và auth demo; các surface vận hành khác được mô tả trong `../fe-pages/`.
 - Chưa có API, authentication/JWT thật, persistence, phân quyền bảo mật, thanh toán thật, notification hoặc upload thật trong prototype.
 - Action chưa có backend phải hiển thị rõ là demo/TODO, không giả vờ đã ghi dữ liệu hoặc thanh toán thành công.
@@ -52,9 +53,10 @@ Trải nghiệm cần làm cho quy trình **nhanh chóng, thuận tiện và min
 
 Kiến trúc frontend hiện tại được xem là baseline tốt và phải được giữ nguyên trong các task UI/UX:
 
-- Giữ React + TypeScript + Vite, routing hiện tại và cách tổ chức trong `src/app`, `src/pages`, `src/components`, `src/mocks` và các file style hiện có.
+- Giữ React + TypeScript + Vite, routing hiện tại, Tailwind CSS và cách tổ chức trong `src/app`, `src/pages`, `src/components`, `src/mocks`.
 - Ưu tiên mở rộng hoặc tái sử dụng component, layout, mock data và token hiện tại thay vì tạo một architecture song song.
-- Không tự ý đổi framework, thay routing, di chuyển hàng loạt file, thay styling approach, thêm state/data layer hoặc cài thêm UI library chỉ vì một visual task.
+- `DESIGN.md` là visual source of truth; Tailwind chỉ là cách hiện thực hoá nó. Không tự thêm token màu, spacing hoặc typography ngoài `DESIGN.md`.
+- Không tự ý đổi framework, thay routing, di chuyển hàng loạt file, thay styling approach khác Tailwind, thêm state/data layer hoặc cài thêm UI library chỉ vì một visual task.
 - Nếu một thay đổi UI cần tác động đến architecture, agent phải đề xuất trước: lý do, phạm vi, ảnh hưởng, phương án thay thế và migration cost; chỉ thực hiện sau khi được xác nhận.
 
 ## Evidence on Hand
