@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
 import { Navigate } from "../app/types";
+import { PAGE_CONTAINER } from "../app/layout";
 import { facilities, unitTypes } from "../mocks/catalog";
 import { FormField, SelectField } from "../components/ui/FormField";
 import { SuccessState } from "../components/ui/SuccessState";
@@ -33,7 +34,9 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
     );
   return (
     <section className={FORM_PAGE}>
-      <div className="container grid grid-cols-[0.8fr_1.2fr] items-start gap-[76px] max-[760px]:grid-cols-1">
+      <div
+        className={`${PAGE_CONTAINER} grid grid-cols-[0.8fr_1.2fr] items-start gap-[76px] max-[760px]:grid-cols-1`}
+      >
         <div className="pt-[5px]">
           <button
             className="mb-[58px] inline-flex items-center gap-2 border-0 bg-transparent p-0 text-[12px] font-bold text-muted hover:text-brand max-[760px]:mb-11"

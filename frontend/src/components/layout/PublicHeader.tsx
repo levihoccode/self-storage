@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Navigate, View } from "../../app/types";
+import { PAGE_CONTAINER } from "../../app/layout";
 import { Brand } from "../ui/Brand";
 import type { Theme } from "../ui/ThemeToggle";
 import { ThemeToggle } from "../ui/ThemeToggle";
@@ -45,7 +46,7 @@ export function PublicHeader({
       }`}
     >
       <div
-        className={`container flex min-h-[68px] items-center justify-between px-6 max-[760px]:px-4 ${isScrolled ? "min-h-[56px]" : ""}`}
+        className={`${PAGE_CONTAINER} flex min-h-[68px] items-center justify-between ${isScrolled ? "min-h-[56px]" : ""}`}
       >
         <Brand onClick={() => go("/")} compact={isScrolled} />
         <button

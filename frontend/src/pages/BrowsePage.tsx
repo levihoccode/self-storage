@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, ChevronDown, Filter, MapPin } from "lucide-react";
 import { Navigate } from "../app/types";
+import { PAGE_CONTAINER } from "../app/layout";
 import { facilities, formatPrice, UnitType, unitTypes } from "../mocks/catalog";
 import { UnitCard } from "../components/domain/UnitCard";
 import { UnitDetailsDialog } from "../components/domain/UnitDetailsDialog";
@@ -28,7 +29,7 @@ export function BrowsePage({ navigate }: { navigate: Navigate }) {
   return (
     <>
       <section className="border-b border-border bg-background pb-[52px] pt-[62px] text-ink min-[761px]:pb-[68px] min-[761px]:pt-[78px]">
-        <div className="container">
+        <div className={PAGE_CONTAINER}>
           <div>
             <h1 className="m-0 text-[clamp(42px,6vw,66px)] font-bold leading-[1.03] tracking-[-0.045em] text-ink">
               Chọn phương án
@@ -42,7 +43,7 @@ export function BrowsePage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
       <section className="bg-background py-[clamp(80px,10vw,120px)]">
-        <div className="container">
+        <div className={PAGE_CONTAINER}>
           <div className="flex items-center justify-between gap-[25px] border-b border-border pb-5 max-[760px]:block">
             <div className="flex items-center gap-2 text-[12px] font-extrabold text-ink">
               <Filter size={17} className="text-accent" />

@@ -1,4 +1,5 @@
 import { Navigate } from "../../app/types";
+import { PAGE_CONTAINER } from "../../app/layout";
 import { Brand } from "../ui/Brand";
 
 const footerLink =
@@ -7,7 +8,9 @@ const footerLink =
 export function PublicFooter({ navigate }: { navigate: Navigate }) {
   return (
     <footer className="bg-[var(--footer-surface)] text-ink transition-colors duration-[280ms] ease">
-      <div className="container flex justify-between gap-20 pb-[55px] pt-[65px] max-[760px]:block max-[760px]:pb-[35px] max-[760px]:pt-[50px]">
+      <div
+        className={`${PAGE_CONTAINER} flex justify-between gap-20 pb-[55px] pt-[65px] max-[760px]:block max-[760px]:pb-[35px] max-[760px]:pt-[50px]`}
+      >
         <div>
           <Brand onClick={() => navigate("/")} />
         </div>
@@ -40,7 +43,9 @@ export function PublicFooter({ navigate }: { navigate: Navigate }) {
           </div>
         </div>
       </div>
-      <div className="container flex items-center justify-between gap-4 border-t border-[#e6eec933] py-[17px] font-mono text-[9px] text-[var(--footer-muted)] max-[760px]:block">
+      <div
+        className={`${PAGE_CONTAINER} flex items-center justify-between gap-4 border-t border-[#e6eec933] py-[17px] font-mono text-[9px] text-[var(--footer-muted)] max-[760px]:block`}
+      >
         <span>© 2026 Kho Mộc.</span>
       </div>
     </footer>

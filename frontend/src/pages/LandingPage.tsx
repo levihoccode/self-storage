@@ -10,9 +10,9 @@ import {
   Search,
 } from "lucide-react";
 import { Navigate } from "../app/types";
+import { PAGE_CONTAINER as CONTAINER } from "../app/layout";
 import { facilities, formatPrice, unitTypes } from "../mocks/catalog";
 
-const CONTAINER = "mx-auto w-[min(1200px,calc(100%-48px))] max-[760px]:w-[min(100%-32px,600px)]";
 const THEME_TRANSITION =
   "transition-[background-color,color,border-color,box-shadow] duration-[280ms] ease";
 const LANDING_BUTTON =
