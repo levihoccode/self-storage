@@ -85,7 +85,7 @@ export function UnitDetailsDialog({
             </span>
           </div>
           <button
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-surface transition-colors duration-[180ms] ease hover:bg-brand-strong"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong"
             onClick={() => {
               onClose();
               navigate("/rental-requests/new");

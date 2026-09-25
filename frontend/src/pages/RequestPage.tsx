@@ -7,7 +7,7 @@ import { FormField, SelectField } from "../components/ui/FormField";
 import { SuccessState } from "../components/ui/SuccessState";
 
 const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-surface transition-colors duration-[180ms] ease hover:bg-brand-strong";
+  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong";
 const FORM_PAGE = "min-h-[calc(100vh-76px)] bg-background pb-[100px] pt-[76px]";
 
 export function RequestPage({ navigate }: { navigate: Navigate }) {

@@ -81,7 +81,7 @@ export function PublicHeader({
             className="max-[760px]:w-full max-[760px]:flex-row-reverse max-[760px]:justify-between max-[760px]:rounded-[4px] max-[760px]:p-[8px_12px]"
           />
           <button
-            className="inline-flex items-center gap-2 rounded-[4px] border border-brand bg-transparent px-[17px] py-[11px] text-[13px] font-[650] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-surface max-[760px]:mt-1 max-[760px]:justify-between max-[760px]:p-3 max-[760px]:text-left"
+            className="inline-flex items-center gap-2 rounded-[4px] border border-brand bg-transparent px-[17px] py-[11px] text-[13px] font-[650] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background max-[760px]:mt-1 max-[760px]:justify-between max-[760px]:p-3 max-[760px]:text-left"
             onClick={() => go("/login")}
           >
             Đăng nhập <ArrowRight size={16} />

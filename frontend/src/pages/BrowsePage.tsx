@@ -8,9 +8,9 @@ import { UnitDetailsDialog } from "../components/domain/UnitDetailsDialog";
 
 const EYEBROW = "m-0 mb-[18px] font-mono text-mono uppercase tracking-[0.08em] text-brand";
 const PRIMARY_BUTTON =
-  "inline-flex min-h-11 w-full items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-surface transition-colors duration-[180ms] ease hover:bg-brand-strong";
+  "inline-flex min-h-11 w-full items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong";
 const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] py-0 text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-surface";
+  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] py-0 text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background";
 const COMPACT_SELECT =
   "relative flex min-h-11 min-w-[190px] items-center gap-[10px] rounded-sm border border-border bg-surface px-3 py-[10px] focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)] max-[760px]:min-w-0";
 const COMPACT_SELECT_ELEMENT =
