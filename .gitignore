@@ -1,0 +1,15 @@
+# Shared repository ignores
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local tooling and OS files
+.DS_Store
+Thumbs.db
+*.log
