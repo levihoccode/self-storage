@@ -40,6 +40,17 @@ npm run format:check
 
 Prettier formats the frontend source and checks formatting in CI or before review. The shared rules live in `.prettierrc.json` and `.editorconfig`.
 
+## Styling
+
+Tailwind CSS v4 through `@tailwindcss/vite`. There is no `tailwind.config.*`; the theme lives in `src/tailwind.css`.
+
+- `src/tailwind.css` — Tailwind entrypoint, layer order, and the `@theme` bridge that maps Tailwind tokens onto the runtime CSS variables.
+- `src/styles.css` — runtime design tokens (`:root`, `[data-theme="light"]`) plus the base reset. Imported into the `base` layer.
+- `src/app/layout.ts` — `PAGE_CONTAINER`, the shared page width. Use it instead of Tailwind's `container` class, which adds its own breakpoint max-widths.
+- `DESIGN.md` — the visual source of truth. Read it before adding or changing UI.
+
+Components are styled with Tailwind utilities directly in the markup. Wall-to-wall custom CSS is gone; only tokens, the reset, native `<select>` color-scheme handling, scrollbar/selection styles, and the two shared keyframes remain as CSS.
+
 ## Boundary
 
 Catalog data lives in `src/mocks/catalog.ts`. Form submissions, login, email verification, JWT handling, API calls, persistence, and role-based redirects are intentionally mocked and marked in the UI as TODO work for the backend integration phase.
