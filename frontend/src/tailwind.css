@@ -1,31 +1,23 @@
 /*
- * Explicit layer order so migrated components can actually win. Unlayered
- * CSS always beats layered CSS regardless of specificity (CSS Cascade
- * Layers spec) — styles.css/theme.css must be IN a layer, placed below
- * `utilities`, or every Tailwind utility silently loses to any base-element
- * rule in the legacy stylesheets (e.g. `a { color: inherit }` beating
- * `hover:text-white`, which is exactly what happened in PublicFooter).
+ * Tailwind entrypoint.
  *
- * Tailwind is imported without its preflight/reset layer on purpose: styles.css
- * already owns the base reset (box-sizing, button/input normalization, focus
- * rings), and running both resets risks the exact regressions issue #25 calls
- * out (form, button, heading, select behavior changing). Once styles.css's
- * reset is fully migrated, this can switch to the plain `@import "tailwindcss";`
- * form.
+ * styles.css owns the runtime design tokens (:root / [data-theme="light"]) and
+ * the base reset; it sits in the `base` layer so utilities can still win.
+ * Tailwind ships without its preflight on purpose: the reset above already
+ * normalises box-sizing, buttons, inputs and focus rings, and running both
+ * resets changes form/button/heading behaviour (see issue #25).
  */
-@layer theme, legacy, utilities;
+@layer theme, base, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
-@import "./styles.css" layer(legacy);
-@import "./theme.css" layer(legacy);
+@import "./styles.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 /*
- * Bridge Tailwind's theme to the existing runtime CSS variables instead of
- * hard-coding color values here. styles.css still owns the actual values
- * (--brand, --surface, ...) in :root and [data-theme="light"], so utilities
- * like bg-brand or text-ink keep switching with the dark/light toggle for
- * free — no duplicated color logic, no Tailwind-vs-CSS-variable drift.
+ * Bridge Tailwind's theme to the runtime CSS variables instead of hard-coding
+ * color values here. styles.css owns the actual values, so utilities like
+ * bg-brand or text-ink keep switching with the dark/light toggle for free —
+ * no duplicated color logic, no Tailwind-vs-CSS-variable drift.
  */
 @theme {
   --color-background: var(--background);
