@@ -26,7 +26,6 @@ function App() {
   const [view, setView] = useState<View>(viewFromLocation);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [session, setSession] = useState(authGateway.getSession);
-  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
@@ -46,13 +45,6 @@ function App() {
   }, []);
 
   useEffect(() => authGateway.subscribe(setSession), []);
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 24);
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   function navigate(path: string) {
     window.history.pushState({}, "", path);
@@ -77,13 +69,7 @@ function App() {
       {isAuthView ? (
         <AuthPage view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
       ) : view === "my-storage" ? (
-        <CustomerShell
-          view={view}
-          navigate={navigate}
-          theme={theme}
-          onThemeToggle={toggleTheme}
-          isScrolled={isScrolled}
-        >
+        <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           <MyStoragePage navigate={navigate} />
         </CustomerShell>
       ) : (

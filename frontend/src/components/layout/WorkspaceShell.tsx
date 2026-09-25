@@ -12,6 +12,9 @@ export type WorkspaceNavItem = {
   badge?: number;
 };
 
+const SIDEBAR_ICON_BUTTON =
+  "hidden h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink max-[760px]:grid";
+
 /**
  * Generic authenticated shell for internal roles (Facility Staff, Facility
  * Manager, Business Operation Manager, System Administrator). Customer keeps
@@ -64,82 +67,111 @@ export function WorkspaceShell({
   }, []);
 
   return (
-    <div className="workspace-app">
-      <aside className={`workspace-sidebar ${menuOpen ? "is-open" : ""}`}>
-        <div className="workspace-sidebar-top">
+    <div className="flex min-h-screen bg-background">
+      <aside
+        className={`fixed inset-y-0 left-0 z-20 flex w-[268px] flex-col border-r border-border bg-surface px-[18px] pb-[18px] pt-7 transition-transform duration-200 max-[760px]:z-30 max-[760px]:w-[min(300px,88vw)] max-[760px]:-translate-x-full ${
+          menuOpen ? "max-[760px]:translate-x-0" : ""
+        }`}
+      >
+        <div className="flex items-center justify-between px-2 pb-11">
           <Brand onClick={onBrandClick} />
           <button
-            className="workspace-close hidden h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink max-[760px]:grid"
+            className={SIDEBAR_ICON_BUTTON}
             onClick={() => setMenuOpen(false)}
             aria-label="Đóng menu"
           >
             <X size={18} />
           </button>
         </div>
-        <div className="workspace-nav-label">{roleLabel}</div>
-        <nav className="workspace-nav" aria-label={`Điều hướng ${roleLabel}`}>
-          {navItems.map(({ label, path, icon: Icon, badge }) => (
-            <button
-              key={path}
-              className={`workspace-nav-item ${activePath === path ? "active" : ""}`}
-              onClick={() => {
-                setMenuOpen(false);
-                onNavigate(path);
-              }}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {typeof badge === "number" && badge > 0 && (
-                <span className="notification-count">{badge}</span>
-              )}
-            </button>
-          ))}
+        <div className="mx-3 mb-3 font-mono text-[10px] font-medium uppercase leading-[1.4] tracking-[0.08em] text-muted">
+          {roleLabel}
+        </div>
+        <nav className="grid gap-1" aria-label={`Điều hướng ${roleLabel}`}>
+          {navItems.map(({ label, path, icon: Icon, badge }) => {
+            const isActive = activePath === path;
+            return (
+              <button
+                key={path}
+                className={`flex w-full items-center gap-3 rounded-sm border-0 px-3 py-[13px] text-left text-[13px] font-bold hover:bg-brand-soft hover:text-ink ${
+                  isActive
+                    ? "bg-brand-soft text-ink shadow-[inset_3px_0_var(--brand)]"
+                    : "bg-transparent text-muted"
+                }`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onNavigate(path);
+                }}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+                {typeof badge === "number" && badge > 0 && (
+                  <span className="ml-auto grid h-5 w-5 place-items-center rounded-full bg-brand text-[11px] text-dark shadow-[0_0_10px_rgba(194,208,153,0.8),0_0_22px_rgba(53,133,142,0.45)]">
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <div className="workspace-sidebar-bottom">
-          <button className="workspace-logout" onClick={onLogout}>
+        <div className="mt-auto grid gap-4 px-2 pt-[18px]">
+          <button
+            className="inline-flex items-center gap-[9px] border-0 bg-transparent px-3 py-2 text-left text-[13px] font-bold text-muted hover:text-danger"
+            onClick={onLogout}
+          >
             <LogOut size={17} /> Đăng xuất
           </button>
         </div>
       </aside>
       {menuOpen && (
         <button
-          className="workspace-sidebar-backdrop"
+          className="fixed inset-0 z-20 block border-0 bg-[rgba(0,0,0,0.52)]"
           onClick={() => setMenuOpen(false)}
           aria-label="Đóng menu"
         />
       )}
-      <section className="workspace-main">
-        <header className="workspace-topbar">
+      <section className="min-w-0 flex-1 ml-[268px] max-[760px]:ml-0">
+        <header className="sticky top-0 z-[15] flex min-h-16 items-center justify-between border-b border-border bg-surface px-6 py-2.5 max-[760px]:px-4">
           <button
-            className="workspace-menu hidden h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink max-[760px]:grid"
+            className={SIDEBAR_ICON_BUTTON}
             onClick={() => setMenuOpen(true)}
             aria-label="Mở menu"
           >
             <Menu size={20} />
           </button>
-          <div className="workspace-topbar-actions">
+          <div className="ml-auto flex items-center gap-6 max-[760px]:gap-3">
             <ThemeToggle theme={theme} onToggle={onThemeToggle} />
-            <div className="workspace-profile" ref={profileRef}>
+            <div className="relative" ref={profileRef}>
               <button
-                className={`workspace-user ${profileOpen ? "is-open" : ""}`}
+                className="flex items-center gap-2.5 border-y-0 border-r-0 border-l border-border bg-transparent pl-5 text-left text-ink hover:text-ink max-[760px]:pl-3"
                 onClick={() => setProfileOpen((current) => !current)}
                 aria-expanded={profileOpen}
                 aria-haspopup="menu"
               >
-                <span className="workspace-avatar">{user.name.slice(0, 1)}</span>
-                <span className="workspace-user-copy">
-                  <strong>{user.name}</strong>
-                  <small>{roleLabel}</small>
+                <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-brand font-extrabold text-dark">
+                  {user.name.slice(0, 1)}
                 </span>
-                <ChevronDown size={16} />
+                <span className="grid gap-px">
+                  <strong className="text-[12px]">{user.name}</strong>
+                  <small className="text-[10px] text-muted">{roleLabel}</small>
+                </span>
+                <ChevronDown className="max-[760px]:hidden" size={16} />
               </button>
               {profileOpen && (
-                <div className="workspace-profile-menu" role="menu">
-                  <div className="workspace-profile-heading">
-                    <strong>{user.name}</strong>
-                    <span>{user.email}</span>
+                <div
+                  className="absolute right-0 top-[calc(100%+12px)] z-40 w-[220px] rounded-[6px] border border-border bg-surface p-2 shadow-[var(--shadow-soft),0_0_18px_rgba(53,133,142,0.18)]"
+                  role="menu"
+                >
+                  <div className="grid gap-0.5 border-b border-border p-2.5">
+                    <strong className="text-[12px]">{user.name}</strong>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] font-medium text-muted">
+                      {user.email}
+                    </span>
                   </div>
-                  <button role="menuitem" className="profile-logout" onClick={onLogout}>
+                  <button
+                    className="flex w-full items-center gap-[9px] border-0 bg-transparent px-2.5 py-[11px] text-left text-[12px] font-bold text-danger hover:bg-brand-soft"
+                    role="menuitem"
+                    onClick={onLogout}
+                  >
                     <LogOut size={16} /> Đăng xuất
                   </button>
                 </div>
@@ -147,7 +179,10 @@ export function WorkspaceShell({
             </div>
           </div>
         </header>
-        <div className="workspace-content" id="main-content">
+        <div
+          className="mx-auto w-[min(1180px,calc(100%-80px))] pb-[100px] pt-10 max-[760px]:w-[min(100%-32px,600px)] max-[760px]:pb-[70px] max-[760px]:pt-7"
+          id="main-content"
+        >
           {children}
         </div>
       </section>
