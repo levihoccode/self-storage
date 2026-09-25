@@ -17,7 +17,7 @@ export function SuccessState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-md bg-surface px-[23px] py-[45px] text-center [&_.button]:mt-6 min-[761px]:px-[45px] min-[761px]:py-[60px]">
+    <div className="rounded-md bg-surface px-[23px] py-[45px] text-center min-[761px]:px-[45px] min-[761px]:py-[60px]">
       <span className="inline-grid h-[55px] w-[55px] place-items-center rounded-[4px] bg-brand-soft text-brand">
         <Check size={25} />
       </span>
