@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { Navigate } from "../app/types";
 import { rentedStorage } from "../mocks/customer";
 import { MAX_REJECTIONS, proposals as initialProposals, type Proposal } from "../mocks/proposals";
-import { ComingSoonDialog } from "../components/ui/ComingSoonDialog";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
@@ -25,11 +24,13 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
-  const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
-  const pending = items.filter(
+  // Agreed proposals stay visible with their confirmation; only canceled ones
+  // move into the separate "cancelled" notice below the list.
+  const visibleProposals = items.filter((proposal) => !canceledIds.has(proposal.id));
+  const awaitingCount = items.filter(
     (proposal) => !agreedIds.has(proposal.id) && !canceledIds.has(proposal.id),
-  );
+  ).length;
 
   function agree(proposal: Proposal) {
     setBusyId(proposal.id);
@@ -81,7 +82,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           className={`${TAB_BUTTON} ${tab === "pending" ? "border-b-2 border-brand text-ink" : ""}`}
           onClick={() => setTab("pending")}
         >
-          Chờ duyệt ({pending.length})
+          Chờ duyệt ({awaitingCount})
         </button>
       </div>
 
@@ -113,7 +114,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         ))}
 
       {tab === "pending" &&
-        (pending.length === 0 ? (
+        (visibleProposals.length === 0 ? (
           <SurfaceState
             variant="empty"
             title="Chưa có đề xuất nào đang chờ"
@@ -121,7 +122,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           />
         ) : (
           <div className="grid gap-4">
-            {pending.map((proposal) => {
+            {visibleProposals.map((proposal) => {
               const isExpired = proposal.status === "expired";
               const isAgreed = agreedIds.has(proposal.id);
               const isBusy = busyId === proposal.id;
@@ -184,7 +185,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                       </DemoNotice>
                       <button
                         className={`${SECONDARY_BUTTON} mt-3.5`}
-                        onClick={() => setComingSoonOpen(true)}
+                        onClick={() => navigate("/invoices")}
                       >
                         Xem hoá đơn <ArrowRight size={16} />
                       </button>
@@ -277,8 +278,6 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
             )}
           </div>
         ))}
-
-      {comingSoonOpen && <ComingSoonDialog onClose={() => setComingSoonOpen(false)} />}
     </main>
   );
 }

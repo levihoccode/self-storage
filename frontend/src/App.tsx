@@ -9,6 +9,8 @@ import { PublicHeader } from "./components/layout/PublicHeader";
 import { CustomerShell } from "./components/layout/CustomerShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
 import { ProposalsPage } from "./pages/ProposalsPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
+import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -58,7 +60,8 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
-  const isCustomerView = view === "my-storage" || view === "proposals";
+  const isCustomerView =
+    view === "my-storage" || view === "proposals" || view === "invoices" || view === "appointments";
   if (isCustomerView && !session) {
     navigate("/login");
     return null;
@@ -74,6 +77,8 @@ function App() {
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "my-storage" && <MyStoragePage navigate={navigate} />}
           {view === "proposals" && <ProposalsPage navigate={navigate} />}
+          {view === "invoices" && <InvoicesPage navigate={navigate} />}
+          {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}
         </CustomerShell>
       ) : (
         <>
