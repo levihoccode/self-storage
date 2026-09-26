@@ -2,6 +2,8 @@ import { ArrowRight, CalendarDays, MapPin, ReceiptText } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Navigate } from "../app/types";
 import { rentedStorage, StorageStatus } from "../mocks/customer";
+import { proposals } from "../mocks/proposals";
+import { DemoNotice } from "../components/ui/DemoNotice";
 
 const statusLabel: Record<StorageStatus, string> = {
   active: "Đang thuê",
@@ -40,8 +42,25 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
     });
   }, [facility, sort]);
 
+  const pendingProposalCount = proposals.filter((proposal) => proposal.status === "pending").length;
+
   return (
     <main>
+      {pendingProposalCount > 0 && (
+        <div className="mb-6">
+          <DemoNotice tone="info">
+            <span className="flex flex-wrap items-center justify-between gap-3">
+              <span>Bạn có {pendingProposalCount} đề xuất khoang đang chờ xác nhận.</span>
+              <button
+                className="border-0 bg-transparent p-0 text-[11px] font-extrabold text-brand hover:underline"
+                onClick={() => navigate("/proposals")}
+              >
+                Xem đề xuất <ArrowRight size={14} className="inline" />
+              </button>
+            </span>
+          </DemoNotice>
+        </div>
+      )}
       <section aria-label="Kho đang thuê">
         <div className="mb-[22px] flex items-center justify-between gap-6 max-[760px]:flex-col max-[760px]:items-stretch">
           <button
