@@ -12,6 +12,7 @@ import { ContractDetailPage } from "./pages/ContractDetailPage";
 import { ProposalsPage } from "./pages/ProposalsPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -66,7 +67,8 @@ function App() {
     view === "contract-detail" ||
     view === "proposals" ||
     view === "invoices" ||
-    view === "appointments";
+    view === "appointments" ||
+    view === "notifications";
   if (isCustomerView && !session) {
     navigate("/login");
     return null;
@@ -85,6 +87,7 @@ function App() {
           {view === "proposals" && <ProposalsPage navigate={navigate} />}
           {view === "invoices" && <InvoicesPage navigate={navigate} />}
           {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}
+          {view === "notifications" && <NotificationsPage navigate={navigate} />}
         </CustomerShell>
       ) : (
         <>

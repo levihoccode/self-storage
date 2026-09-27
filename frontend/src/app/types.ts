@@ -9,7 +9,8 @@ export type View =
   | "contract-detail"
   | "proposals"
   | "invoices"
-  | "appointments";
+  | "appointments"
+  | "notifications";
 export type Navigate = (path: string) => void;
 export type NoticeTone = "info" | "success" | "error" | "pending";
 export type Notice = { tone: NoticeTone; message: string } | null;

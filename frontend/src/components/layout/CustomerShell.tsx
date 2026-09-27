@@ -11,16 +11,41 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
+import { unreadNotificationCount } from "../../mocks/notifications";
 import { Brand } from "../ui/Brand";
 import type { Theme } from "../ui/ThemeToggle";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { ComingSoonDialog } from "../ui/ComingSoonDialog";
 
 const navigation = [
-  { label: "Kho của tôi", path: "/my-storage", view: "my-storage" as View, icon: PackageOpen },
-  { label: "Hóa đơn & thanh toán", path: "/invoices", view: "my-storage" as View, icon: Receipt },
-  { label: "Lịch hẹn", path: "/appointments", view: "my-storage" as View, icon: CalendarDays },
-  { label: "Thông báo", path: "/notifications", view: "my-storage" as View, icon: Bell },
+  {
+    label: "Kho của tôi",
+    path: "/my-storage",
+    view: "my-storage" as View,
+    icon: PackageOpen,
+    ready: true,
+  },
+  {
+    label: "Hóa đơn & thanh toán",
+    path: "/invoices",
+    view: "invoices" as View,
+    icon: Receipt,
+    ready: true,
+  },
+  {
+    label: "Lịch hẹn",
+    path: "/appointments/new",
+    view: "appointments" as View,
+    icon: CalendarDays,
+    ready: false,
+  },
+  {
+    label: "Thông báo",
+    path: "/notifications",
+    view: "notifications" as View,
+    icon: Bell,
+    ready: true,
+  },
 ];
 
 const SIDEBAR_ICON_BUTTON =
@@ -44,6 +69,7 @@ export function CustomerShell({
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const session = authGateway.getSession();
+  const unreadNotifications = unreadNotificationCount();
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -88,8 +114,8 @@ export function CustomerShell({
           Không gian của bạn
         </div>
         <nav className="grid gap-1" aria-label="Điều hướng tài khoản">
-          {navigation.map(({ label, path, view: itemView, icon: Icon }) => {
-            const isActive = view === itemView && path === "/my-storage";
+          {navigation.map(({ label, path, view: itemView, icon: Icon, ready }) => {
+            const isActive = view === itemView;
             return (
               <button
                 key={path}
@@ -100,15 +126,15 @@ export function CustomerShell({
                 }`}
                 onClick={() => {
                   setMenuOpen(false);
-                  if (path === "/my-storage") navigate(path);
+                  if (ready) navigate(path);
                   else setComingSoonOpen(true);
                 }}
               >
                 <Icon size={18} />
                 <span>{label}</span>
-                {path === "/notifications" && (
+                {path === "/notifications" && unreadNotifications > 0 && (
                   <span className="ml-auto grid h-5 w-5 place-items-center rounded-full bg-brand text-[11px] text-dark shadow-[0_0_10px_rgba(194,208,153,0.8),0_0_22px_rgba(53,133,142,0.45)]">
-                    2
+                    {unreadNotifications}
                   </span>
                 )}
               </button>

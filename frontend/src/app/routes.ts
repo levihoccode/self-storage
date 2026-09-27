@@ -12,5 +12,6 @@ export function viewFromLocation(): View {
   if (path === "/proposals") return "proposals";
   if (path === "/invoices") return "invoices";
   if (path === "/appointments/new") return "appointments";
+  if (path === "/notifications") return "notifications";
   return "home";
 }
