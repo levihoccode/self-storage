@@ -66,9 +66,9 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   {
     label: "Khách hàng & hợp đồng",
     path: "/fm/contracts",
-    view: "home",
+    view: "fm-contracts",
     icon: UserSquare2,
-    ready: false,
+    ready: true,
   },
 ];
 

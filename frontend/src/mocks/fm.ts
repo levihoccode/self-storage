@@ -620,3 +620,74 @@ export const fmInvoices: FmInvoice[] = [
     dueDate: "10/09/2026",
   },
 ];
+
+export type ContractPaymentStatus = "Paid" | "Overdue";
+
+export type FmContract = {
+  id: string;
+  customerName: string;
+  unitCode: string;
+  startDate: string;
+  endDate: string;
+  paymentStatus: ContractPaymentStatus;
+  /** Demo-only cross-link flags: đơn giản hoá việc "tổng hợp từ Extend/Return/SupportRequest"
+   * mà spec yêu cầu, thay vì join thật theo contract_id. */
+  hasOpenExtendRequest?: boolean;
+  hasOpenReturnRequest?: boolean;
+  hasOpenSupportRequest?: boolean;
+};
+
+export const fmContracts: FmContract[] = [
+  {
+    id: "contract-fm-1",
+    customerName: "Hoàng Gia Huy",
+    unitCode: "TD-098",
+    startDate: "05/04/2026",
+    endDate: "05/10/2026",
+    paymentStatus: "Paid",
+    hasOpenExtendRequest: true,
+  },
+  {
+    id: "contract-fm-2",
+    customerName: "Lê Thị Ngọc Hà",
+    unitCode: "TD-101",
+    startDate: "01/04/2026",
+    endDate: "01/10/2026",
+    paymentStatus: "Paid",
+    hasOpenExtendRequest: true,
+    hasOpenSupportRequest: true,
+  },
+  {
+    id: "contract-fm-3",
+    customerName: "Đỗ Minh Thư",
+    unitCode: "TD-102",
+    startDate: "01/01/2026",
+    endDate: "01/01/2027",
+    paymentStatus: "Paid",
+  },
+  {
+    id: "contract-fm-4",
+    customerName: "Phan Gia Bảo",
+    unitCode: "TD-205",
+    startDate: "15/03/2026",
+    endDate: "15/09/2026",
+    paymentStatus: "Overdue",
+    hasOpenReturnRequest: true,
+  },
+  {
+    id: "contract-fm-5",
+    customerName: "Vũ Anh Tuấn",
+    unitCode: "TD-207",
+    startDate: "10/03/2026",
+    endDate: "10/09/2026",
+    paymentStatus: "Paid",
+  },
+  {
+    id: "contract-fm-6",
+    customerName: "Phan Gia Bảo",
+    unitCode: "TD-301",
+    startDate: "20/02/2026",
+    endDate: "20/02/2027",
+    paymentStatus: "Paid",
+  },
+];

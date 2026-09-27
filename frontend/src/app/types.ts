@@ -15,7 +15,8 @@ export type View =
   | "fm-storage-units"
   | "fm-staff"
   | "fm-reports"
-  | "fm-invoices";
+  | "fm-invoices"
+  | "fm-contracts";
 export type Navigate = (path: string) => void;
 export type NoticeTone = "info" | "success" | "error" | "pending";
 export type Notice = { tone: NoticeTone; message: string } | null;

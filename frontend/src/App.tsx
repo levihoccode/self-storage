@@ -19,6 +19,7 @@ import { StorageUnitManagementPage } from "./pages/fm/StorageUnitManagementPage"
 import { StaffListPage } from "./pages/fm/StaffListPage";
 import { FacilityReportPage } from "./pages/fm/FacilityReportPage";
 import { FacilityInvoicesPage } from "./pages/fm/FacilityInvoicesPage";
+import { CustomerContractOverviewPage } from "./pages/fm/CustomerContractOverviewPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -78,7 +79,8 @@ function App() {
     view === "fm-storage-units" ||
     view === "fm-staff" ||
     view === "fm-reports" ||
-    view === "fm-invoices";
+    view === "fm-invoices" ||
+    view === "fm-contracts";
   if ((view === "my-storage" || isFmView) && !session) {
     navigate("/login");
     return null;
@@ -106,6 +108,7 @@ function App() {
           {view === "fm-staff" && <StaffListPage />}
           {view === "fm-reports" && <FacilityReportPage navigate={navigate} />}
           {view === "fm-invoices" && <FacilityInvoicesPage />}
+          {view === "fm-contracts" && <CustomerContractOverviewPage navigate={navigate} />}
         </FmShell>
       ) : (
         <>
