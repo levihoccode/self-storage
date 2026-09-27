@@ -1,0 +1,38 @@
+@media (max-width: 980px) {
+  .admin-account-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-account-hero {
+    padding-top: 36px;
+  }
+
+  .admin-account-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-account-action-group {
+    width: 100%;
+  }
+
+  .admin-account-action-group .button,
+  .admin-account-actions .button {
+    width: 100%;
+  }
+
+  .admin-account-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-account-panel {
+    padding: 16px;
+  }
+
+  .admin-account-detail-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

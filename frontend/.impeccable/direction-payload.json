@@ -1,0 +1,145 @@
+{
+  "title": "Chọn visual world cho landing + auth",
+  "question": "Kho Mộc cần một thế giới hình ảnh mới. Chọn hướng sẽ trở thành ngôn ngữ chung cho landing, auth và các surface về sau.",
+  "options": [
+    {
+      "id": "assigned-dispatch-nightboard",
+      "label": "Bảng điều phối ca đêm",
+      "kicker": "THE ROLL",
+      "thesis": "Landing page như bảng điều phối tại cửa kho: nhìn vị trí, quy mô và bước tiếp theo trong một nhịp.",
+      "palette": ["#07100F", "#11201D", "#DCE8E2", "#E59A55", "#5CC8B5"],
+      "materials": ["sơn tĩnh điện", "vạch sàn phản quang", "nhãn nhiệt"],
+      "viewport": "Màn hình mở đầu là một dispatch lane ngang: ba điểm kho như các cổng, lựa chọn quy mô nằm sát lane, không có hero paragraph dài.",
+      "risk": "Nếu quá giống dashboard, khách hàng sẽ thấy mình đang vận hành hệ thống thay vì chọn kho.",
+      "raised": [
+        {
+          "from": "Bàn dựng film",
+          "raise": "Rail trạng thái: lựa chọn và tiến độ bám vào một lane cố định; trạng thái có dấu hình học riêng, không phụ thuộc màu." 
+        },
+        {
+          "from": "Tháp coil đất",
+          "raise": "Course progression: quy trình xếp thành các lớp đi lên từ chọn khu vực đến gửi nhu cầu, chi tiết chỉ mở khi cần." 
+        },
+        {
+          "from": "Da chromatophore",
+          "raise": "State surface: loading, pending, error và success thay đổi nhịp, texture và label của vùng trạng thái; không dùng màu một mình." 
+        },
+        {
+          "from": "Civic bureau",
+          "raise": "Evidence ribbon: ngay dưới hành động chính luôn có một dòng chứng cứ ngắn, như 'chưa cần đăng nhập để xem'." 
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned-dispatch-nightboard.webp"
+    },
+    {
+      "id": "pick-storage-manifest",
+      "label": "Phiếu điều phối lưu kho",
+      "kicker": "IMPECCABLE’S PICK",
+      "thesis": "Một manifest gọn biến việc chọn kho thành kiểm tra lô hàng: khu vực, quy mô, giờ nhận và bước kế tiếp hiện đúng chỗ.",
+      "palette": ["#090B0B", "#18201E", "#E9E3D5", "#F08D43", "#78C7B8"],
+      "materials": ["giấy thermal", "carbon copy", "lưới barcode"],
+      "viewport": "Một phiếu kéo dài toàn màn hình; khu vực và quy mô là các dòng có thể chọn, giá tham khảo và giờ nhận nằm ở lề phải.",
+      "risk": "Ngôn ngữ biểu mẫu có thể thành khô và hơi giống back-office; cần giữ một khoảnh khắc trực quan cho khách hàng.",
+      "comp": ".impeccable/mocks/decision/pick-storage-manifest.webp"
+    },
+    {
+      "id": "challenger-ansi-bbs-nightboard",
+      "label": "Bản tin kho lúc 2 giờ sáng",
+      "verdict": "competitive",
+      "thesis": "Một bulletin board kiểu terminal biến danh mục kho thành các màn hình có số thứ tự, route rõ và trạng thái đang trực.",
+      "palette": ["#081018", "#5EF2E0", "#FF4DA6", "#F6F7E8"],
+      "materials": ["terminal black", "phosphor", "lưới box-drawing"],
+      "viewport": "Một index screen hiển thị các điểm kho và lối vào bằng số; mỗi lựa chọn mở sang một màn hình chi tiết ngắn.",
+      "risk": "Rất dễ thành retro novelty và làm trải nghiệm public giống forum cũ.",
+      "case": "Giữ tốt topology rõ, keyboard access và cảm giác luôn có người trực; thua nhẹ ở độ gần gũi với khách hàng mới.",
+      "comp": ".impeccable/mocks/decision/challenger-ansi-bbs-nightboard.webp",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-ansi-bbs-nightboard-hero.webp"
+    },
+    {
+      "id": "challenger-cutting-bench",
+      "label": "Bàn dựng lựa chọn",
+      "verdict": "competitive",
+      "thesis": "Một rail cố định kéo qua màn hình, mỗi frame là một lựa chọn kho và lá cờ đánh dấu nơi người dùng đã dừng.",
+      "palette": ["#050606", "#F08D43", "#F6F0DE"],
+      "materials": ["film grain", "rail đục lỗ", "cờ tape"],
+      "viewport": "Các điểm kho và quy mô nằm trên một strip có nhịp cố định; lựa chọn hiện tại snap vào frame, lựa chọn đã bỏ vẫn có thể gọi lại.",
+      "risk": "Ẩn dụ biên tập khá xa self-storage nếu không neo bằng địa chỉ, kích thước và bước tiếp theo.",
+      "case": "Rất mạnh về workflow, state marker và nhớ vị trí; giữ làm alternate có kỷ luật tương tác cao.",
+      "comp": ".impeccable/mocks/decision/challenger-cutting-bench.webp",
+      "hero": "https://impeccable.style/worlds/cards/operate-a-cutting-bench-select-rail-hero.webp"
+    },
+    {
+      "id": "challenger-torn-flyer-wall",
+      "label": "Tường thông báo xếp lớp",
+      "verdict": "competitive",
+      "thesis": "Các lớp thông tin được dán chồng như lịch sử lựa chọn: lớp mới nhất rõ nhất, lớp cũ mở ra khi cần kiểm tra.",
+      "palette": ["#0A0A0A", "#F2F05A", "#FF5A63", "#EAE1D4"],
+      "materials": ["photocopy", "giấy fluorescent", "lỗ ghim"],
+      "viewport": "Một sheet mới nhất chứa CTA và lựa chọn kho; các lớp phía dưới làm evidence panel cho quy trình và các trạng thái đã đi qua.",
+      "risk": "Tương tác xé giấy có thể cạnh tranh với việc tìm một unit nếu không bị giới hạn vào evidence.",
+      "case": "Làm tính minh bạch và lịch sử trạng thái nhìn thấy được; phù hợp làm alternate, không nên chiếm toàn bộ public flow.",
+      "comp": ".impeccable/mocks/decision/challenger-torn-flyer-wall.webp",
+      "hero": "https://impeccable.style/worlds/cards/posters-covers-sleeves-torn-flyer-photocopy-wall-hero.webp"
+    },
+    {
+      "id": "challenger-clay-tower",
+      "label": "Tháp coil đất",
+      "verdict": "declined",
+      "thesis": "Một cấu trúc tăng dần từ các lớp coil, mỗi lớp ghi lại một bước tiến của quy trình.",
+      "palette": ["#211713", "#A85D3A", "#E5D6BF", "#332823"],
+      "materials": ["đất terracotta", "slip trắng", "vân tay trên clay"],
+      "viewport": "Các bước chọn kho dựng thành các course dọc, phần đang xử lý nổi lên như vòng clay còn ẩm.",
+      "risk": "Khách hàng không nhận diện ngay đây là lựa chọn kho và thông tin bị đẩy vào ẩn dụ.",
+      "case": "Thua cả audience identification lẫn product clarity; chỉ giữ kỷ luật progressive course.",
+      "kept": "Course progression được nâng vào hướng chính như một nhịp cấu trúc, không dùng hình thức đất sét.",
+      "comp": ".impeccable/mocks/decision/challenger-clay-tower.webp",
+      "hero": "https://impeccable.style/worlds/cards/clay-ceramics-fracture-coiled-earth-tower-hero.webp"
+    },
+    {
+      "id": "challenger-chromatophore",
+      "label": "Bề mặt tín hiệu sống",
+      "verdict": "declined",
+      "thesis": "Bề mặt thay đổi pattern theo context, để trạng thái trở thành một tín hiệu có thể đọc được.",
+      "palette": ["#E8E0D2", "#8E352A", "#4BAFA7", "#1D2526"],
+      "materials": ["mantle cream", "chromatophore ink", "texture sống"],
+      "viewport": "Khu vực đang chọn biến đổi pattern nhẹ theo context, còn thông tin chính vẫn nằm trong nhãn và cấu trúc rõ.",
+      "risk": "GPU shader và pattern động dễ gây nhiễu, tốn hiệu năng và làm dark theme mất tập trung.",
+      "case": "Thua vì thiếu product identification; giữ nguyên tắc state phải biểu hiện bằng thay đổi bề mặt có chủ đích.",
+      "kept": "State surface được nâng vào hướng chính dưới dạng texture, nhịp và label có fallback tĩnh.",
+      "comp": ".impeccable/mocks/decision/challenger-chromatophore.webp",
+      "hero": "https://impeccable.style/worlds/cards/reefs-bioluminescent-nocturnal-chromatophore-skin-language-hero.webp"
+    },
+    {
+      "id": "challenger-civic-bureau",
+      "label": "Prospectus civic late-modern",
+      "verdict": "declined",
+      "thesis": "Một prospectus nhiều khoảng thở dùng một ribbon duy nhất để dẫn mắt từ bằng chứng tới hành động.",
+      "palette": ["#F7F7FA", "#1B1547", "#6B5CE7", "#7FD8D0"],
+      "materials": ["bone-white plate", "hairline rule", "ribbon ánh sáng"],
+      "viewport": "Một ribbon chạy từ thông tin dịch vụ tới CTA, các dấu mốc quy trình nằm trên rail ngang.",
+      "risk": "Light theme và ngôn ngữ prospectus đi ngược ưu tiên dark, đồng thời hơi giống marketing SaaS.",
+      "case": "Thua ở audience identification và brand fit; giữ kỷ luật một evidence ribbon thay cho nhiều khối giải thích.",
+      "kept": "Evidence ribbon được nâng vào hướng chính như một dòng chứng minh ngắn dưới primary action.",
+      "comp": ".impeccable/mocks/decision/challenger-civic-bureau.webp",
+      "hero": "https://impeccable.style/worlds/cards/civic-bureau-prospectus-late-modern-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Self-storage chuẩn ngành",
+    "thesis": "Một landing page sáng, ảnh kho lớn, thẻ chọn kích thước và CTA đặt yêu cầu theo công thức quen thuộc.",
+    "palette": ["#FFFFFF", "#111827", "#2563EB"],
+    "materials": ["clean grid", "product photography"],
+    "viewport": "Hero ảnh kho ở bên trái, panel chọn khu vực và quy mô ở bên phải, feature cards nằm phía dưới.",
+    "risk": "Dễ hiểu nhưng gần như không tạo được cá tính hay cảm giác minh bạch khác biệt cho Kho Mộc.",
+    "comp": ".impeccable/mocks/decision/canon-storage-standard.webp"
+  },
+  "steer": true
+}
