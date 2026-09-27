@@ -56,9 +56,9 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   {
     label: "Quản lý khoang chứa",
     path: "/fm/storage-units",
-    view: "home",
+    view: "fm-storage-units",
     icon: Warehouse,
-    ready: false,
+    ready: true,
   },
   { label: "Nhân viên FS", path: "/fm/staff", view: "home", icon: Users, ready: false },
   { label: "Báo cáo cơ sở", path: "/fm/reports", view: "home", icon: BarChart3, ready: false },

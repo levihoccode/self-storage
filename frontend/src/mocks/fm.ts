@@ -18,28 +18,109 @@ export type RentalRequest = {
   simulateConflict?: boolean;
 };
 
+export type FmUnitStatus = "Available" | "OnHold" | "Reserved" | "Rented" | "Maintenance";
+
 export type FmUnit = {
   id: string;
   code: string;
   unitTypeId: string;
   size: string;
-  status: "Available" | "Occupied" | "Maintenance";
+  location: string;
+  status: FmUnitStatus;
 };
 
 export const FM_FACILITY_NAME = "Kho Mộc — Thảo Điền Hub";
 
+const UNIT_TYPE_SIZE_LABEL: Record<string, string> = {
+  basic: "4 m²",
+  flexible: "8 m²",
+  extended: "15 m²",
+};
+
 export const fmUnits: FmUnit[] = [
-  { id: "unit-fm-101", code: "TD-101", unitTypeId: "basic", size: "4 m²", status: "Available" },
-  { id: "unit-fm-102", code: "TD-102", unitTypeId: "basic", size: "4 m²", status: "Available" },
+  {
+    id: "unit-fm-101",
+    code: "TD-101",
+    unitTypeId: "basic",
+    size: "4 m²",
+    location: "Tầng trệt · Dãy A",
+    status: "Available",
+  },
+  {
+    id: "unit-fm-102",
+    code: "TD-102",
+    unitTypeId: "basic",
+    size: "4 m²",
+    location: "Tầng trệt · Dãy A",
+    status: "Available",
+  },
+  {
+    id: "unit-fm-103",
+    code: "TD-103",
+    unitTypeId: "basic",
+    size: "4 m²",
+    location: "Tầng trệt · Dãy A",
+    status: "OnHold",
+  },
+  {
+    id: "unit-fm-104",
+    code: "TD-104",
+    unitTypeId: "basic",
+    size: "4 m²",
+    location: "Tầng trệt · Dãy B",
+    status: "Reserved",
+  },
   {
     id: "unit-fm-205",
     code: "TD-205",
     unitTypeId: "flexible",
     size: "8 m²",
+    location: "Tầng 2 · Dãy C",
     status: "Available",
   },
-  { id: "unit-fm-206", code: "TD-206", unitTypeId: "flexible", size: "8 m²", status: "Occupied" },
+  {
+    id: "unit-fm-206",
+    code: "TD-206",
+    unitTypeId: "flexible",
+    size: "8 m²",
+    location: "Tầng 2 · Dãy C",
+    status: "Maintenance",
+  },
+  {
+    id: "unit-fm-207",
+    code: "TD-207",
+    unitTypeId: "flexible",
+    size: "8 m²",
+    location: "Tầng 2 · Dãy C",
+    status: "Rented",
+  },
+  {
+    id: "unit-fm-301",
+    code: "TD-301",
+    unitTypeId: "extended",
+    size: "15 m²",
+    location: "Tầng 3 · Dãy D",
+    status: "Rented",
+  },
 ];
+
+export function createFmUnit(input: { code: string; unitTypeId: string; location: string }) {
+  fmUnits.push({
+    id: `unit-fm-${Date.now()}`,
+    code: input.code,
+    unitTypeId: input.unitTypeId,
+    size: UNIT_TYPE_SIZE_LABEL[input.unitTypeId] ?? "",
+    location: input.location,
+    status: "Available",
+  });
+}
+
+/** Chuyển trạng thái thủ công — chỉ hợp lệ Available <-> Maintenance theo spec
+ * (OnHold/Reserved/Rented không được đổi trực tiếp ở trang này). */
+export function setFmUnitStatus(unitId: string, status: FmUnitStatus) {
+  const unit = fmUnits.find((item) => item.id === unitId);
+  if (unit) unit.status = status;
+}
 
 export const rentalRequests: RentalRequest[] = [
   {
