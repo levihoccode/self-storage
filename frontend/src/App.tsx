@@ -16,6 +16,7 @@ import { ReturnRequestQueuePage } from "./pages/fm/ReturnRequestQueuePage";
 import { ExtendRequestQueuePage } from "./pages/fm/ExtendRequestQueuePage";
 import { SupportRequestQueuePage } from "./pages/fm/SupportRequestQueuePage";
 import { StorageUnitManagementPage } from "./pages/fm/StorageUnitManagementPage";
+import { StaffListPage } from "./pages/fm/StaffListPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -72,7 +73,8 @@ function App() {
     view === "fm-return-requests" ||
     view === "fm-extend-requests" ||
     view === "fm-support-requests" ||
-    view === "fm-storage-units";
+    view === "fm-storage-units" ||
+    view === "fm-staff";
   if ((view === "my-storage" || isFmView) && !session) {
     navigate("/login");
     return null;
@@ -97,6 +99,7 @@ function App() {
           {view === "fm-extend-requests" && <ExtendRequestQueuePage />}
           {view === "fm-support-requests" && <SupportRequestQueuePage />}
           {view === "fm-storage-units" && <StorageUnitManagementPage navigate={navigate} />}
+          {view === "fm-staff" && <StaffListPage />}
         </FmShell>
       ) : (
         <>

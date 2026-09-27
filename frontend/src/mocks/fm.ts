@@ -279,12 +279,32 @@ export type FsStaff = {
   id: string;
   name: string;
   phone: string;
+  email: string;
+  assignedAt: string;
 };
 
 export const fsStaff: FsStaff[] = [
-  { id: "fs-001", name: "Nguyễn Thành Được", phone: "090 111 2233" },
-  { id: "fs-002", name: "Trịnh Bảo Ngọc", phone: "091 222 3344" },
-  { id: "fs-003", name: "Phan Hữu Nghĩa", phone: "092 333 4455" },
+  {
+    id: "fs-001",
+    name: "Nguyễn Thành Được",
+    phone: "090 111 2233",
+    email: "duoc.nguyen@kho-moc.demo",
+    assignedAt: "12/01/2026",
+  },
+  {
+    id: "fs-002",
+    name: "Trịnh Bảo Ngọc",
+    phone: "091 222 3344",
+    email: "ngoc.trinh@kho-moc.demo",
+    assignedAt: "03/03/2026",
+  },
+  {
+    id: "fs-003",
+    name: "Phan Hữu Nghĩa",
+    phone: "092 333 4455",
+    email: "nghia.phan@kho-moc.demo",
+    assignedAt: "20/07/2026",
+  },
 ];
 
 export type AppointmentType = "CHECKIN" | "RETURN";
