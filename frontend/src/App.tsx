@@ -8,6 +8,7 @@ import { PublicFooter } from "./components/layout/PublicFooter";
 import { PublicHeader } from "./components/layout/PublicHeader";
 import { CustomerShell } from "./components/layout/CustomerShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
+import { ContractDetailPage } from "./pages/ContractDetailPage";
 import { ProposalsPage } from "./pages/ProposalsPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
@@ -61,7 +62,11 @@ function App() {
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
   const isCustomerView =
-    view === "my-storage" || view === "proposals" || view === "invoices" || view === "appointments";
+    view === "my-storage" ||
+    view === "contract-detail" ||
+    view === "proposals" ||
+    view === "invoices" ||
+    view === "appointments";
   if (isCustomerView && !session) {
     navigate("/login");
     return null;
@@ -76,6 +81,7 @@ function App() {
       ) : isCustomerView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "my-storage" && <MyStoragePage navigate={navigate} />}
+          {view === "contract-detail" && <ContractDetailPage navigate={navigate} />}
           {view === "proposals" && <ProposalsPage navigate={navigate} />}
           {view === "invoices" && <InvoicesPage navigate={navigate} />}
           {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}

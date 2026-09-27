@@ -6,6 +6,7 @@ export type View =
   | "verify"
   | "request"
   | "my-storage"
+  | "contract-detail"
   | "proposals"
   | "invoices"
   | "appointments";
