@@ -31,6 +31,10 @@ export type FmUnit = {
 
 export const FM_FACILITY_NAME = "Kho Mộc — Thảo Điền Hub";
 
+/** Demo-only: Flow 6 (quá hạn) chưa có tài liệu chi tiết riêng — dùng số mẫu tĩnh
+ * cho báo cáo cơ sở, thay cho số liệu tính từ dữ liệu hợp đồng thật. */
+export const FACILITY_OVERDUE_COUNT = 2;
+
 const UNIT_TYPE_SIZE_LABEL: Record<string, string> = {
   basic: "4 m²",
   flexible: "8 m²",
