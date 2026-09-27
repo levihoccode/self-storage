@@ -14,5 +14,6 @@ export function viewFromLocation(): View {
   }
   if (path === "/fm/appointments") return "fm-appointments";
   if (path === "/fm/return-requests") return "fm-return-requests";
+  if (path === "/fm/extend-requests") return "fm-extend-requests";
   return "home";
 }

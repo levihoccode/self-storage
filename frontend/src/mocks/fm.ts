@@ -328,3 +328,50 @@ export function recordReturnAppointment(request: ReturnRequest, staffId: string)
     status: "Pending",
   });
 }
+
+export type ExtendRequestStatus = "PendingApproval" | "ApprovedPendingPayment" | "Rejected";
+
+export type ExtendRequest = {
+  id: string;
+  customerName: string;
+  unitCode: string;
+  currentEndDate: string;
+  monthlyPrice: number;
+  extraMonths: number;
+  requestedAt: string;
+  status: ExtendRequestStatus;
+  rejectReason?: string;
+};
+
+export const extendRequests: ExtendRequest[] = [
+  {
+    id: "extend-601",
+    customerName: "Hoàng Gia Huy",
+    unitCode: "TD-098",
+    currentEndDate: "05/10/2026",
+    monthlyPrice: 1200000,
+    extraMonths: 2,
+    requestedAt: "25/09/2026",
+    status: "PendingApproval",
+  },
+  {
+    id: "extend-602",
+    customerName: "Lê Thị Ngọc Hà",
+    unitCode: "TD-101",
+    currentEndDate: "01/10/2026",
+    monthlyPrice: 980000,
+    extraMonths: 1,
+    requestedAt: "26/09/2026",
+    status: "PendingApproval",
+  },
+  {
+    id: "extend-588",
+    customerName: "Vũ Anh Tuấn",
+    unitCode: "TD-101",
+    currentEndDate: "10/09/2026",
+    monthlyPrice: 980000,
+    extraMonths: 3,
+    requestedAt: "12/09/2026",
+    status: "ApprovedPendingPayment",
+  },
+];

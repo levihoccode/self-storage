@@ -42,9 +42,9 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   {
     label: "Yêu cầu gia hạn",
     path: "/fm/extend-requests",
-    view: "home",
+    view: "fm-extend-requests",
     icon: CalendarClock,
-    ready: false,
+    ready: true,
   },
   {
     label: "Yêu cầu hỗ trợ",
