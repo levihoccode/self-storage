@@ -12,6 +12,7 @@ import { MyStoragePage } from "./pages/MyStoragePage";
 import { RentalRequestQueuePage } from "./pages/fm/RentalRequestQueuePage";
 import { ProposalRedoPage } from "./pages/fm/ProposalRedoPage";
 import { AppointmentSchedulePage } from "./pages/fm/AppointmentSchedulePage";
+import { ReturnRequestQueuePage } from "./pages/fm/ReturnRequestQueuePage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -62,7 +63,10 @@ function App() {
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
   const isFmView =
-    view === "fm-rental-requests" || view === "fm-proposal-redo" || view === "fm-appointments";
+    view === "fm-rental-requests" ||
+    view === "fm-proposal-redo" ||
+    view === "fm-appointments" ||
+    view === "fm-return-requests";
   if ((view === "my-storage" || isFmView) && !session) {
     navigate("/login");
     return null;
@@ -83,6 +87,7 @@ function App() {
           {view === "fm-rental-requests" && <RentalRequestQueuePage navigate={navigate} />}
           {view === "fm-proposal-redo" && <ProposalRedoPage navigate={navigate} />}
           {view === "fm-appointments" && <AppointmentSchedulePage />}
+          {view === "fm-return-requests" && <ReturnRequestQueuePage />}
         </FmShell>
       ) : (
         <>

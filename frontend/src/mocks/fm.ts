@@ -272,3 +272,59 @@ export const fmAppointments: FmAppointment[] = [
     status: "Pending",
   },
 ];
+
+export type ReturnRequestStatus = "Pending" | "Assigned";
+
+export type ReturnRequest = {
+  id: string;
+  customerName: string;
+  unitCode: string;
+  preferredDate: string;
+  reason?: string;
+  status: ReturnRequestStatus;
+  staffId: string | null;
+};
+
+export const returnRequests: ReturnRequest[] = [
+  {
+    id: "return-501",
+    customerName: "Đặng Thu Hằng",
+    unitCode: "TD-101",
+    preferredDate: "29/09/2026",
+    reason: "Đã chuyển hết hàng, muốn trả kho sớm hơn dự kiến trong hợp đồng.",
+    status: "Pending",
+    staffId: null,
+  },
+  {
+    id: "return-502",
+    customerName: "Phan Gia Bảo",
+    unitCode: "TD-205",
+    preferredDate: "30/09/2026",
+    status: "Pending",
+    staffId: null,
+  },
+  {
+    id: "return-495",
+    customerName: "Nguyễn Minh Anh",
+    unitCode: "A-208",
+    preferredDate: "27/09/2026",
+    reason: "Hết nhu cầu lưu trữ, không gia hạn thêm.",
+    status: "Assigned",
+    staffId: "fs-002",
+  },
+];
+
+/** Flow 2.5.1: khi FM phân công FS cho yêu cầu trả kho, hệ thống tự tạo
+ * Appointment(type=RETURN) — FM không thao tác gì thêm ở trang lịch hẹn. */
+export function recordReturnAppointment(request: ReturnRequest, staffId: string) {
+  fmAppointments.push({
+    id: `appt-${request.id}`,
+    type: "RETURN",
+    customerName: request.customerName,
+    unitCode: request.unitCode,
+    date: request.preferredDate,
+    timeSlot: "Chưa xếp khung giờ cụ thể",
+    staffId,
+    status: "Pending",
+  });
+}

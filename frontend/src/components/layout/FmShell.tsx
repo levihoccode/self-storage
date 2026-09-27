@@ -35,9 +35,9 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   {
     label: "Yêu cầu trả kho",
     path: "/fm/return-requests",
-    view: "home",
+    view: "fm-return-requests",
     icon: Undo2,
-    ready: false,
+    ready: true,
   },
   {
     label: "Yêu cầu gia hạn",
