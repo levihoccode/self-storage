@@ -106,3 +106,90 @@ export const rentalRequests: RentalRequest[] = [
     rejectReason: "Cơ sở hiện không còn khoang mở rộng phù hợp diện tích yêu cầu.",
   },
 ];
+
+export const MAX_ORDER_REJECTIONS = 3;
+
+export type ProposalFeedbackEntry = {
+  unitCode: string;
+  note: string;
+  rejectedAt: string;
+  /** Distinguishes a customer-initiated rejection (1.3) from an on-site
+   * rejection at check-in (Flow 2, HandoverRecord.Rejected) — same UI,
+   * different trigger, so the FM should be able to tell them apart. */
+  source: "customer" | "checkin";
+};
+
+export type RentalOrder = {
+  id: string;
+  customerName: string;
+  unitTypeId: string;
+  desiredSize: string;
+  rejectionHistory: ProposalFeedbackEntry[];
+  status: "OpenForRepropose" | "Canceled";
+  /** Customer already paid the deposit on a previous proposal — re-proposing
+   * now means a fee/deposit difference the FM must see before sending. */
+  afterDeposit?: boolean;
+  previousDeposit?: number;
+};
+
+export const rentalOrders: RentalOrder[] = [
+  {
+    id: "order-fm-701",
+    customerName: "Hoàng Gia Huy",
+    unitTypeId: "basic",
+    desiredSize: "Khoảng 4 m²",
+    rejectionHistory: [
+      {
+        unitCode: "TD-098",
+        note: "Khoang nằm quá xa lối vào, bất tiện khi vận chuyển hàng.",
+        rejectedAt: "20/09/2026",
+        source: "customer",
+      },
+    ],
+    status: "OpenForRepropose",
+  },
+  {
+    id: "order-fm-702",
+    customerName: "Lâm Quốc Việt",
+    unitTypeId: "flexible",
+    desiredSize: "Khoảng 8 m²",
+    rejectionHistory: [
+      {
+        unitCode: "TD-203",
+        note: "Ẩm thấp hơn mong đợi.",
+        rejectedAt: "10/09/2026",
+        source: "customer",
+      },
+      {
+        unitCode: "TD-207",
+        note: "Khách từ chối ngay tại chỗ lúc check-in vì kích thước thực tế nhỏ hơn hình.",
+        rejectedAt: "13/09/2026",
+        source: "checkin",
+      },
+      {
+        unitCode: "TD-210",
+        note: "Không đúng vị trí tầng như yêu cầu.",
+        rejectedAt: "16/09/2026",
+        source: "customer",
+      },
+    ],
+    status: "Canceled",
+  },
+  {
+    id: "order-fm-703",
+    customerName: "Đặng Thu Hằng",
+    unitTypeId: "basic",
+    desiredSize: "Khoảng 4 m²",
+    rejectionHistory: [
+      {
+        unitCode: "TD-101",
+        note: "Khách đã cọc nhưng khoang phát sinh sự cố ẩm mốc, cần đổi khoang khác.",
+        rejectedAt: "22/09/2026",
+        source: "checkin",
+      },
+    ],
+    status: "OpenForRepropose",
+    afterDeposit: true,
+    previousDeposit: 980000,
+  },
+];

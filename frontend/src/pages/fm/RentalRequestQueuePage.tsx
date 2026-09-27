@@ -1,7 +1,13 @@
-import { AlertTriangle, Check, Loader2, Mail, Phone, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Loader2, Mail, Phone, X } from "lucide-react";
 import { useState } from "react";
+import type { Navigate } from "../../app/types";
 import { unitTypes } from "../../mocks/catalog";
-import { fmUnits, rentalRequests as initialRequests, type RentalRequest } from "../../mocks/fm";
+import {
+  fmUnits,
+  rentalOrders,
+  rentalRequests as initialRequests,
+  type RentalRequest,
+} from "../../mocks/fm";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
 import { SurfaceState } from "../../components/ui/SurfaceState";
@@ -35,7 +41,8 @@ function unitTypeName(unitTypeId: string) {
   return unitTypes.find((type) => type.id === unitTypeId)?.name ?? unitTypeId;
 }
 
-export function RentalRequestQueuePage() {
+export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
+  const openOrders = rentalOrders.filter((order) => order.status === "OpenForRepropose");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Pending");
   const [items, setItems] = useState<RentalRequest[]>(initialRequests);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -94,6 +101,23 @@ export function RentalRequestQueuePage() {
 
   return (
     <main>
+      {openOrders.length > 0 && (
+        <div className="mb-6">
+          <DemoNotice tone="pending">
+            <span className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                Có {openOrders.length} đơn cần đề xuất lại khoang (khách đã từ chối đề xuất trước).
+              </span>
+              <button
+                className="border-0 bg-transparent p-0 text-[11px] font-extrabold text-brand hover:underline"
+                onClick={() => navigate(`/fm/rental-orders/${openOrders[0].id}/re-propose`)}
+              >
+                Xem ngay <ArrowRight size={14} className="inline" />
+              </button>
+            </span>
+          </DemoNotice>
+        </div>
+      )}
       <div className="mb-8">
         <h1 className="m-0 text-[28px] tracking-[-0.03em] text-ink">Hàng chờ yêu cầu đặt kho</h1>
         <p className="mt-2 text-[13px] text-muted">

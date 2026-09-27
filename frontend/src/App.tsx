@@ -10,6 +10,7 @@ import { CustomerShell } from "./components/layout/CustomerShell";
 import { FmShell } from "./components/layout/FmShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
 import { RentalRequestQueuePage } from "./pages/fm/RentalRequestQueuePage";
+import { ProposalRedoPage } from "./pages/fm/ProposalRedoPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -59,7 +60,7 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
-  const isFmView = view === "fm-rental-requests";
+  const isFmView = view === "fm-rental-requests" || view === "fm-proposal-redo";
   if ((view === "my-storage" || isFmView) && !session) {
     navigate("/login");
     return null;
@@ -77,7 +78,8 @@ function App() {
         </CustomerShell>
       ) : isFmView ? (
         <FmShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
-          {view === "fm-rental-requests" && <RentalRequestQueuePage />}
+          {view === "fm-rental-requests" && <RentalRequestQueuePage navigate={navigate} />}
+          {view === "fm-proposal-redo" && <ProposalRedoPage navigate={navigate} />}
         </FmShell>
       ) : (
         <>
