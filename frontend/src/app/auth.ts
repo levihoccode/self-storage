@@ -1,4 +1,4 @@
-export type UserRole = "customer";
+export type UserRole = "customer" | "fm" | "fs" | "bom" | "admin";
 
 export type AuthUser = {
   id: string;
@@ -31,6 +31,32 @@ const demoUser: AuthUser = {
   email: DEMO_EMAIL,
   role: "customer",
 };
+
+export function resolveRoleFromEmail(email: string): UserRole {
+  const normalized = email.trim().toLowerCase();
+  if (normalized.includes("admin")) return "admin";
+  if (normalized.includes("bom")) return "bom";
+  if (normalized.includes("fm")) return "fm";
+  if (normalized.includes("fs")) return "fs";
+  return "customer";
+}
+
+export function getRoleRedirectPath(role: UserRole): string {
+  switch (role) {
+    case "customer":
+      return "/my-storage";
+    case "admin":
+      return "/admin/accounts";
+    case "bom":
+      return "/bom/policies";
+    case "fm":
+      return "/bom/facilities";
+    case "fs":
+      return "/fs/schedule";
+    default:
+      return "/my-storage";
+  }
+}
 
 function readSession(): AuthSession | null {
   try {
@@ -65,17 +91,39 @@ export const authGateway: AuthGateway = {
   async login(email, password) {
     await new Promise((resolve) => window.setTimeout(resolve, 450));
 
-    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
-      return { ok: false, message: "Email hoặc mật khẩu demo chưa đúng." };
+    const normalizedEmail = email.trim().toLowerCase();
+    const inferredRole = resolveRoleFromEmail(normalizedEmail);
+
+    if (normalizedEmail === DEMO_EMAIL && password === DEMO_PASSWORD) {
+      const session: AuthSession = {
+        user: demoUser,
+        issuedAt: new Date().toISOString(),
+      };
+      writeSession(session);
+      listeners.forEach((listener) => listener(session));
+      return { ok: true, session };
     }
 
-    const session: AuthSession = {
-      user: demoUser,
-      issuedAt: new Date().toISOString(),
-    };
-    writeSession(session);
-    listeners.forEach((listener) => listener(session));
-    return { ok: true, session };
+    if (password.length < 6) {
+      return { ok: false, message: "Mật khẩu phải có ít nhất 6 ký tự." };
+    }
+
+    if (normalizedEmail.includes("@") && inferredRole !== "customer") {
+      const session: AuthSession = {
+        user: {
+          id: `demo-${inferredRole}-001`,
+          name: `Demo ${inferredRole.toUpperCase()}`,
+          email: normalizedEmail,
+          role: inferredRole,
+        },
+        issuedAt: new Date().toISOString(),
+      };
+      writeSession(session);
+      listeners.forEach((listener) => listener(session));
+      return { ok: true, session };
+    }
+
+    return { ok: false, message: "Email hoặc mật khẩu demo chưa đúng." };
   },
   logout() {
     writeSession(null);

@@ -9,14 +9,25 @@ export function RegisterForm({ navigate }: { navigate: Navigate }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    if (!data.get("name") || !data.get("email") || !data.get("password")) {
+    const name = String(data.get("name") || "").trim();
+    const email = String(data.get("email") || "").trim();
+    const password = String(data.get("password") || "");
+
+    if (!name || !email || !password) {
       setNotice({ tone: "error", message: "Vui lòng hoàn thiện các trường bắt buộc." });
       return;
     }
+
+    if (password.length < 6) {
+      setNotice({ tone: "error", message: "Mật khẩu phải có ít nhất 6 ký tự." });
+      return;
+    }
+
     setNotice({
       tone: "success",
-      message: "Kiểm tra email để hoàn tất đăng ký.",
+      message: "Kiểm tra email để hoàn tất xác minh tài khoản.",
     });
+    navigate("/verify-email");
   }
   return (
     <>

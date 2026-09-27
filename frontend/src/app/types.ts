@@ -1,4 +1,31 @@
-export type View = "home" | "units" | "login" | "register" | "verify" | "request" | "my-storage";
+export type View =
+  | "home"
+  | "units"
+  | "login"
+  | "register"
+  | "verify"
+  | "request"
+  | "my-storage"
+  | "notifications"
+  | "admin-accounts"
+  | "admin-staff-requests"
+  | "admin-rbac"
+  | "admin-login-history"
+  | "admin-audit-log"
+  | "fs-schedule"
+  | "fs-handover"
+  | "fs-return"
+  | "fs-support"
+  | "fs-incidents"
+  | "bom-management"
+  | "bom-policies"
+  | "bom-fees"
+  | "bom-discounts"
+  | "bom-revenue"
+  | "bom-facilities"
+  | "bom-staff-requests"
+  | "bom-unit-types"
+  | "bom-reports";
 export type Navigate = (path: string) => void;
-export type NoticeTone = "info" | "success" | "error" | "pending";
+export type NoticeTone = "info" | "success" | "error";
 export type Notice = { tone: NoticeTone; message: string } | null;

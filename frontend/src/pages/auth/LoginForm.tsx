@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Navigate, Notice } from "../../app/types";
-import { authGateway, DEMO_EMAIL, DEMO_PASSWORD } from "../../app/auth";
+import { authGateway, DEMO_EMAIL, DEMO_PASSWORD, getRoleRedirectPath } from "../../app/auth";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { FormField } from "../../components/ui/FormField";
 
@@ -25,7 +25,9 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
       setNotice({ tone: "error", message: result.message });
       return;
     }
-    navigate("/my-storage");
+
+    const destination = getRoleRedirectPath(result.session.user.role);
+    navigate(destination);
   }
   return (
     <>
