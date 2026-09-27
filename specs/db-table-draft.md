@@ -140,7 +140,6 @@
 - status (Draft/Signed/Active/Ended/Canceled)
   - Signed: đã ký nhưng chưa bàn giao
   - Active: đã bàn giao, đang có hiệu lực
-
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (N - 1: RentalOrder) -> null as default

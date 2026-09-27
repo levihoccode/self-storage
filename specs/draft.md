@@ -497,7 +497,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - Nếu xác minh **đạt**, hệ thống bật `is_identity_verified = true`, `identity_verified_at`.
   - Nếu xác minh **không đạt**, FS dừng quy trình, không bật các cờ tiếp theo và mời khách ra về; **không hủy lịch/đơn** ở bước này.
     - MVP chỉ chấp nhận đúng người trên đơn (RentalOrder.customer_id); không xử lý người nhận thay.
-    - `HandoverRecord` giữ `IN_PROGRESS`; quá `due_at` thì cron của Flow 2 xử lý như no-show ([2.3](#23-ký-hợp-đồng-và-thanh-toán-tháng-đầu-tiên) / [Cron jobs](#scheduled-jobs---cron-jobs)).
+    - `HandoverRecord` giữ `IN_PROGRESS`; quá `due_at` thì cron của Flow 2 xử lý như no-show ([Cron jobs](#scheduled-jobs---cron-jobs)).
   - FS dẫn khách kiểm tra toàn bộ hiện trạng: kích thước, vị trí, vệ sinh, kết cấu, cửa/khóa và hư hại sẵn có.
   - FS nhập `HandoverRecord.inspection_notes` và `HandoverRecord.inspection_photos`.
 - **Customer:**
@@ -522,7 +522,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
       - Khách không xác nhận:
         - Không ghi gì.
         - Giữ nguyên `HandoverRecord` để khách tiếp tục kiểm tra hoặc chọn từ chối khoang.
-        - Nếu quá `due_at`, cron của Flow 2 đóng biên bản và xử lý như no-show (xem [2.3](#23-ký-hợp-đồng-và-thanh-toán-tháng-đầu-tiên) và [Cron jobs](#scheduled-jobs---cron-jobs)).
+        - Nếu quá `due_at`, cron của Flow 2 đóng biên bản và xử lý như no-show ([Cron jobs](#scheduled-jobs---cron-jobs)).
   - Nếu khách chọn **từ chối khoang này**:
     - Trước khi ghi nhận lần từ chối, hệ thống đếm số `HandoverRecord` cùng `RentalOrder` có `result = REJECTED` (không đếm `CANCELED`, tính trên toàn lịch sử đơn); việc đếm và cập nhật nằm trong cùng transaction.
     - Điều kiện chạm ngưỡng: `count + 1 >= handover.max_rejection_count`.
@@ -585,7 +585,6 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
     - `RentalContract.status -> Canceled`, `HandoverRecord.result -> CANCELED` với lý do "Quá hạn thanh toán tháng đầu".
     - Nếu `now < RentalOrder.expires_at`, đơn quay về `Deposited`, giữ cọc, khoang vẫn `Reserved`, khách đặt lịch check-in mới ở Flow 1 và làm lại từ 2.2.
     - Nếu `now >= RentalOrder.expires_at`, đơn `Expired`, khoang về `Available`, xử lý mất cọc theo chính sách Flow 4.
-    - Đây là cron duy nhất của Flow 2, chạy hằng ngày; 2.1 không còn cron auto-cancel.
 
 **Schema có trong phần này:**
 - [**RentalContract**](./db-table-draft.md#rentalcontract)
@@ -943,4 +942,11 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
   - `HandoverRecord.result = CANCELED`, `reject_reason` = "Chưa hoàn tất bàn giao trong hạn".
   - `RentalContract` (`Draft`/`Signed`) chuyển `Canceled`.
   - Đơn, khoang và cọc xử lý như nhánh no-show ở trên.
-- `Invoice` (DEP) quá `due_date` mà chưa thanh toán → set `status = Expired`; `RentalOrder` tương ứng chuyển `Expired` (khách không thanh toán cọc).
+- `Invoice` (`status = Unpaid`) quá `due_date`:
+  - `type = Deposit`: invoice `Expired`, `RentalOrder` tương ứng `Expired`.
+  - `type = Rental` + `RentalContract.status = Signed` (chưa bàn giao):
+    - contract `Canceled`, `HandoverRecord = CANCELED` lý do "Quá hạn thanh toán tháng đầu".
+    - Đơn về `Deposited` hoặc `Expired` theo `RentalOrder.expires_at`; cọc theo policy.
+    - Invoice `Expired`.
+  - `type = Rental` + `RentalContract.status = Active` (đang thuê):
+    - Tiền thuê định kỳ quá hạn → xử lý theo Flow 6. Ngoài scope hiện tại, đánh dấu chờ.
