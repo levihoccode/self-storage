@@ -12,5 +12,6 @@ export function viewFromLocation(): View {
   if (path.startsWith("/fm/rental-orders/") && path.endsWith("/re-propose")) {
     return "fm-proposal-redo";
   }
+  if (path === "/fm/appointments") return "fm-appointments";
   return "home";
 }

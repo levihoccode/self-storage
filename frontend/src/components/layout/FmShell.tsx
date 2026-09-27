@@ -28,9 +28,9 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   {
     label: "Lịch hẹn & phân công FS",
     path: "/fm/appointments",
-    view: "home",
+    view: "fm-appointments",
     icon: CalendarDays,
-    ready: false,
+    ready: true,
   },
   {
     label: "Yêu cầu trả kho",

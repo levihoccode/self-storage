@@ -7,7 +7,8 @@ export type View =
   | "request"
   | "my-storage"
   | "fm-rental-requests"
-  | "fm-proposal-redo";
+  | "fm-proposal-redo"
+  | "fm-appointments";
 export type Navigate = (path: string) => void;
 export type NoticeTone = "info" | "success" | "error" | "pending";
 export type Notice = { tone: NoticeTone; message: string } | null;

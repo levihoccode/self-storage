@@ -193,3 +193,82 @@ export const rentalOrders: RentalOrder[] = [
     previousDeposit: 980000,
   },
 ];
+
+export type FsStaff = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+export const fsStaff: FsStaff[] = [
+  { id: "fs-001", name: "Nguyễn Thành Được", phone: "090 111 2233" },
+  { id: "fs-002", name: "Trịnh Bảo Ngọc", phone: "091 222 3344" },
+  { id: "fs-003", name: "Phan Hữu Nghĩa", phone: "092 333 4455" },
+];
+
+export type AppointmentType = "CHECKIN" | "RETURN";
+export type AppointmentStatus = "Pending" | "Done" | "Canceled";
+
+export type FmAppointment = {
+  id: string;
+  type: AppointmentType;
+  customerName: string;
+  unitCode: string;
+  date: string;
+  timeSlot: string;
+  staffId: string | null;
+  status: AppointmentStatus;
+};
+
+export const fmAppointments: FmAppointment[] = [
+  {
+    id: "appt-001",
+    type: "CHECKIN",
+    customerName: "Hoàng Gia Huy",
+    unitCode: "TD-098",
+    date: "28/09/2026",
+    timeSlot: "08:00 – 10:00",
+    staffId: null,
+    status: "Pending",
+  },
+  {
+    id: "appt-002",
+    type: "CHECKIN",
+    customerName: "Lê Thị Ngọc Hà",
+    unitCode: "TD-101",
+    date: "28/09/2026",
+    timeSlot: "13:00 – 15:00",
+    staffId: "fs-001",
+    status: "Pending",
+  },
+  {
+    id: "appt-003",
+    type: "RETURN",
+    customerName: "Nguyễn Minh Anh",
+    unitCode: "A-208",
+    date: "28/09/2026",
+    timeSlot: "17:00 – 19:00",
+    staffId: "fs-002",
+    status: "Pending",
+  },
+  {
+    id: "appt-004",
+    type: "CHECKIN",
+    customerName: "Đặng Thu Hằng",
+    unitCode: "TD-101",
+    date: "29/09/2026",
+    timeSlot: "08:00 – 10:00",
+    staffId: null,
+    status: "Pending",
+  },
+  {
+    id: "appt-005",
+    type: "RETURN",
+    customerName: "Vũ Anh Tuấn",
+    unitCode: "TD-101",
+    date: "27/09/2026",
+    timeSlot: "13:00 – 15:00",
+    staffId: null,
+    status: "Pending",
+  },
+];
