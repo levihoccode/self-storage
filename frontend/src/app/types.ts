@@ -14,7 +14,8 @@ export type View =
   | "fm-support-requests"
   | "fm-storage-units"
   | "fm-staff"
-  | "fm-reports";
+  | "fm-reports"
+  | "fm-invoices";
 export type Navigate = (path: string) => void;
 export type NoticeTone = "info" | "success" | "error" | "pending";
 export type Notice = { tone: NoticeTone; message: string } | null;

@@ -543,3 +543,80 @@ export const extendRequests: ExtendRequest[] = [
     status: "ApprovedPendingPayment",
   },
 ];
+
+export type InvoiceType = "Deposit" | "Rental" | "Extension" | "Penalty" | "Service";
+export type InvoiceStatus = "Unpaid" | "Paid" | "Canceled";
+
+export type FmInvoice = {
+  id: string;
+  code: string;
+  type: InvoiceType;
+  customerName: string;
+  unitCode: string;
+  amount: number;
+  status: InvoiceStatus;
+  dueDate: string;
+};
+
+export const fmInvoices: FmInvoice[] = [
+  {
+    id: "inv-901",
+    code: "HD-000901",
+    type: "Deposit",
+    customerName: "Lê Thị Ngọc Hà",
+    unitCode: "TD-101",
+    amount: 980000,
+    status: "Unpaid",
+    dueDate: "30/09/2026",
+  },
+  {
+    id: "inv-902",
+    code: "HD-000902",
+    type: "Rental",
+    customerName: "Vũ Anh Tuấn",
+    unitCode: "TD-207",
+    amount: 7900000,
+    status: "Paid",
+    dueDate: "25/09/2026",
+  },
+  {
+    id: "inv-903",
+    code: "HD-000903",
+    type: "Extension",
+    customerName: "Vũ Anh Tuấn",
+    unitCode: "TD-101",
+    amount: 2940000,
+    status: "Unpaid",
+    dueDate: "05/10/2026",
+  },
+  {
+    id: "inv-904",
+    code: "HD-000904",
+    type: "Penalty",
+    customerName: "Đặng Thu Hằng",
+    unitCode: "TD-101",
+    amount: 300000,
+    status: "Unpaid",
+    dueDate: "28/09/2026",
+  },
+  {
+    id: "inv-905",
+    code: "HD-000905",
+    type: "Service",
+    customerName: "Nguyễn Minh Anh",
+    unitCode: "A-208",
+    amount: 150000,
+    status: "Paid",
+    dueDate: "20/09/2026",
+  },
+  {
+    id: "inv-880",
+    code: "HD-000880",
+    type: "Rental",
+    customerName: "Phan Gia Bảo",
+    unitCode: "TD-301",
+    amount: 12900000,
+    status: "Canceled",
+    dueDate: "10/09/2026",
+  },
+];

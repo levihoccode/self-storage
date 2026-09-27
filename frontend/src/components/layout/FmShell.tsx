@@ -62,7 +62,7 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   },
   { label: "Nhân viên FS", path: "/fm/staff", view: "fm-staff", icon: Users, ready: true },
   { label: "Báo cáo cơ sở", path: "/fm/reports", view: "fm-reports", icon: BarChart3, ready: true },
-  { label: "Hoá đơn cơ sở", path: "/fm/invoices", view: "home", icon: Receipt, ready: false },
+  { label: "Hoá đơn cơ sở", path: "/fm/invoices", view: "fm-invoices", icon: Receipt, ready: true },
   {
     label: "Khách hàng & hợp đồng",
     path: "/fm/contracts",
