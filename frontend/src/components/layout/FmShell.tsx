@@ -49,9 +49,9 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   {
     label: "Yêu cầu hỗ trợ",
     path: "/fm/support-requests",
-    view: "home",
+    view: "fm-support-requests",
     icon: LifeBuoy,
-    ready: false,
+    ready: true,
   },
   {
     label: "Quản lý khoang chứa",

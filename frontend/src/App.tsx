@@ -14,6 +14,7 @@ import { ProposalRedoPage } from "./pages/fm/ProposalRedoPage";
 import { AppointmentSchedulePage } from "./pages/fm/AppointmentSchedulePage";
 import { ReturnRequestQueuePage } from "./pages/fm/ReturnRequestQueuePage";
 import { ExtendRequestQueuePage } from "./pages/fm/ExtendRequestQueuePage";
+import { SupportRequestQueuePage } from "./pages/fm/SupportRequestQueuePage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -68,7 +69,8 @@ function App() {
     view === "fm-proposal-redo" ||
     view === "fm-appointments" ||
     view === "fm-return-requests" ||
-    view === "fm-extend-requests";
+    view === "fm-extend-requests" ||
+    view === "fm-support-requests";
   if ((view === "my-storage" || isFmView) && !session) {
     navigate("/login");
     return null;
@@ -91,6 +93,7 @@ function App() {
           {view === "fm-appointments" && <AppointmentSchedulePage />}
           {view === "fm-return-requests" && <ReturnRequestQueuePage />}
           {view === "fm-extend-requests" && <ExtendRequestQueuePage />}
+          {view === "fm-support-requests" && <SupportRequestQueuePage />}
         </FmShell>
       ) : (
         <>

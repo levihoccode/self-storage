@@ -343,6 +343,69 @@ export type ExtendRequest = {
   rejectReason?: string;
 };
 
+export type SupportIssueType = "LostKey" | "AccessCode" | "UnitDamage" | "Other";
+export type SupportRequestStatus = "Open" | "Assigned";
+export type SupportReporterRole = "Customer" | "FS";
+
+export type SupportRequest = {
+  id: string;
+  issueType: SupportIssueType;
+  description: string;
+  reporterName: string;
+  reporterRole: SupportReporterRole;
+  contractId: string | null;
+  unitCode: string;
+  status: SupportRequestStatus;
+  staffId: string | null;
+};
+
+export const supportRequests: SupportRequest[] = [
+  {
+    id: "support-801",
+    issueType: "UnitDamage",
+    description: "Trần khoang bị dột sau trận mưa lớn, hàng bên trong có nguy cơ ẩm ướt.",
+    reporterName: "Lê Thị Ngọc Hà",
+    reporterRole: "Customer",
+    contractId: "storage-002",
+    unitCode: "TD-101",
+    status: "Open",
+    staffId: null,
+  },
+  {
+    id: "support-802",
+    issueType: "LostKey",
+    description: "Khách báo mất chìa khoá ổ khoá phụ, cần hỗ trợ mở khoang khẩn.",
+    reporterName: "Vũ Anh Tuấn",
+    reporterRole: "Customer",
+    contractId: "storage-001",
+    unitCode: "TD-101",
+    status: "Open",
+    staffId: null,
+  },
+  {
+    id: "support-803",
+    issueType: "UnitDamage",
+    description: "FS phát hiện khoang trống bị nứt tường trong lúc kiểm tra định kỳ.",
+    reporterName: "Trịnh Bảo Ngọc",
+    reporterRole: "FS",
+    contractId: null,
+    unitCode: "TD-206",
+    status: "Open",
+    staffId: null,
+  },
+  {
+    id: "support-790",
+    issueType: "AccessCode",
+    description: "Mã cổng ra vào không hoạt động, khách không vào được khu vực kho.",
+    reporterName: "Đặng Thu Hằng",
+    reporterRole: "Customer",
+    contractId: "storage-003",
+    unitCode: "TD-101",
+    status: "Assigned",
+    staffId: "fs-003",
+  },
+];
+
 export const extendRequests: ExtendRequest[] = [
   {
     id: "extend-601",
