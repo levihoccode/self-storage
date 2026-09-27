@@ -7,7 +7,9 @@ import { RequestPage } from "./pages/RequestPage";
 import { PublicFooter } from "./components/layout/PublicFooter";
 import { PublicHeader } from "./components/layout/PublicHeader";
 import { CustomerShell } from "./components/layout/CustomerShell";
+import { FmShell } from "./components/layout/FmShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
+import { RentalRequestQueuePage } from "./pages/fm/RentalRequestQueuePage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -57,7 +59,8 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
-  if (view === "my-storage" && !session) {
+  const isFmView = view === "fm-rental-requests";
+  if ((view === "my-storage" || isFmView) && !session) {
     navigate("/login");
     return null;
   }
@@ -72,6 +75,10 @@ function App() {
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           <MyStoragePage navigate={navigate} />
         </CustomerShell>
+      ) : isFmView ? (
+        <FmShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
+          {view === "fm-rental-requests" && <RentalRequestQueuePage />}
+        </FmShell>
       ) : (
         <>
           <PublicHeader view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />

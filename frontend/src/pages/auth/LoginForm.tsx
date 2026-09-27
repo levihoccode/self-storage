@@ -1,7 +1,13 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Navigate, Notice } from "../../app/types";
-import { authGateway, DEMO_EMAIL, DEMO_PASSWORD } from "../../app/auth";
+import {
+  authGateway,
+  DEMO_EMAIL,
+  DEMO_FM_EMAIL,
+  DEMO_FM_PASSWORD,
+  DEMO_PASSWORD,
+} from "../../app/auth";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import {
   FIELD_GROUP,
@@ -31,7 +37,9 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
       setNotice({ tone: "error", message: result.message });
       return;
     }
-    navigate("/my-storage");
+    navigate(
+      result.session.user.role === "facility_manager" ? "/fm/rental-requests" : "/my-storage",
+    );
   }
   return (
     <>
@@ -94,10 +102,19 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
           {isSubmitting ? "Đang kiểm tra…" : "Đăng nhập"}{" "}
           {!isSubmitting && <ArrowRight size={17} />}
         </button>
-        <div className="mt-5 grid gap-1 rounded-sm border border-dashed border-border p-3 font-mono text-[11px] leading-relaxed text-muted">
-          <strong className="font-sans text-xs text-ink">Tài khoản demo</strong>
-          <span>Email: {DEMO_EMAIL}</span>
-          <span>Mật khẩu: {DEMO_PASSWORD}</span>
+        <div className="mt-5 grid gap-2.5 rounded-sm border border-dashed border-border p-3 font-mono text-[11px] leading-relaxed text-muted">
+          <div>
+            <strong className="font-sans text-xs text-ink">Tài khoản demo — Khách hàng</strong>
+            <div>Email: {DEMO_EMAIL}</div>
+            <div>Mật khẩu: {DEMO_PASSWORD}</div>
+          </div>
+          <div>
+            <strong className="font-sans text-xs text-ink">
+              Tài khoản demo — Facility Manager
+            </strong>
+            <div>Email: {DEMO_FM_EMAIL}</div>
+            <div>Mật khẩu: {DEMO_FM_PASSWORD}</div>
+          </div>
         </div>
         {notice && <DemoNotice tone={notice.tone}>{notice.message}</DemoNotice>}
       </form>

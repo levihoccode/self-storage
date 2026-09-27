@@ -1,4 +1,4 @@
-export type UserRole = "customer";
+export type UserRole = "customer" | "facility_manager";
 
 export type AuthUser = {
   id: string;
@@ -24,12 +24,21 @@ export interface AuthGateway {
 const SESSION_STORAGE_KEY = "kho-moc-demo-session";
 const DEMO_EMAIL = "customer@kho-moc.demo";
 const DEMO_PASSWORD = "demo123";
+const DEMO_FM_EMAIL = "fm@kho-moc.demo";
+const DEMO_FM_PASSWORD = "demo123";
 
 const demoUser: AuthUser = {
   id: "demo-customer-001",
   name: "Nguyễn Minh Anh",
   email: DEMO_EMAIL,
   role: "customer",
+};
+
+const demoFmUser: AuthUser = {
+  id: "demo-fm-001",
+  name: "Trần Bảo Long",
+  email: DEMO_FM_EMAIL,
+  role: "facility_manager",
 };
 
 function readSession(): AuthSession | null {
@@ -65,12 +74,20 @@ export const authGateway: AuthGateway = {
   async login(email, password) {
     await new Promise((resolve) => window.setTimeout(resolve, 450));
 
-    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const matchedUser =
+      normalizedEmail === DEMO_EMAIL && password === DEMO_PASSWORD
+        ? demoUser
+        : normalizedEmail === DEMO_FM_EMAIL && password === DEMO_FM_PASSWORD
+          ? demoFmUser
+          : null;
+
+    if (!matchedUser) {
       return { ok: false, message: "Email hoặc mật khẩu demo chưa đúng." };
     }
 
     const session: AuthSession = {
-      user: demoUser,
+      user: matchedUser,
       issuedAt: new Date().toISOString(),
     };
     writeSession(session);
@@ -87,4 +104,4 @@ export const authGateway: AuthGateway = {
   },
 };
 
-export { DEMO_EMAIL, DEMO_PASSWORD };
+export { DEMO_EMAIL, DEMO_PASSWORD, DEMO_FM_EMAIL, DEMO_FM_PASSWORD };

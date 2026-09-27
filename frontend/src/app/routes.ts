@@ -8,5 +8,6 @@ export function viewFromLocation(): View {
   if (path === "/verify-email") return "verify";
   if (path === "/rental-requests/new") return "request";
   if (path === "/my-storage") return "my-storage";
+  if (path === "/fm/rental-requests") return "fm-rental-requests";
   return "home";
 }
