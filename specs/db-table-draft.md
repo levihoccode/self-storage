@@ -145,8 +145,9 @@
 - start_date_override_status (nullable: Pending/Approved/Rejected) - `Pending` thì chặn bước ký cho tới khi FM xử lý
 - end_date
 - signed_at
-- signature - URL ảnh chữ ký; MVP là ảnh/scan trang ký của hợp đồng giấy
-- pdf_url - file hợp đồng lưu trữ; MVP là bản scan FS upload, không sinh PDF tự động
+- signature - URL ảnh chữ ký, chỉ dùng khi ký trên thiết bị; MVP ký giấy nên để trống (chữ ký nằm trong bản scan ở `pdf_url`)
+- document_url - file PDF hợp đồng được render từ template và thông tin của phiên (bản gốc dùng để đối chiếu, không ký)
+- pdf_url - file hợp đồng lưu trữ đã ký
 - status (Draft/Signed/Active/Ended/Canceled)
   - Signed: đã ký nhưng chưa bàn giao
   - Active: đã bàn giao, đang có hiệu lực
@@ -154,7 +155,6 @@
 **CONSTRAINTS:**
 - Một `RentalOrder` chỉ có tối đa một `RentalContract` đang xử lý (`status IN (Draft, Signed)`).
 - Hợp đồng `Canceled` / `Ended` giữ lại làm lịch sử, không tính vào ràng buộc.
-
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (N - 1: RentalOrder) -> null as default

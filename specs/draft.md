@@ -408,9 +408,9 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 - **Flow 4:**
   - Bảng giá thuê.
-  - Mẫu và version điều khoản hợp đồng.
   - Chính sách mốc bắt đầu tính tiền thuê.
   - Danh mục phí.
+  - Mẫu hợp đồng đang `Active` kèm version và **danh sách biến** mẫu hỗ trợ.
 
 #### Các tham số sử dụng
 
@@ -517,33 +517,41 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Flow tổng quát:** Đủ điều kiện ký -> sinh hợp đồng -> khách ký -> tạo hóa đơn tháng đầu -> khách thanh toán hoặc chờ xử lý quá hạn.
 
 **Details:**
+
+**Giai đoạn 1 — Sinh và ký hợp đồng:**
+
 - **Hệ thống:**
   - Chỉ cho phép tiếp tục khi `HandoverRecord.identity_status = Verified` và `HandoverRecord.inspection_status = Agreed`.
-  - Sinh hợp đồng từ mẫu đang hiệu lực của Flow 4, điền thông tin khách, cơ sở, `unit_id` khách vừa xác nhận, giá thuê, `period`, tiền cọc đã đóng, mốc bắt đầu tính tiền thuê và snapshot `terms_version`.
+  - Sinh `RentalContract` (`status = Draft`) từ mẫu đang hiệu lực của Flow 4: khách, cơ sở, `unit_id`, giá thuê, `period`, tiền cọc đã đóng, `start_date`.
   - Gắn hiện trạng khoang (`inspection_notes`, `inspection_photos`) ở 2.2 với hợp đồng qua `order_id`; đây là căn cứ đối chiếu khi trả kho ở Flow 2.a.
   - Mốc bắt đầu tính tiền thuê luôn được điền sẵn theo chính sách Flow 4 (`contract.start_date_rule`).
 - **FS:**
-  - Nếu khách ký trên bản giấy, FS chụp/scan và upload hợp đồng.
-  - Hệ thống lưu URL vào `RentalContract.signature` và `RentalContract.pdf_url`.
-  - Hệ thống cập nhật `RentalContract.status = Signed`.
   - FS không tự sửa `RentalContract.start_date`. Nếu cần thỏa thuận riêng, FS nhập ngày đề nghị và lý do vào hợp đồng `Draft`: `start_date_override_requested`, `start_date_override_reason`, `start_date_override_status = Pending`.
 - **FM:**
   - FM xem các yêu cầu đổi mốc tính tiền đang chờ của cơ sở mình.
-  - Khi duyệt, hệ thống dùng ngày đề nghị cho `start_date`, cập nhật `start_date_override_status = Approved` và mở lại bước ký.
-  - Khi từ chối, hệ thống giữ ngày theo chính sách, cập nhật `status = Rejected` và mở lại bước ký. FS có thể gửi đề nghị khác nếu khách vẫn không đồng ý.
+  - Khi duyệt, hệ thống dùng ngày đề nghị cho `RentalContract.start_date`, cập nhật `RentalContract.start_date_override_status = Approved` và mở lại bước ký.
+  - Khi từ chối, hệ thống giữ ngày theo chính sách, cập nhật `RentalContract.start_date_override_status = Rejected` và mở lại bước ký. FS có thể gửi đề nghị khác nếu khách vẫn không đồng ý.
   - Việc gửi đề nghị, duyệt và từ chối đều ghi `AuditLog` kèm `old_value`/`new_value`/`reason`.
-- **Customer:**
-  - Khách thanh toán hóa đơn tháng đầu qua VNPay.
 - **Hệ thống:**
   - Khi yêu cầu đổi mốc tính tiền còn `Pending`, chặn bước ký cho tới khi FM xử lý.
-  - Tạo `Invoice(type = Rental)`, prefix `RNT`, gắn `contract_id`, với số tiền tháng đầu. Tiền cọc ở Flow 1.4 không trừ vào hóa đơn này và được giữ riêng tới khi trả kho ở 2.a.3.
+  - Render tài liệu hợp đồng từ mẫu đang `Active` + dữ liệu của phiên; lưu bản chưa ký vào `document_url`.
+    - Chỉ render tài liệu khi không còn yêu cầu đổi `start_date` đang `Pending` (record có thể sửa khi còn `Draft`, tài liệu thì không regenerate).
+  - Ghi `terms_version` = version mẫu đã dùng để sinh tài liệu.
+- **FS:**
+  - In tài liệu cho khách đọc và ký trên giấy.
+  - Chụp/scan bản đã ký, upload; lưu `pdf_url`, cập nhật `RentalContract.status = Signed`.
+
+**Giai đoạn 2 — Hóa đơn và thanh toán tháng đầu:**
+
+- **Hệ thống:**
+  - Tạo `Invoice(type = Rental)`, prefix `RNT`, gắn `contract_id`, với số tiền tháng đầu và `due_date = now + handover.payment_grace_hours`. Tiền cọc ở Flow 1.4 không trừ vào hóa đơn này và được giữ riêng tới khi trả kho ở 2.a.3.
   - Khi gateway xác nhận thành công, cập nhật `PaymentTransaction = Success`, `Invoice.status = Paid`.
   - Khi thanh toán thất bại, cập nhật `PaymentTransaction = Failed`; hóa đơn giữ nguyên chưa thanh toán và không tiếp tục bàn giao.
-  - Nếu chưa thanh toán xong trong buổi hẹn, giữ `HandoverRecord.result = IN_PROGRESS`, giữ khoang `Reserved`, chưa bàn giao khóa; hóa đơn nằm trong mục "Hóa đơn" của khách.
-  - Khách có `payment_grace_hours` giờ để thanh toán. Quá hạn, [cron](#scheduled-jobs---cron-jobs) xử lý giống nhánh no-show của Flow 1:
-    - `RentalContract.status -> Canceled`, `HandoverRecord.result -> CANCELED` với lý do "Quá hạn thanh toán tháng đầu".
-    - Nếu `now < RentalOrder.expires_at`, đơn quay về `Deposited`, giữ cọc, khoang vẫn `Reserved`, khách đặt lịch check-in mới ở Flow 1 và làm lại từ 2.2.
-    - Nếu `now >= RentalOrder.expires_at`, đơn `Expired`, khoang về `Available`, xử lý mất cọc theo chính sách Flow 4.
+  - Hóa đơn đến hạn sau `handover.payment_grace_hours`. Quá hạn, [cron hóa đơn](#scheduled-jobs---cron-jobs) xử lý. Khi đơn còn trong hạn giữ kho, Flow 1 tạo lịch check-in mới, FM phân công FS theo Flow 5.3, và Flow 2 chạy lại từ 2.1 trên `Appointment` + `HandoverRecord` mới.
+- **Customer:**
+  - Khách thanh toán hóa đơn tháng đầu qua VNPay.
+  - Nếu chưa thanh toán xong trong buổi hẹn, hệ thống giữ `HandoverRecord.result = IN_PROGRESS`, giữ khoang `Reserved`, chưa bàn giao khóa; hóa đơn nằm trong mục "Hóa đơn" của khách.
+
 
 **Schema có trong phần này:**
 - [**RentalContract**](./db-table-draft.md#rentalcontract)
@@ -552,6 +560,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**HandoverRecord**](./db-table-draft.md#handoverrecord)
 
 **NOTES:**
+- Hợp đồng được ký ở bản hợp đồng giấy nên `RentalContract.signature` tạm thời không đụng đến.
 - Mốc bắt đầu tính tiền thuê mặc định theo chính sách Flow 4; thỏa thuận riêng phải được FM duyệt.
 - Flow 2 dùng chung schema/nguyên tắc thanh toán của Flow 1, không mô hình riêng.
 - Hợp đồng đã ký → Flow 4 ghi nhận; hóa đơn tháng đầu tạo trong transaction ký, không tạo từ bước khác.
