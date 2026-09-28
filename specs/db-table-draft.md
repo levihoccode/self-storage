@@ -12,6 +12,16 @@
 - address
 - operating_hours
 - status (Active/Inactive)
+# AccountFacilityAssignment
+**Owner:** Flow 5
+**Overview:** mapping account (chỉ dùng cho FS) với Facility, phục vụ RBAC data-scope khi một cơ sở có nhiều FS (1–n). Không dùng cho FM.
+- account_id (N - 1: Account, role FacilityStaff)
+- facility_id (N - 1: Facility)
+- assigned_at
+
+**NOTES:**
+- Flow 2 chỉ đọc bảng này để validate: FS được gán vào `Appointment.staff_id` phải thuộc đúng cơ sở — `AccountFacilityAssignment.facility_id = Appointment.facility_id`, so trực tiếp không join.
+- Định nghĩa đầy đủ và ràng buộc vòng đời thuộc Flow 5.
 # StorageUnit
 **Overview:** thông tin và trạng thái của khoang chứa tại mỗi cơ sở.
 
@@ -206,7 +216,7 @@
 - customer_id (N - 1: Account)
 - facility_id (N - 1: Facility)
 - staff_id (N - 1: Account, nullable khi chưa được phân công)
-- type (CHECKIN, HANDOVER, RETURN, ...)
+- type (CHECKIN, HANDOVER, RETURN)
 - cancel_reason
 - date
 - started_at
@@ -261,7 +271,7 @@
 - due_at - hạn khách phải hoàn tất bàn giao, set khi ghi nhận khách đến
 
 **NOTES:**
-- HandoverRecord được thiết kế như một checklist nhằm tối đa sự linh hoạt khi checkin, ví dụ, khách có thể đến xác nhận danh tính (`identity_status`) và đồng thời xác nhận kho luôn (`inspection_status`).
+- `HandoverRecord` là checklist tiến trình bàn giao theo **thứ tự bắt buộc**: xác minh danh tính → kiểm tra hiện trạng khoang → ký hợp đồng → thanh toán tháng đầu → bàn giao.
 - Để `result = COMPLETED`, tất cả các mục bắt buộc trong checklist phải được hoàn tất. Trường hợp `REJECTED` hoặc `CANCELED` có thể kết thúc khi checklist chưa hoàn tất và phải ghi nhận lý do tương ứng.
 - `HandoverRecord` chỉ giữ trạng thái thuộc chính phiên bàn giao: `identity_status`, `inspection_status`.
   Trạng thái hợp đồng và thanh toán **suy từ** `RentalContract` / `Invoice`; không nhân bản vào bảng này
@@ -274,6 +284,7 @@
   → đang xác minh danh tính → chờ khách đến.
 
 **CONSTRAINTS:**
+- Chỉ chuyển bước sau khi bước trước đạt: `identity_status = Verified` → `inspection_status = Agreed` → hợp đồng `Signed` → hóa đơn tháng đầu `Paid` → bàn giao.
 - `due_at` chỉ có giá trị khi `arrived_at` đã được ghi; không đổi sau khi set.
 - Một `Appointment` chỉ có tối đa một `HandoverRecord`.
 - Một `RentalOrder` có thể có nhiều `HandoverRecord` nếu khách từ chối khoang, no-show, quá hạn hoàn tất hoặc phải đặt lại lịch.
@@ -384,3 +395,9 @@
 | `STORAGE_UNIT_RENTED` | Khoang chuyển `Rented` sau bàn giao | `StorageUnit` | System |
 | `RENTAL_ORDER_DONE` | Đơn chuyển `Done` sau bàn giao | `RentalOrder` | System |
 | `HANDOVER_RECORD_CREATED` | Tạo hồ sơ bàn giao | `HandoverRecord` | System |
+| `CHECKOUT_INSPECTED` | FS chốt kiểm tra hiện trạng lúc trả | `CheckoutRecord` | FS |
+| `CHECKOUT_COMPLETED` | Hoàn tất biên bản trả kho | `CheckoutRecord` | FS |
+| `ACCESS_KEY_REVOKED` | Thu hồi chìa hoặc vô hiệu hóa mã | `UnitAccessKey` | FS |
+| `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
+| `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
+| `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
