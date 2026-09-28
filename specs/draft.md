@@ -575,17 +575,24 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Details:**
 - **FS:**
   - Chỉ thực hiện bàn giao khi hai cờ trạng thái trên `HandoverRecord` (`identity_status`, `inspection_status`) đều thành công, đồng thời `RentalContract.signed_at != null` và hóa đơn tháng đầu `Paid`.
-  - Với khóa cơ (`enabledKeyAccess`), giao chìa vật lý và ghi `quantity`.
-  - Với khóa mã số (`enabledCodeAccess`), hướng dẫn khách đăng nhập để xem mã. Mã chỉ hiển thị một lần trong tài khoản khách, không gửi email, không hiện trên màn hình FS và không trả trong response API bàn giao.
-  - Nếu cơ sở bật cả hai loại khóa, FS chọn loại bàn giao; `UnitAccessKey` ghi đúng `access_type`.
-  - Hai bên xác nhận và khách ký nhận.
+  - FS giao một hoặc cả hai loại đang bật tùy khách yêu cầu; mỗi loại giao tạo một dòng `UnitAccessKey` với `access_type` tương ứng.
+    - Với khóa cơ (`enabledKeyAccess`), giao chìa vật lý và ghi `quantity`.
+    - Với khóa mã số (`enabledCodeAccess`), hướng dẫn khách đăng nhập để xem mã.
+  - Hai bên xác nhận bàn giao: FS xác nhận trên hệ thống, khách xác nhận trong tài khoản.
 - **Hệ thống:**
   - Nếu thiếu một cờ bắt buộc, API bàn giao trả lỗi cho FS.
-  - Với khóa mã số, sinh mã gắn với đơn, lưu `code_hash`, không lưu plain text.
+  - Với khóa mã số, sinh mã gắn với `RentalContract`, lưu `code_hash`, không lưu plain text.
   - Trong một transaction, tạo `UnitAccessKey`, chuyển `StorageUnit: Reserved -> Rented`, `RentalContract: Signed -> Active`, `HandoverRecord.result = COMPLETED` với `completed_at`, và `RentalOrder.status -> Done`.
+  - **Khách chọn mã khóa số:** hệ thống tự chạy transaction trên ngay khi khách bấm chọn, không cần thao tác của FS.
+  - Chốt bàn giao chỉ chạy một lần: chỉ xử lý khi `HandoverRecord.result = IN_PROGRESS`.
   - Flow 2 là nơi duy nhất set `RentalOrder.status = Done`.
-  - Sau transaction, gửi email kèm hợp đồng và biên bản bàn giao, đồng thời tạo thông báo trên website. Lỗi gửi không rollback bàn giao.
+  - Sau transaction, gửi email kèm hợp đồng và link xem biên bản bàn giao, đồng thời tạo thông báo trên website. Lỗi gửi không rollback bàn giao.
   - Sau bàn giao, Flow 3 tiếp nhận khoang đang thuê.
+- **Customer:**
+  - Sau khi hóa đơn tháng đầu đã `Paid`, khoang hiện nút chọn hình thức nhận quyền truy cập:
+    - Nút chỉ hiện các loại mà cơ sở đang bật (`enabledKeyAccess` / `enabledCodeAccess`).
+    - **Mã khóa số** — hệ thống cấp mã ngay, khách xem trong tài khoản, không cần gặp FS.
+    - **Khóa cơ** — hệ thống chuyển yêu cầu bàn giao chìa cho FS phụ trách.
 
 **Schema có trong phần này:**
 - [**StorageUnit**](./db-table-draft.md#storageunit)
@@ -593,6 +600,11 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**HandoverRecord**](./db-table-draft.md#handoverrecord)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey)
+
+**NOTES:**
+- MVP chưa sinh file biên bản: biên bản bàn giao là dữ liệu `HandoverRecord` xem trên website. Khách xác nhận khi đang đăng nhập là đủ, không cần chữ ký giấy; cần bản giấy thì làm sau.
+- Sau khi biên bản đã chốt, hạn chế sửa `inspection_notes`/`inspection_photos`; nếu phải sửa (sai sót, bổ sung) thì ghi lý do và để lại vết trong `AuditLog`.
+- Ảnh hiện trạng nên giữ tới khi `RentalContract` chuyển `Ended` (trả kho hoàn tất), vì đây là mốc đối chiếu lúc trả kho.
 
 #### 2.5 Xử lý từ chối / hủy trong quá trình bàn giao
 
@@ -763,7 +775,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - Chỉ thu hồi quyền truy cập khi `CheckoutRecord.result` không phải `PENDING_ITEMS`.
   - Với khóa cơ, FS thu lại chìa và đối chiếu `UnitAccessKey.quantity`. Thiếu chìa thì tính `fee.lost_key`, set `UnitAccessKey.status = Lost` thay vì `Revoked`, ghi số chìa thu được vào `returned_key_quantity`; khoang phải thay khóa trước khi cho thuê lại.
   - Với khóa mã số, vô hiệu hóa mã ngay khi biên bản được xác nhận.
-  - Thu đủ chìa hoặc vô hiệu hóa mã thì `UnitAccessKey.status -> Revoked`, ghi `revoked_at`. Thiếu chìa thì `-> Lost`, cũng ghi `revoked_at`; khoang phải thay khóa trong kỳ bảo trì ở 2.a.4.
+  - Thu đủ chìa hoặc vô hiệu hóa mã thì `UnitAccessKey.status -> Revoked`, ghi `revoked_at`. Thiếu chìa thì `-> Lost`; khoang phải thay khóa trong kỳ bảo trì ở 2.a.4.
 
 **Schema có trong phần này:**
 - [**Appointment**](./db-table-draft.md#appointment)
@@ -771,6 +783,11 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**CheckoutRecord**](./db-table-draft.md#checkoutrecord)
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey)
 - [**RentalContract**](./db-table-draft.md#rentalcontract)
+
+**NOTES:**
+- Khách báo mất chìa: thu phí `LOST-KEY` (đối trừ cọc theo 2.a.3) và giữ khoang `Maintenance` tới khi thay khóa xong.
+- Khách trả lại được chìa trước khi khóa được thay: không phát sinh thay khóa; phần phí đã thu để FM điều chỉnh thủ công.
+- Mức phí `LOST-KEY` thuộc Flow 4 (`ExtraFee`).
 
 #### 2.a.3 Xử lý phí phát sinh và tiền cọc
 

@@ -239,12 +239,24 @@
 # UnitAccessKey
 **Overview:** quyền truy cập khoang chứa đã bàn giao cho khách.
 - unit_id (N - 1: StorageUnit)
-- order_id (N - 1: RentalOrder)
+- contract_id (N - 1: RentalContract)
 - access_type (PhysicalKey/AccessCode) - loại khóa đã bàn giao, theo cờ `enabledKeyAccess`/`enabledCodeAccess` của cơ sở/khoang (Flow 5)
 - quantity - số chìa đã giao, dùng khi `access_type = PhysicalKey`
 - code_hash - hash của mã truy cập, dùng khi `access_type = AccessCode`
 - issued_at, revoked_at
-- status (Active/Revoked/Lost)
+- status (Active/Revoked/Lost) - trạng thái của quyền truy cập được giao, không phải của vật (chìa) hay bí mật (mã)
+  - Active: quyền đang hiệu lực — khách đang giữ chìa, hoặc mã còn dùng được
+  - Revoked: quyền đã đóng — chìa đã thu về cơ sở, hoặc mã đã bị vô hiệu; `revoked_at` ghi thời điểm đóng
+  - Lost: quyền CHƯA đóng được — chìa không thu lại được nên người ngoài vẫn có thể mở; phải thay khóa mới đóng được. Chỉ áp cho `PhysicalKey`.
+
+**CONSTRAINTS:**
+- Mỗi hợp đồng có tối đa một dòng `Active` cho mỗi `access_type` (`PhysicalKey`, `AccessCode`).
+- Cấp lại mã khóa số: tạo dòng mới và chuyển dòng cũ sang `Revoked` trong cùng thao tác; không ghi đè `code_hash`.
+- Phát thêm chìa cơ: cập nhật `quantity` trên dòng `Active` hiện có; thay đổi ghi `AuditLog` kèm `old_value`/`new_value`.
+- `Lost` chỉ áp cho `PhysicalKey` — nghĩa là chìa không thu lại được. Có dòng `Lost` thì khoang không được cho thuê lại cho tới khi thay khóa xong.
+
+**NOTES:**
+- Dòng `Lost` giữ nguyên làm lịch sử, không đổi trạng thái sau khi thay khóa. Việc đã thay khóa thể hiện ở chỗ khoang được mở lại `Maintenance` -> `Available`, không phải ở dòng này.
 # HandoverRecord
 **Overview:** theo dõi tiến trình check-in và bàn giao khoang chứa. Flow 1 tạo bản ghi khi lịch hẹn check-in được tạo; Flow 2 sử dụng và cập nhật bản ghi trong quá trình xử lý tại cơ sở.
 
@@ -383,7 +395,7 @@
 | `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
 | `RENTAL_ORDER_CANCELED` | Hủy đơn khi chạm `handover.max_rejection_count`, sau khi khách xác nhận | `RentalOrder`, `StorageUnit`, `ProposalFeedback` | FS |
-| `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ các cờ bắt buộc | `HandoverRecord` | FS |
+| `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ các cờ bắt buộc | `HandoverRecord` | FS/System |
 | `START_DATE_OVERRIDE_REQUESTED` | FS đề nghị đổi mốc tính tiền | `RentalContract` | FS |
 | `START_DATE_OVERRIDE_APPROVED` | FM duyệt đổi mốc tính tiền | `RentalContract` | FM |
 | `START_DATE_OVERRIDE_REJECTED` | FM từ chối đổi mốc tính tiền | `RentalContract` | FM |
@@ -391,7 +403,7 @@
 | `CONTRACT_ACTIVATED` | Hợp đồng có hiệu lực sau bàn giao | `RentalContract` | System |
 | `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` hoặc do khách từ chối ký | `RentalContract` | System |
 | `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán hoặc do khách hủy | `HandoverRecord` | System |
-| `ACCESS_KEY_ISSUED` | Bàn giao chìa hoặc mã truy cập | `UnitAccessKey` | FS |
+| `ACCESS_KEY_ISSUED` | Bàn giao chìa hoặc mã truy cập | `UnitAccessKey` | FS/System |
 | `STORAGE_UNIT_RENTED` | Khoang chuyển `Rented` sau bàn giao | `StorageUnit` | System |
 | `RENTAL_ORDER_DONE` | Đơn chuyển `Done` sau bàn giao | `RentalOrder` | System |
 | `HANDOVER_RECORD_CREATED` | Tạo hồ sơ bàn giao | `HandoverRecord` | System |
