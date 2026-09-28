@@ -20,7 +20,7 @@
 - unit_type_id (N - 1: UnitType)
 - size - kích thước khoang
 - monthly_price (Decimal, nullable) - Giá override được BOM phê duyệt
-- maintenance_started_at (nullable) - chỉ do Flow 2.5 set khi `Maintenance` phát sinh từ trả kho, để cron tính `unit.maintenance_days`; FM chuyển `Maintenance` do sự cố thì để trống
+- maintenance_started_at (nullable) - chỉ do Flow 2.a set khi `Maintenance` phát sinh từ trả kho, để cron tính `unit.maintenance_days`; FM chuyển `Maintenance` do sự cố thì để trống
 - status:
   - Available: khoang sẵn sàng cho thuê
   - Reserved: khoang đã được giữ sau khi khách đặt cọc
@@ -121,7 +121,7 @@
     - Pending/Deposited/Scheduled/InProgress → Canceled: đơn bị hủy.
 # RentalContract
 **Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
-- order_id (1 - 1: RentalOrder)
+- order_id (N - 1: RentalOrder)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit)
 - code
@@ -140,6 +140,11 @@
 - status (Draft/Signed/Active/Ended/Canceled)
   - Signed: đã ký nhưng chưa bàn giao
   - Active: đã bàn giao, đang có hiệu lực
+
+**CONSTRAINTS:**
+- Một `RentalOrder` chỉ có tối đa một `RentalContract` đang xử lý (`status IN (Draft, Signed)`).
+- Hợp đồng `Canceled` / `Ended` giữ lại làm lịch sử, không tính vào ràng buộc.
+
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
 - order_id (N - 1: RentalOrder) -> null as default
@@ -237,16 +242,12 @@
 - appointment_id (1 - 1: Appointment)
 - unit_id (N - 1: StorageUnit)
 
-- is_identity_verified (default: false) - xác minh danh tính người đến check-in
+- identity_status (Pending/Verified/Failed) - xác minh danh tính người đến check-in
 - identity_verified_at (nullable)
-- is_unit_inspected (default: false) - hiện trạng kho được khách xác nhận
+- inspection_status (Pending/Agreed/Rejected) - hiện trạng kho được khách xác nhận
 - unit_inspected_at (nullable)
 - inspection_notes (nullable) - chỉ cho ghi chú hiện trạng
 - inspection_photos - List<String> (nullable), ảnh chụp thực tế lúc check-in
-- is_contract_signed (default: false) - hợp đồng đã được ký
-- contract_signed_at (nullable)
-- is_payment_settled (default: false) - khách đã thanh toán khoản cần thiết để nhận kho
-- payment_settled_at (nullable)
 
 - result
   - IN_PROGRESS: trạng thái mặc định
@@ -260,8 +261,17 @@
 - due_at - hạn khách phải hoàn tất bàn giao, set khi ghi nhận khách đến
 
 **NOTES:**
-- HandoverRecord được thiết kế như một checklist nhằm tối đa sự linh hoạt khi checkin, ví dụ, khách có thể đến xác nhận danh tính (is_identity_verified) và đồng thời xác nhận kho luôn (is_unit_inspected).
+- HandoverRecord được thiết kế như một checklist nhằm tối đa sự linh hoạt khi checkin, ví dụ, khách có thể đến xác nhận danh tính (`identity_status`) và đồng thời xác nhận kho luôn (`inspection_status`).
 - Để `result = COMPLETED`, tất cả các mục bắt buộc trong checklist phải được hoàn tất. Trường hợp `REJECTED` hoặc `CANCELED` có thể kết thúc khi checklist chưa hoàn tất và phải ghi nhận lý do tương ứng.
+- `HandoverRecord` chỉ giữ trạng thái thuộc chính phiên bàn giao: `identity_status`, `inspection_status`.
+  Trạng thái hợp đồng và thanh toán **suy từ** `RentalContract` / `Invoice`; không nhân bản vào bảng này
+  để tránh nguồn sự thật thứ hai.
+- Màn hình cần trạng thái tổng hợp (FM skim/filter) dùng **read model**. MVP: một query tổng hợp
+  dùng chung trong code; chỉ nâng lên DB view khi có consumer thứ hai (báo cáo, BI, service khác).
+- Trạng thái hiển thị của biên bản (màn FM skim/filter) ghép theo thứ tự ưu tiên:
+  hủy → từ chối khoang → đã bàn giao → quá hạn (chỉ khi `result = IN_PROGRESS`)
+  → chờ bàn giao khóa → chờ thanh toán → chờ ký → đang kiểm tra khoang
+  → đang xác minh danh tính → chờ khách đến.
 
 **CONSTRAINTS:**
 - `due_at` chỉ có giá trị khi `arrived_at` đã được ghi; không đổi sau khi set.
@@ -271,7 +281,7 @@
 - MVP chỉ có tối đa một appointment `CHECKIN` đang hoạt động cho mỗi `RentalOrder`; reschedule tạo nhiều appointment chỉ được bật ở giai đoạn sau.
 - Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
 # CheckoutRecord
-**Overview:** biên bản trả kho (Flow 2.5). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
+**Overview:** biên bản trả kho (Flow 2.a). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
 - order_id (1 - 1: RentalOrder)
 - appointment_id (1 - 1: Appointment) - lịch hẹn trả kho **đang xử lý**; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
 - unit_id (N - 1: StorageUnit)
@@ -368,8 +378,8 @@
 | `START_DATE_OVERRIDE_REJECTED` | FM từ chối đổi mốc tính tiền | `RentalContract` | FM |
 | `CONTRACT_SIGNED` | FS ghi nhận khách đã ký hợp đồng | `RentalContract` | FS |
 | `CONTRACT_ACTIVATED` | Hợp đồng có hiệu lực sau bàn giao | `RentalContract` | System |
-| `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` | `RentalContract` | System |
-| `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán | `HandoverRecord` | System |
+| `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` hoặc do khách từ chối ký | `RentalContract` | System |
+| `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán hoặc do khách hủy | `HandoverRecord` | System |
 | `ACCESS_KEY_ISSUED` | Bàn giao chìa hoặc mã truy cập | `UnitAccessKey` | FS |
 | `STORAGE_UNIT_RENTED` | Khoang chuyển `Rented` sau bàn giao | `StorageUnit` | System |
 | `RENTAL_ORDER_DONE` | Đơn chuyển `Done` sau bàn giao | `RentalOrder` | System |
