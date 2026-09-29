@@ -75,6 +75,8 @@ assumption, a fragile spot. No counter-argument means it is not a conclusion yet
 ## Git
 
 - Conventional commits with a scope: `feat(booking): …`, `fix(payment): …`, `docs(flow-2): …`.
+- Commit messages are in **English** — subject and body. PRs are squash-merged, so the PR title
+  becomes the commit subject: keep PR titles English too; the PR body stays Vietnamese.
 - Branch names follow the pattern already in use: `specs/<topic>`, `be/feat/<topic>`, `fe/feat/<topic>`, `docs/<topic>`, `chore/<topic>`.
 - One commit = one logical change. Do not commit unless asked. Never force-push.
 - Never commit `.env`, credentials, or tokens — sandbox keys only.
