@@ -1,0 +1,119 @@
+name: BE — API
+description: Endpoint HTTP mới/đổi — DTO, quyền, contract cho FE
+title: "BE api <module>: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dùng khi thứ được giao là **HTTP surface**. Logic nghiệp vụ cần cho endpoint đó nằm luôn trong scope —
+        đừng tách sang issue khác rồi phải sync hai chiều.
+
+        Chỉ chuyển sang **BE — server-side** khi phần chạy nền làm và kiểm được độc lập (cron, IPN, job dữ liệu).
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - booking
+        - payment
+        - facility
+        - handover
+        - checkout
+        - identity
+        - notification
+        - overdue
+        - pricing
+        - scheduler
+        - support
+        - tenancy
+        - cross-module / khác
+    validations:
+      required: true
+
+  - type: input
+    id: endpoint
+    attributes:
+      label: Endpoint
+      description: Method + path
+      placeholder: "POST /api/facilities/{facilityId}/units"
+    validations:
+      required: true
+
+  - type: input
+    id: spec_refs
+    attributes:
+      label: Căn cứ trong spec
+      description: File + heading quy định hành vi này
+      placeholder: "specs/draft.md › §2.4 Giao khóa"
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract
+    attributes:
+      label: Contract
+      description: Request / response shape, mã trạng thái, trường hợp lỗi
+      value: |
+        Request: …
+        Response 200: …
+        Lỗi: 400 (…), 403 (…), 409 (…)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: authz
+    attributes:
+      label: Quyền
+      description: Phải đi qua can() / canAccessFacility()
+      options:
+        - Public
+        - Đã đăng nhập là được
+        - Theo facility scope
+        - Chỉ chủ của tài nguyên
+        - Nội bộ (scheduler / IPN)
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Việc cần làm
+      description: Gạch đầu dòng, cụ thể tới mức người khác làm được
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Xong khi
+      value: |
+        - [ ] …
+        - [ ] …
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bằng chứng khi xong
+      description: Output lệnh build/test + kết quả gọi thử endpoint
+    validations:
+      required: true
+
+  - type: input
+    id: depends_on
+    attributes:
+      label: Phụ thuộc
+      placeholder: "#30 A5, #12"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Xác nhận
+      options:
+        - label: Spec mơ hồ ở phần này thì mở issue "Spec gap" và dừng đúng phần đó, không tự chọn cách hiểu.
+          required: true
