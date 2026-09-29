@@ -70,7 +70,11 @@ export function StaffRoleRequest({ navigate }: { navigate: Navigate }) {
     );
   }, [rows]);
 
-  function updateRow(rowId: string, field: keyof RoleRequestRow, value: string | RequestRole | RequestStatus) {
+  function updateRow(
+    rowId: string,
+    field: keyof RoleRequestRow,
+    value: string | RequestRole | RequestStatus,
+  ) {
     setDraftRows((current) =>
       current.map((row) => (row.id === rowId ? { ...row, [field]: value } : row)),
     );
@@ -106,7 +110,8 @@ export function StaffRoleRequest({ navigate }: { navigate: Navigate }) {
               Staff <span>role request.</span>
             </h1>
             <p>
-              BOM xác định role và gán facility cho nhân sự; Admin sẽ thực thi kỹ thuật tạo/cập nhật account.
+              BOM xác định role và gán facility cho nhân sự; Admin sẽ thực thi kỹ thuật tạo/cập nhật
+              account.
             </p>
           </div>
         </div>
@@ -133,7 +138,11 @@ export function StaffRoleRequest({ navigate }: { navigate: Navigate }) {
             <button className="button button-primary" type="button" onClick={addRow}>
               <Plus size={16} /> Thêm dòng
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/bom/facilities")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/bom/facilities")}
+            >
               <UserRound size={16} /> Facility
             </button>
           </div>
@@ -179,7 +188,9 @@ export function StaffRoleRequest({ navigate }: { navigate: Navigate }) {
                     <td>
                       <select
                         value={row.role}
-                        onChange={(event) => updateRow(row.id, "role", event.target.value as RequestRole)}
+                        onChange={(event) =>
+                          updateRow(row.id, "role", event.target.value as RequestRole)
+                        }
                       >
                         <option value="FM">FM</option>
                         <option value="FS">FS</option>
@@ -188,13 +199,17 @@ export function StaffRoleRequest({ navigate }: { navigate: Navigate }) {
                     <td>
                       <input
                         value={row.targetFacility}
-                        onChange={(event) => updateRow(row.id, "targetFacility", event.target.value)}
+                        onChange={(event) =>
+                          updateRow(row.id, "targetFacility", event.target.value)
+                        }
                       />
                     </td>
                     <td>
                       <select
                         value={row.status}
-                        onChange={(event) => updateRow(row.id, "status", event.target.value as RequestStatus)}
+                        onChange={(event) =>
+                          updateRow(row.id, "status", event.target.value as RequestStatus)
+                        }
                       >
                         <option value="Pending">Pending</option>
                         <option value="Done">Done</option>
@@ -207,7 +222,11 @@ export function StaffRoleRequest({ navigate }: { navigate: Navigate }) {
                       />
                     </td>
                     <td>
-                      <button className="button button-ghost" type="button" onClick={() => removeRow(row.id)}>
+                      <button
+                        className="button button-ghost"
+                        type="button"
+                        onClick={() => removeRow(row.id)}
+                      >
                         Xóa
                       </button>
                     </td>

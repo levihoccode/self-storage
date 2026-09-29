@@ -91,7 +91,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
   }, [discounts, query]);
 
   const selectedDiscount =
-    filteredDiscounts.find((discount) => discount.id === selectedId) ?? filteredDiscounts[0] ?? null;
+    filteredDiscounts.find((discount) => discount.id === selectedId) ??
+    filteredDiscounts[0] ??
+    null;
 
   useEffect(() => {
     if (selectedDiscount && selectedDiscount.id !== draft.id) {
@@ -128,7 +130,8 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
               Discount <span>programs.</span>
             </h1>
             <p>
-              Cấu hình chiết khấu áp dụng cho đặt cọc, thuê kho, gia hạn và các chương trình ưu đãi nhóm khách hàng.
+              Cấu hình chiết khấu áp dụng cho đặt cọc, thuê kho, gia hạn và các chương trình ưu đãi
+              nhóm khách hàng.
             </p>
           </div>
         </div>
@@ -140,7 +143,11 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
             <button className="button button-primary" type="button" onClick={createNewDiscount}>
               <Plus size={16} /> Tạo discount
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/bom/policies")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/bom/policies")}
+            >
               <Percent size={16} /> Policy
             </button>
           </div>
@@ -192,7 +199,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                             : `${discount.value.toLocaleString("vi-VN")}đ`}
                         </td>
                         <td>
-                          <span className={`account-status-tag status-${discount.isActive ? "active" : "inactive"}`}>
+                          <span
+                            className={`account-status-tag status-${discount.isActive ? "active" : "inactive"}`}
+                          >
                             {discount.isActive ? "Active" : "Inactive"}
                           </span>
                         </td>
@@ -201,7 +210,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   })}
                 </tbody>
               </table>
-              {!filteredDiscounts.length && <div className="empty-state">Không có discount nào phù hợp.</div>}
+              {!filteredDiscounts.length && (
+                <div className="empty-state">Không có discount nào phù hợp.</div>
+              )}
             </div>
           </div>
 
@@ -211,7 +222,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                 <p className="eyebrow">Discount detail</p>
                 <h2>{currentDiscount.name || "New discount"}</h2>
               </div>
-              <span className={`account-status-tag status-${currentDiscount.isActive ? "active" : "inactive"}`}>
+              <span
+                className={`account-status-tag status-${currentDiscount.isActive ? "active" : "inactive"}`}
+              >
                 {currentDiscount.isActive ? "Active" : "Inactive"}
               </span>
             </div>
@@ -241,7 +254,10 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   <select
                     value={currentDiscount.discountType}
                     onChange={(event) =>
-                      setDraft({ ...currentDiscount, discountType: event.target.value as DiscountType })
+                      setDraft({
+                        ...currentDiscount,
+                        discountType: event.target.value as DiscountType,
+                      })
                     }
                   >
                     <option value="Percent">Percent</option>
@@ -266,7 +282,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   <span>Apply to</span>
                   <select
                     value={currentDiscount.applyTo}
-                    onChange={(event) => setDraft({ ...currentDiscount, applyTo: event.target.value as ApplyTo })}
+                    onChange={(event) =>
+                      setDraft({ ...currentDiscount, applyTo: event.target.value as ApplyTo })
+                    }
                   >
                     <option value="Deposit">Deposit</option>
                     <option value="Rental">Rental</option>
@@ -296,7 +314,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   <input
                     type="date"
                     value={currentDiscount.startAt}
-                    onChange={(event) => setDraft({ ...currentDiscount, startAt: event.target.value })}
+                    onChange={(event) =>
+                      setDraft({ ...currentDiscount, startAt: event.target.value })
+                    }
                   />
                 </label>
 
@@ -305,7 +325,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   <input
                     type="date"
                     value={currentDiscount.endAt}
-                    onChange={(event) => setDraft({ ...currentDiscount, endAt: event.target.value })}
+                    onChange={(event) =>
+                      setDraft({ ...currentDiscount, endAt: event.target.value })
+                    }
                   />
                 </label>
               </div>
@@ -319,12 +341,14 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                 </div>
               )}
 
-            {currentDiscount.startAt && currentDiscount.endAt && currentDiscount.startAt >= currentDiscount.endAt && (
-              <div className="discount-warning">
-                <AlertTriangle size={14} />
-                start_at phải nhỏ hơn end_at.
-              </div>
-            )}
+            {currentDiscount.startAt &&
+              currentDiscount.endAt &&
+              currentDiscount.startAt >= currentDiscount.endAt && (
+                <div className="discount-warning">
+                  <AlertTriangle size={14} />
+                  start_at phải nhỏ hơn end_at.
+                </div>
+              )}
 
             <div className="discount-actions">
               <button
@@ -348,7 +372,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   setDraft({ ...currentDiscount, isActive: true });
                   setDiscounts((current) =>
                     current.map((discount) =>
-                      discount.id === currentDiscount.id ? { ...discount, isActive: true } : discount,
+                      discount.id === currentDiscount.id
+                        ? { ...discount, isActive: true }
+                        : discount,
                     ),
                   );
                 }}
@@ -363,7 +389,9 @@ export function DiscountManagement({ navigate }: { navigate: Navigate }) {
                   setDraft({ ...currentDiscount, isActive: false });
                   setDiscounts((current) =>
                     current.map((discount) =>
-                      discount.id === currentDiscount.id ? { ...discount, isActive: false } : discount,
+                      discount.id === currentDiscount.id
+                        ? { ...discount, isActive: false }
+                        : discount,
                     ),
                   );
                 }}

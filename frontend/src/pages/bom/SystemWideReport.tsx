@@ -20,7 +20,7 @@ const facilitySummaries: FacilitySummary[] = [
   { code: "Q15", name: "Kho Q15", revenue: 68, occupancy: 61, overdue: 22, incidents: 9 },
 ];
 
-const ranges = ["30d", "90d", "6m"]; 
+const ranges = ["30d", "90d", "6m"];
 
 export function SystemWideReport({ navigate }: { navigate: Navigate }) {
   const [range, setRange] = useState("90d");
@@ -35,7 +35,10 @@ export function SystemWideReport({ navigate }: { navigate: Navigate }) {
   };
 
   const ranked = useMemo(() => {
-    const numericMetricKey: keyof Pick<FacilitySummary, "revenue" | "occupancy" | "overdue" | "incidents"> = metric;
+    const numericMetricKey: keyof Pick<
+      FacilitySummary,
+      "revenue" | "occupancy" | "overdue" | "incidents"
+    > = metric;
 
     const list = [...facilitySummaries].sort((a, b) => {
       return Number(b[numericMetricKey]) - Number(a[numericMetricKey]);
@@ -75,7 +78,8 @@ export function SystemWideReport({ navigate }: { navigate: Navigate }) {
               System <span>wide report.</span>
             </h1>
             <p>
-              So sánh hiệu suất giữa nhiều chi nhánh để BOM theo dõi doanh thu, tỷ lệ lấp đầy và mức độ vận hành toàn hệ thống.
+              So sánh hiệu suất giữa nhiều chi nhánh để BOM theo dõi doanh thu, tỷ lệ lấp đầy và mức
+              độ vận hành toàn hệ thống.
             </p>
           </div>
         </div>
@@ -97,7 +101,10 @@ export function SystemWideReport({ navigate }: { navigate: Navigate }) {
 
             <label className="filter-field">
               <span>Metric</span>
-              <select value={metric} onChange={(event) => setMetric(event.target.value as MetricKey)}>
+              <select
+                value={metric}
+                onChange={(event) => setMetric(event.target.value as MetricKey)}
+              >
                 <option value="revenue">Doanh thu</option>
                 <option value="occupancy">Lấp đầy</option>
                 <option value="overdue">Quá hạn</option>
@@ -106,7 +113,11 @@ export function SystemWideReport({ navigate }: { navigate: Navigate }) {
             </label>
           </div>
 
-          <button className="button button-secondary" type="button" onClick={() => navigate("/bom/revenue")}>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => navigate("/bom/revenue")}
+          >
             <BarChart3 size={16} /> Revenue
           </button>
         </div>

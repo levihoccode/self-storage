@@ -135,7 +135,8 @@ export function FeeManagement({ navigate }: { navigate: Navigate }) {
               Fee <span>management.</span>
             </h1>
             <p>
-              Quản lý danh sách phí phát sinh, phụ phí và khoản xử lý theo từng loại hoạt động của cơ sở lưu trữ.
+              Quản lý danh sách phí phát sinh, phụ phí và khoản xử lý theo từng loại hoạt động của
+              cơ sở lưu trữ.
             </p>
           </div>
         </div>
@@ -147,7 +148,11 @@ export function FeeManagement({ navigate }: { navigate: Navigate }) {
             <button className="button button-primary" type="button" onClick={createNewFee}>
               <Plus size={16} /> Thêm fee
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/bom/policies")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/bom/policies")}
+            >
               <BadgeDollarSign size={16} /> Chính sách
             </button>
           </div>
@@ -307,7 +312,8 @@ export function FeeManagement({ navigate }: { navigate: Navigate }) {
             {currentFee.calculation === "Lock" && (
               <div className="fee-warning">
                 <AlertTriangle size={14} />
-                Lock fee được dùng cho trạng thái khóa tài khoản; hệ thống lưu trong bảng quyền khóa riêng.
+                Lock fee được dùng cho trạng thái khóa tài khoản; hệ thống lưu trong bảng quyền khóa
+                riêng.
               </div>
             )}
 

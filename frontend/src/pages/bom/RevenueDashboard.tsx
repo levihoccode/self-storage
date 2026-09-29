@@ -78,7 +78,8 @@ export function RevenueDashboard({ navigate }: { navigate: Navigate }) {
               Revenue <span>dashboard.</span>
             </h1>
             <p>
-              Theo dõi xu hướng doanh thu, so sánh theo chi nhánh, loại kho và nhóm khách hàng theo thời gian thực.
+              Theo dõi xu hướng doanh thu, so sánh theo chi nhánh, loại kho và nhóm khách hàng theo
+              thời gian thực.
             </p>
           </div>
         </div>
@@ -89,7 +90,10 @@ export function RevenueDashboard({ navigate }: { navigate: Navigate }) {
           <div className="revenue-toolbar__group">
             <label className="filter-field">
               <span>Time range</span>
-              <select value={timeRange} onChange={(event) => setTimeRange(event.target.value as TimeRange)}>
+              <select
+                value={timeRange}
+                onChange={(event) => setTimeRange(event.target.value as TimeRange)}
+              >
                 <option value="30d">30 days</option>
                 <option value="90d">90 days</option>
                 <option value="6m">6 months</option>
@@ -212,7 +216,8 @@ export function RevenueDashboard({ navigate }: { navigate: Navigate }) {
             </div>
 
             <div className="revenue-note">
-              Dữ liệu đang được tính toán theo bộ lọc đã chọn. Vùng này có thể bổ sung biểu đồ tròn hoặc bảng drill-down khi BE xác nhận schema chi tiết.
+              Dữ liệu đang được tính toán theo bộ lọc đã chọn. Vùng này có thể bổ sung biểu đồ tròn
+              hoặc bảng drill-down khi BE xác nhận schema chi tiết.
             </div>
           </aside>
         </div>

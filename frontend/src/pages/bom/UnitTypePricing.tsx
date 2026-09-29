@@ -107,7 +107,11 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
 
   function saveCurrent() {
     const nextUnitTypes = unitTypes.some((unitType) => unitType.id === draft.id)
-      ? unitTypes.map((unitType) => (unitType.id === draft.id ? { ...draft, updatedAt: new Date().toISOString().slice(0, 10) } : unitType))
+      ? unitTypes.map((unitType) =>
+          unitType.id === draft.id
+            ? { ...draft, updatedAt: new Date().toISOString().slice(0, 10) }
+            : unitType,
+        )
       : [draft, ...unitTypes];
 
     setUnitTypes(nextUnitTypes);
@@ -126,7 +130,8 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
               Unit type <span>pricing.</span>
             </h1>
             <p>
-              Định nghĩa loại kho và giá thuê áp dụng cho toàn hệ thống, đồng thời cảnh báo khi thay đổi giá ảnh hưởng tới hợp đồng đã ký.
+              Định nghĩa loại kho và giá thuê áp dụng cho toàn hệ thống, đồng thời cảnh báo khi thay
+              đổi giá ảnh hưởng tới hợp đồng đã ký.
             </p>
           </div>
         </div>
@@ -152,7 +157,11 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
           <button className="button button-primary" type="button" onClick={createNewUnitType}>
             <PackagePlus size={16} /> Tạo loại kho mới
           </button>
-          <button className="button button-secondary" type="button" onClick={() => navigate("/bom/revenue")}>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => navigate("/bom/revenue")}
+          >
             <TrendingUp size={16} /> Doanh thu
           </button>
         </div>
@@ -234,7 +243,9 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
                   <input
                     type="number"
                     value={currentUnitType.width}
-                    onChange={(event) => setDraft({ ...currentUnitType, width: Number(event.target.value || 0) })}
+                    onChange={(event) =>
+                      setDraft({ ...currentUnitType, width: Number(event.target.value || 0) })
+                    }
                   />
                 </label>
 
@@ -243,7 +254,9 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
                   <input
                     type="number"
                     value={currentUnitType.depth}
-                    onChange={(event) => setDraft({ ...currentUnitType, depth: Number(event.target.value || 0) })}
+                    onChange={(event) =>
+                      setDraft({ ...currentUnitType, depth: Number(event.target.value || 0) })
+                    }
                   />
                 </label>
               </div>
@@ -254,7 +267,9 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
                   <input
                     type="number"
                     value={currentUnitType.height}
-                    onChange={(event) => setDraft({ ...currentUnitType, height: Number(event.target.value || 0) })}
+                    onChange={(event) =>
+                      setDraft({ ...currentUnitType, height: Number(event.target.value || 0) })
+                    }
                   />
                 </label>
 
@@ -263,7 +278,9 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
                   <input
                     type="number"
                     value={currentUnitType.area}
-                    onChange={(event) => setDraft({ ...currentUnitType, area: Number(event.target.value || 0) })}
+                    onChange={(event) =>
+                      setDraft({ ...currentUnitType, area: Number(event.target.value || 0) })
+                    }
                   />
                 </label>
               </div>
@@ -273,18 +290,25 @@ export function UnitTypePricing({ navigate }: { navigate: Navigate }) {
                 <textarea
                   rows={4}
                   value={currentUnitType.description}
-                  onChange={(event) => setDraft({ ...currentUnitType, description: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentUnitType, description: event.target.value })
+                  }
                 />
               </label>
             </div>
 
             <div className="unit-type-warning">
               <AlertTriangle size={14} />
-              Thay đổi giá chỉ áp dụng cho khoang chưa ký hợp đồng. Hợp đồng đã ký giữ nguyên giá đã chốt lúc ký.
+              Thay đổi giá chỉ áp dụng cho khoang chưa ký hợp đồng. Hợp đồng đã ký giữ nguyên giá đã
+              chốt lúc ký.
             </div>
 
             <div className="unit-type-actions">
-              <button className="button button-primary button-full" type="button" onClick={saveCurrent}>
+              <button
+                className="button button-primary button-full"
+                type="button"
+                onClick={saveCurrent}
+              >
                 Lưu thay đổi
               </button>
             </div>

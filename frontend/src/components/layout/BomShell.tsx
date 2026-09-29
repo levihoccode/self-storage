@@ -16,7 +16,12 @@ import { TopRightActions } from "./TopRightActions";
 const navigation = [
   { label: "Chính sách", path: "/bom/policies", view: "bom-policies" as View, icon: ShieldCheck },
   { label: "Phí & thu", path: "/bom/fees", view: "bom-fees" as View, icon: BadgeDollarSign },
-  { label: "Khuyến mãi", path: "/bom/discounts", view: "bom-discounts" as View, icon: ClipboardList },
+  {
+    label: "Khuyến mãi",
+    path: "/bom/discounts",
+    view: "bom-discounts" as View,
+    icon: ClipboardList,
+  },
   { label: "Doanh thu", path: "/bom/revenue", view: "bom-revenue" as View, icon: FileChartColumn },
   { label: "Cơ sở", path: "/bom/facilities", view: "bom-facilities" as View, icon: Store },
   {

@@ -168,7 +168,8 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
               Business <span>rules.</span>
             </h1>
             <p>
-              Quản lý chính sách đặt cọc, hủy, trả kho, gia hạn và quá hạn theo nguyên tắc vận hành của hệ thống.
+              Quản lý chính sách đặt cọc, hủy, trả kho, gia hạn và quá hạn theo nguyên tắc vận hành
+              của hệ thống.
             </p>
           </div>
         </div>
@@ -180,12 +181,20 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
             <button className="button button-primary" type="button" onClick={createNewPolicy}>
               <Plus size={16} /> Thêm policy
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/bom/fees")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/bom/fees")}
+            >
               <CircleDollarSign size={16} /> Quản lý phí
             </button>
           </div>
 
-          <button className="button button-quiet" type="button" onClick={() => navigate("/notifications")}>
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => navigate("/notifications")}
+          >
             <ShieldCheck size={16} /> Thông báo
           </button>
         </div>
@@ -215,7 +224,10 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Status</span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                >
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -253,7 +265,9 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                           {policy.effectiveFrom} → {policy.effectiveTo}
                         </td>
                         <td>
-                          <span className={`account-status-tag status-${policy.status.toLowerCase()}`}>
+                          <span
+                            className={`account-status-tag status-${policy.status.toLowerCase()}`}
+                          >
                             {policy.status}
                           </span>
                         </td>
@@ -327,7 +341,9 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <input
                   type="date"
                   value={currentPolicy.effectiveFrom}
-                  onChange={(event) => setDraft({ ...currentPolicy, effectiveFrom: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentPolicy, effectiveFrom: event.target.value })
+                  }
                 />
               </label>
 
@@ -336,7 +352,9 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <input
                   type="date"
                   value={currentPolicy.effectiveTo}
-                  onChange={(event) => setDraft({ ...currentPolicy, effectiveTo: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentPolicy, effectiveTo: event.target.value })
+                  }
                 />
               </label>
 
@@ -344,7 +362,9 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <span>Cancel policy</span>
                 <textarea
                   value={currentPolicy.cancelPolicy}
-                  onChange={(event) => setDraft({ ...currentPolicy, cancelPolicy: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentPolicy, cancelPolicy: event.target.value })
+                  }
                   rows={3}
                 />
               </label>
@@ -353,7 +373,9 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <span>Return policy</span>
                 <textarea
                   value={currentPolicy.returnPolicy}
-                  onChange={(event) => setDraft({ ...currentPolicy, returnPolicy: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentPolicy, returnPolicy: event.target.value })
+                  }
                   rows={3}
                 />
               </label>
@@ -362,7 +384,9 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <span>Renewal policy</span>
                 <textarea
                   value={currentPolicy.renewalPolicy}
-                  onChange={(event) => setDraft({ ...currentPolicy, renewalPolicy: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentPolicy, renewalPolicy: event.target.value })
+                  }
                   rows={2}
                 />
               </label>
@@ -371,13 +395,16 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <span>Overdue policy</span>
                 <textarea
                   value={currentPolicy.overduePolicy}
-                  onChange={(event) => setDraft({ ...currentPolicy, overduePolicy: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentPolicy, overduePolicy: event.target.value })
+                  }
                   rows={2}
                 />
               </label>
             </div>
 
-            {currentPolicy.effectiveFrom && currentPolicy.effectiveTo &&
+            {currentPolicy.effectiveFrom &&
+              currentPolicy.effectiveTo &&
               currentPolicy.effectiveFrom >= currentPolicy.effectiveTo && (
                 <div className="bom-policy-warning">
                   <AlertTriangle size={14} />
@@ -385,12 +412,13 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 </div>
               )}
 
-            {currentPolicy.depositType === "%" && (currentPolicy.depositValue < 0 || currentPolicy.depositValue > 100) && (
-              <div className="bom-policy-warning">
-                <AlertTriangle size={14} />
-                Cảnh báo: deposit value khi kiểu % phải nằm trong khoảng 0 đến 100.
-              </div>
-            )}
+            {currentPolicy.depositType === "%" &&
+              (currentPolicy.depositValue < 0 || currentPolicy.depositValue > 100) && (
+                <div className="bom-policy-warning">
+                  <AlertTriangle size={14} />
+                  Cảnh báo: deposit value khi kiểu % phải nằm trong khoảng 0 đến 100.
+                </div>
+              )}
 
             <div className="bom-policy-actions-panel">
               <button
@@ -407,11 +435,19 @@ export function BusinessRulesPolicy({ navigate }: { navigate: Navigate }) {
                 <CheckCircle2 size={16} /> Lưu policy
               </button>
 
-              <button className="button button-secondary button-full" type="button" onClick={() => applyStatus(currentPolicy.id, "Active")}>
+              <button
+                className="button button-secondary button-full"
+                type="button"
+                onClick={() => applyStatus(currentPolicy.id, "Active")}
+              >
                 Kích hoạt
               </button>
 
-              <button className="button button-full bom-policy-secondary-button" type="button" onClick={() => applyStatus(currentPolicy.id, "Inactive")}>
+              <button
+                className="button button-full bom-policy-secondary-button"
+                type="button"
+                onClick={() => applyStatus(currentPolicy.id, "Inactive")}
+              >
                 Vô hiệu hóa
               </button>
             </div>

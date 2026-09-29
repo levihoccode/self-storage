@@ -86,7 +86,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
   }, [facilities, query]);
 
   const selectedFacility =
-    filteredFacilities.find((facility) => facility.id === selectedId) ?? filteredFacilities[0] ?? null;
+    filteredFacilities.find((facility) => facility.id === selectedId) ??
+    filteredFacilities[0] ??
+    null;
 
   useEffect(() => {
     if (selectedFacility && selectedFacility.id !== draft.id) {
@@ -124,7 +126,8 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
               Facility <span>management.</span>
             </h1>
             <p>
-              Quản lý cơ sở/chi nhánh, gán FM phụ trách và mở/đóng trạng thái hoạt động theo điều kiện nghiệp vụ.
+              Quản lý cơ sở/chi nhánh, gán FM phụ trách và mở/đóng trạng thái hoạt động theo điều
+              kiện nghiệp vụ.
             </p>
           </div>
         </div>
@@ -136,7 +139,11 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
             <button className="button button-primary" type="button" onClick={createNewFacility}>
               <Plus size={16} /> Tạo cơ sở mới
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/bom/revenue")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/bom/revenue")}
+            >
               <Building2 size={16} /> Doanh thu
             </button>
           </div>
@@ -184,7 +191,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
                         <td>{facility.name}</td>
                         <td>{facility.fmAccountId ?? "Unassigned"}</td>
                         <td>
-                          <span className={`account-status-tag status-${facility.status.toLowerCase()}`}>
+                          <span
+                            className={`account-status-tag status-${facility.status.toLowerCase()}`}
+                          >
                             {facility.status}
                           </span>
                         </td>
@@ -193,7 +202,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
                   })}
                 </tbody>
               </table>
-              {!filteredFacilities.length && <div className="empty-state">Không có cơ sở nào phù hợp.</div>}
+              {!filteredFacilities.length && (
+                <div className="empty-state">Không có cơ sở nào phù hợp.</div>
+              )}
             </div>
           </div>
 
@@ -231,7 +242,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
                 <span>Address</span>
                 <input
                   value={currentFacility.address}
-                  onChange={(event) => setDraft({ ...currentFacility, address: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...currentFacility, address: event.target.value })
+                  }
                 />
               </label>
 
@@ -240,7 +253,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
                   <span>Phone</span>
                   <input
                     value={currentFacility.phone}
-                    onChange={(event) => setDraft({ ...currentFacility, phone: event.target.value })}
+                    onChange={(event) =>
+                      setDraft({ ...currentFacility, phone: event.target.value })
+                    }
                   />
                 </label>
 
@@ -303,7 +318,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
                   setDraft({ ...currentFacility, status: "Active" });
                   setFacilities((current) =>
                     current.map((facility) =>
-                      facility.id === currentFacility.id ? { ...facility, status: "Active" } : facility,
+                      facility.id === currentFacility.id
+                        ? { ...facility, status: "Active" }
+                        : facility,
                     ),
                   );
                 }}
@@ -318,7 +335,9 @@ export function FacilityManagement({ navigate }: { navigate: Navigate }) {
                   setDraft({ ...currentFacility, status: "Inactive" });
                   setFacilities((current) =>
                     current.map((facility) =>
-                      facility.id === currentFacility.id ? { ...facility, status: "Inactive" } : facility,
+                      facility.id === currentFacility.id
+                        ? { ...facility, status: "Inactive" }
+                        : facility,
                     ),
                   );
                 }}
