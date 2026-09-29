@@ -1,0 +1,110 @@
+name: BE — server-side
+description: Nghiệp vụ chạy nền — cron, IPN, state machine, job dữ liệu. Không có HTTP surface
+title: "BE server <module>: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dùng khi không có endpoint nào là điểm giao: cron/scheduler, xử lý webhook, máy trạng thái chạy nền,
+        migration/backfill dữ liệu.
+
+        Thứ phải chứng minh ở đây không phải "trả đúng JSON" mà là **chạy lại có an toàn không** và **có lock đúng chỗ không**.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - booking
+        - payment
+        - facility
+        - handover
+        - checkout
+        - identity
+        - notification
+        - overdue
+        - pricing
+        - scheduler
+        - support
+        - tenancy
+        - cross-module / khác
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trigger
+    attributes:
+      label: Nguồn kích hoạt
+      options:
+        - Cron / scheduler
+        - Sự kiện nội bộ (event)
+        - Webhook / IPN
+        - Request của người dùng (chạy đồng bộ)
+        - Migration / backfill
+    validations:
+      required: true
+
+  - type: input
+    id: spec_refs
+    attributes:
+      label: Căn cứ trong spec
+      description: File + heading, kèm mục Scheduled Jobs nếu là cron
+      placeholder: "specs/draft.md › Scheduled Jobs"
+    validations:
+      required: true
+
+  - type: textarea
+    id: idempotency
+    attributes:
+      label: Chạy lại & tranh chấp
+      description: Chạy 2 lần thì sao? Khóa theo khóa nào? Hai tiến trình chạy cùng lúc thì sao?
+      value: |
+        Chạy lại: …
+        Khóa/lock: …
+        Hai instance cùng lúc: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Việc cần làm
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Xong khi
+      value: |
+        - [ ] …
+        - [ ] …
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bằng chứng khi xong
+      description: Output test chạy thật + log của lần chạy, kể cả lần chạy lại
+    validations:
+      required: true
+
+  - type: input
+    id: depends_on
+    attributes:
+      label: Phụ thuộc
+      placeholder: "#30 A5, #12"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Xác nhận
+      options:
+        - label: Mọi thay đổi trạng thái / tiền / quyền sở hữu đều ghi AuditLog, một bản ghi cho mỗi entity.
+          required: true
+        - label: Spec mơ hồ ở phần này thì mở issue "Spec gap" và dừng đúng phần đó, không tự chọn cách hiểu.
+          required: true

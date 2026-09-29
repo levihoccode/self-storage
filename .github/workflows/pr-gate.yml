@@ -1,0 +1,57 @@
+name: PR gate
+
+# Cổng chặn cho MỌI PR, không lọc path — để không bị treo ở trạng thái "đang chờ check".
+# Đây là check đáng đặt required, cùng với Backend CI / Frontend CI.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  body-and-title:
+    name: PR body và title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kiểm tra PR body và title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          fail=0
+
+          required_sections=(
+            "## Việc gì"
+            "## Căn cứ trong spec"
+            "## Đã đổi gì"
+            "## Đã chạy gì"
+            "## Chưa kiểm chứng"
+            "## Rủi ro"
+            "## Checklist"
+          )
+          for section in "${required_sections[@]}"; do
+            if ! printf '%s' "$BODY" | grep -qF -- "$section"; then
+              echo "::error::PR body thiếu mục '$section' (theo .github/pull_request_template.md)"
+              fail=1
+            fi
+          done
+
+          if ! printf '%s' "$TITLE" | grep -qE '^(feat|fix|docs|chore|refactor|test|perf)\([a-z0-9._/-]+\): .+'; then
+            echo "::error::Title phải theo conventional commit kèm scope, ví dụ: 'fix(payment): chặn IPN lặp'"
+            fail=1
+          fi
+
+          if ! printf '%s' "$BODY" | grep -qE '#[0-9]+'; then
+            echo "::error::PR body phải nhắc số issue ('Closes #N' hoặc '#N') — không có PR nào không gắn issue"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Sửa PR body/title rồi push lại hoặc sửa mô tả PR."
+            exit 1
+          fi
+
+          echo "PR gate: OK"

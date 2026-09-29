@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Roadmap implement (issue #30)
+    url: https://github.com/levihoccode/self-storage/issues/30
+    about: Việc đã nằm trong roadmap — tick ở đó, đừng mở issue trùng.
+  - name: Spec — nguồn sự thật
+    url: https://github.com/levihoccode/self-storage/tree/main/specs
+    about: specs/draft.md và specs/db-table-draft.md. Đọc trước khi mở issue.
