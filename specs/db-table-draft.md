@@ -15,7 +15,6 @@
 - operating_hours
 - status (Active/Inactive)
 # AccountFacilityAssignment
-**Owner:** Flow 5
 **Overview:** mapping account (chỉ dùng cho FS) với Facility, phục vụ RBAC data-scope khi một cơ sở có nhiều FS (1–n). Không dùng cho FM.
 - account_id (N - 1: Account, role FacilityStaff)
 - facility_id (N - 1: Facility)
@@ -25,7 +24,6 @@
 - Flow 2 chỉ đọc bảng này để validate: FS được gán vào `Appointment.staff_id` phải thuộc đúng cơ sở — `AccountFacilityAssignment.facility_id = Appointment.facility_id`, so trực tiếp không join.
 - Định nghĩa đầy đủ và ràng buộc vòng đời thuộc Flow 5.
 # UnitType
-**Owner:** Flow 4 (bảng giá); Flow 1/2/5 chỉ đọc.
 **Overview:** loại khoang chứa (Small/Medium/Large…) và giá thuê áp dụng toàn hệ thống (MVP).
 - name (unique) - tên loại khoang
 - width, depth, height, area - kích thước (mét; area m2)
@@ -324,7 +322,7 @@
 - Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
 # CheckoutRecord
 **Overview:** biên bản trả kho (Flow 2.a). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
-**Trạng thái baseline (A2):** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
+**Trạng thái baseline:** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
 - order_id (1 - 1: RentalOrder)
 - appointment_id (1 - 1: Appointment) - lịch hẹn trả kho **đang xử lý**; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
 - unit_id (N - 1: StorageUnit)
@@ -435,7 +433,7 @@
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
 
 # Policy
-**Owner:** Flow 4 (business rules & phí); các flow chỉ đọc qua key.
+**Overview:** bảng key-value để cấu hình tham số nghiệp vụ; các flow đọc qua key.
 - key (unique) - khoá dạng namespace, ví dụ `request.pending_expiry_days`
 - value - giá trị lưu dạng chuỗi; nơi đọc tự ép kiểu
 - description
@@ -446,7 +444,6 @@
 - Danh sách key + giá trị mặc định đang dùng nằm trong `draft.md` (Flow 1 §1.1, Flow 2 §2.1); key "chờ BOM" chưa seed.
 
 # Notification
-**Owner:** A5 (BE); FE notification center đọc bảng này.
 **Overview:** thông báo web cho người dùng; email chỉ gửi đi (không lưu) — fail không rollback nghiệp vụ.
 - account_id (N - 1: Account) - người nhận (entity không join sang identity — caller truyền id)
 - type (VARCHAR 60, controlled) - ví dụ `RENTAL_REQUEST_APPROVED`, `PROPOSAL_AGREED`, `PAYMENT_SUCCEEDED`
@@ -456,6 +453,6 @@
 - created_at
 
 **NOTES:**
-- Email: dev dùng MailHog; khi fail chỉ log + vẫn lưu thông báo web (A5).
+- Email: dev dùng MailHog; khi fail chỉ log + vẫn lưu thông báo web.
 - `type` là catalog riêng (tách khỏi audit catalog); thống nhất danh sách khi làm FE notification center.
 - Index `(account_id, read_at)`.
