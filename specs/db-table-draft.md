@@ -444,3 +444,18 @@
 **NOTES:**
 - Bảng key-value để BOM cấu hình (MVP chưa có UI — Flow 4).
 - Danh sách key + giá trị mặc định đang dùng nằm trong `draft.md` (Flow 1 §1.1, Flow 2 §2.1); key "chờ BOM" chưa seed.
+
+# Notification
+**Owner:** A5 (BE); FE notification center đọc bảng này.
+**Overview:** thông báo web cho người dùng; email chỉ gửi đi (không lưu) — fail không rollback nghiệp vụ.
+- account_id (N - 1: Account) - người nhận (entity không join sang identity — caller truyền id)
+- type (VARCHAR 60, controlled) - ví dụ `RENTAL_REQUEST_APPROVED`, `PROPOSAL_AGREED`, `PAYMENT_SUCCEEDED`
+- title
+- body
+- read_at (nullable)
+- created_at
+
+**NOTES:**
+- Email: dev dùng MailHog; khi fail chỉ log + vẫn lưu thông báo web (A5).
+- `type` là catalog riêng (tách khỏi audit catalog); thống nhất danh sách khi làm FE notification center.
+- Index `(account_id, read_at)`.

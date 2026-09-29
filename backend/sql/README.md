@@ -9,6 +9,8 @@ Bản đọc được của SQL — **mirror byte-identical** với Flyway migra
 
 **Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Nguồn sự thật của thiết kế vẫn là `specs/db-table-draft.md`.
 
+**Lưu ý:** chỉ **baseline V1/V2** có mirror trong `sql/`. Các migration mới hơn (V3+…) đọc trực tiếp trong `db/migration/` (mỗi file tự mô tả trong header).
+
 ## Chạy migration
 
 Migrations tự chạy khi app khởi động (Flyway + `spring.datasource`). Máy dev:
