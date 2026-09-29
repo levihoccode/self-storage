@@ -437,7 +437,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Details:**
 - **FM:**
   - FM xem danh sách `Appointment` của cơ sở theo ngày.
-  - Hệ thống hiển thị các lịch được lọc trực tiếp dựa trên `Appointment.facility_id` -> FM chỉ thấy lịch của cơ sở mình đảm nhận
+  - Hệ thống lọc lịch theo `Appointment.facility_id`; FM chỉ thấy lịch của cơ sở mình đảm nhận.
   - FM tìm các lịch chưa có `staff_id` để phân công FS.
   - Nghiệp vụ phân công thuộc Flow 5.3; Flow 2 chỉ sử dụng kết quả phân công.
 - **FS:**
@@ -691,7 +691,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - eKYC khi đăng ký tài khoản, bước xác minh on-site rút gọn còn đối chiếu nhanh.
 - Khóa thông minh điều khiển qua app, bỏ hẳn bước giao chìa khóa vật lý.
 
-### 2.a Trả kho và bảo trì
+### 2.a Trả kho và bảo trì (Chưa qua review, không được phép implement phần này)
 
 **FLOW:**
 ```
