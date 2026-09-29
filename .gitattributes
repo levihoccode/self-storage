@@ -1,0 +1,6 @@
+# Chuẩn hoá line ending về LF trên mọi máy (prettier format:check phụ thuộc eol=lf).
+* text=auto eol=lf
+
+# Batch Windows giữ CRLF để chạy đúng trong cmd.
+*.cmd text eol=crlf
+*.bat text eol=crlf
