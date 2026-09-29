@@ -41,7 +41,7 @@ Only the ambiguous behavior is frozen. The rest of the task continues.
 
 ## Commands
 
-- Build + tests + module boundary check: `./mvnw -B verify`
+- Build + tests + module boundary check: `./mvnw -B verify` (gồm Checkstyle lint — rule tối thiểu, `backend/checkstyle.xml`)
 - Single test class: `./mvnw -B test -Dtest=<ClassName>`
 - Run the app: `./mvnw spring-boot:run` (needs `docker compose up -d` for Postgres + Redis)
 
