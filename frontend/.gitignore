@@ -23,6 +23,8 @@ Thumbs.db
 .impeccable/hook.cache.json
 .impeccable/hook.pending.json
 .impeccable/*.png
+.impeccable/mocks/
+.impeccable/direction-payload.json
 .impeccable/review/
 .impeccable/questions/
 .impeccable/live/server.json
