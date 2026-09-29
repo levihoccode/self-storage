@@ -25,8 +25,8 @@ issue (task) → branch → PR "Closes #N" → CI green + 1 approval → merge �
 ```
 
 - One issue may produce several PRs. One PR closes **one** issue; link any others with `#N`.
-- Never `Closes` an epic or the roadmap. Roadmap `#30` is a checklist, not sub-issues — tick the box
-  by hand, and do not close the issue.
+- Never `Closes` an epic. Roadmap `#30` is an index of three packages (`#33` A · `#34` B · `#35` C) —
+  `Closes #33` is correct, `Closes #30` is not. Tick individual items inside the package issue.
 - Every PR needs one approval from the code owner. CI is not a required check yet, so verify it
   yourself before asking for review.
 - Issues created with `gh issue create` skip the form — fill the form's fields by hand.
