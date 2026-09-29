@@ -50,7 +50,8 @@ jobs:
           python-version: '3.12'
 
       - name: Cổng coverage — dòng thay đổi ≥ 80% (diff-cover)
-        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
+        # Bypass hợp lệ (rất hiếm): nhãn 'waiver' — ví dụ PR hợp nhất code cũ chưa có test.
+        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'waiver')
         working-directory: backend
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
