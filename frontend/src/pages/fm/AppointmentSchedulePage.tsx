@@ -1,6 +1,12 @@
-import { Check, Loader2, Lock, User } from "lucide-react";
+import { Check, Lock, User } from "lucide-react";
 import { useState } from "react";
-import { fmAppointments as initialAppointments, fsStaff, type FmAppointment } from "../../mocks/fm";
+import {
+  assignAppointmentStaff,
+  fmAppointments,
+  fsStaff,
+  type FmAppointment,
+} from "../../mocks/fm";
+import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
 import { SurfaceState } from "../../components/ui/SurfaceState";
@@ -15,8 +21,6 @@ const TYPE_BADGE: Record<FmAppointment["type"], string> = {
   RETURN: "bg-info/14 text-info",
 };
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
 const FILTER_SELECT =
   "min-w-[170px] rounded-sm border border-border bg-surface px-[11px] py-[10px] pr-[30px] text-[12px] font-semibold text-ink";
 
@@ -35,15 +39,15 @@ function groupByDate(items: FmAppointment[]) {
 }
 
 export function AppointmentSchedulePage() {
-  const [items, setItems] = useState<FmAppointment[]>(initialAppointments);
+  const [, refresh] = useState(0);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const openAppointment = items.find((item) => item.id === openId) ?? null;
+  const openAppointment = fmAppointments.find((item) => item.id === openId) ?? null;
 
-  const list = items.filter((item) => !unassignedOnly || item.staffId === null);
+  const list = fmAppointments.filter((item) => !unassignedOnly || item.staffId === null);
   const groups = groupByDate(list);
 
   function openDetails(appointment: FmAppointment) {
@@ -56,11 +60,8 @@ export function AppointmentSchedulePage() {
     setBusyId(appointment.id);
     window.setTimeout(() => {
       setBusyId(null);
-      setItems((current) =>
-        current.map((item) =>
-          item.id === appointment.id ? { ...item, staffId: selectedStaffId } : item,
-        ),
-      );
+      assignAppointmentStaff(appointment.id, selectedStaffId);
+      refresh((count) => count + 1);
       setOpenId(null);
     }, 700);
   }
@@ -183,21 +184,14 @@ export function AppointmentSchedulePage() {
                 </select>
               </label>
               <div className="mt-5">
-                <button
-                  className={PRIMARY_BUTTON}
-                  disabled={!selectedStaffId || busyId === openAppointment.id}
+                <Button
+                  pending={busyId === openAppointment.id}
+                  disabled={!selectedStaffId}
                   onClick={() => assign(openAppointment)}
                 >
-                  {busyId === openAppointment.id ? (
-                    <Loader2
-                      className="animate-[surface-state-spin_0.9s_linear_infinite]"
-                      size={16}
-                    />
-                  ) : (
-                    <Check size={16} />
-                  )}
+                  {busyId !== openAppointment.id && <Check size={16} />}
                   Phân công
-                </button>
+                </Button>
               </div>
             </>
           )}

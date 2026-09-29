@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Loader2, UserRound, X } from "lucide-react";
+import { AlertTriangle, Check, UserRound, X } from "lucide-react";
 import { useState } from "react";
 import { formatPrice } from "../../mocks/catalog";
 import {
@@ -6,6 +6,7 @@ import {
   type ExtendRequest,
   type ExtendRequestStatus,
 } from "../../mocks/fm";
+import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
 import { SurfaceState } from "../../components/ui/SurfaceState";
@@ -24,10 +25,6 @@ const STATUS_BADGE: Record<ExtendRequestStatus, string> = {
   Rejected: "bg-danger/14 text-danger",
 };
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60";
 const FILTER_SELECT =
   "min-w-[220px] rounded-sm border border-border bg-surface px-[11px] py-[10px] pr-[30px] text-[12px] font-semibold text-ink";
 
@@ -155,24 +152,13 @@ export function ExtendRequestQueuePage() {
 
           {openRequest.status === "PendingApproval" && mode === "view" && (
             <div className="mt-6 flex items-center gap-3">
-              <button
-                className={PRIMARY_BUTTON}
-                disabled={busyId === openRequest.id}
-                onClick={() => approve(openRequest)}
-              >
-                {busyId === openRequest.id ? (
-                  <Loader2
-                    className="animate-[surface-state-spin_0.9s_linear_infinite]"
-                    size={16}
-                  />
-                ) : (
-                  <Check size={16} />
-                )}
+              <Button pending={busyId === openRequest.id} onClick={() => approve(openRequest)}>
+                {busyId !== openRequest.id && <Check size={16} />}
                 Duyệt gia hạn
-              </button>
-              <button className={SECONDARY_BUTTON} onClick={() => setMode("reject")}>
+              </Button>
+              <Button variant="secondary" onClick={() => setMode("reject")}>
                 <X size={16} /> Từ chối
-              </button>
+              </Button>
             </div>
           )}
 
@@ -188,13 +174,9 @@ export function ExtendRequestQueuePage() {
                 />
               </label>
               <div className="mt-3 flex items-center gap-2.5">
-                <button
-                  className={PRIMARY_BUTTON}
-                  disabled={!rejectReason.trim()}
-                  onClick={() => reject(openRequest)}
-                >
+                <Button disabled={!rejectReason.trim()} onClick={() => reject(openRequest)}>
                   <AlertTriangle size={16} /> Xác nhận từ chối
-                </button>
+                </Button>
                 <button
                   className="border-0 bg-transparent px-3 py-2 text-[12px] text-muted hover:text-brand"
                   onClick={() => setMode("view")}

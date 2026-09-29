@@ -1,4 +1,4 @@
-import { Check, Loader2, UserRound } from "lucide-react";
+import { Check, UserRound } from "lucide-react";
 import { useState } from "react";
 import {
   fsStaff,
@@ -7,6 +7,7 @@ import {
   type SupportRequest,
   type SupportRequestStatus,
 } from "../../mocks/fm";
+import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
 import { SurfaceState } from "../../components/ui/SurfaceState";
@@ -30,8 +31,6 @@ const ISSUE_BADGE: Record<SupportIssueType, string> = {
   Other: "bg-surface-subtle text-muted",
 };
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
 const TAB_BUTTON =
   "min-h-10 rounded-sm border border-border bg-surface px-4 text-[13px] font-bold text-muted transition-colors";
 const TAB_BUTTON_ACTIVE = "border-brand bg-brand-soft text-brand";
@@ -177,21 +176,14 @@ export function SupportRequestQueuePage() {
                 </select>
               </label>
               <div className="mt-5">
-                <button
-                  className={PRIMARY_BUTTON}
-                  disabled={!selectedStaffId || busyId === openRequest.id}
+                <Button
+                  pending={busyId === openRequest.id}
+                  disabled={!selectedStaffId}
                   onClick={() => assign(openRequest)}
                 >
-                  {busyId === openRequest.id ? (
-                    <Loader2
-                      className="animate-[surface-state-spin_0.9s_linear_infinite]"
-                      size={16}
-                    />
-                  ) : (
-                    <Check size={16} />
-                  )}
+                  {busyId !== openRequest.id && <Check size={16} />}
                   Phân công
-                </button>
+                </Button>
               </div>
             </>
           )}

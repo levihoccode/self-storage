@@ -9,6 +9,7 @@ import {
   type FmUnit,
   type FmUnitStatus,
 } from "../../mocks/fm";
+import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
 import { FormField, SelectField } from "../../components/ui/FormField";
@@ -32,10 +33,6 @@ const STATUS_BADGE: Record<FmUnitStatus, string> = {
   Maintenance: "bg-surface-subtle text-muted",
 };
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60";
 const FILTER_SELECT =
   "min-w-[170px] rounded-sm border border-border bg-surface px-[11px] py-[10px] pr-[30px] text-[12px] font-semibold text-ink";
 
@@ -80,7 +77,7 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
 
   function confirmMaintenance(unit: FmUnit) {
     if (!maintenanceReason.trim()) return;
-    setFmUnitStatus(unit.id, "Maintenance");
+    setFmUnitStatus(unit.id, "Maintenance", maintenanceReason.trim());
     setRefresh((count) => count + 1);
     setOpenId(null);
   }
@@ -101,9 +98,9 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
             chỉnh ở đây.
           </p>
         </div>
-        <button className={PRIMARY_BUTTON} onClick={() => setCreating((value) => !value)}>
+        <Button onClick={() => setCreating((value) => !value)}>
           <Plus size={16} /> Tạo khoang mới
-        </button>
+        </Button>
       </div>
 
       {creating && (
@@ -120,9 +117,9 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
             <FormField label="Vị trí" name="location" placeholder="VD: Tầng 2 · Dãy C" required />
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <button type="submit" className={PRIMARY_BUTTON}>
+            <Button type="submit">
               <Check size={16} /> Lưu khoang
-            </button>
+            </Button>
             <button
               type="button"
               className="border-0 bg-transparent px-3 py-2 text-[12px] text-muted hover:text-brand"
@@ -207,9 +204,9 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
 
           {openUnit.status === "Available" && mode === "view" && (
             <div className="mt-6">
-              <button className={SECONDARY_BUTTON} onClick={() => setMode("maintenance")}>
+              <Button variant="secondary" onClick={() => setMode("maintenance")}>
                 <AlertTriangle size={16} /> Chuyển sang Bảo trì
-              </button>
+              </Button>
             </div>
           )}
 
@@ -225,13 +222,12 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
                 />
               </label>
               <div className="mt-3 flex items-center gap-2.5">
-                <button
-                  className={PRIMARY_BUTTON}
+                <Button
                   disabled={!maintenanceReason.trim()}
                   onClick={() => confirmMaintenance(openUnit)}
                 >
                   <AlertTriangle size={16} /> Xác nhận chuyển bảo trì
-                </button>
+                </Button>
                 <button
                   className="border-0 bg-transparent px-3 py-2 text-[12px] text-muted hover:text-brand"
                   onClick={() => setMode("view")}
@@ -243,10 +239,13 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
           )}
 
           {openUnit.status === "Maintenance" && (
-            <div className="mt-6">
-              <button className={PRIMARY_BUTTON} onClick={() => reopenAvailable(openUnit)}>
+            <div className="mt-6 grid gap-3">
+              {openUnit.maintenanceReason && (
+                <DemoNotice tone="pending">Lý do: {openUnit.maintenanceReason}</DemoNotice>
+              )}
+              <Button onClick={() => reopenAvailable(openUnit)}>
                 <RotateCcw size={16} /> Chuyển về Trống
-              </button>
+              </Button>
             </div>
           )}
 
@@ -265,12 +264,13 @@ export function StorageUnitManagementPage({ navigate }: { navigate: Navigate }) 
                 Khoang đang có khách thuê — không tự ý chuyển bảo trì. Nếu có sự cố, hãy tạo yêu cầu
                 hỗ trợ để FS xử lý.
               </DemoNotice>
-              <button
-                className={`${SECONDARY_BUTTON} mt-4`}
+              <Button
+                variant="secondary"
+                className="mt-4"
                 onClick={() => navigate("/fm/support-requests")}
               >
                 Tới hàng chờ yêu cầu hỗ trợ <ArrowRight size={14} />
-              </button>
+              </Button>
             </div>
           )}
         </DetailPanel>

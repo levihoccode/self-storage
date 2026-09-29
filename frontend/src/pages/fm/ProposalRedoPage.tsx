@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Check, History, Loader2, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, History, UserRound } from "lucide-react";
 import { useState } from "react";
 import type { Navigate } from "../../app/types";
 import { formatPrice, unitTypes } from "../../mocks/catalog";
@@ -8,11 +8,9 @@ import {
   rentalOrders,
   type ProposalFeedbackEntry,
 } from "../../mocks/fm";
+import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { SurfaceState } from "../../components/ui/SurfaceState";
-
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
 
 const SOURCE_LABEL: Record<ProposalFeedbackEntry["source"], string> = {
   customer: "Khách từ chối",
@@ -93,8 +91,11 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
               <History size={16} /> Lịch sử đề xuất trước
             </h2>
             <div className="mt-4 grid gap-3">
-              {order.rejectionHistory.map((entry, index) => (
-                <div key={index} className="border-l-2 border-danger pl-3.5">
+              {order.rejectionHistory.map((entry) => (
+                <div
+                  key={`${entry.unitCode}-${entry.rejectedAt}`}
+                  className="border-l-2 border-danger pl-3.5"
+                >
                   <p className="m-0 flex items-center gap-2 text-[12px] font-bold text-ink">
                     Khoang {entry.unitCode}
                     <span className="rounded-full bg-danger/14 px-2 py-0.5 text-[10px] font-bold text-danger">
@@ -174,21 +175,15 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
                   </div>
                 </div>
               )}
-              <button
-                className={`${PRIMARY_BUTTON} mt-5`}
-                disabled={!selectedUnitId || isSubmitting}
+              <Button
+                className="mt-5"
+                pending={isSubmitting}
+                disabled={!selectedUnitId}
                 onClick={submit}
               >
-                {isSubmitting ? (
-                  <Loader2
-                    className="animate-[surface-state-spin_0.9s_linear_infinite]"
-                    size={16}
-                  />
-                ) : (
-                  <Check size={16} />
-                )}
+                {!isSubmitting && <Check size={16} />}
                 Đề xuất lại
-              </button>
+              </Button>
             </section>
           )}
         </div>

@@ -81,8 +81,22 @@ function App() {
     view === "fm-reports" ||
     view === "fm-invoices" ||
     view === "fm-contracts";
-  if ((view === "my-storage" || isFmView) && !session) {
-    navigate("/login");
+  // DEMO ONLY: this only checks role, not real authorization — a backend
+  // authorization check (403 on /api/fm/* for non-FM sessions, etc.) is the
+  // actual gate; this route guard just keeps the demo UI from rendering the
+  // wrong role's screens when someone edits the URL by hand.
+  const needsLoginRedirect =
+    (view === "my-storage" && session?.user.role !== "customer") ||
+    (isFmView && session?.user.role !== "facility_manager");
+
+  useEffect(() => {
+    if (needsLoginRedirect) {
+      navigate("/login");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsLoginRedirect]);
+
+  if (needsLoginRedirect) {
     return null;
   }
   return (

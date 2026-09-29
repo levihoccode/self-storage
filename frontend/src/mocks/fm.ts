@@ -27,6 +27,10 @@ export type FmUnit = {
   size: string;
   location: string;
   status: FmUnitStatus;
+  /** Lý do lần chuyển sang Maintenance gần nhất — set khi vào Maintenance,
+   * xoá khi chuyển lại Available. Đây là bản ghi tối thiểu cho AuditLog
+   * (spec yêu cầu ghi lý do khi chuyển trạng thái thủ công). */
+  maintenanceReason?: string;
 };
 
 export const FM_FACILITY_NAME = "Kho Mộc — Thảo Điền Hub";
@@ -121,9 +125,11 @@ export function createFmUnit(input: { code: string; unitTypeId: string; location
 
 /** Chuyển trạng thái thủ công — chỉ hợp lệ Available <-> Maintenance theo spec
  * (OnHold/Reserved/Rented không được đổi trực tiếp ở trang này). */
-export function setFmUnitStatus(unitId: string, status: FmUnitStatus) {
+export function setFmUnitStatus(unitId: string, status: FmUnitStatus, reason?: string) {
   const unit = fmUnits.find((item) => item.id === unitId);
-  if (unit) unit.status = status;
+  if (!unit) return;
+  unit.status = status;
+  unit.maintenanceReason = status === "Maintenance" ? reason : undefined;
 }
 
 export const rentalRequests: RentalRequest[] = [
@@ -432,6 +438,14 @@ export function recordReturnAppointment(request: ReturnRequest, staffId: string)
     staffId,
     status: "Pending",
   });
+}
+
+/** Phân công FS cho 1 lịch hẹn CHECKIN đã có sẵn — ghi thẳng vào mảng dùng
+ * chung (giống recordReturnAppointment ở trên) thay vì chỉ đổi state local
+ * của trang, để rời trang rồi quay lại vẫn thấy đúng người đã phân công. */
+export function assignAppointmentStaff(appointmentId: string, staffId: string) {
+  const appointment = fmAppointments.find((item) => item.id === appointmentId);
+  if (appointment) appointment.staffId = staffId;
 }
 
 export type ExtendRequestStatus = "PendingApproval" | "ApprovedPendingPayment" | "Rejected";
