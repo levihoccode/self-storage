@@ -2,6 +2,9 @@
 
 React 19 · TypeScript 5.8 · Vite 6 · Prettier
 
+> Read the root [`AGENTS.md`](../AGENTS.md) first. The evidence rules, the spec-gap gate and the
+> issue ↔ PR workflow apply here too.
+
 ## Commands
 
 - Dev: `npm run dev`

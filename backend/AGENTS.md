@@ -2,6 +2,9 @@
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · Maven wrapper · Postgres · Redis
 
+> Read the root [`AGENTS.md`](../AGENTS.md) first. The evidence rules, the spec-gap gate and the
+> issue ↔ PR workflow apply here too.
+
 ## Spec is the contract — hard gate
 
 Code is a 1:1 transfer of `specs/` into working software. Everything the spec defines — states,
