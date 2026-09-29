@@ -1,3 +1,5 @@
+> Tên bảng trong migration: snake_case số nhiều (accounts, storage_units, …), khớp `@Table` của entity.
+
 # Account
 - id
 - email (unique, normalized)
@@ -22,10 +24,25 @@
 **NOTES:**
 - Flow 2 chỉ đọc bảng này để validate: FS được gán vào `Appointment.staff_id` phải thuộc đúng cơ sở — `AccountFacilityAssignment.facility_id = Appointment.facility_id`, so trực tiếp không join.
 - Định nghĩa đầy đủ và ràng buộc vòng đời thuộc Flow 5.
+# UnitType
+**Owner:** Flow 4 (bảng giá); Flow 1/2/5 chỉ đọc.
+**Overview:** loại khoang chứa (Small/Medium/Large…) và giá thuê áp dụng toàn hệ thống (MVP).
+- name (unique) - tên loại khoang
+- width, depth, height, area - kích thước (mét; area m2)
+- description
+- monthly_price - giá thuê toàn hệ thống (MVP, không tách theo facility)
+- updated_by (N - 1: Account) - người cập nhật giá lần cuối
+- updated_at
+
+**NOTES:**
+- Nếu cần giá khác nhau theo chi nhánh: tách bảng riêng theo `facility_id` + `unit_type_id` (chưa hỗ trợ ở MVP).
+- Đổi giá không ảnh hưởng hợp đồng đã ký — `RentalContract.monthly_price` là snapshot lúc ký.
+- `StorageUnit.monthly_price` là override từng khoang; MVP để null → dùng giá UnitType.
+
 # StorageUnit
 **Overview:** thông tin và trạng thái của khoang chứa tại mỗi cơ sở.
 
-- code (unique) - mã khoang
+- code - mã khoang (unique theo cơ sở)
 - facility_id (N - 1: Facility) - cơ sở quản lý khoang
 - unit_type_id (N - 1: UnitType)
 - size - kích thước khoang
@@ -57,7 +74,7 @@
 - customer_name
 - normalized_customer_email (trim + lowercase)
 - customer_phone
-- unit_type
+- unit_type_id (N - 1: UnitType) - loại khoang khách chọn
 - start_date
 - period - số tháng thuê
 - unit_id (N - 1: StorageUnit) - khoang FM chỉ định lúc duyệt; dùng để tạo ProposalFeedback đầu tiên
@@ -76,7 +93,7 @@
 **CONSTRAINTS:**
 - `start_date` không được ở trước ngày hiện tại theo timezone của `Facility`.
 - `period` là số nguyên dương.
-- `unit_type` phải tồn tại và được cung cấp tại `facility`.
+- `unit_type_id` phải tồn tại (MVP: loại khoang dùng chung toàn hệ thống — ràng buộc "cung cấp tại facility" sẽ bổ sung khi Flow 4/5 chốt).
 - Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired`.
 - Khi claim, chỉ request `Approved` chưa quá `expires_at` mới được chuyển sang `Converted`.
 - `Rejected` phải có `reject_reason`; giá trị chuẩn gồm `UNIT_UNAVAILABLE`, `UNIT_MISMATCH`, `CUSTOMER_REQUEST`, `OTHER`. `reject_note` bắt buộc khi dùng `OTHER`.
@@ -173,7 +190,7 @@
       + INV-EXT-Q7-260915-091B: Hóa đơn dịch vụ ngoài / sự cố khóa (EXT).
 - title
 - type (Deposit/Rental/Extension/Penalty/Service) - xác định nguồn gốc hóa đơn
-- desc
+- description
 - status:
   - Unpaid: Hóa đơn chưa được thanh toán
   - Paid: Hóa đơn đã được thanh toán
@@ -307,6 +324,7 @@
 - Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
 # CheckoutRecord
 **Overview:** biên bản trả kho (Flow 2.a). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
+**Trạng thái baseline (A2):** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
 - order_id (1 - 1: RentalOrder)
 - appointment_id (1 - 1: Appointment) - lịch hẹn trả kho **đang xử lý**; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
 - unit_id (N - 1: StorageUnit)
@@ -415,3 +433,14 @@
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
+
+# Policy
+**Owner:** Flow 4 (business rules & phí); các flow chỉ đọc qua key.
+- key (unique) - khoá dạng namespace, ví dụ `request.pending_expiry_days`
+- value - giá trị lưu dạng chuỗi; nơi đọc tự ép kiểu
+- description
+- updated_at
+
+**NOTES:**
+- Bảng key-value để BOM cấu hình (MVP chưa có UI — Flow 4).
+- Danh sách key + giá trị mặc định đang dùng nằm trong `draft.md` (Flow 1 §1.1, Flow 2 §2.1); key "chờ BOM" chưa seed.
