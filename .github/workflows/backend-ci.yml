@@ -59,15 +59,16 @@ jobs:
 
       - name: Cổng coverage — dòng thay đổi ≥ 80% (diff-cover)
         # Bypass hợp lệ (rất hiếm): nhãn 'waiver' — ví dụ PR hợp nhất code cũ chưa có test.
+        # Chạy từ repo root: diff-cover cần path git (backend/...) khớp coverage report.
         if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'waiver')
-        working-directory: backend
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           python3 -m pip install --quiet diff-cover
-          diff-cover target/site/jacoco/jacoco.xml \
+          diff-cover backend/target/site/jacoco/jacoco.xml \
+            --src-roots backend/src/main/java backend/src/test/java \
             --compare-branch="$BASE_SHA" \
             --fail-under=80 \
-            --html-report target/site/jacoco/diff-cover.html \
+            --html-report backend/target/site/jacoco/diff-cover.html \
             --show-uncovered

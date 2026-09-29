@@ -39,21 +39,22 @@ class MigrationTest {
     }
 
     @Test
-    void migrateTaoDuBangVaSeedDev() throws Exception {
+    void migrateCreatesAllTablesAndDevSeed() throws Exception {
         MigrateResult result = flyway().migrate();
-        assertThat(result.migrationsExecuted).isEqualTo(2);
+        assertThat(result.migrationsExecuted).isEqualTo(3);
 
         try (Connection connection = DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
 
-            // 18 bảng nghiệp vụ + flyway_schema_history
+            // 19 bảng nghiệp vụ + flyway_schema_history
             try (Statement statement = connection.createStatement();
                  ResultSet rs = statement.executeQuery(
                          "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")) {
                 rs.next();
-                assertThat(rs.getInt(1)).isEqualTo(19);
+                assertThat(rs.getInt(1)).isEqualTo(20);
             }
 
+            assertThat(count(connection, "notifications")).isZero();
             assertThat(count(connection, "roles")).isEqualTo(5);
             assertThat(count(connection, "accounts")).isEqualTo(7);
             assertThat(count(connection, "facilities")).isEqualTo(1);
