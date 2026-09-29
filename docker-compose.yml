@@ -25,7 +25,17 @@ services:
       timeout: 5s
       retries: 10
 
+  # SMTP giả để dev — xem mail tại http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # App chạy trong Docker (tuỳ chọn): docker compose --profile app up -d
+  # Dev bình thường chạy `cd backend && ./mvnw spring-boot:run` cho nhanh.
   backend:
+    profiles: ["app"]
     build: ./backend
     depends_on:
       postgres:
