@@ -1,7 +1,7 @@
 name: PR gate
 
 # Cổng chặn cho MỌI PR, không lọc path — để không bị treo ở trạng thái "đang chờ check".
-# Đây là check đáng đặt required, cùng với Backend CI / Frontend CI.
+# Bốn check đáng đặt required trên main: "PR body và title", "Guardrails", "Backend CI", "Frontend CI".
 
 on:
   pull_request:
@@ -44,8 +44,26 @@ jobs:
             fail=1
           fi
 
-          if ! printf '%s' "$BODY" | grep -qE '#[0-9]+'; then
-            echo "::error::PR body phải nhắc số issue ('Closes #N' hoặc '#N') — không có PR nào không gắn issue"
+          if ! printf '%s' "$BODY" | grep -qiE '(close[sd]?|fix(es|ed)?|resolve[sd]?)[[:space:]]*:?[[:space:]]*#[0-9]+'; then
+            echo "::error::Body phải đóng một issue cụ thể — 'Closes #N' (không Closes epic/package)."
+            fail=1
+          fi
+
+          evidence="$(printf '%s\n' "$BODY" | awk '/^## Đã chạy gì/{flag=1;next} /^## /{flag=0} flag')"
+          if ! printf '%s' "$evidence" | grep -q '```'; then
+            echo "::error::Mục 'Đã chạy gì' phải dẫn output thật trong một code block."
+            fail=1
+          fi
+
+          unverified="$(printf '%s\n' "$BODY" | awk '/^## Chưa kiểm chứng/{flag=1;next} /^## /{flag=0} flag' | sed '/<!--/,/-->/d' | tr -d '[:space:]')"
+          if [ -z "$unverified" ]; then
+            echo "::error::Mục 'Chưa kiểm chứng' không được để trống — ghi 'không có' nếu đã kiểm hết."
+            fail=1
+          fi
+
+          checklist="$(printf '%s\n' "$BODY" | awk '/^## Checklist/{flag=1} flag')"
+          if printf '%s' "$checklist" | grep -qF -- '- [ ]'; then
+            echo "::error::Checklist còn ô chưa tick — tick hết rồi hẵng xin review."
             fail=1
           fi
 
@@ -55,3 +73,34 @@ jobs:
           fi
 
           echo "PR gate: OK"
+
+  guardrails:
+    name: Guardrails
+    # Bypass hợp lệ (rất hiếm): @levihoccode gắn nhãn 'waiver' kèm lý do trong PR.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'waiver') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Chặn dòng tắt test / bỏ qua check do PR thêm vào
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          # Chỉ soi test BE, pom và src FE — nơi dễ cài "thuốc tắt" nhất.
+          # Tự tắt test để cho xanh là hành vi bị chặn cứng ở đây.
+          PATTERNS='@Disabled|@Ignore|skipTests|maven\.test\.skip|\.only\(|it\.skip\(|describe\.skip\(|test\.skip\('
+
+          hits="$(git diff --unified=0 "$BASE_SHA"...HEAD -- backend/src/test backend/pom.xml frontend/src \
+            | grep -E '^\+' | grep -En "$PATTERNS" || true)"
+
+          if [ -n "$hits" ]; then
+            echo "::error::PR thêm dòng tắt hoặc bỏ qua test — không được tự tắt test để cho xanh."
+            printf '%s\n' "$hits"
+            exit 1
+          fi
+
+          echo "Guardrails: OK"

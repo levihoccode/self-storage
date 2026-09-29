@@ -27,8 +27,10 @@ issue (task) → branch → PR "Closes #N" → CI green + 1 approval → merge �
 - One issue may produce several PRs. One PR closes **one** issue; link any others with `#N`.
 - Never `Closes` an epic. Roadmap `#30` is an index of three packages (`#33` A · `#34` B · `#35` C) —
   `Closes #33` is correct, `Closes #30` is not. Tick individual items inside the package issue.
-- Every PR needs one approval from the code owner. CI is not a required check yet, so verify it
-  yourself before asking for review.
+- Every PR needs one approval from the code owner. All CI gates must be green: **PR gate**,
+  **Guardrails**, **Backend CI**, **Frontend CI**. Never disable or skip tests to make a check
+  pass — ask `@levihoccode` for the `waiver` label, with a stated reason, if a gate really must be
+  bypassed.
 - Issues created with `gh issue create` skip the form — fill the form's fields by hand.
 - The PR body is the end-of-task report below. Its sections are not optional.
 
