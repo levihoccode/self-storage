@@ -26,7 +26,8 @@ Issue requirements:
 - Title `spec-gap: <module> — <one line>`, label `spec-gap`, assignee `@levihoccode`.
 - Body: exact spec section (`specs/draft.md` / `specs/db-table-draft.md` + heading), a quote of
   what the spec says, what is undefined or contradictory, the options with trade-offs, and what
-  stays blocked.
+  stays blocked. The UI form is `.github/ISSUE_TEMPLATE/spec-gap.yml`; if you open the issue with
+  `gh issue create` instead, fill those same fields.
 - Approval = a comment from `@levihoccode` on that issue. Check it before continuing:
   `gh issue view <n> --repo levihoccode/self-storage --json state,comments`.
 - Approved change → edit the spec and the code in the **same PR**, so the spec stays the source of
