@@ -1,7 +1,7 @@
 name: BE — server-side
 description: Nghiệp vụ chạy nền — cron, IPN, state machine, job dữ liệu. Không có HTTP surface
 title: "BE server <module>: "
-labels: ["enhancement"]
+labels: ["enhancement", "be"]
 body:
   - type: markdown
     attributes:

@@ -1,7 +1,7 @@
 name: FE — màn hình / luồng
 description: Một màn hoặc một luồng trong frontend, theo page spec
 title: "FE <khu vực>: "
-labels: ["enhancement"]
+labels: ["enhancement", "fe"]
 body:
   - type: markdown
     attributes:
