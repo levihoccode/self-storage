@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: self_storage
+      POSTGRES_USER: self_storage
+      POSTGRES_PASSWORD: self_storage
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U self_storage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/self_storage
+      DB_USER: self_storage
+      DB_PASSWORD: self_storage
+      REDIS_HOST: redis
+    ports:
+      - "8080:8080"
+
+  # frontend: React app (issue #15 mục 9) - thêm khi FE có code
+
+volumes:
+  postgres-data:
