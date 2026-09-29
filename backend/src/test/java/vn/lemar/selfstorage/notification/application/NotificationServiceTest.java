@@ -31,7 +31,7 @@ class NotificationServiceTest {
     private NotificationService notificationService;
 
     @Test
-    void taoThongBaoWebVaGuiEmailKem() {
+    void createWebNotificationAndSendEmail() {
         when(notificationRepository.save(any(Notification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -48,7 +48,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    void emailFailKhongRollbackVaVanLuuThongBaoWeb() {
+    void emailFailureDoesNotRollbackWebNotification() {
         when(notificationRepository.save(any(Notification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
@@ -61,7 +61,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    void danhDauDaDoc() {
+    void markAsRead() {
         Notification notification = new Notification(2L, "TYPE", "title", "body");
 
         notification.markRead();

@@ -39,7 +39,7 @@ class MigrationTest {
     }
 
     @Test
-    void migrateTaoDuBangVaSeedDev() throws Exception {
+    void migrateCreatesAllTablesAndDevSeed() throws Exception {
         MigrateResult result = flyway().migrate();
         assertThat(result.migrationsExecuted).isEqualTo(3);
 
