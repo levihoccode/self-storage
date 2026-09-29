@@ -2,6 +2,39 @@
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · Maven wrapper · Postgres · Redis
 
+## Spec is the contract — hard gate
+
+Code is a 1:1 transfer of `specs/` into working software. Everything the spec defines — states,
+transitions, fields, money rules, deadlines, permissions — must match it **exactly**. No
+"improvements", no renamed states, no extra flags, no silent defaults.
+
+This covers spec-visible behavior only. Package names, DTO field casing, log wording and other
+code-internal choices are yours to make.
+
+When you hit any of the following, **stop and open an issue**:
+
+- an edge case or path the spec does not cover,
+- a spec that contradicts itself, or contradicts `db-table-draft.md`,
+- a change you want to make to spec-defined behavior,
+- something you cannot implement as written (missing table/field, ambiguous rule).
+
+**No issue → no implementation of that behavior.** Do not improvise a fix, do not leave a TODO and
+keep going, do not silently pick one reading of the spec.
+
+Issue requirements:
+
+- Title `spec-gap: <module> — <one line>`, label `spec-gap`, assignee `@levihoccode`.
+- Body: exact spec section (`specs/draft.md` / `specs/db-table-draft.md` + heading), a quote of
+  what the spec says, what is undefined or contradictory, the options with trade-offs, and what
+  stays blocked.
+- Approval = a comment from `@levihoccode` on that issue. Check it before continuing:
+  `gh issue view <n> --repo levihoccode/self-storage --json state,comments`.
+- Approved change → edit the spec and the code in the **same PR**, so the spec stays the source of
+  truth.
+- Report the issue number under "What was not verified".
+
+Only the ambiguous behavior is frozen. The rest of the task continues.
+
 ## Commands
 
 - Build + tests + module boundary check: `./mvnw -B verify`
