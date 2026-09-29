@@ -109,6 +109,8 @@
 - Ghi `AuditLog` cho từng entity bị thay đổi.
 - Gửi email và thông báo trên website.
 - Không tạo proposal hoặc Appointment mới.
+- `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
+- `Appointment` chưa diễn ra (`Pending`) chuyển `Canceled` kèm `cancel_reason`; lịch đã `Done` giữ nguyên.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -153,7 +155,7 @@
   - Active: đã bàn giao, đang có hiệu lực
 
 **CONSTRAINTS:**
-- Một `RentalOrder` chỉ có tối đa một `RentalContract` đang xử lý (`status IN (Draft, Signed)`).
+- Một `RentalOrder` chỉ có tối đa một `RentalContract` đang xử lý (`status IN (Draft, Signed, Active)`).
 - Hợp đồng `Canceled` / `Ended` giữ lại làm lịch sử, không tính vào ràng buộc.
 # Invoice
 **Overview:** chứa thông tin thanh toán của khách hàng (hóa đơn)
@@ -230,7 +232,7 @@
 - updated_at
 
 **CONSTRAINTS:**
-- Không chuyển `Appointment` sang trạng thái kết thúc khi `HandoverRecord` liên kết vẫn là `IN_PROGRESS`.
+- Không chuyển `Appointment` sang `Canceled` khi `HandoverRecord` liên kết vẫn là `IN_PROGRESS`.
 # RentalAppointment
 **Overview:** nối lịch hẹn với đơn hàng.
 

@@ -437,7 +437,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Details:**
 - **FM:**
   - FM xem danh sách `Appointment` của cơ sở theo ngày.
-  - Hệ thống hiển thị các lịch được lọc trực tiếp dựa trên `Appointment.facility_id`. -> FM chỉ thấy lịch của cơ sở mình đảm nhận
+  - Hệ thống hiển thị các lịch được lọc trực tiếp dựa trên `Appointment.facility_id` -> FM chỉ thấy lịch của cơ sở mình đảm nhận
   - FM tìm các lịch chưa có `staff_id` để phân công FS.
   - Nghiệp vụ phân công thuộc Flow 5.3; Flow 2 chỉ sử dụng kết quả phân công.
 - **FS:**
@@ -547,7 +547,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - Tạo `Invoice(type = Rental)`, prefix `RNT`, gắn `contract_id`, với số tiền tháng đầu và `due_date = now + handover.payment_grace_hours`. Tiền cọc ở Flow 1.4 không trừ vào hóa đơn này và được giữ riêng tới khi trả kho ở 2.a.3.
   - Khi gateway xác nhận thành công, cập nhật `PaymentTransaction = Success`, `Invoice.status = Paid`.
   - Khi thanh toán thất bại, cập nhật `PaymentTransaction = Failed`; hóa đơn giữ nguyên chưa thanh toán và không tiếp tục bàn giao.
-  - Hóa đơn đến hạn sau `handover.payment_grace_hours`. Quá hạn, [cron hóa đơn](#scheduled-jobs---cron-jobs) xử lý. Khi đơn còn trong hạn giữ kho, Flow 1 tạo lịch check-in mới, FM phân công FS theo Flow 5.3, và Flow 2 chạy lại từ 2.1 trên `Appointment` + `HandoverRecord` mới.
+  - Quá hạn, [cron hóa đơn](#scheduled-jobs---cron-jobs) xử lý. Khi đơn còn trong hạn giữ kho, Flow 1 tạo lịch check-in mới, FM phân công FS theo Flow 5.3, và Flow 2 chạy lại từ 2.1 trên `Appointment` + `HandoverRecord` mới.
 - **Customer:**
   - Khách thanh toán hóa đơn tháng đầu qua VNPay.
   - Nếu chưa thanh toán xong trong buổi hẹn, hệ thống giữ `HandoverRecord.result = IN_PROGRESS`, giữ khoang `Reserved`, chưa bàn giao khóa; hóa đơn nằm trong mục "Hóa đơn" của khách.
@@ -575,9 +575,10 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Details:**
 - **FS:**
   - Chỉ thực hiện bàn giao khi hai cờ trạng thái trên `HandoverRecord` (`identity_status`, `inspection_status`) đều thành công, đồng thời `RentalContract.signed_at != null` và hóa đơn tháng đầu `Paid`.
-  - Nếu khách chọn khóa cơ (`enabledKeyAccess`): giao chìa vật lý, ghi `quantity`; mỗi loại giao tạo một dòng `UnitAccessKey` với `access_type` tương ứng.
+  - Nếu khách chọn khóa cơ (`enabledKeyAccess`): giao chìa vật lý, ghi `quantity`;
   - Nếu khách chọn cả hai: giao chìa và nhắc khách lấy mã trong tài khoản.
   - Nếu giao khóa cơ: hai bên xác nhận bàn giao — FS xác nhận trên hệ thống, khách xác nhận trong tài khoản.
+  - Mỗi loại khóa được giao tạo một dòng `UnitAccessKey` với `access_type` tương ứng.
 - **Hệ thống:**
   - Nếu thiếu một cờ bắt buộc, API bàn giao trả lỗi cho FS.
   - Với khóa mã số, sinh mã gắn với `RentalContract`, lưu `code_hash`, không lưu plain text.
