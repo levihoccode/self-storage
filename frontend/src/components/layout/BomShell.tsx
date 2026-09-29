@@ -4,14 +4,14 @@ import {
   Database,
   FileChartColumn,
   Landmark,
+  LogOut,
   ShieldCheck,
   Store,
 } from "lucide-react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
 import { Brand } from "../ui/Brand";
-import type { Theme } from "../ui/ThemeToggle";
-import { TopRightActions } from "./TopRightActions";
+import { ThemeToggle, type Theme } from "../ui/ThemeToggle";
 
 const navigation = [
   { label: "Chính sách", path: "/bom/policies", view: "bom-policies" as View, icon: ShieldCheck },
@@ -79,15 +79,19 @@ export function BomShell({
             <span className="eyebrow">Operations control</span>
             <h2>{currentItem.label}</h2>
           </div>
-          <TopRightActions
-            theme={theme}
-            onThemeToggle={onThemeToggle}
-            onLogout={() => {
-              authGateway.logout();
-              navigate("/login");
-            }}
-            profileRoleLabel="BOM"
-          />
+          <div className="workspace-topbar-actions">
+            <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+            <button
+              type="button"
+              className="workspace-logout"
+              onClick={() => {
+                authGateway.logout();
+                navigate("/login");
+              }}
+            >
+              <LogOut size={17} /> Đăng xuất
+            </button>
+          </div>
         </header>
 
         <div className="bom-content" id="main-content">
