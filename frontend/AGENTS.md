@@ -9,9 +9,8 @@ React 19 · TypeScript 5.8 · Vite 6 · Prettier
 
 - Dev: `npm run dev`
 - Build (includes typecheck): `npm run build`
+- Lint: `npm run lint` (ESLint — `frontend/eslint.config.js`, flat config)
 - Format: `npm run format` · check: `npm run format:check`
-
-There is no lint or test script yet. If you add one, wire it into CI in the same change.
 
 ## Layout
 
