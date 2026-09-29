@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, Loader2 } from "lucide-react";
+import { ArrowRight, CalendarClock } from "lucide-react";
 import { useState } from "react";
 import type { Navigate } from "../app/types";
 import { facilities, formatPrice } from "../mocks/catalog";
@@ -11,13 +11,14 @@ import {
   isInvoicePaid,
   markInvoicePaid,
 } from "../mocks/invoices";
+import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
-  Unpaid: "bg-[rgba(230,238,201,0.18)] text-warning",
-  Paid: "bg-[rgba(168,207,154,0.18)] text-success",
+  Unpaid: "bg-warning/18 text-warning",
+  Paid: "bg-success/18 text-success",
   Canceled: "bg-surface-subtle text-muted",
 };
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
@@ -25,8 +26,6 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
   Paid: "Đã thanh toán",
   Canceled: "Đã huỷ",
 };
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
 const FILTER_SELECT =
   "min-w-[170px] rounded-sm border border-border bg-surface px-[11px] py-[10px] pr-[30px] text-[12px] font-semibold text-ink max-[760px]:w-full";
 
@@ -178,12 +177,12 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
             <div className="mt-5">
               <DemoNotice tone="success">Thanh toán thành công.</DemoNotice>
               {openInvoice.type === "Deposit" && (
-                <button
-                  className={`${PRIMARY_BUTTON} mt-3.5`}
+                <Button
+                  className="mt-3.5"
                   onClick={() => navigate(`/appointments/new?orderId=${openInvoice.orderId}`)}
                 >
                   Đặt lịch check-in <ArrowRight size={16} />
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -198,23 +197,15 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
           )}
 
           {effectiveStatus(openInvoice) === "Unpaid" && !outcome && (
-            <button
-              className={`${PRIMARY_BUTTON} mt-6 w-full`}
-              disabled={payingId === openInvoice.id}
+            <Button
+              className="mt-6 w-full"
+              pending={payingId === openInvoice.id}
               onClick={() => pay(openInvoice)}
             >
-              {payingId === openInvoice.id ? (
-                <>
-                  <Loader2
-                    className="animate-[surface-state-spin_0.9s_linear_infinite]"
-                    size={16}
-                  />
-                  Đang chuyển đến cổng thanh toán…
-                </>
-              ) : (
-                "Tiến hành thanh toán"
-              )}
-            </button>
+              {payingId === openInvoice.id
+                ? "Đang chuyển đến cổng thanh toán…"
+                : "Tiến hành thanh toán"}
+            </Button>
           )}
         </DetailPanel>
       )}

@@ -3,11 +3,10 @@ import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
 import { Navigate } from "../app/types";
 import { PAGE_CONTAINER } from "../app/layout";
 import { facilities, unitTypes } from "../mocks/catalog";
+import { Button } from "../components/ui/Button";
 import { FormField, SelectField } from "../components/ui/FormField";
 import { SuccessState } from "../components/ui/SuccessState";
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong";
 const FORM_PAGE = "min-h-[calc(100vh-76px)] bg-background pb-[100px] pt-[76px]";
 
 export function RequestPage({ navigate }: { navigate: Navigate }) {
@@ -24,9 +23,9 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
             title="Đã nhận nhu cầu."
             description="Đội ngũ vận hành sẽ kiểm tra phương án và phản hồi qua email hoặc số điện thoại."
             action={
-              <button className={`mt-6 ${PRIMARY_BUTTON}`} onClick={() => navigate("/units")}>
+              <Button className="mt-6 py-0" onClick={() => navigate("/units")}>
                 Xem lại phương án kho <ArrowRight size={16} />
-              </button>
+              </Button>
             }
           />
         </div>
@@ -107,9 +106,9 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
               <span className="flex items-center gap-[6px] text-[10px] text-muted">
                 <LockKeyhole size={14} /> Chưa cần thanh toán ở bước này
               </span>
-              <button className={`${PRIMARY_BUTTON} max-[760px]:w-full`} type="submit">
+              <Button className="py-0 max-[760px]:w-full" type="submit">
                 Gửi nhu cầu <ArrowRight size={16} />
-              </button>
+              </Button>
             </div>
           </div>
         </form>

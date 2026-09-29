@@ -9,6 +9,7 @@ import {
   type Notification,
   type NotificationGroup,
 } from "../mocks/notifications";
+import { Button } from "../components/ui/Button";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 const GROUP_ICON: Record<NotificationGroup, typeof AlertTriangle> = {
@@ -24,9 +25,6 @@ const GROUP_ICON_CLASS: Record<NotificationGroup, string> = {
   assignment: "bg-brand-soft text-accent",
   expiry: "bg-danger/14 text-danger",
 };
-
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60";
 
 export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   // Read state lives in mocks/notifications.ts (module-level Set) so it
@@ -56,9 +54,9 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
             {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : "Bạn đã đọc hết thông báo"}
           </p>
         </div>
-        <button className={SECONDARY_BUTTON} disabled={unreadCount === 0} onClick={markAllRead}>
+        <Button variant="secondary" disabled={unreadCount === 0} onClick={markAllRead}>
           <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
-        </button>
+        </Button>
       </div>
 
       {items.length === 0 ? (

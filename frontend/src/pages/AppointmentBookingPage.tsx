@@ -3,16 +3,12 @@ import { useMemo, useState } from "react";
 import type { Navigate } from "../app/types";
 import { facilities } from "../mocks/catalog";
 import { findDepositInvoiceByOrderId, isInvoicePaid } from "../mocks/invoices";
+import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 const MAX_RESCHEDULES = 2;
 const TIME_SLOTS = ["08:00 – 10:00", "13:00 – 15:00", "17:00 – 19:00"];
-
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -90,8 +86,8 @@ export function AppointmentBookingPage({ navigate }: { navigate: Navigate }) {
                 )}
               </div>
               <div className="mt-5 flex items-center gap-3">
-                <button
-                  className={SECONDARY_BUTTON}
+                <Button
+                  variant="secondary"
                   disabled={rescheduleCount >= MAX_RESCHEDULES}
                   onClick={() => {
                     setRescheduleCount((count) => count + 1);
@@ -101,10 +97,10 @@ export function AppointmentBookingPage({ navigate }: { navigate: Navigate }) {
                   }}
                 >
                   Dời lịch ({MAX_RESCHEDULES - rescheduleCount} lượt còn lại)
-                </button>
-                <button className={SECONDARY_BUTTON} onClick={() => navigate("/my-storage")}>
+                </Button>
+                <Button variant="secondary" onClick={() => navigate("/my-storage")}>
                   Về Kho của tôi
-                </button>
+                </Button>
               </div>
               {rescheduleCount >= MAX_RESCHEDULES && (
                 <p className="mb-0 mt-3 text-[12px] text-danger">
@@ -155,13 +151,9 @@ export function AppointmentBookingPage({ navigate }: { navigate: Navigate }) {
                   ))}
                 </div>
               </div>
-              <button
-                className={`${PRIMARY_BUTTON} mt-6`}
-                disabled={!date || !slot}
-                onClick={confirm}
-              >
+              <Button className="mt-6" disabled={!date || !slot} onClick={confirm}>
                 <Check size={16} /> Xác nhận lịch hẹn
-              </button>
+              </Button>
             </div>
           )}
         </div>

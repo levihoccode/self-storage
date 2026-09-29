@@ -69,8 +69,16 @@ function App() {
     view === "invoices" ||
     view === "appointments" ||
     view === "notifications";
-  if (isCustomerView && !session) {
-    navigate("/login");
+  const needsLoginRedirect = isCustomerView && !session;
+
+  useEffect(() => {
+    if (needsLoginRedirect) {
+      navigate("/login");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsLoginRedirect]);
+
+  if (needsLoginRedirect) {
     return null;
   }
   return (

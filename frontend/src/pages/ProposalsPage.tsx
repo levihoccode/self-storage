@@ -1,17 +1,14 @@
-import { AlertTriangle, ArrowRight, Check, Loader2, MapPin, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, MapPin, X } from "lucide-react";
 import { useState } from "react";
 import type { Navigate } from "../app/types";
 import { rentedStorage } from "../mocks/customer";
 import { MAX_REJECTIONS, proposals as initialProposals, type Proposal } from "../mocks/proposals";
+import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 type Tab = "active" | "pending";
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60";
 const TAB_BUTTON =
   "border-0 bg-transparent px-1 pb-3 text-[13px] font-bold text-muted hover:text-ink";
 
@@ -105,9 +102,9 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                     <MapPin size={14} /> {storage.district}
                   </p>
                 </div>
-                <button className={SECONDARY_BUTTON} onClick={() => navigate("/my-storage")}>
+                <Button variant="secondary" onClick={() => navigate("/my-storage")}>
                   Xem chi tiết <ArrowRight size={16} />
-                </button>
+                </Button>
               </article>
             ))}
           </div>
@@ -183,12 +180,13 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                       <DemoNotice tone="success">
                         Đã đồng ý khoang này. Hoá đơn đặt cọc đang được tạo.
                       </DemoNotice>
-                      <button
-                        className={`${SECONDARY_BUTTON} mt-3.5`}
+                      <Button
+                        variant="secondary"
+                        className="mt-3.5"
                         onClick={() => navigate("/invoices")}
                       >
                         Xem hoá đơn <ArrowRight size={16} />
-                      </button>
+                      </Button>
                     </div>
                   )}
 
@@ -204,28 +202,17 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
 
                   {!isExpired && !isAgreed && (
                     <div className="mt-5 flex items-center gap-3">
-                      <button
-                        className={PRIMARY_BUTTON}
-                        disabled={isBusy}
-                        onClick={() => agree(proposal)}
-                      >
-                        {isBusy ? (
-                          <Loader2
-                            className="animate-[surface-state-spin_0.9s_linear_infinite]"
-                            size={16}
-                          />
-                        ) : (
-                          <Check size={16} />
-                        )}
+                      <Button pending={isBusy} onClick={() => agree(proposal)}>
+                        {!isBusy && <Check size={16} />}
                         Đồng ý
-                      </button>
-                      <button
-                        className={SECONDARY_BUTTON}
+                      </Button>
+                      <Button
+                        variant="secondary"
                         disabled={isBusy}
                         onClick={() => setRejectingId(proposal.id)}
                       >
                         <X size={16} /> Từ chối
-                      </button>
+                      </Button>
                     </div>
                   )}
 
@@ -241,9 +228,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                         />
                       </label>
                       <div className="mt-3 flex items-center gap-2.5">
-                        <button className={PRIMARY_BUTTON} onClick={() => confirmReject(proposal)}>
-                          Xác nhận từ chối
-                        </button>
+                        <Button onClick={() => confirmReject(proposal)}>Xác nhận từ chối</Button>
                         <button
                           className="border-0 bg-transparent px-3 py-2 text-[12px] text-muted hover:text-brand"
                           onClick={() => {
@@ -260,20 +245,21 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
               );
             })}
             {[...canceledIds].length > 0 && (
-              <div className="border border-danger bg-[rgba(255,155,115,0.08)] p-5">
+              <div className="border border-danger bg-danger/8 p-5">
                 <p className="m-0 flex items-center gap-2 text-[13px] font-bold text-danger">
                   <AlertTriangle size={16} /> Yêu cầu đã bị huỷ
                 </p>
                 <p className="mb-0 mt-1.5 text-[12px] text-muted">
-                  Bạn đã từ chối quá {MAX_REJECTIONS} lần nên yêu cầu này tự động huỷ. Vui lòng gửi
+                  Bạn đã từ chối đủ {MAX_REJECTIONS} lần nên yêu cầu này tự động huỷ. Vui lòng gửi
                   yêu cầu mới nếu vẫn cần thuê kho.
                 </p>
-                <button
-                  className={`${SECONDARY_BUTTON} mt-3.5`}
+                <Button
+                  variant="secondary"
+                  className="mt-3.5"
                   onClick={() => navigate("/rental-requests/new")}
                 >
                   Gửi yêu cầu mới <ArrowRight size={16} />
-                </button>
+                </Button>
               </div>
             )}
           </div>

@@ -20,14 +20,11 @@ import {
 } from "../mocks/contracts";
 import { formatPrice } from "../mocks/catalog";
 import { invoices } from "../mocks/invoices";
+import { Button, buttonClassName } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background disabled:cursor-not-allowed disabled:opacity-60";
 const SECTION_TITLE = "m-0 text-[15px] font-bold text-ink";
 
 const SUPPORT_STATUS_LABEL: Record<SupportRequest["status"], string> = {
@@ -91,7 +88,7 @@ export function ContractDetailPage({ navigate }: { navigate: Navigate }) {
           </p>
         </div>
         {contract.pdfUrl && (
-          <a href={contract.pdfUrl} className={SECONDARY_BUTTON}>
+          <a href={contract.pdfUrl} className={buttonClassName("secondary")}>
             <Download size={16} /> Tải hợp đồng
           </a>
         )}
@@ -206,9 +203,7 @@ export function ContractDetailPage({ navigate }: { navigate: Navigate }) {
           ) : (
             !contract.openReturnRequest &&
             contract.availableActions.includes("extend") && (
-              <button className={PRIMARY_BUTTON} onClick={() => setActivePanel("extend")}>
-                Yêu cầu gia hạn
-              </button>
+              <Button onClick={() => setActivePanel("extend")}>Yêu cầu gia hạn</Button>
             )
           )}
 
@@ -220,9 +215,9 @@ export function ContractDetailPage({ navigate }: { navigate: Navigate }) {
           ) : (
             !contract.openExtendRequest &&
             contract.availableActions.includes("return") && (
-              <button className={SECONDARY_BUTTON} onClick={() => setActivePanel("return")}>
+              <Button variant="secondary" onClick={() => setActivePanel("return")}>
                 Yêu cầu trả kho
-              </button>
+              </Button>
             )
           )}
 
@@ -291,9 +286,9 @@ function ExtendStatusCard({
     return (
       <div className="border border-border bg-surface p-4">
         <DemoNotice tone="pending">Đang chờ FM duyệt gia hạn.</DemoNotice>
-        <button className={`${SECONDARY_BUTTON} mt-3.5 w-full`} onClick={onCancel}>
+        <Button variant="secondary" className="mt-3.5 w-full" onClick={onCancel}>
           <X size={16} /> Huỷ yêu cầu
-        </button>
+        </Button>
       </div>
     );
   }
@@ -308,9 +303,9 @@ function ExtendStatusCard({
         <p className="mb-0 mt-2 text-[11px] text-muted">
           Không thể huỷ qua web — liên hệ FM trực tiếp nếu cần huỷ.
         </p>
-        <button className={`${PRIMARY_BUTTON} mt-3.5 w-full`} onClick={onPay}>
+        <Button className="mt-3.5 w-full" onClick={onPay}>
           Thanh toán gia hạn <ArrowRight size={16} />
-        </button>
+        </Button>
       </div>
     );
   }
@@ -333,9 +328,9 @@ function ReturnStatusCard({ request, onCancel }: { request: ReturnRequest; onCan
   return (
     <div className="border border-border bg-surface p-4">
       <DemoNotice tone="pending">Đang chờ FM phân công nhân viên xử lý.</DemoNotice>
-      <button className={`${SECONDARY_BUTTON} mt-3.5 w-full`} onClick={onCancel}>
+      <Button variant="secondary" className="mt-3.5 w-full" onClick={onCancel}>
         <X size={16} /> Huỷ yêu cầu
-      </button>
+      </Button>
     </div>
   );
 }
@@ -371,12 +366,12 @@ function ExtendPanel({
       <p className="mb-0 mt-3 text-[12px] text-muted">
         Ước tính: {formatPrice(months * contract.monthlyPrice)}đ (chốt chính thức sau khi FM duyệt).
       </p>
-      <button
-        className={`${PRIMARY_BUTTON} mt-6 w-full`}
+      <Button
+        className="mt-6 w-full"
         onClick={() => onSubmit({ status: "PendingApproval", extraMonths: months })}
       >
         Gửi yêu cầu gia hạn
-      </button>
+      </Button>
     </DetailPanel>
   );
 }
@@ -411,15 +406,15 @@ function ReturnPanel({
           onChange={(event) => setReason(event.target.value)}
         />
       </label>
-      <button
-        className={`${PRIMARY_BUTTON} mt-6 w-full`}
+      <Button
+        className="mt-6 w-full"
         disabled={!date}
         onClick={() =>
           onSubmit({ status: "Pending", preferredDate: date, reason: reason || undefined })
         }
       >
         Gửi yêu cầu trả kho
-      </button>
+      </Button>
     </DetailPanel>
   );
 }
@@ -465,8 +460,8 @@ function SupportPanel({
           placeholder="Mô tả sự cố để đội ngũ hỗ trợ xử lý nhanh hơn…"
         />
       </label>
-      <button
-        className={`${PRIMARY_BUTTON} mt-6 w-full`}
+      <Button
+        className="mt-6 w-full"
         disabled={!description.trim()}
         onClick={() =>
           onSubmit({
@@ -479,7 +474,7 @@ function SupportPanel({
         }
       >
         <AlertTriangle size={16} /> Gửi báo sự cố
-      </button>
+      </Button>
     </DetailPanel>
   );
 }
