@@ -1,0 +1,64 @@
+name: Backend CI
+
+# Chạy trên MỌI PR (không lọc path ở cấp workflow) để nếu đặt required thì không bao giờ
+# bị treo "đang chờ check". Khi backend/ chưa có trên nhánh (A1a chưa merge) thì bỏ qua.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Nhánh này đã có backend/ chưa?
+        id: scope
+        run: |
+          if [ -f backend/mvnw ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "backend/ chưa có trên nhánh này — bỏ qua build."
+          fi
+
+      - name: Set up Java 17
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build + test + kiểm tra ranh giới module
+        if: steps.scope.outputs.run == 'true'
+        working-directory: backend
+        run: ./mvnw -B verify
+
+      - name: Set up Python (cho diff-cover)
+        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cổng coverage — dòng thay đổi ≥ 80% (diff-cover)
+        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
+        working-directory: backend
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet diff-cover
+          diff-cover target/site/jacoco/jacoco.xml \
+            --compare-branch="$BASE_SHA" \
+            --fail-under=80 \
+            --html-report target/site/jacoco/diff-cover.html \
+            --show-uncovered

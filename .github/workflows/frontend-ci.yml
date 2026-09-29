@@ -1,0 +1,52 @@
+name: Frontend CI
+
+# Chạy trên MỌI PR (không lọc path ở cấp workflow) để nếu đặt required thì không bao giờ
+# bị treo "đang chờ check". Khi frontend/ chưa có trên nhánh (A1a chưa merge) thì bỏ qua.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nhánh này đã có frontend/ chưa?
+        id: scope
+        run: |
+          if [ -f frontend/package.json ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "frontend/ chưa có trên nhánh này — bỏ qua."
+          fi
+
+      - name: Set up Node.js
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        if: steps.scope.outputs.run == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Check formatting
+        if: steps.scope.outputs.run == 'true'
+        working-directory: frontend
+        run: npm run format:check
+
+      - name: Build frontend
+        if: steps.scope.outputs.run == 'true'
+        working-directory: frontend
+        run: npm run build
