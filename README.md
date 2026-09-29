@@ -25,7 +25,7 @@ cd frontend && npm ci && npm run dev
 - Build cả app trong Docker (tuỳ chọn): `docker compose --profile app up -d`
 - Env: copy `.env.example` → `.env` khi cần override (không commit `.env`).
 - Build + test BE: `cd backend && ./mvnw -B verify` (JaCoCo bật sẵn; CI chặn PR có dòng thay đổi coverage < 80%).
-- Login mock (A2 sẽ thay bằng seed thật): `mock-data.sql` — password `Test@1234` cho các account `@lemar.vn`.
+- Seed dev (Flyway V2): các account `@lemar.vn` (admin1/bom1/fm1/fs1/customer1/unverified/locked) — mật khẩu `Test@1234`; A3 sẽ thay bằng luồng auth thật.
 
 ## Cấu trúc
 
