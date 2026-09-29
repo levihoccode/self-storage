@@ -30,6 +30,14 @@ jobs:
             echo "backend/ chưa có trên nhánh này — bỏ qua build."
           fi
 
+      - name: Kiểm tra sql/ đồng bộ với migration
+        if: steps.scope.outputs.run == 'true'
+        working-directory: backend
+        run: |
+          diff -q sql/schema.sql src/main/resources/db/migration/V1__baseline_schema.sql
+          diff -q sql/seed.sql src/main/resources/db/migration/V2__baseline_seed.sql
+          echo "sql/ đồng bộ: OK"
+
       - name: Set up Java 17
         if: steps.scope.outputs.run == 'true'
         uses: actions/setup-java@v4
