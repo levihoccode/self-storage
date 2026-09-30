@@ -1,0 +1,116 @@
+name: Spec gap (spec chưa rõ / cần lệch)
+description: Spec thiếu, mâu thuẫn, hoặc cần đổi hành vi đã định nghĩa. BẮT BUỘC mở trước khi implement phần đó.
+title: "spec-gap: <module> — "
+labels: ["spec-gap"]
+assignees: ["levihoccode"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Cổng chặn cứng.** Code là bản chuyển 1:1 từ `specs/` — hành vi spec định nghĩa phải giống hệt.
+
+        Gặp chỗ spec không nói, spec tự mâu thuẫn, hoặc muốn đổi hành vi đã định nghĩa → mở issue này
+        rồi **dừng đúng ở hành vi đó**. Không tự chọn một cách hiểu, không tự thêm default, không để TODO rồi đi tiếp.
+
+        **Không có issue này thì không được implement tiếp.** Chỉ hành vi đang mơ hồ bị chặn; phần còn lại của task đi tiếp bình thường.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      description: Module nào bị ảnh hưởng
+      options:
+        - booking
+        - payment
+        - facility
+        - handover
+        - checkout
+        - identity
+        - notification
+        - overdue
+        - pricing
+        - scheduler
+        - support
+        - tenancy
+        - cross-module / khác
+    validations:
+      required: true
+
+  - type: dropdown
+    id: flow
+    attributes:
+      label: Flow
+      options:
+        - Flow 1
+        - Flow 2
+        - Flow 3
+        - Flow 4
+        - Flow 5
+        - không thuộc flow cụ thể
+    validations:
+      required: true
+
+  - type: input
+    id: spec_ref
+    attributes:
+      label: Vị trí spec
+      description: File + heading (kèm số dòng nếu có)
+      placeholder: "specs/db-table-draft.md › UnitAccessKey → CONSTRAINTS"
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec_quote
+    attributes:
+      label: Spec hiện nói gì
+      description: Trích nguyên văn đoạn liên quan. Đừng diễn giải lại.
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: gap
+    attributes:
+      label: Chỗ chưa rõ / mâu thuẫn
+      description: Cụ thể là gì. Nếu gặp lúc chạy thì kèm bước tái hiện.
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Phương án đề xuất
+      description: Mỗi phương án kèm ưu / nhược, và phương án bạn nghiêng về
+      value: |
+        1. … — ưu: … / nhược: …
+        2. … — ưu: … / nhược: …
+        Đề xuất: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocked
+    attributes:
+      label: Đang chặn cái gì
+      description: Hành vi / nhánh nào chưa được implement cho tới khi có quyết định
+    validations:
+      required: true
+
+  - type: input
+    id: evidence
+    attributes:
+      label: Bằng chứng
+      description: Output lệnh, log, hoặc đường dẫn file:dòng
+      placeholder: "backend/.../HandoverService.java:142"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Xác nhận
+      options:
+        - label: Tôi không implement phần đang mơ hồ cho tới khi @levihoccode comment duyệt.
+          required: true
+        - label: Nếu phương án được duyệt làm lệch spec, tôi sẽ sửa spec và code trong cùng một PR.
+          required: true

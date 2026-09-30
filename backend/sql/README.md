@@ -1,0 +1,33 @@
+# backend/sql
+
+Bản đọc được của SQL — **mirror byte-identical** với Flyway migration (CI check đồng bộ):
+
+| File | Migration tương ứng |
+|---|---|
+| `schema.sql` | `src/main/resources/db/migration/V1__baseline_schema.sql` |
+| `seed.sql` | `src/main/resources/db/migration/V2__baseline_seed.sql` |
+
+**Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Nguồn sự thật của thiết kế vẫn là `specs/db-table-draft.md`.
+
+## Chạy migration
+
+Migrations tự chạy khi app khởi động (Flyway + `spring.datasource`). Máy dev:
+
+```bash
+docker compose up -d          # Postgres + Redis + MailHog
+cd backend && ./mvnw spring-boot:run
+```
+
+⚠️ DB cũ tạo tay (mock-data.sql trước đây) sẽ làm Flyway fail — xoá volume rồi lên lại:
+`docker compose down -v && docker compose up -d`.
+
+## Chạy tay bằng psql (khi cần)
+
+```bash
+psql "$DB_URL" -f sql/schema.sql
+psql "$DB_URL" -f sql/seed.sql
+```
+
+## Seed (V2) — mật khẩu dev
+
+Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin1`(ADMIN) · `bom1`(BOM) · `fm1`(FM) · `fs1`(FS, gán cơ sở Q7) · `customer1`(CUSTOMER) · `unverified` · `locked`.
