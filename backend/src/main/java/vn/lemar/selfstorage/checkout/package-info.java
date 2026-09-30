@@ -1,8 +1,8 @@
 /**
- * Flow 2.5 - trả kho và bảo trì.
+ * Flow 2.5 - tráº£ kho vÃ  báº£o trÃ¬.
  *
- * <p>Chiều phụ thuộc theo issue #15: checkout -> handover, tenancy. Phần đọc hiện trạng
- * khoang lúc bàn giao lấy qua interface truy vấn của handover, không đụng thẳng repository.
+ * <p>Chiá»u phá»¥ thuá»™c theo issue #15: checkout -> handover, tenancy. Pháº§n Ä‘á»c hiá»‡n tráº¡ng
+ * khoang lÃºc bÃ n giao láº¥y qua interface truy váº¥n cá»§a handover, khÃ´ng Ä‘á»¥ng tháº³ng repository.
  */
 @org.springframework.modulith.ApplicationModule(
         displayName = "Checkout (F2.5)",

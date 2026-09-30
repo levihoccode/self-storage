@@ -1,0 +1,10 @@
+package vn.lemar.selfstorage.identity.application.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@ConfigurationProperties(prefix = "jwt")
+public record JwtProperties(
+        String secret,
+        long accessTokenExpirationMinutes
+) {
+}

@@ -5,7 +5,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
+import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
+import vn.lemar.selfstorage.identity.application.exception.InvalidOrExpiredTokenException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -21,6 +23,16 @@ public class AuthExceptionHandler {
     @ExceptionHandler(AccountNotAllowedException.class)
     public ResponseEntity<Map<String, Object>> handleAccountNotAllowed(AccountNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody(ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailExists(EmailAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorBody(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidOrExpiredTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidToken(InvalidOrExpiredTokenException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex.getMessage()));
     }
 
     private Map<String, Object> errorBody(String message) {

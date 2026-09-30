@@ -1,7 +1,7 @@
 /**
- * Flow 2 - check-in và bàn giao kho tại cơ sở.
+ * Flow 2 - check-in vÃ  bÃ n giao kho táº¡i cÆ¡ sá»Ÿ.
  *
- * <p>Chiều phụ thuộc theo issue #15: handover đọc được từ booking, không có chiều ngược lại.
+ * <p>Chiá»u phá»¥ thuá»™c theo issue #15: handover Ä‘á»c Ä‘Æ°á»£c tá»« booking, khÃ´ng cÃ³ chiá»u ngÆ°á»£c láº¡i.
  */
 @org.springframework.modulith.ApplicationModule(
         displayName = "Handover (F2)",

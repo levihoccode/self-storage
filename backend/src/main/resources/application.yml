@@ -24,10 +24,18 @@ spring:
           auth: ${MAIL_SMTP_AUTH:false}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:false}
+app:
+  mail:
+    from: ${MAIL_FROM:no-reply@self-storage.vn}
+  verify-base-url: ${VERIFY_BASE_URL:http://localhost:8080/api/auth/verify-email}
 
+jwt:
+  secret: ${JWT_SECRET:dev-only-please-override-this-with-a-random-256-bit-secret-in-env}
+  access-token-expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
 server:
   port: ${SERVER_PORT:8080}
 
 logging:
   level:
     vn.lemar.selfstorage: DEBUG
+

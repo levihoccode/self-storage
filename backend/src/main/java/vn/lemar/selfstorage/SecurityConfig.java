@@ -4,35 +4,46 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import vn.lemar.selfstorage.identity.application.IdentityWebSecuritySupport;
 
 /**
- * Khung phân quyền theo issue #15 mục 2 và mục 7.
+ * Khung phan quyen theo issue #15 muc 2 va muc 7.
  *
- * <p>Năm nhóm route theo role đã được khai báo sẵn nhưng hiện để {@code permitAll},
- * vì bộ khung chưa có cơ chế đăng nhập. Khi module {@code identity} làm xong phần
- * authentication thì thay {@code permitAll} bằng {@code hasRole} tương ứng và bật
- * thêm facility-scope check ở tầng method.
+ * <p>Nam nhom route theo role da duoc khai bao san nhung hien de {@code permitAll},
+ * vi bo khung chua co co che dang nhap day du theo role. Khi can bat authorization
+ * thi thay {@code permitAll} bang {@code hasRole} tuong ung va bat them
+ * facility-scope check o tang method.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http,
+                                    IdentityWebSecuritySupport identityWebSecuritySupport) throws Exception {
         http.csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        // TODO(identity): đổi sang hasRole khi có authentication
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+                        // TODO(identity): doi sang hasRole khi bat authorization
                         .requestMatchers("/api/customer/**").permitAll()
                         .requestMatchers("/api/staff/**").permitAll()
                         .requestMatchers("/api/fm/**").permitAll()
                         .requestMatchers("/api/bom/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
                         .anyRequest().permitAll());
+        identityWebSecuritySupport.registerJwtFilter(http);
         return http.build();
     }
 
