@@ -433,7 +433,6 @@
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
-
 # Policy
 **Owner:** Flow 4 (business rules & phí); các flow chỉ đọc qua key.
 - key (unique) - khoá dạng namespace, ví dụ `request.pending_expiry_days`
@@ -444,7 +443,6 @@
 **NOTES:**
 - Bảng key-value để BOM cấu hình (MVP chưa có UI — Flow 4).
 - Danh sách key + giá trị mặc định đang dùng nằm trong `draft.md` (Flow 1 §1.1, Flow 2 §2.1); key "chờ BOM" chưa seed.
-
 # Notification
 **Overview:** thông báo web cho người dùng; email chỉ gửi đi (không lưu) — fail không rollback nghiệp vụ.
 - account_id (N - 1: Account) - người nhận
@@ -458,9 +456,8 @@
 - Email: dev dùng MailHog; khi fail chỉ log + vẫn lưu thông báo web. Email và thông báo web dùng cùng `title`/`body`; cách trình bày có thể khác nhau.
 - `type` là catalog riêng, tách khỏi audit catalog. Khi thêm một luồng notification đã biết, bổ sung type tương ứng.
 - `OTHER` chỉ dùng cho thông báo khẩn cấp thủ công khi chưa có type phù hợp; không dùng thay cho một type nghiệp vụ đã biết. `title` và `body` phải mô tả cụ thể sự việc. Quyền tạo `OTHER` phải được giới hạn cho người có quyền.
-- MVP lưu template theo `type` trong code; template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
-- **TODO:** Flow 1.1 có nội dung duyệt request khác nhau tùy khách đã có tài khoản hay chưa; tách template/type cho hai nhánh khi notification contract hỗ trợ phân biệt trạng thái tài khoản.
-- **TODO:** thay catalog template hardcode bằng bảng `NotificationTemplate` khi cần quản trị template trong database.
+- Chưa có bảng template; MVP lưu template theo `type` trong code. Template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
+- Riêng `RENTAL_REQUEST_APPROVED` ở Flow 1.1 có nội dung khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại trong catalog áp dụng sau khi account đã tồn tại.
 - Index `(account_id, read_at)`.
 - Notification type catalog:
 
