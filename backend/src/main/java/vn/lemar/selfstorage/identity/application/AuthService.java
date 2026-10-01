@@ -137,7 +137,10 @@ public class AuthService {
                 return;
             }
             tokenRepository.findByAccountIdAndConsumedAtIsNull(account.getId())
-                    .ifPresent(EmailVerificationToken::markConsumed);
+                    .ifPresent(old -> {
+                        old.markConsumed();
+                        tokenRepository.saveAndFlush(old);
+                    });
             issueVerificationToken(account);
         });
         return new ResendVerificationResponse(RESEND_ACK_MESSAGE);
