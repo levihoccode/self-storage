@@ -96,9 +96,16 @@ Bộ thẻ đủ và mới nhất xem tại <https://sandbox.vnpayment.vn/apis/v
 ## 6. Trạng thái hiện tại
 
 - [x] Biến `VNPAY_*` đã có sẵn trong `.env.example` (làm ở A1a)
-- [ ] `vnp_TmnCode` + `vnp_HashSecret` — chờ đăng ký ở mục 1
-- [ ] IPN URL công khai — dựng khi A6 đã có endpoint để nhận; hiện backend chưa có
-      `/api/payments/vnpay/ipn` nên mở tunnel lúc này chưa có tác dụng
+- [x] `vnp_TmnCode` + `vnp_HashSecret` — đã đăng ký, nằm trong `.env` của từng người.
+      Kiểm chứng hai chiều: URL do mình ký được VNPay chấp nhận, và chữ ký VNPay trả về
+      verify khớp, trên một giao dịch sandbox thật (thẻ NCB, `vnp_ResponseCode=00`).
+- [x] IPN URL công khai — quick tunnel cloudflared. Đã kiểm chứng request từ internet đi
+      xuyên tunnel tới app: `/api/health` trả `{"status":"ok"}`, `/api/payments/vnpay/ipn`
+      trả `{"rspCode":"97"}` (đúng, vì gọi tay thì không có `vnp_SecureHash`).
+      Endpoint IPN do A6 cung cấp — nhánh `be/feat/vnpay-gateway`, chưa vào `main`.
+
+**Mỗi người tự đăng ký một tài khoản sandbox riêng.** IPN URL khai theo tài khoản merchant,
+nên hai người dùng chung một tài khoản sẽ đè URL tunnel của nhau.
 
 ## Nguồn
 
