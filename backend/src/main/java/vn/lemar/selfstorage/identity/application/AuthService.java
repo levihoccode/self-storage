@@ -15,10 +15,15 @@ public class AuthService {
 
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthService(AccountRepository accountRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(
+            AccountRepository accountRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService) {
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @Transactional(readOnly = true)
@@ -36,14 +41,11 @@ public class AuthService {
             throw new AccountNotAllowedException(account.getStatus());
         }
 
-        // TODO: thay bằng JWT thật khi có JwtService (generate access token + refresh token)
-        String fakeToken = "dev-token-" + account.getId();
-
         return new LoginResponse(
                 account.getId(),
                 account.getEmail(),
                 account.getRole().getName(),
-                fakeToken
+                jwtService.issueAccessToken(account)
         );
     }
 }

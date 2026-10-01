@@ -24,6 +24,9 @@ cd frontend && npm ci && npm run dev
 
 - Build cả app trong Docker (tuỳ chọn): `docker compose --profile app up -d`
 - Env: copy `.env.example` → `.env` khi cần override (không commit `.env`).
+- Backend cần `JWT_SECRET` dạng Base64, giải mã tối thiểu 32 byte; Docker Compose dùng key mẫu
+	chỉ cho local. Khi chạy `mvnw spring-boot:run` trực tiếp, đặt `JWT_SECRET` trong environment trước.
+- `JWT_ACCESS_TOKEN_TTL` là thời hạn access token dạng ISO-8601, mặc định `PT15M`.
 - Build + test BE: `cd backend && ./mvnw -B verify` (JaCoCo bật sẵn; CI chặn PR có dòng thay đổi coverage < 80%).
 - Seed dev (Flyway V2): các account `@lemar.vn` (admin1/bom1/fm1/fs1/customer1/unverified/locked) — mật khẩu `Test@1234`; A3 sẽ thay bằng luồng auth thật.
 
