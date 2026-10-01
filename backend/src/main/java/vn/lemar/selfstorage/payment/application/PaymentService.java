@@ -26,7 +26,7 @@ import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 @Service
 public class PaymentService {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PaymentService.class);
 
     /** VNPay gửi số tiền đã nhân 100 nên nhận về phải chia lại. */
     private static final BigDecimal AMOUNT_SCALE = BigDecimal.valueOf(100);
@@ -70,7 +70,7 @@ public class PaymentService {
     @Transactional
     public IpnResponse handleIpn(Map<String, String> params) {
         if (!gateway.verifySignature(params)) {
-            log.warn("IPN bị từ chối vì sai chữ ký, vnp_TxnRef={}", params.get("vnp_TxnRef"));
+            LOG.warn("IPN bị từ chối vì sai chữ ký, vnp_TxnRef={}", params.get("vnp_TxnRef"));
             return IpnResponse.invalidSignature();
         }
 
@@ -82,7 +82,7 @@ public class PaymentService {
 
         // Chữ ký đúng nhưng khác merchant nghĩa là giao dịch không thuộc hệ thống này.
         if (!properties.tmnCode().equals(params.get("vnp_TmnCode"))) {
-            log.warn("IPN mang vnp_TmnCode lạ: {}", params.get("vnp_TmnCode"));
+            LOG.warn("IPN mang vnp_TmnCode lạ: {}", params.get("vnp_TmnCode"));
             return IpnResponse.orderNotFound();
         }
 
@@ -125,7 +125,7 @@ public class PaymentService {
             BigDecimal received = new BigDecimal(rawAmount).divide(AMOUNT_SCALE);
             return received.compareTo(expected) == 0;
         } catch (ArithmeticException | NumberFormatException e) {
-            log.warn("IPN mang vnp_Amount không đọc được: {}", rawAmount);
+            LOG.warn("IPN mang vnp_Amount không đọc được: {}", rawAmount);
             return false;
         }
     }
@@ -137,7 +137,7 @@ public class PaymentService {
         try {
             return LocalDateTime.parse(rawPayDate, PAY_DATE).atZone(VNPAY_ZONE).toInstant();
         } catch (java.time.format.DateTimeParseException e) {
-            log.warn("IPN mang vnp_PayDate không đọc được: {}", rawPayDate);
+            LOG.warn("IPN mang vnp_PayDate không đọc được: {}", rawPayDate);
             return Instant.now();
         }
     }
