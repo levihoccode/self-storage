@@ -35,4 +35,4 @@ psql "$DB_URL" -f sql/seed.sql
 
 ## Seed (V2) — mật khẩu dev
 
-Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin1`(ADMIN) · `bom1`(BOM) · `fm1`(FM) · `fs1`(FS, gán cơ sở Q7) · `customer1`(CUSTOMER) · `unverified` · `locked`.
+Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin`(ADMIN) · `bom1`(BOM) · `fm1`(FM, gán Q7) · `fm2`(FM, gán TD) · `fs1`(FS, gán Q7) · `customer1`(CUSTOMER) · `unverified` · `locked`.

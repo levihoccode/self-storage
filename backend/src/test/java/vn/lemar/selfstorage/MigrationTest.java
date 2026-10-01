@@ -72,8 +72,8 @@ class MigrationTest {
             }
 
             assertThat(count(connection, "roles")).isEqualTo(5);
-            assertThat(count(connection, "accounts")).isEqualTo(7);
-            assertThat(count(connection, "facilities")).isEqualTo(1);
+            assertThat(count(connection, "accounts")).isEqualTo(8);
+            assertThat(count(connection, "facilities")).isEqualTo(2);
             assertThat(count(connection, "unit_types")).isEqualTo(3);
             assertThat(count(connection, "storage_units")).isEqualTo(8);
             assertThat(count(connection, "policies")).isEqualTo(6);
@@ -86,6 +86,13 @@ class MigrationTest {
                                  + " WHERE table_name = 'facilities' AND column_name = 'fm_account_id'")) {
                 rs.next();
                 assertThat(rs.getInt(1)).isEqualTo(1);
+            }
+            // Seed dev: cả 2 facility đã gán FM (đủ để test cross-facility 403).
+            try (Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery(
+                         "SELECT count(*) FROM facilities WHERE fm_account_id IS NOT NULL")) {
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(2);
             }
         }
 

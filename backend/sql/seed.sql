@@ -19,14 +19,18 @@ INSERT INTO accounts (email, password_hash, email_verified_at, role_id, status) 
     ('admin@lemar.vn',    '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'ADMIN'),    'ACTIVE'),
     ('bom1@lemar.vn',     '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'BOM'),      'ACTIVE'),
     ('fm1@lemar.vn',      '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'FM'),       'ACTIVE'),
+    ('fm2@lemar.vn',      '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'FM'),       'ACTIVE'),
     ('fs1@lemar.vn',      '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'FS'),       'ACTIVE'),
     ('customer1@lemar.vn','$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'ACTIVE'),
     ('unverified@lemar.vn','$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', NULL, (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'UNVERIFIED'),
     ('locked@lemar.vn',   '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'LOCKED');
 
--- Facility dev: 1 cơ sở
-INSERT INTO facilities (code, name, address, operating_hours, status) VALUES
-    ('Q7', 'Self Storage Quận 7', '123 Nguyễn Văn Linh, Quận 7, TP.HCM', '08:00–20:00 hằng ngày', 'Active');
+-- Facility dev: Q7 (fm1) + TD (fm2) — đủ để test cross-facility 403 (A3b, #59)
+INSERT INTO facilities (code, name, address, operating_hours, status, fm_account_id) VALUES
+    ('Q7', 'Self Storage Quận 7', '123 Nguyễn Văn Linh, Quận 7, TP.HCM', '08:00–20:00 hằng ngày', 'Active',
+     (SELECT id FROM accounts WHERE email = 'fm1@lemar.vn')),
+    ('TD', 'Self Storage Thủ Đức', '456 Võ Văn Ngân, Thủ Đức, TP.HCM', '08:00–20:00 hằng ngày', 'Active',
+     (SELECT id FROM accounts WHERE email = 'fm2@lemar.vn'));
 
 -- Unit types — MVP: một mức giá áp dụng toàn hệ thống
 INSERT INTO unit_types (name, width, depth, height, area, description, monthly_price, updated_by) VALUES
