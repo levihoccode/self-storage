@@ -575,7 +575,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Details:**
 - **FS:**
   - Chỉ thực hiện bàn giao khi hai cờ trạng thái trên `HandoverRecord` (`identity_status`, `inspection_status`) đều thành công, đồng thời `RentalContract.signed_at != null` và hóa đơn tháng đầu `Paid`.
-  - Nếu khách chọn khóa cơ (`enabledKeyAccess`): giao chìa vật lý, ghi `quantity`;
+  - Nếu khách chọn khóa cơ (`enabledKeyAccess`): giao chìa vật lý, trỏ `UnitAccessKey.unit_key_id` tới dòng `UnitKey` của khoang.
   - Nếu khách chọn cả hai: giao chìa và nhắc khách lấy mã trong tài khoản.
   - Nếu giao khóa cơ: hai bên xác nhận bàn giao — FS xác nhận trên hệ thống, khách xác nhận trong tài khoản.
   - Mỗi loại khóa được giao tạo một dòng `UnitAccessKey` với `access_type` tương ứng.
@@ -700,6 +700,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 #### Điều kiện và dữ liệu đầu vào
 - **Flow 3:**
+  - Khách tạo `ReturnRequest` ở Flow 3.4 (Kho của tôi → [Trả kho]) và FM phân công FS cũng ở Flow 3.4. Cùng khuôn với Flow 1.5 (khách chọn lịch `CHECKIN`) → 2.1 (FS tiếp nhận); 2.a chỉ đọc rồi đóng nó khi trả kho xong.
   - Có `ReturnRequest` với `status = Assigned`.
   - `ReturnRequest.assigned_staff_id` đã được FM phân công (Flow 3.4).
 
@@ -772,9 +773,12 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - Trong thời gian `PENDING_ITEMS`, khoang giữ `Rented`, hợp đồng giữ `Active`. Phí quá hạn do Flow 6 tính theo `overdue.fee_per_day`; Flow 2.a không tự tính.
   - Thời hạn dọn tiếp và phí lưu giữ theo chính sách BOM ở Flow 4. Hệ thống không tự động tính phí lưu giữ trong MVP; FM hoặc FS gửi hóa đơn thủ công.
   - Chỉ thu hồi quyền truy cập khi `CheckoutRecord.result` không phải `PENDING_ITEMS`.
-  - Với khóa cơ, FS thu lại chìa và đối chiếu `UnitAccessKey.quantity`. Thiếu chìa thì tính `fee.lost_key`, set `UnitAccessKey.status = Lost` thay vì `Revoked`, ghi số chìa thu được vào `returned_key_quantity`; khoang phải thay khóa trước khi cho thuê lại.
-  - Với khóa mã số, vô hiệu hóa mã ngay khi biên bản được xác nhận.
-  - Thu đủ chìa hoặc vô hiệu hóa mã thì `UnitAccessKey.status -> Revoked`, ghi `revoked_at`. Thiếu chìa thì `-> Lost`; khoang phải thay khóa trong kỳ bảo trì ở 2.a.4.
+  - Thu hồi quyền truy cập, theo loại khóa đang giao:
+    - **Khóa cơ** — FS thu chìa và đối chiếu `UnitKey` của khoang:
+      - Đủ chìa: `UnitAccessKey.status -> Revoked`, ghi `revoked_at`.
+      - Thiếu chìa: `UnitKey.status = Lost` kèm `lost_at`, `lost_by_contract_id`, tính `fee.lost_key`. Khoang phải thay ổ trước khi cho thuê lại (2.a.4).
+   - **Khóa mã số** — vô hiệu hóa mã ngay khi biên bản được xác nhận: `UnitAccessKey.status -> Revoked`, ghi `revoked_at`.
+   - **Giao cả hai loại** — đóng từng dòng `UnitAccessKey` theo nhánh tương ứng.
 
 **Schema có trong phần này:**
 - [**Appointment**](./db-table-draft.md#appointment)
@@ -782,10 +786,10 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**CheckoutRecord**](./db-table-draft.md#checkoutrecord)
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey)
 - [**RentalContract**](./db-table-draft.md#rentalcontract)
+- [**UnitKey**](./db-table-draft.md#unitkey)
 
 **NOTES:**
-- Khách báo mất chìa: thu phí `LOST-KEY` (đối trừ cọc theo 2.a.3) và giữ khoang `Maintenance` tới khi thay khóa xong.
-- Khách trả lại được chìa trước khi khóa được thay: không phát sinh thay khóa; phần phí đã thu để FM điều chỉnh thủ công.
+- Phí `LOST-KEY` đã thu là không hoàn, kể cả khách tìm ra chìa sau đó.
 - Mức phí `LOST-KEY` thuộc Flow 4 (`ExtraFee`).
 
 #### 2.a.3 Xử lý phí phát sinh và tiền cọc
@@ -809,7 +813,13 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 #### 2.a.4 Bảo trì và mở lại cho thuê
 
-**Context:** `CheckoutRecord` đã được xác nhận, khoang không còn khoản phải thu bắt buộc và có thể chuyển sang giai đoạn bảo trì trước khi cho thuê lại.
+**Context:**
+`CheckoutRecord` đã được xác nhận, khoang không còn khoản phải thu bắt buộc và có thể chuyển sang giai đoạn bảo trì trước khi cho thuê lại.
+**Hai nguồn bảo trì — 2.a chỉ sở hữu nguồn 1:**
+1. **Từ trả kho** — khoang vào `Maintenance` sau khi `CheckoutRecord` được xác nhận, có `maintenance_started_at`. Cron đóng sau `unit.maintenance_days`.
+2. **Từ sự cố** — hỏng/hư cần sửa. FM chuyển thủ công ở Flow 5.2, **không** set `maintenance_started_at`, và FM tự đóng khi xong. Cron không đụng tới.
+
+Phần Details dưới đây chỉ mô tả nguồn 1.
 
 **Flow tổng quát:** Chuyển khoang sang `Maintenance` -> kết thúc hợp đồng và yêu cầu trả kho -> hết thời hạn bảo trì -> khoang về `Available`.
 
@@ -822,6 +832,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - `Appointment.status` đã được set `Done` ở 2.a.2 khi ghi nhận khách đến, không set lại ở đây.
   - Hết `unit.maintenance_days` do BOM cấu hình ở Flow 4, chuyển khoang về `Available` để Flow 1 có thể gán cho yêu cầu mới.
   - Chỉ áp dụng cron mở lại cho khoang có `maintenance_started_at` khác null, tức `Maintenance` phát sinh từ luồng trả kho.
+  - **Khoang chỉ được mở lại khi đủ điều kiện an toàn** — điều kiện chi tiết ở [Scheduled Jobs - Cron jobs](#scheduled-jobs---cron-jobs).
 - **FM:**
   - Nếu khoang hư hỏng cần sửa lâu hơn, FM chuyển `Maintenance` thủ công ở Flow 5.2 và không set `maintenance_started_at`.
   - FM tự chuyển khoang về `Available` khi sửa xong; cron không xử lý khoang này.
@@ -885,3 +896,10 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
     - Invoice `Expired`.
   - `type = Rental` + `RentalContract.status = Active` (đang thuê):
     - Tiền thuê định kỳ quá hạn → xử lý theo Flow 6. Ngoài scope hiện tại, đánh dấu chờ.
+- `StorageUnit` (`status = Maintenance`, `maintenance_started_at` khác null) đã hết `unit.maintenance_days` — luồng trả kho ở [2.a.4 Bảo trì và mở lại cho thuê](#2a4-bảo-trì-và-mở-lại-cho-thuê):
+  - Chỉ mở lại khi thoả cả hai:
+    - Dòng `UnitKey` mới nhất (theo `created_at`) không ở `status = Lost` — chìa từng mất thì phải có dòng mới sau khi thay ổ.
+    - Dòng `UnitKey` mới nhất ở `status = Available` và `condition = Good`, **hoặc** cơ sở đang bật `enabledCodeAccess`.
+  - Không thoả: bỏ qua lần này, khoang giữ `Maintenance`.
+  - Thoả: `StorageUnit.status = Available`, ghi `AuditLog` `STORAGE_UNIT_AVAILABLE`.
+  - Không áp dụng cho khoang `Maintenance` do sự cố (Flow 5.2) — khoang đó không có `maintenance_started_at`.

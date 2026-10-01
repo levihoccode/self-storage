@@ -242,23 +242,47 @@
 **Overview:** quyền truy cập khoang chứa đã bàn giao cho khách.
 - unit_id (N - 1: StorageUnit)
 - contract_id (N - 1: RentalContract)
+- unit_key_id (nullable, N - 1: UnitKey)
 - access_type (PhysicalKey/AccessCode) - loại khóa đã bàn giao, theo cờ `enabledKeyAccess`/`enabledCodeAccess` của cơ sở/khoang (Flow 5)
-- quantity - số chìa đã giao, dùng khi `access_type = PhysicalKey`
-- code_hash - hash của mã truy cập, dùng khi `access_type = AccessCode`
-- issued_at, revoked_at
-- status (Active/Revoked/Lost) - trạng thái của quyền truy cập được giao, không phải của vật (chìa) hay bí mật (mã)
-  - Active: quyền đang hiệu lực — khách đang giữ chìa, hoặc mã còn dùng được
-  - Revoked: quyền đã đóng — chìa đã thu về cơ sở, hoặc mã đã bị vô hiệu; `revoked_at` ghi thời điểm đóng
-  - Lost: quyền CHƯA đóng được — chìa không thu lại được nên người ngoài vẫn có thể mở; phải thay khóa mới đóng được. Chỉ áp cho `PhysicalKey`.
+- code_hash (nullable) - hash của mã truy cập, dùng khi `access_type = AccessCode`
+- issued_at
+- revoked_at
+- status (Active/Revoked) - trạng thái của quyền truy cập được giao, không phải của vật (chìa) hay bí mật (mã)
 
 **CONSTRAINTS:**
 - Mỗi hợp đồng có tối đa một dòng `Active` cho mỗi `access_type` (`PhysicalKey`, `AccessCode`).
 - Cấp lại mã khóa số: tạo dòng mới và chuyển dòng cũ sang `Revoked` trong cùng thao tác; không ghi đè `code_hash`.
-- Phát thêm chìa cơ: cập nhật `quantity` trên dòng `Active` hiện có; thay đổi ghi `AuditLog` kèm `old_value`/`new_value`.
-- `Lost` chỉ áp cho `PhysicalKey` — nghĩa là chìa không thu lại được. Có dòng `Lost` thì khoang không được cho thuê lại cho tới khi thay khóa xong.
+- `unit_key_id` chỉ có giá trị khi `access_type = PhysicalKey`.
+- `code_hash` bắt buộc khi `access_type = AccessCode`, và không có giá trị khi `access_type = PhysicalKey`.
 
 **NOTES:**
-- Dòng `Lost` giữ nguyên làm lịch sử, không đổi trạng thái sau khi thay khóa. Việc đã thay khóa thể hiện ở chỗ khoang được mở lại `Maintenance` -> `Available`, không phải ở dòng này.
+- Trạng thái của chìa cơ đọc từ `UnitKey`, `Lost` không nằm ở bảng này.
+- Bàn giao chìa thì dòng này trỏ tới chìa đang giao qua `unit_key_id` khi `access_type = PhysicalKey`. Không lưu số lượng: mỗi khoang đúng một chìa.
+# UnitKey
+**Overview:** chìa cơ của khoang. Mỗi khoang đúng một chìa; thay ổ là cấp chìa mới (dòng mới), dòng cũ giữ nguyên làm lịch sử — không ghi đè.
+- unit_id (1 - 1: StorageUnit)
+- key_code - mã in trên chìa, **lưu plain** (không hash): dùng để đối chiếu vật lý khi rà soát. Không phải bí mật — ai mở ngăn kéo cũng đọc được, lộ mã không mở được gì.
+- status (Available/Lost) - chìa có dùng được không
+  - Available: chìa còn kiểm soát được
+  - Lost: chìa ra khỏi tầm kiểm soát. **Trạng thái cuối** — không có đường quay lại; thay ổ và làm chìa mới là dòng mới
+- condition (Good/Damaged) - tình trạng vật lý của chìa
+  - Damaged:
+    - Chìa không mở được, chờ làm chìa mới
+    - Không chặn khoang cho thuê lại nếu cơ sở đang bật `enabledCodeAccess` — khách vào bằng mã
+    - Cơ sở chỉ dùng chìa cơ thì phải có chìa mới trước khi giao khoang cho khách
+- lost_at (nullable)
+- lost_by_contract_id (nullable, N - 1: RentalContract) - ai giữ lúc làm mất, để truy vết
+- created_at
+
+**CONSTRAINTS:**
+- Mỗi khoang có tối đa một dòng `status = Available` và `condition = Good` tại một thời điểm — tức tối đa một chìa dùng được.
+- *Đang bị giữ* suy ra từ hợp đồng, không lưu ở đây: chìa đang giao khi khoang có `RentalContract` ở trạng thái `Active`.
+- Vì mỗi khoang chỉ có một chìa dùng được, hệ quả là tại một thời điểm chỉ có **tối đa một hợp đồng** `Active` giữ chìa của khoang đó.
+
+**NOTES:**
+- **"Đang giao cho khách" KHÔNG phải trạng thái ở đây** — suy ra từ hợp đồng đang `Active` của khoang. `UnitKey` chỉ nói chìa có dùng được không và tình trạng vật lý của nó.
+- Việc làm chìa mới và tiêu hủy chìa cũ (hỏng, mất) nằm ngoài website; hệ thống chỉ ghi nhận bằng dòng mới.
+- Mọi thay đổi `status` / `condition` ghi `AuditLog`.
 # HandoverRecord
 **Overview:** theo dõi tiến trình check-in và bàn giao khoang chứa. Flow 1 tạo bản ghi khi lịch hẹn check-in được tạo; Flow 2 sử dụng và cập nhật bản ghi trong quá trình xử lý tại cơ sở.
 
@@ -325,7 +349,6 @@
   - cleanliness - tình trạng vệ sinh
   - damages - danh sách hư hỏng ghi nhận so với `HandoverRecord`
   - photos - List<String>, ảnh hiện trạng lúc trả
-  - returned_key_quantity - số chìa thu lại, đối chiếu `UnitAccessKey.quantity`
   - customer_signature
 - **Trạng thái cuối cùng của biên bản:**
   - result (IN_PROGRESS/COMPLETED/PENDING_ITEMS) - default: IN_PROGRESS
@@ -415,3 +438,5 @@
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
+| `UNIT_KEY_LOST` | Chìa cơ của khoang bị mất | `UnitKey` | FS/FM |
+| `UNIT_KEY_CONDITION_CHANGED` | Chìa cơ chuyển `Good`/`Damaged`, hoặc chìa mới thay chìa cũ | `UnitKey` | FS/FM |
