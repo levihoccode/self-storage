@@ -7,6 +7,27 @@
 - role_id (N - 1: Role)
 - status
 - created_at
+# Role
+**Overview:** vai trò trong hệ thống. Mỗi account được gán đúng một role qua `Account.role_id`; Admin quản lý, không hard-code trong source code.
+- id
+- name (unique) - mã role; seed mặc định 5 role: `ADMIN`, `BOM`, `FM`, `FS`, `CUSTOMER`
+- created_at
+# Permission
+**Overview:** quyền/hành động cụ thể theo model RBAC, gán cho role qua `RolePermission`.
+- id
+- code (unique) - định danh quyền dạng `<resource>.<action>`, ví dụ `rental_request.approve`
+- description
+- created_at
+# RolePermission
+**Overview:** bảng nối N–N giữa `Role` và `Permission` — nguồn dữ liệu duy nhất cho việc role nào có quyền nào.
+- role_id (N - 1: Role)
+- permission_id (N - 1: Permission)
+
+**CONSTRAINTS:**
+- Unique `(role_id, permission_id)`.
+
+**NOTES:**
+- Catalog permission cụ thể và mapping mặc định cho 5 role chưa chốt (thuộc Flow 5.0); không hard-code trong source code. Khi chốt thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
 # Facility
 - id
 - code (unique)
@@ -14,6 +35,11 @@
 - address
 - operating_hours
 - status (Active/Inactive)
+- fm_account_id (N - 1: Account, nullable, unique) - FM phụ trách cơ sở; quan hệ 1–1
+
+**NOTES:**
+- `fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility (1–1): mỗi facility có tối đa một FM; mỗi FM phụ trách tối đa một facility. Account không lưu `facility_id` cho FM — cần biết FM phụ trách facility nào thì truy vấn ngược từ `Facility`.
+- `AccountFacilityAssignment` chỉ dùng cho FS (1–n); không dùng cho FM.
 # AccountFacilityAssignment
 **Owner:** Flow 5
 **Overview:** mapping account (chỉ dùng cho FS) với Facility, phục vụ RBAC data-scope khi một cơ sở có nhiều FS (1–n). Không dùng cho FM.
