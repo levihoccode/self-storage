@@ -128,6 +128,7 @@
 - Không tạo proposal hoặc Appointment mới.
 - `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
 - `Appointment` chưa diễn ra (`Pending`) chuyển `Canceled` kèm `cancel_reason`; lịch đã `Done` giữ nguyên.
+- Tạo notification `RENTAL_ORDER_CANCELED` cho khách có account và FM, title “Đơn thuê kho đã bị hủy” và body có mã đơn cùng lý do hủy.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -463,7 +464,7 @@
 
 | Type | Khi nào dùng | Recipient |
 |---|---|---|
-| `RENTAL_REQUEST_APPROVED` | FM duyệt yêu cầu thuê kho; nội dung gồm link xác nhận và thông tin khoang theo Flow 1.1 | Customer |
+| `RENTAL_REQUEST_APPROVED` | FM duyệt yêu cầu thuê kho; nội dung gồm link trỏ tới trang để duyệt proposal và thông tin khoang theo Flow 1.1 | Customer |
 | `RENTAL_REQUEST_REJECTED` | FM từ chối yêu cầu thuê kho; nội dung gồm lý do từ chối | Customer |
 | `PROPOSAL_AGREED` | Khách đồng ý proposal | FM |
 | `PROPOSAL_REJECTED` | Khách từ chối proposal; nội dung gồm mã khoang và lý do (`note`) | FM |

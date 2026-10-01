@@ -119,8 +119,10 @@
     + `unit_type` phải tồn tại và được cung cấp tại `facility`.
    - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định), `created_at` = thời điểm submit và `expires_at = created_at + request.pending_expiry_days`.
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
-  - **Nếu khách đã có tài khoản:** sau khi FM duyệt request, hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, với title “Yêu cầu thuê kho đã được duyệt” và body thông báo yêu cầu đã được duyệt, kèm link xác nhận và thông tin khoang theo email Flow 1.1. Khách chưa có account chỉ nhận email, không tạo notification.
+  - **Khách đã có tài khoản** sau khi FM duyệt request:
+    - Hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, với title “Yêu cầu thuê kho đã được duyệt” và body thông báo yêu cầu đã được duyệt, kèm link trỏ tới trang để duyệt proposal.
     - Khách sẽ thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc
+    - **Khách chưa có account** chỉ nhận email; notification `RENTAL_REQUEST_APPROVED` phát khi `RentalOrder` được tạo sau khi khách xác minh email.
 
 - **FM:**
   - Các yêu cầu đặt khoang chứa sẽ được liệt kê ở một trang và có các nút (button) để thao tác (details, response, update status, ...), mỗi entry là một `RentalRequest`.
@@ -164,12 +166,11 @@
       Lưu ý: khoang chứa không được giữ trong lúc chờ. Khoang được xác nhận chính thức cho khách hàng hoàn tất thanh toán cọc đầu tiên (cọc trước giữ trước).
       ```
   - **Trong trường hợp yêu cầu được Approve nhưng chưa đặt cọc, và đã có người khác đặt cọc:**
-    - Không hủy đơn — hệ thống thông báo FM để đề xuất lại khoang khác (re-propose theo luồng 1.3); khách nhận email:
+    - Không hủy đơn — hệ thống thông báo FM để đề xuất lại khoang khác (re-propose theo luồng 1.3)
+    - Không hủy đơn — hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body có mã đơn cùng mã khoang cũ; khách nhận email:
       ```
       Khoang [mã] đã có người đặt cọc trước. Cơ sở đang tìm khoang khác phù hợp cho bạn.
       ```
-    - Khách đã có account nhận email theo mẫu ở trên; notification không dùng type `RENTAL_REQUEST_APPROVED` vì request đã được duyệt trước đó.
-
 **Schema có trong phần này:**
 - [**RentalRequest**](./db-table-draft.md#rentalrequest)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
@@ -205,9 +206,8 @@
   - Hệ thống tạo `ProposalFeedback` với `unit_id` FM đã chỉ định và `status = Pending`;
   - Hệ thống tạo `RentalOrder` với `status = Pending`, chưa gán `unit_id`
   - Hệ thống chuyển `RentalRequest.status` sang `Converted`.
+  - Hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link tới proposal cần duyệt.
 - Không tìm thấy request nào → giữ nguyên (xem Case B).
-
-**Case B: Không có yêu cầu nào được duyệt**
 
 **Context:** Khách tạo tài khoản nhưng không có yêu cầu `Approved` nào khớp email (chưa hết hạn).
 
@@ -259,7 +259,10 @@
     - FM vào xem khoang trống khác, chọn `unit_id` mới và bấm "Đề xuất lại". Hệ thống loại các khoang mà khách đã từ chối trong cùng `RentalOrder`.
     - Nếu FM cần đề xuất lại một khoang đã bị khách từ chối, phải dùng quyền override và nhập lý do; thao tác này được ghi vào `AuditLog`.
     - Hệ thống tạo một bản ghi `ProposalFeedback` (status = `Pending`), gắn unit_id mới vừa chọn
-  - Quá `proposal.max_rejection_count` lần từ chối: hệ thống dừng đề xuất, `RentalOrder` → `Canceled` (khách không chọn được khoang); tạo notification `RENTAL_ORDER_CANCELED` cho FM và khách đã có account với title “Đơn thuê kho đã bị hủy” và body nêu mã đơn cùng lý do hủy.
+    - Hệ thống tạo notification `PROPOSAL_REPROPOSED` cho khách, title “Có đề xuất kho mới” và body có link xác nhận.
+  - Quá `proposal.max_rejection_count` lần từ chối:
+    - Hệ thống dừng đề xuất, `RentalOrder` → `Canceled` (khách không chọn được khoang)
+    - Hệ thống tạo notification `RENTAL_ORDER_CANCELED` cho FM và khách đã có account với title “Đơn thuê kho đã bị hủy” và body nêu mã đơn cùng lý do hủy.
 
 **NOTES:**
 - Khi làm trang này, có thể chia thành 2 tabs:
@@ -361,12 +364,14 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `Scheduled`.
   - Hệ thống gửi email và tạo notification `APPOINTMENT_CREATED` cho khách với title “Lịch hẹn check-in đã được tạo” và body có ngày/khung giờ hẹn, địa chỉ cơ sở, hướng dẫn mang CCCD/Passport.
 - **FM:**
-  - FM nhận notification `APPOINTMENT_CREATED`, title “Có lịch check-in mới cần phân công” và body có mã đơn, thời gian hẹn, cơ sở; FM xem danh sách các đơn đang ở trạng thái `Scheduled`.
+  - FM nhận notification `APPOINTMENT_CREATED`, title “Có lịch check-in mới cần phân công” và body có mã đơn, thời gian hẹn, cơ sở
+  - FM xem danh sách các đơn đang ở trạng thái `Scheduled`.
   - FM chỉ định một nhân viên cơ sở (`FS`) phụ trách ca tiếp đón khách:
     - Hệ thống gán `Appointment.staff_id = [FS_Account_ID]`.
     - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `InProgress`.
     - Tạo notification `FS_ASSIGNED` cho FS được phân công, title “Bạn được phân công lịch check-in” và body có mã đơn, thời gian hẹn, cơ sở và thông tin khoang.
-    - Nếu chưa có FS phù hợp, `Appointment.staff_id` để trống, `RentalOrder` giữ `Scheduled`; FM nhận notification `APPOINTMENT_CREATED`, title “Lịch check-in chưa có nhân viên phụ trách” và body có mã đơn, thời gian hẹn, cơ sở. Không tự động gán FS.
+    - Nếu chưa có FS phù hợp, `Appointment.staff_id` để trống, `RentalOrder` giữ `Scheduled`
+    - Hệ thống tạo notification `APPOINTMENT_CREATED` cho FM, title “Lịch check-in chưa có nhân viên phụ trách” và body có mã đơn, thời gian hẹn, cơ sở. Không tự động gán FS.
 
 **Schema có trong phần này:**
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
@@ -589,7 +594,8 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - **Khách xác nhận với mã khóa số:** hệ thống tự chạy transaction trên ngay khi khách xác nhận, không cần thao tác của FS.
   - Chốt bàn giao chỉ chạy một lần: chỉ xử lý khi `HandoverRecord.result = IN_PROGRESS`.
   - Flow 2 là nơi duy nhất set `RentalOrder.status = Done`.
-  - Sau transaction, gửi email kèm hợp đồng và link xem biên bản bàn giao; tạo notification `HANDOVER_COMPLETED` cho khách với title “Bàn giao kho hoàn tất” và body có mã đơn, mã khoang, link xem biên bản. Lỗi gửi email hoặc notification không rollback bàn giao.
+  - Sau transaction, gửi email kèm hợp đồng và link xem biên bản bàn giao
+  - Tạo notification `HANDOVER_COMPLETED` cho khách với title “Bàn giao kho hoàn tất” và body có mã đơn, mã khoang, link xem biên bản. Lỗi gửi email hoặc notification không rollback bàn giao.
   - Sau bàn giao, Flow 3 tiếp nhận khoang đang thuê.
 - **Customer:**
   - Sau khi hóa đơn tháng đầu đã `Paid`, khách xác nhận biên bản bàn giao trong tài khoản và chọn hình thức nhận quyền truy cập (chỉ hiện các loại mà cơ sở đang bật):
@@ -628,7 +634,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - **Hủy đơn**:
     - Hệ thống yêu cầu khách xác nhận việc hủy và thông báo hậu quả theo chính sách.
     - Khách xác nhận:
-      - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade); cascade tạo notification `RENTAL_ORDER_CANCELED` cho khách có account và FM, title “Đơn thuê kho đã bị hủy” và body có mã đơn cùng lý do hủy.
+      - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade)
       - Appointment đã `Done` nên giữ nguyên.
       - `HandoverRecord` hiện tại chuyển `IN_PROGRESS -> CANCELED`.
       - Flow 2 kết thúc.
@@ -660,7 +666,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
     - Điều kiện chạm ngưỡng: `count + 1 >= handover.max_rejection_count`.
       - **Chưa chạm ngưỡng** số lần từ chối:
         - Cập nhật `HandoverRecord.result = REJECTED`.
-        - Tạo notification `HANDOVER_REJECTED` cho FM, title “Khách từ chối khoang tại check-in” và body có mã khoang cùng `HandoverRecord.reject_reason`, kèm hướng dẫn mở thao tác đề xuất khoang khác.
+        - Tạo notification `HANDOVER_REJECTED` cho FM, title “Khách từ chối khoang tại check-in” và body có mã khoang cùng `HandoverRecord.reject_reason`.
         - Flow 2 kết thúc.
         - Flow 1 thực hiện re-propose theo [Flow 1.3 Kiểm tra kho của tôi](#13-kiểm-tra-kho-của-tôi).
         - Sau khi khách duyệt proposal mới và Flow 1 hoàn tất các bước liên quan, Flow 2 bắt đầu lại trên `Appointment` và `HandoverRecord` mới.
@@ -668,7 +674,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
         - Hệ thống hiển thị xác nhận cho khách, nêu rõ đơn sẽ bị hủy vì đã từ chối tối đa N khoang và tiền cọc không được hoàn.
         - **Khách xác nhận:**
           - Cập nhật `HandoverRecord.result = REJECTED`.
-          - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade); cascade tạo notification `RENTAL_ORDER_CANCELED` cho khách có account và FM, title “Đơn thuê kho đã bị hủy” và body có mã đơn cùng lý do hủy.
+          - Thực hiện [RentalOrder Cancellation Cascade](./db-table-draft.md#rentalorder-cancellation-cascade)
           - Kết thúc Flow 2
         - **Khách không xác nhận:**
           - Không ghi gì và giữ nguyên hiện trạng.
