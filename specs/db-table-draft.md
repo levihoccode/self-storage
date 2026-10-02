@@ -463,7 +463,7 @@
 - Quyền tạo `OTHER` phải được giới hạn cho người có quyền.
 - Chưa có bảng template. MVP lưu template theo `type` trong code. Template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
 - Riêng `RENTAL_REQUEST_APPROVED` ở Flow 1.1 có nội dung khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại trong catalog áp dụng sau khi account đã tồn tại.
-- Index `(account_id, read_at)`.
+- Index `(account_id, read_at)` cho lọc và đếm chưa đọc, và index `(account_id, created_at DESC)` cho list sắp xếp và phân trang.
 - Notification type catalog:
 
 | Type | Khi nào dùng | Recipient |
