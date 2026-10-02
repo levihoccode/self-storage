@@ -121,7 +121,7 @@
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
   - Sau khi FM duyệt request, notification `RENTAL_REQUEST_APPROVED` được ghi vào tài khoản khách tại thời điểm `RentalOrder` được tạo (lúc này tài khoản chắc chắn đã tồn tại):
     - **Khách đã có tài khoản**: `RentalOrder` được tạo ngay trong transaction duyệt (xem mục FM bên dưới).
-    - **Khách chưa có account**: chỉ nhận email. `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email.
+    - **Khách chưa có account**: chỉ nhận email thông báo request đã được duyệt (nội dung ở mục **Hệ thống gửi email** bên dưới). Vì tài khoản chưa được tạo, email kèm link đăng ký account và nhắc rõ đây chỉ là email thông báo duyệt, khoang vẫn có thể được người khác đặt cọc. `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email.
     - Tại thời điểm `RentalOrder` được tạo, hệ thống ghi notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal.
     - Khách thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
 
