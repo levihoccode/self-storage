@@ -69,6 +69,7 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
+  const isEmbeddedRequestView = view === "request" && session?.user.role === "customer";
   const isFmView =
     view === "fm-rental-requests" ||
     view === "fm-proposal-redo" ||
@@ -106,9 +107,10 @@ function App() {
       </a>
       {isAuthView ? (
         <AuthPage view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
-      ) : view === "my-storage" ? (
+      ) : view === "my-storage" || isEmbeddedRequestView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
-          <MyStoragePage navigate={navigate} />
+          {view === "my-storage" && <MyStoragePage navigate={navigate} />}
+          {isEmbeddedRequestView && <RequestPage navigate={navigate} embedded />}
         </CustomerShell>
       ) : isFmView ? (
         <FmShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
@@ -126,7 +128,13 @@ function App() {
         </FmShell>
       ) : (
         <>
-          <PublicHeader view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
+          <PublicHeader
+            view={view}
+            navigate={navigate}
+            theme={theme}
+            onThemeToggle={toggleTheme}
+            session={session}
+          />
           <main id="main-content">
             {view === "home" && <LandingPage navigate={navigate} />}
             {view === "units" && <BrowsePage navigate={navigate} />}

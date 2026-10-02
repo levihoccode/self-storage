@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
 import { Navigate } from "../app/types";
 import { PAGE_CONTAINER } from "../app/layout";
+import { authGateway } from "../app/auth";
 import { facilities, unitTypes } from "../mocks/catalog";
 import { FormField, SelectField } from "../components/ui/FormField";
 import { SuccessState } from "../components/ui/SuccessState";
@@ -10,22 +11,32 @@ const PRIMARY_BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong";
 const FORM_PAGE = "min-h-[calc(100vh-76px)] bg-background pb-[100px] pt-[76px]";
 
-export function RequestPage({ navigate }: { navigate: Navigate }) {
+export function RequestPage({
+  navigate,
+  embedded = false,
+}: {
+  navigate: Navigate;
+  embedded?: boolean;
+}) {
   const [submitted, setSubmitted] = useState(false);
+  const session = authGateway.getSession();
+  const backPath = embedded ? "/my-storage" : "/units";
+  const backLabel = embedded ? "Về Kho của tôi" : "Quay lại phương án kho";
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
   }
   if (submitted)
     return (
-      <section className={FORM_PAGE}>
+      <section className={embedded ? "" : FORM_PAGE}>
         <div className="mx-auto w-[min(620px,calc(100%-40px))]">
           <SuccessState
             title="Đã nhận nhu cầu."
             description="Đội ngũ vận hành sẽ kiểm tra phương án và phản hồi qua email hoặc số điện thoại."
             action={
-              <button className={`mt-6 ${PRIMARY_BUTTON}`} onClick={() => navigate("/units")}>
-                Xem lại phương án kho <ArrowRight size={16} />
+              <button className={`mt-6 ${PRIMARY_BUTTON}`} onClick={() => navigate(backPath)}>
+                {embedded ? "Về Kho của tôi" : "Xem lại phương án kho"} <ArrowRight size={16} />
               </button>
             }
           />
@@ -33,16 +44,16 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
       </section>
     );
   return (
-    <section className={FORM_PAGE}>
+    <section className={embedded ? "" : FORM_PAGE}>
       <div
-        className={`${PAGE_CONTAINER} grid grid-cols-[0.8fr_1.2fr] items-start gap-[76px] max-[760px]:grid-cols-1`}
+        className={`${embedded ? "" : PAGE_CONTAINER} grid grid-cols-[0.8fr_1.2fr] items-start gap-[76px] max-[760px]:grid-cols-1`}
       >
         <div className="pt-[5px]">
           <button
             className="mb-[58px] inline-flex items-center gap-2 border-0 bg-transparent p-0 text-[12px] font-bold text-muted hover:text-brand max-[760px]:mb-11"
-            onClick={() => navigate("/units")}
+            onClick={() => navigate(backPath)}
           >
-            <ArrowLeft size={16} /> Quay lại phương án kho
+            <ArrowLeft size={16} /> {backLabel}
           </button>
           <h1 className="m-0 text-[clamp(40px,5vw,58px)] font-bold leading-[1.03] tracking-[-0.045em] text-ink">
             Gửi nhu cầu lưu trữ.
@@ -69,6 +80,7 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
                 name="name"
                 required
                 placeholder="Công ty ABC / Nguyễn Minh An"
+                defaultValue={session?.user.name}
               />
               <FormField
                 label="Email liên hệ"
@@ -76,6 +88,7 @@ export function RequestPage({ navigate }: { navigate: Navigate }) {
                 required
                 type="email"
                 placeholder="ban@example.com"
+                defaultValue={session?.user.email}
               />
               <FormField label="Số điện thoại" name="phone" required placeholder="090 123 4567" />
               <SelectField
