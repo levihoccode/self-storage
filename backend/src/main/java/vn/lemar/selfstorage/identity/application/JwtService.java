@@ -35,9 +35,7 @@ public class JwtService {
                 .issuer(ISSUER)
                 .issuedAt(issuedAt)
                 .expiresAt(issuedAt.plus(accessTokenTtl))
-                .subject(account.getId().toString())
                 .claim("email", account.getEmail())
-                .claim("role", account.getRole().getName())
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();

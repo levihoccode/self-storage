@@ -1,9 +1,11 @@
 package vn.lemar.selfstorage;
 
 import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -15,13 +17,20 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
+import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
+import vn.lemar.selfstorage.identity.domain.Role;
+import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = SecurityConfigTest.ProbeController.class)
-@Import({SecurityConfig.class, JwtConfiguration.class, SecurityConfigTest.ProbeController.class})
+@Import({SecurityConfig.class, JwtConfiguration.class, AccountJwtAuthenticationConverter.class})
 @TestPropertySource(properties = {
         "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 })
@@ -33,6 +42,9 @@ class SecurityConfigTest {
     @Autowired
     private JwtEncoder jwtEncoder;
 
+    @MockBean
+    private AccountRepository accountRepository;
+
     @Test
     void protectedRouteRejectsMissingToken() throws Exception {
         mockMvc.perform(get("/api/customer/probe"))
@@ -40,27 +52,63 @@ class SecurityConfigTest {
     }
 
     @Test
-    void matchingRoleCanAccessRoute() throws Exception {
+    void activeDatabaseRoleCanAccessMatchingRoute() throws Exception {
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(account("CUSTOMER", AccountStatus.ACTIVE)));
+
         mockMvc.perform(get("/api/customer/probe")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("CUSTOMER")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void differentRoleCannotAccessRoute() throws Exception {
+    void databaseRoleCannotAccessDifferentRoleRoute() throws Exception {
+        when(accountRepository.findWithRoleByEmail("fm@example.com"))
+                .thenReturn(Optional.of(account("FM", AccountStatus.ACTIVE)));
+
         mockMvc.perform(get("/api/customer/probe")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("FM")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com")))
                 .andExpect(status().isForbidden());
     }
 
-    private String tokenFor(String role) {
+    @Test
+    void accountStatusIsReadAgainFromDatabaseForEachRequest() throws Exception {
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(account("CUSTOMER", AccountStatus.LOCKED)));
+
+        mockMvc.perform(get("/api/internal/probe")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void jwtForDeletedAccountIsRejected() throws Exception {
+        when(accountRepository.findWithRoleByEmail("deleted@example.com"))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/customer/probe")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("deleted@example.com")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private Account account(String roleName, AccountStatus status) {
+        Role role = mock(Role.class);
+        when(role.getName()).thenReturn(roleName);
+        Account account = mock(Account.class);
+        when(account.getEmail()).thenReturn(roleName.toLowerCase() + "@example.com");
+        when(account.getRole()).thenReturn(role);
+        when(account.getStatus()).thenReturn(status);
+        when(account.isLoginAllowed()).thenReturn(status == AccountStatus.ACTIVE);
+        return account;
+    }
+
+    private String tokenFor(String email) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("self-storage")
-                .subject("42")
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(60))
-                .claim("role", role)
+                .claim("email", email)
                 .build();
         return jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
@@ -72,6 +120,11 @@ class SecurityConfigTest {
         @GetMapping("/api/customer/probe")
         String customerProbe() {
             return "customer";
+        }
+
+        @GetMapping("/api/internal/probe")
+        String internalProbe() {
+            return "internal";
         }
     }
 }

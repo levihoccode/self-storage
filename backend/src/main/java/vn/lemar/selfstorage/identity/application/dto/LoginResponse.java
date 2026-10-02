@@ -4,6 +4,6 @@ public record LoginResponse(
         Long accountId,
         String email,
         String role,
-        String accessToken
+        String token
 ) {
 }

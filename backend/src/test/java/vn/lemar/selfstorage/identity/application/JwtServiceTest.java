@@ -23,7 +23,7 @@ class JwtServiceTest {
     private static final byte[] SECRET = "0123456789abcdef0123456789abcdef".getBytes();
 
     @Test
-    void issueAccessTokenSignsExpectedClaimsAndExpiry() {
+    void issueAccessTokenSignsEmailClaimAndExpiryWithoutRole() {
         SecretKey secretKey = new SecretKeySpec(SECRET, "HmacSHA256");
         JwtEncoder encoder = new NimbusJwtEncoder(new ImmutableSecret<>(secretKey));
         JwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey)
@@ -40,9 +40,9 @@ class JwtServiceTest {
 
         Jwt token = decoder.decode(jwtService.issueAccessToken(account));
 
-        assertThat(token.getSubject()).isEqualTo("42");
         assertThat(token.getClaimAsString("email")).isEqualTo("customer@example.com");
-        assertThat(token.getClaimAsString("role")).isEqualTo("CUSTOMER");
+        assertThat(token.getClaims()).doesNotContainKey("role");
+        assertThat(token.getClaims()).doesNotContainKey("sub");
         assertThat(token.getClaimAsString("iss")).isEqualTo("self-storage");
         assertThat(token.getExpiresAt()).isEqualTo(token.getIssuedAt().plus(Duration.ofMinutes(15)));
     }

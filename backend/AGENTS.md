@@ -10,6 +10,7 @@ Dockerfile:5
 
    6 |     COPY src ./src
 
+   7 |     RUN mvn -B -q clean package -DskipTests
 
 --------------------
 
