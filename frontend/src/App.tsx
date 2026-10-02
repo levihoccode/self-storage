@@ -68,7 +68,8 @@ function App() {
     view === "proposals" ||
     view === "invoices" ||
     view === "appointments" ||
-    view === "notifications";
+    view === "notifications" ||
+    (view === "request" && !!session);
   const needsLoginRedirect = isCustomerView && !session;
 
   useEffect(() => {
@@ -96,10 +97,17 @@ function App() {
           {view === "invoices" && <InvoicesPage navigate={navigate} />}
           {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}
           {view === "notifications" && <NotificationsPage navigate={navigate} />}
+          {view === "request" && <RequestPage navigate={navigate} embedded />}
         </CustomerShell>
       ) : (
         <>
-          <PublicHeader view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
+          <PublicHeader
+            view={view}
+            navigate={navigate}
+            theme={theme}
+            onThemeToggle={toggleTheme}
+            session={session}
+          />
           <main id="main-content">
             {view === "home" && <LandingPage navigate={navigate} />}
             {view === "units" && <BrowsePage navigate={navigate} />}
