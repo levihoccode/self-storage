@@ -210,6 +210,8 @@
   - Hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link tới proposal cần duyệt.
 - Không tìm thấy request nào → giữ nguyên (xem Case B).
 
+**Case B: Không có yêu cầu nào được duyệt**
+
 **Context:** Khách tạo tài khoản nhưng không có yêu cầu `Approved` nào khớp email (chưa hết hạn).
 
 **Flow tổng quát:** Tạo tài khoản `Customer` trong hệ thống.
