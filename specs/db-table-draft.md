@@ -462,8 +462,10 @@
 - `OTHER` chỉ dùng cho thông báo khẩn cấp thủ công khi chưa có type phù hợp. Không dùng thay cho một type nghiệp vụ đã biết. `title` và `body` phải mô tả cụ thể sự việc.
 - Quyền tạo `OTHER` phải được giới hạn cho người có quyền.
 - Chưa có bảng template. MVP lưu template theo `type` trong code. Template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
-- Riêng `RENTAL_REQUEST_APPROVED` ở Flow 1.1 có nội dung khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại trong catalog áp dụng sau khi account đã tồn tại.
+- `RENTAL_REQUEST_APPROVED` chỉ phát khi `RentalOrder` được tạo, tức khi account đã tồn tại. Khách chưa có account chỉ nhận email duyệt ở Flow 1.1, notification phát ở Flow 1.2 sau khi xác minh email. Nội dung email duyệt khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại áp dụng sau khi account đã tồn tại.
 - Index `(account_id, read_at)` cho lọc và đếm chưa đọc, và index `(account_id, created_at DESC)` cho list sắp xếp và phân trang.
+- Một số type render khác nhau theo recipient. Ví dụ `APPOINTMENT_CREATED` gửi khách ngày/giờ, địa chỉ cơ sở và hướng dẫn giấy tờ. Gửi FM mã đơn, thời gian hẹn và cơ sở.
+- Chưa làm: nhắc nhở gần hết hạn. Dự kiến gửi notification nhắc trước khi hết hạn, cần chốt deadline áp dụng (request, proposal, deposit hoặc hold) và cron.
 - Notification type catalog:
 
 | Type | Khi nào dùng | Recipient |
@@ -473,11 +475,12 @@
 | `PROPOSAL_REJECTED` | Khách từ chối proposal, nội dung gồm mã khoang và lý do (`note`) | FM |
 | `PROPOSAL_REPROPOSAL_REQUIRED` | FM cần đề xuất lại khoang khác (nội dung gồm mã đơn và mã khoang cũ) | FM |
 | `PROPOSAL_REPROPOSED` | FM tạo proposal mới, nội dung gồm link xác nhận | Customer |
-| `DEPOSIT_PAYMENT_SUCCEEDED` | Đặt cọc thành công | Customer, FM |
-| `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in, nội dung gồm địa chỉ cơ sở và hướng dẫn giấy tờ | Customer, FM |
+| `DEPOSIT_PAYMENT_SUCCEEDED` | Đặt cọc thành công | Customer |
+| `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in, nội dung khác nhau theo recipient (xem NOTES) | Customer, FM |
 | `APPOINTMENT_CANCELED_NO_SHOW` | Cron hủy lịch do khách không đến (nội dung gồm thời gian hẹn cũ và link đặt lịch mới) | Customer |
 | `FS_ASSIGNED` | FM phân công FS cho lịch hẹn, nội dung gồm thông tin lịch hẹn | FS |
+| `FS_ASSIGNMENT_REQUIRED` | FM cần phân công FS cho lịch check-in chưa có nhân viên phụ trách (nội dung gồm mã đơn, thời gian hẹn, cơ sở) | FM |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại check-in và muốn re-propose, nội dung gồm mã khoang và lý do | FM |
 | `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy | Customer, FM |
-| `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer, FM |
+| `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
 | `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |

@@ -119,11 +119,10 @@
     + `unit_type` phải tồn tại và được cung cấp tại `facility`.
    - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định), `created_at` = thời điểm submit và `expires_at = created_at + request.pending_expiry_days`.
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
-  - Sau khi FM duyệt request, notification `RENTAL_REQUEST_APPROVED` được ghi vào tài khoản khách tại thời điểm `RentalOrder` được tạo (lúc này tài khoản chắc chắn đã tồn tại):
+  - Sau khi FM duyệt request, hệ thống ghi notification `RENTAL_REQUEST_APPROVED` cho khách tại thời điểm `RentalOrder` được tạo, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal. Lúc này tài khoản chắc chắn đã tồn tại:
     - **Khách đã có tài khoản**: `RentalOrder` được tạo ngay trong transaction duyệt (xem mục FM bên dưới).
     - **Khách chưa có account**: chỉ nhận email thông báo request đã được duyệt (nội dung ở mục **Hệ thống gửi email** bên dưới). Vì tài khoản chưa được tạo, email kèm link đăng ký account và nhắc rõ đây chỉ là email thông báo duyệt, khoang vẫn có thể được người khác đặt cọc. `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email.
-    - Tại thời điểm `RentalOrder` được tạo, hệ thống ghi notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal.
-    - Khách thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
+  - Khách thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
 
 - **FM:**
   - Các yêu cầu đặt khoang chứa sẽ được liệt kê ở một trang và có các nút (button) để thao tác (details, response, update status, ...), mỗi entry là một `RentalRequest`.
@@ -207,7 +206,7 @@
   - Hệ thống tạo `ProposalFeedback` với `unit_id` FM đã chỉ định và `status = Pending`;
   - Hệ thống tạo `RentalOrder` với `status = Pending`, chưa gán `unit_id`
   - Hệ thống chuyển `RentalRequest.status` sang `Converted`.
-  - Hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link tới proposal cần duyệt.
+  - Hệ thống ghi notification `RENTAL_REQUEST_APPROVED` cho khách (quy tắc và nội dung ở Flow 1.1).
 - Không tìm thấy request nào → giữ nguyên (xem Case B).
 
 **Case B: Không có yêu cầu nào được duyệt**
@@ -374,7 +373,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
     - Hệ thống cập nhật trạng thái `RentalOrder.status` sang `InProgress`.
     - Tạo notification `FS_ASSIGNED` cho FS được phân công, title “Bạn được phân công lịch check-in” và body có mã đơn, thời gian hẹn, cơ sở và thông tin khoang.
     - Nếu chưa có FS phù hợp, `Appointment.staff_id` để trống, `RentalOrder` giữ `Scheduled`
-    - Hệ thống tạo notification `APPOINTMENT_CREATED` cho FM, title “Lịch check-in chưa có nhân viên phụ trách” và body có mã đơn, thời gian hẹn, cơ sở. Không tự động gán FS.
+    - Hệ thống tạo notification `FS_ASSIGNMENT_REQUIRED` cho FM, title “Lịch check-in chưa có nhân viên phụ trách” và body có mã đơn, thời gian hẹn, cơ sở. Không tự động gán FS.
 
 **Schema có trong phần này:**
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
