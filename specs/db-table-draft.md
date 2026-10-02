@@ -469,11 +469,11 @@
 | `RENTAL_REQUEST_APPROVED` | FM duyệt yêu cầu thuê kho; nội dung gồm link trỏ tới trang để duyệt proposal và thông tin khoang theo Flow 1.1 | Customer |
 | `RENTAL_REQUEST_REJECTED` | FM từ chối yêu cầu thuê kho; nội dung gồm lý do từ chối | Customer |
 | `PROPOSAL_REJECTED` | Khách từ chối proposal; nội dung gồm mã khoang và lý do (`note`) | FM |
-| `PROPOSAL_REPROPOSAL_REQUIRED` | FM cần đề xuất lại khoang khác; nội dung gồm mã đơn và mã khoang cũ | FM |
+| `PROPOSAL_REPROPOSAL_REQUIRED` | FM cần đề xuất lại khoang khác (nội dung gồm mã đơn và mã khoang cũ) | FM |
 | `PROPOSAL_REPROPOSED` | FM tạo proposal mới; nội dung gồm link xác nhận | Customer |
 | `DEPOSIT_PAYMENT_SUCCEEDED` | Đặt cọc thành công | Customer, FM |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in; nội dung gồm địa chỉ cơ sở và hướng dẫn giấy tờ | Customer, FM |
-| `APPOINTMENT_CANCELED_NO_SHOW` | Cron hủy lịch do khách không đến; nội dung gồm thời gian hẹn cũ và link đặt lịch mới | Customer |
+| `APPOINTMENT_CANCELED_NO_SHOW` | Cron hủy lịch do khách không đến (nội dung gồm thời gian hẹn cũ và link đặt lịch mới) | Customer |
 | `FS_ASSIGNED` | FM phân công FS cho lịch hẹn; nội dung gồm thông tin lịch hẹn | FS |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại check-in và muốn re-propose; nội dung gồm mã khoang và lý do | FM |
 | `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy | Customer, FM |

@@ -120,9 +120,10 @@
    - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định), `created_at` = thời điểm submit và `expires_at = created_at + request.pending_expiry_days`.
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
   - Sau khi FM duyệt request, notification `RENTAL_REQUEST_APPROVED` được ghi vào tài khoản khách tại thời điểm `RentalOrder` được tạo (lúc này tài khoản chắc chắn đã tồn tại):
-    - **Khách đã có tài khoản**: `RentalOrder` được tạo ngay trong transaction duyệt (xem mục FM bên dưới); hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal.
-    - Khách sẽ thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
-    - **Khách chưa có account** chỉ nhận email; `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email, và notification `RENTAL_REQUEST_APPROVED` được ghi vào tài khoản tại đó.
+    - **Khách đã có tài khoản**: `RentalOrder` được tạo ngay trong transaction duyệt (xem mục FM bên dưới).
+    - **Khách chưa có account**: chỉ nhận email. `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email.
+    - Tại thời điểm `RentalOrder` được tạo, hệ thống ghi notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal.
+    - Khách thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
 
 - **FM:**
   - Các yêu cầu đặt khoang chứa sẽ được liệt kê ở một trang và có các nút (button) để thao tác (details, response, update status, ...), mỗi entry là một `RentalRequest`.
@@ -166,7 +167,8 @@
       Lưu ý: khoang chứa không được giữ trong lúc chờ. Khoang được xác nhận chính thức cho khách hàng hoàn tất thanh toán cọc đầu tiên (cọc trước giữ trước).
       ```
   - **Trong trường hợp yêu cầu được Approve nhưng chưa đặt cọc, và đã có người khác đặt cọc:**
-    - Không hủy đơn — hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body có mã đơn cùng mã khoang cũ (re-propose theo luồng 1.3); khách nhận email:
+    - Không hủy đơn — hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body có mã đơn cùng mã khoang cũ (re-propose theo luồng 1.3).
+    - Khách nhận email:
       ```
       Khoang [mã] đã có người đặt cọc trước. Cơ sở đang tìm khoang khác phù hợp cho bạn.
       ```
