@@ -27,7 +27,7 @@ public class PingFacilityController {
 
     @GetMapping("/ping-facility/{facilityId}")
     public ResponseEntity<Map<String, Object>> pingFacility(@PathVariable Long facilityId) {
-        access.can(RoleName.FM, RoleName.ADMIN, RoleName.BOM);
+        access.can(RoleName.FM, RoleName.FS, RoleName.ADMIN, RoleName.BOM);
         access.canAccessFacility(facilityId);
 
         return ResponseEntity.ok(Map.of(

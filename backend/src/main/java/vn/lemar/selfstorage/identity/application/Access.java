@@ -1,5 +1,11 @@
 package vn.lemar.selfstorage.identity.application;
 
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
@@ -7,18 +13,18 @@ import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.RoleName;
 import vn.lemar.selfstorage.identity.repository.AccountFacilityAssignmentRepository;
 
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.Set;
-
 /**
- * Diem kiem quyen DUY NHAT cua he thong (issue #15 muc 7). Moi noi can guard
- * (controller/service) chi goi 2 ham public o day. Flow 5 sau nay chi doi
- * ruot ben trong can()/canAccessFacility(), khong dung toi call site nao.
+ * Điểm kiểm quyền DUY NHẤT của hệ thống (issue #15 mục 7). Mọi nơi cần guard
+ * (controller/service) chỉ gọi 2 hàm public ở đây. Flow 5 sau này chỉ đổi
+ * ruột bên trong can()/canAccessFacility(), không đụng tới call site nào.
  *
- * <p>Ca 2 ham deu @Transactional vi Account.role la LAZY fetch va
- * open-in-view=false — phai doc role trong cung 1 session voi luc load
- * account, neu khong se gap LazyInitializationException.
+ * <p>Cả 2 hàm đều @Transactional vì Account.role là LAZY fetch và
+ * open-in-view=false: phải đọc role trong cùng 1 session với lúc load
+ * account, nếu không sẽ gặp LazyInitializationException.
+ *
+ * <p>Phạm vi cơ sở theo spec: ADMIN/BOM toàn cục; FM theo
+ * facilities.fm_account_id; FS theo account_facility_assignments; các role
+ * khác bị chặn. Caller vẫn nên gọi can() trước để kiểm role.
  *
  * <pre>
  *   access.can(RoleName.ADMIN, RoleName.BOM);
@@ -28,8 +34,11 @@ import java.util.Set;
 @Component
 public class Access {
 
-    // ADMIN, BOM co quyen toan cuc — khong scope theo facility.
-    private static final Set<RoleName> GLOBAL_FACILITY_ROLES = EnumSet.of(RoleName.ADMIN, RoleName.BOM);
+    private static final Logger LOG = LoggerFactory.getLogger(Access.class);
+
+    // ADMIN, BOM có quyền toàn cục, không bị scope theo cơ sở.
+    private static final Set<RoleName> GLOBAL_FACILITY_ROLES =
+            EnumSet.of(RoleName.ADMIN, RoleName.BOM);
 
     private final CurrentAccountProvider currentAccountProvider;
     private final AccountFacilityAssignmentRepository assignmentRepository;
@@ -41,8 +50,8 @@ public class Access {
     }
 
     /**
-     * Chan neu account hien tai khong co role nam trong allowedRoles.
-     * Throw ForbiddenException (-> 403) neu khong hop le.
+     * Chặn nếu account hiện tại không có role nằm trong allowedRoles.
+     * Ném ForbiddenException (-> 403) nếu không hợp lệ.
      */
     @Transactional(readOnly = true)
     public void can(RoleName... allowedRoles) {
@@ -53,33 +62,39 @@ public class Access {
                 .anyMatch(role -> role.name().equals(currentRoleName));
 
         if (!allowed) {
-            throw new ForbiddenException(
-                    "Role " + currentRoleName + " khong duoc phep thuc hien thao tac nay");
+            throw new ForbiddenException();
         }
     }
 
     /**
-     * Chan neu account hien tai khong duoc gan (AccountFacilityAssignment)
-     * vao facilityId nay. ADMIN/BOM luon duoc phep (khong can assignment).
-     * Throw ForbiddenException (-> 403) neu khong hop le.
+     * Chặn nếu account hiện tại không có quyền với facilityId này.
+     * ADMIN/BOM luôn được phép; FM kiểm qua facilities.fm_account_id;
+     * FS kiểm qua account_facility_assignments.
+     * Ném ForbiddenException (-> 403) nếu không hợp lệ.
      */
     @Transactional(readOnly = true)
     public void canAccessFacility(Long facilityId) {
-        Account account = currentAccountProvider.getCurrentAccount();
-        String currentRoleName = account.getRole().getName();
+        if (facilityId == null) {
+            throw new ForbiddenException("Không xác định được cơ sở cần truy cập");
+        }
 
-        boolean isGlobalRole = GLOBAL_FACILITY_ROLES.stream()
-                .anyMatch(role -> role.name().equals(currentRoleName));
-        if (isGlobalRole) {
+        Account account = currentAccountProvider.getCurrentAccount();
+        RoleName role = RoleName.valueOf(account.getRole().getName());
+
+        if (GLOBAL_FACILITY_ROLES.contains(role)) {
             return;
         }
 
-        boolean assigned = assignmentRepository.existsByAccountIdAndFacilityId(
-                account.getId(), facilityId);
+        boolean allowed = switch (role) {
+            case FM -> assignmentRepository.isFmOfFacility(account.getId(), facilityId);
+            case FS -> assignmentRepository.existsByAccountIdAndFacilityId(
+                    account.getId(), facilityId);
+            default -> false;
+        };
 
-        if (!assigned) {
-            throw new ForbiddenException(
-                    "Account khong duoc gan vao facility id=" + facilityId);
+        if (!allowed) {
+            LOG.warn("Account {} bị chặn truy cập facility {}", account.getId(), facilityId);
+            throw new ForbiddenException("Bạn không được gán vào cơ sở này");
         }
     }
 }

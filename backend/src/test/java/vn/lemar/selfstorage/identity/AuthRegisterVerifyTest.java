@@ -1,4 +1,4 @@
-package vn.lemar.selfstorage.identify;
+package vn.lemar.selfstorage.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

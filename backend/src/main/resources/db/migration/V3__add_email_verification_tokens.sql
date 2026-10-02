@@ -1,7 +1,7 @@
 ﻿-- ============================================================================
 -- V3 — Email verification tokens (A3a-BE)
--- Mirror byte-identical tại backend/sql/schema.sql (append cuối file) — nhớ
--- cập nhật cả 2 nơi + specs/db-table-draft.md.
+-- Migration độc lập: KHÔNG mirror vào backend/sql/schema.sql (schema.sql chỉ
+-- mirror V1). Bảng này cần được ghi vào specs/db-table-draft.md.
 -- ============================================================================
 
 CREATE TABLE email_verification_tokens (

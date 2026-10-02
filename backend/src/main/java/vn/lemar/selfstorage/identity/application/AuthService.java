@@ -8,7 +8,11 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.mail.MailException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -36,7 +40,7 @@ import vn.lemar.selfstorage.identity.repository.RoleRepository;
 
 @Service
 public class AuthService {
-
+    private static final Logger LOG = LoggerFactory.getLogger(AuthService.class);
     private static final int TOKEN_BYTES = 32;
     private static final long TOKEN_TTL_HOURS = 24;
 
@@ -69,6 +73,7 @@ public class AuthService {
         this.mailSender = mailSender;
         this.verifyBaseUrl = verifyBaseUrl;
         this.mailFrom = mailFrom;
+
     }
 
     @Transactional(readOnly = true)
@@ -110,7 +115,6 @@ public class AuthService {
 
         issueVerificationToken(account);
         return new RegisterResponse(
-                account.getId(),
                 account.getEmail(),
                 "Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.");
     }
@@ -121,12 +125,13 @@ public class AuthService {
                 .findByTokenHash(sha256Hex(request.token()))
                 .orElseThrow(InvalidOrExpiredTokenException::new);
 
-        if (token.isConsumed() || token.isExpired()) {
+        Long accountId = token.getAccount().getId();
+        int updated = tokenRepository.consumeIfValid(token.getId(), Instant.now());
+        if (updated == 0) {
             throw new InvalidOrExpiredTokenException();
         }
 
-        token.markConsumed();
-        token.getAccount().markEmailVerified();
+        accountRepository.findById(accountId).orElseThrow().markEmailVerified();
     }
 
     @Transactional
@@ -161,14 +166,33 @@ public class AuthService {
         message.setTo(to);
         message.setSubject("Xác thực tài khoản Self Storage");
         message.setText("""
-                Chào bạn,
+            Chào bạn,
 
-                Vui lòng bấm vào link sau để xác thực email (hiệu lực 24 giờ):
-                %s
+            Vui lòng bấm vào link sau để xác thực email (hiệu lực 24 giờ):
+            %s
 
-                Nếu bạn không thực hiện đăng ký này, hãy bỏ qua email này.
-                """.formatted(verifyLink));
-        mailSender.send(message);
+            Nếu bạn không thực hiện đăng ký này, hãy bỏ qua email này.
+            """.formatted(verifyLink));
+
+        // Gửi SAU khi commit: lỗi mail không được rollback account/token (AGENTS.md).
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deliver(message, to);
+                }
+            });
+        } else {
+            deliver(message, to);
+        }
+    }
+
+    private void deliver(SimpleMailMessage message, String to) {
+        try {
+            mailSender.send(message);
+        } catch (MailException ex) {
+            LOG.error("Gửi mail xác thực thất bại cho {}", to, ex);
+        }
     }
 
     private String generateRawToken() {
