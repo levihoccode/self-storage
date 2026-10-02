@@ -119,10 +119,10 @@
     + `unit_type` phải tồn tại và được cung cấp tại `facility`.
    - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định), `created_at` = thời điểm submit và `expires_at = created_at + request.pending_expiry_days`.
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
-  - **Khách đã có tài khoản** sau khi FM duyệt request:
-    - Hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, với title “Yêu cầu thuê kho đã được duyệt” và body thông báo yêu cầu đã được duyệt, kèm link trỏ tới trang để duyệt proposal.
-    - Khách sẽ thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc
-    - **Khách chưa có account** chỉ nhận email; notification `RENTAL_REQUEST_APPROVED` phát khi `RentalOrder` được tạo sau khi khách xác minh email.
+  - Sau khi FM duyệt request, notification `RENTAL_REQUEST_APPROVED` được ghi vào tài khoản khách tại thời điểm `RentalOrder` được tạo (lúc này tài khoản chắc chắn đã tồn tại):
+    - **Khách đã có tài khoản**: `RentalOrder` được tạo ngay trong transaction duyệt (xem mục FM bên dưới); hệ thống tạo notification `RENTAL_REQUEST_APPROVED` cho khách, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal.
+    - Khách sẽ thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
+    - **Khách chưa có account** chỉ nhận email; `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email, và notification `RENTAL_REQUEST_APPROVED` được ghi vào tài khoản tại đó.
 
 - **FM:**
   - Các yêu cầu đặt khoang chứa sẽ được liệt kê ở một trang và có các nút (button) để thao tác (details, response, update status, ...), mỗi entry là một `RentalRequest`.
@@ -166,8 +166,7 @@
       Lưu ý: khoang chứa không được giữ trong lúc chờ. Khoang được xác nhận chính thức cho khách hàng hoàn tất thanh toán cọc đầu tiên (cọc trước giữ trước).
       ```
   - **Trong trường hợp yêu cầu được Approve nhưng chưa đặt cọc, và đã có người khác đặt cọc:**
-    - Không hủy đơn — hệ thống thông báo FM để đề xuất lại khoang khác (re-propose theo luồng 1.3)
-    - Không hủy đơn — hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body có mã đơn cùng mã khoang cũ; khách nhận email:
+    - Không hủy đơn — hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body có mã đơn cùng mã khoang cũ (re-propose theo luồng 1.3); khách nhận email:
       ```
       Khoang [mã] đã có người đặt cọc trước. Cơ sở đang tìm khoang khác phù hợp cho bạn.
       ```
@@ -235,7 +234,7 @@
   - *Đồng ý*:
     - Hệ thống kiểm tra khoang vẫn `Available`; nếu không (đã `Reserved`/`Maintenance`):
       - Không cho đồng ý, hiển thị thông báo "Khoang đã có người đặt cọc / không khả dụng".
-      - Hệ thống tạo notification `PROPOSAL_REPROPOSED` cho FM, title “Cần đề xuất khoang khác” và body nêu mã đơn cùng khoang không còn khả dụng.
+      - Hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body nêu mã đơn cùng khoang không còn khả dụng.
       - Proposal hiện tại chuyển `Expired` (khoang không còn khả dụng).
       - Khách hàng duyệt proposal mới sau khi FM đề xuất.
     - Hệ thống cập nhật bản ghi của `ProposalFeedback` sang `Agreed`
@@ -295,7 +294,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
       Khoang chứa đã được đặt cọc bởi khách hàng khác. Hóa đơn này đã hết hiệu lực.
       ```
     - Hệ thống sửa trạng thái của hóa đơn này (`Invoice.status`) trong tài khoản thành `Canceled`.
-    - Hệ thống tạo notification `PROPOSAL_REPROPOSED` cho FM, title “Cần đề xuất khoang khác” và body nêu mã đơn cùng khoang không còn khả dụng.
+    - Hệ thống tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body nêu mã đơn cùng khoang không còn khả dụng.
     - Trả về trang "Hóa đơn".
   - **Khoang chứa đang bảo trì (status = `Maintenance`):**
     - `RentalOrder` giữ nguyên (không hủy đơn)
@@ -304,7 +303,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
       Khoang chứa hiện không khả dụng. Vui lòng liên hệ cơ sở để được hỗ trợ.
       ```
     - Hệ thống cập nhật `Invoice.status` = `Canceled`
-    - Tạo notification `PROPOSAL_REPROPOSED` cho FM, title “Cần đề xuất khoang khác” và body nêu mã đơn cùng khoang đang bảo trì.
+    - Tạo notification `PROPOSAL_REPROPOSAL_REQUIRED` cho FM, title “Cần đề xuất khoang khác” và body nêu mã đơn cùng khoang đang bảo trì.
     - Trả về trang "Hóa đơn".
   - **Khoang chứa đang có giao dịch khác xử lý (chưa bị timeout):**
     - Hệ thống từ chối giao dịch và hiển thị lỗi:
@@ -878,7 +877,7 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
   - Nếu `now < RentalOrder.expires_at`:
     - `RentalOrder.status` quay về `Deposited`.
     - `StorageUnit` tiếp tục giữ `Reserved`.
-    - Gửi thông báo và cho phép khách đặt lịch mới.
+    - Gửi notification `APPOINTMENT_CANCELED_NO_SHOW` cho khách (title “Lịch hẹn check-in đã bị hủy do bạn không đến”, body có thời gian hẹn cũ và link đặt lịch mới) và cho phép khách đặt lịch mới.
   - Nếu `now >= RentalOrder.expires_at`:
     - `RentalOrder.status = Expired`.
     - `StorageUnit.status` chuyển từ `Reserved` về `Available`.
