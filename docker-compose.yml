@@ -42,11 +42,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/self_storage
       DB_USER: self_storage
       DB_PASSWORD: self_storage
       REDIS_HOST: redis
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
     ports:
       - "8080:8080"
 
