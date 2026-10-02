@@ -1,7 +1,7 @@
 /**
- * Flow 4 - business rules, báº£ng giÃ¡ vÃ  danh má»¥c phÃ­.
+ * Flow 4 - business rules, bảng giá và danh mục phí.
  *
- * <p>Module ná»n, khÃ´ng phá»¥ thuá»™c ngÆ°á»£c láº¡i module nghiá»‡p vá»¥ nÃ o (issue #15 má»¥c 1).
+ * <p>Module nền, không phụ thuộc ngược lại module nghiệp vụ nào (issue #15 mục 1).
  */
 @org.springframework.modulith.ApplicationModule(displayName = "Pricing (F4)", allowedDependencies = {})
 package vn.lemar.selfstorage.pricing;

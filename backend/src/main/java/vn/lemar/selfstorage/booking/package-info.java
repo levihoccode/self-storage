@@ -1,8 +1,8 @@
 /**
- * Flow 1 - Ä‘áº·t kho: yÃªu cáº§u thuÃª, Ä‘á» xuáº¥t khoang, Ä‘áº·t cá»c vÃ  chá»n lá»‹ch check-in.
+ * Flow 1 - đặt kho: yêu cầu thuê, đề xuất khoang, đặt cọc và chọn lịch check-in.
  *
- * <p>Äáº§u chuá»—i phá»¥ thuá»™c: khÃ´ng Ä‘Æ°á»£c gá»i sang handover, checkout hay tenancy.
- * Muá»‘n bÃ¡o cho cÃ¡c module sau thÃ¬ dÃ¹ng domain event (issue #15 má»¥c 1).
+ * <p>Đầu chuỗi phụ thuộc: không được gọi sang handover, checkout hay tenancy.
+ * Muốn báo cho các module sau thì dùng domain event (issue #15 mục 1).
  */
 @org.springframework.modulith.ApplicationModule(
         displayName = "Booking (F1)",

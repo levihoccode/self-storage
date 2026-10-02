@@ -1,5 +1,5 @@
 /**
- * Gá»­i email vÃ  thÃ´ng bÃ¡o web, Ä‘á»c tá»« báº£ng OutboxEvent (issue #15 má»¥c 4).
+ * Gửi email và thông báo web, đọc từ bảng OutboxEvent (issue #15 mục 4).
  */
 @org.springframework.modulith.ApplicationModule(displayName = "Notification", allowedDependencies = {})
 package vn.lemar.selfstorage.notification;

@@ -1,7 +1,7 @@
 /**
- * Flow 7 - yÃªu cáº§u há»— trá»£ vÃ  xá»­ lÃ½ sá»± cá»‘.
+ * Flow 7 - yêu cầu hỗ trợ và xử lý sự cố.
  *
- * <p>Chiá»u phá»¥ thuá»™c cá»§a F7 chÆ°a Ä‘Æ°á»£c chá»‘t trong issue #15 nÃªn táº¡m Ä‘á»ƒ má»Ÿ.
+ * <p>Chiều phụ thuộc của F7 chưa được chốt trong issue #15 nên tạm để mở.
  */
 @org.springframework.modulith.ApplicationModule(displayName = "Support (F7)")
 package vn.lemar.selfstorage.support;
