@@ -695,8 +695,47 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 **FLOW:**
 ```
-[Yêu cầu trả kho] -> [Hẹn lịch trả] -> [FS kiểm tra khoang] -> [Xử lý phí phát sinh] -> [Thu hồi quyền truy cập] -> [Hoàn cọc] -> [Bảo trì] -> [Khoang về Available]
+[Yêu cầu trả kho — Flow 3.4]
+          │
+          ▼
+[2.a.1 Hẹn lịch trả kho]
+          │
+          ▼
+[2.a.2 FS kiểm tra khoang, lập CheckoutRecord]
+          │
+   ┌──────┴──────────────────────────────┐
+   │ (Còn tài sản)                       │ (Khoang trống)
+   ▼                                     ▼
+[PENDING_ITEMS: hẹn lịch mới,     [Thu hồi quyền truy cập]
+ kiểm tra lại tới khi trống]             │
+   │                               ┌─────┴──────┐
+   │                               │ (Đủ)       │ (Thiếu chìa)
+   │                               ▼            ▼
+   │                         [Revoked]   [UnitKey = Lost]
+   │                                            │
+   │                                     (thay ổ — thủ công)
+   └──────────────┬─────────────────────────────┘
+                  ▼
+      [2.a.3 Đối trừ cọc với phí phát sinh]
+                  │
+         ┌────────┴─────────┐
+         │ (Cọc > phí)      │ (Cọc < phí)
+         ▼                  ▼
+   [Hoàn phần dư]    [Thu phần thiếu]
+         │                  │
+         └────────┬─────────┘
+                  ▼
+     [2.a.4 Khoang -> Maintenance, hợp đồng -> Ended]
+                  │
+         ┌────────┴─────────────┐
+         │ (Đủ điều kiện an toàn) │ (Không đủ)
+         ▼                       ▼
+ [Khoang -> Available]    [Giữ Maintenance]
 ```
+
+**Ngoài luồng trên:**
+- Quá `items_deadline_at` hoặc `fee_deadline_at` → Flow 6.
+- Sự cố khi khoang đang thuê → Flow 7.
 
 #### Điều kiện và dữ liệu đầu vào
 - **Flow 3:**
@@ -720,7 +759,17 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 |---|---:|
 | `unit.maintenance_days` | 1-3 ngày |
 
-**Vị trí trong vòng đời thuê kho:** Flow 2.a nhận đầu vào từ Flow 3.4 (khách bấm yêu cầu trả kho) và xử lý toàn bộ phần on-site. Kết thúc khi khoang hoàn tất bảo trì và quay về `Available`, sẵn sàng cho yêu cầu mới ở Flow 1. Đây là điểm đóng vòng đời của một `RentalOrder`.
+**Vị trí trong vòng đời thuê kho:**
+- **Chỉ kích hoạt khi Flow 3.4 gửi yêu cầu**: khách bấm [Trả kho] và `ReturnRequest` chuyển `Assigned`. Khoang còn đang thuê bình thường thì flow này không chạy.
+- **Trong phạm vi**: toàn bộ phần on-site — hẹn lịch trả kho, FS kiểm tra hiện trạng, xử lý phí phát sinh và đối trừ tiền cọc, thu hồi quyền truy cập, bảo trì và mở lại khoang.
+- **Kết thúc**: `ReturnRequest` `Completed`, `RentalContract` `Ended`, khoang về `Available` — điểm đóng vòng đời của một `RentalOrder`.
+- **Ngoài phạm vi**:
+  - Quản lý khoang đang thuê, khách gửi yêu cầu gia hạn → Flow 3.
+  - Tiền thuê định kỳ quá hạn, quá hạn dọn nốt, không thanh toán khoản thiếu, tài sản bỏ quên → Flow 6.
+  - Sự cố khoang trong lúc thuê, yêu cầu hỗ trợ, dọn dẹp theo yêu cầu → Flow 7.
+  - `ExtraFee`, `unit.maintenance_days`, chính sách thời hạn dọn nốt và xử lý cọc → Flow 4.
+  - Ai được phân công FS → Flow 3.4. Nhân sự theo cơ sở và cờ `enabledKeyAccess`/`enabledCodeAccess` → Flow 5.
+  - Trả kho sớm và hoàn tiền thuê chưa dùng → chưa làm, nằm ở **Advanced Features** cuối mục 2.a.
 
 **Context:** Khách kết thúc nhu cầu thuê và muốn trả lại khoang chứa, cần có người kiểm tra hiện trạng, xử lý các khoản phát sinh và thu hồi quyền truy cập trước khi khoang được cho thuê lại.
 
@@ -728,7 +777,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 
 **Context:** Khách đã gửi yêu cầu trả kho. `ReturnRequest` được Flow 3 chuyển sang `Assigned` và đã có FS do FM phân công.
 
-**Flow tổng quát:** Hệ thống tạo lịch `RETURN` -> khách chuẩn bị khoang trước ngày hẹn -> FS tiếp nhận buổi trả kho.
+**Flow tổng quát:** Hệ thống tạo `Appointment.type = RETURN` -> khách chuẩn bị khoang trước ngày hẹn -> FS tiếp nhận buổi trả kho.
 
 **Details:**
 - **Hệ thống:**
