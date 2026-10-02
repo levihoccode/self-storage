@@ -154,6 +154,7 @@
 - Không tạo proposal hoặc Appointment mới.
 - `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
 - `Appointment` chưa diễn ra (`Pending`) chuyển `Canceled` kèm `cancel_reason`; lịch đã `Done` giữ nguyên.
+- Tạo notification `RENTAL_ORDER_CANCELED` cho khách có account và FM, title “Đơn thuê kho đã bị hủy” và body có mã đơn cùng lý do hủy.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -470,3 +471,42 @@
 **NOTES:**
 - Bảng key-value để BOM cấu hình (MVP chưa có UI — Flow 4).
 - Danh sách key + giá trị mặc định đang dùng nằm trong `draft.md` (Flow 1 §1.1, Flow 2 §2.1); key "chờ BOM" chưa seed.
+
+# Notification
+**Overview:** thông báo web cho người dùng. Email chỉ gửi đi (không lưu) — fail không rollback nghiệp vụ.
+- account_id (N - 1: Account) - người nhận
+- type - loại thông báo theo catalog trong NOTES
+- title
+- body
+- read_at (nullable)
+- created_at
+
+**NOTES:**
+- Email: dev dùng MailHog. Khi fail chỉ log + vẫn lưu thông báo web.
+- Email và thông báo web dùng cùng `title`/`body`. Cách trình bày có thể khác nhau.
+- `type` là catalog riêng, tách khỏi audit catalog. Khi thêm một luồng notification đã biết, bổ sung type tương ứng.
+- `OTHER` chỉ dùng cho thông báo khẩn cấp thủ công khi chưa có type phù hợp. Không dùng thay cho một type nghiệp vụ đã biết. `title` và `body` phải mô tả cụ thể sự việc.
+- Quyền tạo `OTHER` phải được giới hạn cho người có quyền.
+- Chưa có bảng template. MVP lưu template theo `type` trong code. Template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
+- `RENTAL_REQUEST_APPROVED` chỉ phát khi `RentalOrder` được tạo, tức khi account đã tồn tại. Khách chưa có account chỉ nhận email duyệt ở Flow 1.1, notification phát ở Flow 1.2 sau khi xác minh email. Nội dung email duyệt khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại áp dụng sau khi account đã tồn tại.
+- Index `(account_id, read_at)` cho lọc và đếm chưa đọc, và index `(account_id, created_at DESC)` cho list sắp xếp và phân trang.
+- Một số type render khác nhau theo recipient. Ví dụ `APPOINTMENT_CREATED` gửi khách ngày/giờ, địa chỉ cơ sở và hướng dẫn giấy tờ. Gửi FM mã đơn, thời gian hẹn và cơ sở.
+- Chưa làm: nhắc nhở gần hết hạn. Dự kiến gửi notification nhắc trước khi hết hạn, cần chốt deadline áp dụng (request, proposal, deposit hoặc hold) và cron.
+- Notification type catalog:
+
+| Type | Khi nào dùng | Recipient |
+|---|---|---|
+| `RENTAL_REQUEST_APPROVED` | FM duyệt yêu cầu thuê kho, nội dung gồm link trỏ tới trang để duyệt proposal và thông tin khoang theo Flow 1.1 | Customer |
+| `RENTAL_REQUEST_REJECTED` | FM từ chối yêu cầu thuê kho, nội dung gồm lý do từ chối | Customer |
+| `PROPOSAL_REJECTED` | Khách từ chối proposal, nội dung gồm mã khoang và lý do (`note`) | FM |
+| `PROPOSAL_REPROPOSAL_REQUIRED` | FM cần đề xuất lại khoang khác (nội dung gồm mã đơn và mã khoang cũ) | FM |
+| `PROPOSAL_REPROPOSED` | FM tạo proposal mới, nội dung gồm link xác nhận | Customer |
+| `DEPOSIT_PAYMENT_SUCCEEDED` | Đặt cọc thành công | Customer |
+| `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in, nội dung khác nhau theo recipient (xem NOTES) | Customer, FM |
+| `APPOINTMENT_CANCELED_NO_SHOW` | Cron hủy lịch do khách không đến (nội dung gồm thời gian hẹn cũ và link đặt lịch mới) | Customer |
+| `FS_ASSIGNED` | FM phân công FS cho lịch hẹn, nội dung gồm thông tin lịch hẹn | FS |
+| `FS_ASSIGNMENT_REQUIRED` | FM cần phân công FS cho lịch check-in chưa có nhân viên phụ trách (nội dung gồm mã đơn, thời gian hẹn, cơ sở) | FM |
+| `HANDOVER_REJECTED` | Khách từ chối khoang tại check-in và muốn re-propose, nội dung gồm mã khoang và lý do | FM |
+| `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy | Customer, FM |
+| `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
+| `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |
