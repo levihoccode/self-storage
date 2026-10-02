@@ -1,12 +1,19 @@
 package vn.lemar.selfstorage.payment.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Phản hồi trả về cho VNPay khi nhận IPN.
  *
  * <p>Mã trả về quyết định VNPay có gọi lại hay không: {@code 00} và {@code 02} là chốt, các mã
  * còn lại khiến VNPay retry tối đa 10 lần, mỗi lần cách 5 phút.
+ *
+ * <p>Tên field JSON phải là {@code RspCode}/{@code Message} viết hoa chữ đầu đúng như tài liệu
+ * VNPay. Trả về chữ thường thì VNPay không đọc được, coi như merchant chưa xác nhận và retry
+ * đủ 10 lần.
  */
-public record IpnResponse(String rspCode, String message) {
+public record IpnResponse(@JsonProperty("RspCode") String rspCode,
+                          @JsonProperty("Message") String message) {
 
     public static IpnResponse success() {
         return new IpnResponse("00", "Confirm Success");

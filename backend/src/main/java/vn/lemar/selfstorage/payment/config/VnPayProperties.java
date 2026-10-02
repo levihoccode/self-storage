@@ -1,6 +1,8 @@
 package vn.lemar.selfstorage.payment.config;
 
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Cấu hình VNPay, đọc từ biến môi trường qua `application.yml`.
@@ -10,5 +12,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param payUrl     endpoint cổng thanh toán
  * @param returnUrl  nơi VNPay đẩy trình duyệt khách về sau khi thanh toán
  */
+@Validated
 @ConfigurationProperties(prefix = "vnpay")
-public record VnPayProperties(String tmnCode, String hashSecret, String payUrl, String returnUrl) {}
+public record VnPayProperties(
+        @NotBlank String tmnCode,
+        @NotBlank String hashSecret,
+        @NotBlank String payUrl,
+        @NotBlank String returnUrl) {}

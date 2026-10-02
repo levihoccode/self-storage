@@ -1,6 +1,8 @@
 package vn.lemar.selfstorage.payment.controller;
 
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +16,8 @@ import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
 @RestController
 @RequestMapping("/api/payments/vnpay")
 public class VnPayCallbackController {
+
+    private static final Logger LOG = LoggerFactory.getLogger(VnPayCallbackController.class);
 
     private final PaymentService paymentService;
     private final PaymentGateway gateway;
@@ -36,9 +40,19 @@ public class VnPayCallbackController {
                 "txnRef", params.getOrDefault("vnp_TxnRef", "")));
     }
 
-    /** Nơi server VNPay gọi vào. Đây mới là nguồn xác nhận thanh toán. */
+    /**
+     * Nơi server VNPay gọi vào. Đây mới là nguồn xác nhận thanh toán.
+     *
+     * <p>Lỗi ngoài dự kiến được dịch thành {@code 99} thay vì để bật lên HTTP 500: VNPay đọc được
+     * mã này và sẽ retry. Bắt ở đây chứ không bắt trong service để transaction vẫn rollback.
+     */
     @GetMapping("/ipn")
     public ResponseEntity<IpnResponse> handleIpn(@RequestParam Map<String, String> params) {
-        return ResponseEntity.ok(paymentService.handleIpn(params));
+        try {
+            return ResponseEntity.ok(paymentService.handleIpn(params));
+        } catch (RuntimeException e) {
+            LOG.error("IPN lỗi ngoài dự kiến, vnp_TxnRef={}", params.get("vnp_TxnRef"), e);
+            return ResponseEntity.ok(IpnResponse.unknownError());
+        }
     }
 }

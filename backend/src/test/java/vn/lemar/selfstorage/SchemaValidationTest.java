@@ -11,7 +11,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Boot context trên Postgres đã migrate — Hibernate (`ddl-auto=validate`) đối chiếu
  * entity với schema V1/V2; lệch là CI đỏ. Máy không có Docker thì test tự skip.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+        // `vnpay.*` để @NotBlank (A6) nên thiếu là context không load được — đó là chủ đích,
+        // app phải chết lúc khởi động thay vì NPE giữa luồng thu tiền. Test này không đụng tới
+        // thanh toán nên chỉ cần giá trị giả cho qua.
+        "vnpay.tmn-code=TESTTMN1",
+        "vnpay.hash-secret=0123456789abcdef0123456789abcdef",
+        "vnpay.pay-url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+        "vnpay.return-url=http://localhost:8080/api/payments/vnpay/return"
+})
 @Testcontainers(disabledWithoutDocker = true)
 class SchemaValidationTest {
 
