@@ -8,6 +8,7 @@ import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedExce
 import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidOrExpiredTokenException;
+import vn.lemar.selfstorage.identity.application.exception.UnauthenticatedException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -33,6 +34,11 @@ public class AuthExceptionHandler {
     @ExceptionHandler(InvalidOrExpiredTokenException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidToken(InvalidOrExpiredTokenException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex.getMessage()));
+    }
+
+    @ExceptionHandler(UnauthenticatedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthenticated(UnauthenticatedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody(ex.getMessage()));
     }
 
     private Map<String, Object> errorBody(String message) {

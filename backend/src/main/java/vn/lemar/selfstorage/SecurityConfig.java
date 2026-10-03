@@ -2,12 +2,14 @@ package vn.lemar.selfstorage;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import vn.lemar.selfstorage.identity.application.IdentityWebSecuritySupport;
 
 /**
@@ -28,6 +30,8 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
@@ -36,6 +40,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // Siết tối thiểu: cần token hợp lệ (thiếu token -> 401).
+                        .requestMatchers("/api/me/**").authenticated()
                         // TODO(identity): doi sang hasRole khi bat authorization
                         .requestMatchers("/api/customer/**").permitAll()
                         .requestMatchers("/api/staff/**").permitAll()

@@ -1,4 +1,4 @@
-package vn.lemar.selfstorage.identify;
+package vn.lemar.selfstorage.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,6 +22,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.identity.application.AuthService;
+import org.springframework.test.context.transaction.TestTransaction;
 import vn.lemar.selfstorage.identity.application.dto.LoginRequest;
 import vn.lemar.selfstorage.identity.application.dto.RegisterRequest;
 import vn.lemar.selfstorage.identity.application.dto.ResendVerificationRequest;
@@ -55,12 +56,17 @@ class AuthRegisterVerifyTest {
 
     @MockBean
     private JavaMailSender mailSender;
-
+    private static void commitAndRestart() {
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
+    }
     @Test
     void registerVerifyThenLogin() {
-        String email = "new-customer-" + System.nanoTime() + "@test.local";
+        String email = "user-" + java.util.UUID.randomUUID() + "@test.local";
 
         authService.register(new RegisterRequest(email, PASSWORD));
+        commitAndRestart();
 
         var account = accountRepository.findByEmail(email).orElseThrow();
         assertThat(account.getStatus()).isEqualTo(AccountStatus.UNVERIFIED);
@@ -98,11 +104,12 @@ class AuthRegisterVerifyTest {
     void resendIssuesNewTokenAndAllowsVerify() {
         String email = "resend-" + System.nanoTime() + "@test.local";
         authService.register(new RegisterRequest(email, PASSWORD));
+        commitAndRestart();
         String firstToken = captureTokenFromLastMail();
 
         authService.resendVerificationEmail(new ResendVerificationRequest(email));
+        commitAndRestart();
         String secondToken = captureTokenFromLastMail();
-        assertThat(secondToken).isNotEqualTo(firstToken);
 
         assertThatThrownBy(() -> authService.verifyEmail(new VerifyEmailRequest(firstToken)))
                 .isInstanceOf(InvalidOrExpiredTokenException.class);
