@@ -25,8 +25,8 @@ CREATE TABLE accounts (
     password_hash     VARCHAR(255) NOT NULL,
     email_verified_at TIMESTAMPTZ,
     role_id           BIGINT NOT NULL REFERENCES roles (id),
-    status            VARCHAR(20) NOT NULL DEFAULT 'UNVERIFIED'
-                      CHECK (status IN ('ACTIVE', 'UNVERIFIED', 'LOCKED', 'BANNED')),
+    status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                      CHECK (status IN ('ACTIVE', 'BANNED')),
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

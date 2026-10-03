@@ -14,16 +14,16 @@ INSERT INTO roles (name) VALUES
     ('FS'),
     ('CUSTOMER');
 
--- Accounts dev — đủ 5 role + 2 ca đặc biệt để test login/chặn login
+-- Accounts dev — đủ 5 role + 2 ca đặc biệt (chưa xác minh email / bị chặn)
 INSERT INTO accounts (email, password_hash, email_verified_at, role_id, status) VALUES
-    ('admin@lemar.vn',    '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'ADMIN'),    'ACTIVE'),
-    ('bom1@lemar.vn',     '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'BOM'),      'ACTIVE'),
-    ('fm1@lemar.vn',      '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'FM'),       'ACTIVE'),
-    ('fm2@lemar.vn',      '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'FM'),       'ACTIVE'),
-    ('fs1@lemar.vn',      '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'FS'),       'ACTIVE'),
-    ('customer1@lemar.vn','$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'ACTIVE'),
-    ('unverified@lemar.vn','$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', NULL, (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'UNVERIFIED'),
-    ('locked@lemar.vn',   '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5Cvzoy9zAxUpN1L8O0.z7VZgLdz9i', now(), (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'LOCKED');
+    ('admin@lemar.vn',    '$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'ADMIN'),    'ACTIVE'),
+    ('bom1@lemar.vn',     '$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'BOM'),      'ACTIVE'),
+    ('fm1@lemar.vn',      '$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'FM'),       'ACTIVE'),
+    ('fm2@lemar.vn',      '$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'FM'),       'ACTIVE'),
+    ('fs1@lemar.vn',      '$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'FS'),       'ACTIVE'),
+    ('customer1@lemar.vn','$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'ACTIVE'),
+    ('unverified@lemar.vn','$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', NULL, (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'ACTIVE'),
+    ('banned@lemar.vn',   '$2a$10$RSb.3SX6jl/QwQ.O2Lbt1uXgErlw5Gy9o7XHMkxLTiUoDAyuYMpJW', now(), (SELECT id FROM roles WHERE name = 'CUSTOMER'), 'BANNED');
 
 -- Facility dev: Q7 (fm1) + TD (fm2) — đủ để test cross-facility 403 (A3b, #59)
 INSERT INTO facilities (code, name, address, operating_hours, status, fm_account_id) VALUES
