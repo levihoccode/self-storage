@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -40,7 +41,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    PasswordEncoder passwordEncoder(
+            @Value("${security.password.bcrypt-strength:10}") int bcryptStrength) {
+        return new BCryptPasswordEncoder(bcryptStrength);
     }
 }
