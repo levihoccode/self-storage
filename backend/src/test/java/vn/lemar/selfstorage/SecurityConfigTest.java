@@ -30,7 +30,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = SecurityConfigTest.ProbeController.class)
-@Import({SecurityConfig.class, JwtConfiguration.class, AccountJwtAuthenticationConverter.class})
+@Import({
+        SecurityConfig.class,
+        JwtConfiguration.class,
+        AccountJwtAuthenticationConverter.class,
+        SecurityConfigTest.ProbeController.class
+})
 @TestPropertySource(properties = {
         "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 })
@@ -53,8 +58,9 @@ class SecurityConfigTest {
 
     @Test
     void activeDatabaseRoleCanAccessMatchingRoute() throws Exception {
+        Account customer = account("CUSTOMER", AccountStatus.ACTIVE);
         when(accountRepository.findWithRoleByEmail("customer@example.com"))
-                .thenReturn(Optional.of(account("CUSTOMER", AccountStatus.ACTIVE)));
+                .thenReturn(Optional.of(customer));
 
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
@@ -63,8 +69,9 @@ class SecurityConfigTest {
 
     @Test
     void databaseRoleCannotAccessDifferentRoleRoute() throws Exception {
+        Account fm = account("FM", AccountStatus.ACTIVE);
         when(accountRepository.findWithRoleByEmail("fm@example.com"))
-                .thenReturn(Optional.of(account("FM", AccountStatus.ACTIVE)));
+                .thenReturn(Optional.of(fm));
 
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com")))
@@ -73,8 +80,9 @@ class SecurityConfigTest {
 
     @Test
     void accountStatusIsReadAgainFromDatabaseForEachRequest() throws Exception {
+        Account locked = account("CUSTOMER", AccountStatus.LOCKED);
         when(accountRepository.findWithRoleByEmail("customer@example.com"))
-                .thenReturn(Optional.of(account("CUSTOMER", AccountStatus.LOCKED)));
+                .thenReturn(Optional.of(locked));
 
         mockMvc.perform(get("/api/internal/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
