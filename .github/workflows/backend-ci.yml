@@ -51,6 +51,31 @@ jobs:
         working-directory: backend
         run: ./mvnw -B verify
 
+      - name: Tóm tắt coverage (JaCoCo)
+        if: steps.scope.outputs.run == 'true' && !cancelled()
+        run: |
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          path = "backend/target/site/jacoco/jacoco.xml"
+          if not os.path.exists(path):
+              print("Không có jacoco.xml — build chưa tới bước report.")
+              raise SystemExit(0)
+
+          root = ET.parse(path).getroot()
+          summary = ["## Backend coverage (JaCoCo)", "", "| Counter | Covered | Total | % |", "|---|---|---|---|"]
+          for counter in root.findall("counter"):
+              covered, missed = int(counter.get("covered")), int(counter.get("missed"))
+              total = covered + missed
+              pct = f"{covered / total * 100:.1f}%" if total else "n/a"
+              print(f"{counter.get('type'):12} {pct:>7}  ({covered}/{total})")
+              summary.append(f"| {counter.get('type')} | {covered} | {total} | {pct} |")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(summary) + "\n")
+          PY
+
       - name: Set up Python (cho diff-cover)
         if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
         uses: actions/setup-python@v5
@@ -60,14 +85,22 @@ jobs:
       - name: Cổng coverage — dòng thay đổi ≥ 80% (diff-cover)
         # Bypass hợp lệ (rất hiếm): nhãn 'waiver' — ví dụ PR hợp nhất code cũ chưa có test.
         if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'waiver')
-        working-directory: backend
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           python3 -m pip install --quiet diff-cover
-          diff-cover target/site/jacoco/jacoco.xml \
+          diff-cover backend/target/site/jacoco/jacoco.xml \
+            --src-roots backend/src/main/java \
             --compare-branch="$BASE_SHA" \
             --fail-under=80 \
-            --html-report target/site/jacoco/diff-cover.html \
+            --format html:backend/target/site/jacoco/diff-cover.html \
             --show-uncovered
+
+      - name: Lưu báo cáo coverage (artifact)
+        if: steps.scope.outputs.run == 'true' && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/target/site/jacoco
+          if-no-files-found: ignore
