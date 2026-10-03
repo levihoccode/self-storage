@@ -1,7 +1,7 @@
 /**
- * Flow 3 - quáº£n lÃ½ kho Ä‘ang thuÃª: gia háº¡n, yÃªu cáº§u tráº£ kho, bÃ¡o sá»± cá»‘.
+ * Flow 3 - quản lý kho đang thuê: gia hạn, yêu cầu trả kho, báo sự cố.
  *
- * <p>Chiá»u phá»¥ thuá»™c theo issue #15: tenancy -> handover -> booking.
+ * <p>Chiều phụ thuộc theo issue #15: tenancy -> handover -> booking.
  */
 @org.springframework.modulith.ApplicationModule(
         displayName = "Tenancy (F3)",
