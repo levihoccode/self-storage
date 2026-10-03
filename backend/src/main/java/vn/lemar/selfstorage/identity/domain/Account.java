@@ -43,7 +43,7 @@ public class Account {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Setter
-    private AccountStatus status = AccountStatus.UNVERIFIED;
+    private AccountStatus status = AccountStatus.ACTIVE;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -52,7 +52,6 @@ public class Account {
         this.email = normalize(email);
         this.passwordHash = passwordHash;
         this.role = role;
-        this.status = AccountStatus.UNVERIFIED;
     }
 
     public static String normalize(String rawEmail) {
@@ -69,8 +68,5 @@ public class Account {
 
     public void markEmailVerified() {
         this.emailVerifiedAt = Instant.now();
-        if (this.status == AccountStatus.UNVERIFIED) {
-            this.status = AccountStatus.ACTIVE;
-        }
     }
 }

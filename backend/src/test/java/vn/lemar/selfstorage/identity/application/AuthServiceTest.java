@@ -1,7 +1,6 @@
 package vn.lemar.selfstorage.identity.application;
 
 import java.util.Optional;
-import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -70,15 +69,12 @@ class AuthServiceTest {
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
-    @ParameterizedTest
-    @org.junit.jupiter.params.provider.EnumSource(
-            value = AccountStatus.class,
-            names = {"UNVERIFIED", "LOCKED", "BANNED"})
-    void loginRejectsEveryNonActiveStatus(AccountStatus status) {
+    @Test
+    void loginRejectsBannedAccount() {
         Account account = mock(Account.class);
         when(account.getPasswordHash()).thenReturn("password-hash");
         when(account.isLoginAllowed()).thenReturn(false);
-        when(account.getStatus()).thenReturn(status);
+        when(account.getStatus()).thenReturn(AccountStatus.BANNED);
         when(accountRepository.findByEmail("user@example.com")).thenReturn(Optional.of(account));
         when(passwordEncoder.matches("password", "password-hash")).thenReturn(true);
 

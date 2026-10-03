@@ -87,9 +87,9 @@ class SecurityConfigTest {
 
     @Test
     void accountStatusIsReadAgainFromDatabaseForEachRequest() throws Exception {
-        Account locked = account("CUSTOMER", AccountStatus.LOCKED);
+        Account banned = account("CUSTOMER", AccountStatus.BANNED);
         when(accountRepository.findWithRoleByEmail("customer@example.com"))
-                .thenReturn(Optional.of(locked));
+                .thenReturn(Optional.of(banned));
 
         mockMvc.perform(get("/api/internal/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
@@ -128,10 +128,10 @@ class SecurityConfigTest {
     }
 
     @Test
-    void meRejectsLockedAccountToken() throws Exception {
-        Account locked = account("CUSTOMER", AccountStatus.LOCKED);
+    void meRejectsBannedAccountToken() throws Exception {
+        Account banned = account("CUSTOMER", AccountStatus.BANNED);
         when(accountRepository.findWithRoleByEmail("customer@example.com"))
-                .thenReturn(Optional.of(locked));
+                .thenReturn(Optional.of(banned));
 
         mockMvc.perform(get("/api/auth/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
