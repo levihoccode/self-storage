@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.identity.application.dto.LoginRequest;
 import vn.lemar.selfstorage.identity.application.dto.LoginResponse;
+import vn.lemar.selfstorage.identity.application.dto.MeResponse;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.domain.Account;
@@ -44,8 +45,15 @@ public class AuthService {
         return new LoginResponse(
                 account.getId(),
                 account.getEmail(),
-                account.getRole().getName(),
                 jwtService.issueAccessToken(account)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public MeResponse me(String email) {
+        Account account = accountRepository.findWithRoleByEmail(Account.normalize(email))
+                .orElseThrow(InvalidCredentialsException::new);
+
+        return new MeResponse(account.getEmail(), account.getRole().getName());
     }
 }

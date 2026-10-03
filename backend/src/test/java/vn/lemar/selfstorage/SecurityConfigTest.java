@@ -18,7 +18,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
+import vn.lemar.selfstorage.identity.application.AuthService;
+import vn.lemar.selfstorage.identity.application.dto.MeResponse;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
+import vn.lemar.selfstorage.identity.controller.AuthController;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.domain.Role;
@@ -27,9 +30,10 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = SecurityConfigTest.ProbeController.class)
+@WebMvcTest(controllers = {SecurityConfigTest.ProbeController.class, AuthController.class})
 @Import({
         SecurityConfig.class,
         JwtConfiguration.class,
@@ -49,6 +53,9 @@ class SecurityConfigTest {
 
     @MockBean
     private AccountRepository accountRepository;
+
+    @MockBean
+    private AuthService authService;
 
     @Test
     void protectedRouteRejectsMissingToken() throws Exception {
@@ -97,6 +104,38 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("deleted@example.com")))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void meRejectsAnonymousRequest() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void meReturnsCurrentAccountForActiveToken() throws Exception {
+        Account customer = account("CUSTOMER", AccountStatus.ACTIVE);
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(customer));
+        when(authService.me("customer@example.com"))
+                .thenReturn(new MeResponse("customer@example.com", "CUSTOMER"));
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("customer@example.com"))
+                .andExpect(jsonPath("$.role").value("CUSTOMER"));
+    }
+
+    @Test
+    void meRejectsLockedAccountToken() throws Exception {
+        Account locked = account("CUSTOMER", AccountStatus.LOCKED);
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(locked));
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isForbidden());
     }
 
     private Account account(String roleName, AccountStatus status) {

@@ -1,8 +1,7 @@
 package vn.lemar.selfstorage.identity.application.dto;
 
-public record LoginResponse(
-        Long accountId,
+public record MeResponse(
         String email,
-        String token
+        String role
 ) {
 }
