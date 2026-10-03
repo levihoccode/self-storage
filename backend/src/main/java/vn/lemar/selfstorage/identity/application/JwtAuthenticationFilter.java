@@ -12,6 +12,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 import java.io.IOException;
 import java.util.List;
@@ -23,9 +25,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final AccountRepository accountRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, AccountRepository accountRepository) {
         this.jwtService = jwtService;
+        this.accountRepository = accountRepository;
     }
 
     @Override
@@ -37,17 +41,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HEADER);
 
         if (header != null && header.startsWith(PREFIX)) {
+            SecurityContextHolder.clearContext();
             String token = header.substring(PREFIX.length());
             try {
                 Claims claims = jwtService.parseAndValidate(token);
-                String accountId = claims.getSubject();
-                String role = claims.get("role", String.class);
+                String email = claims.getSubject();
+                Account account = accountRepository.findByEmail(email).orElse(null);
 
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        accountId, null, authorities);
+                if (account != null && account.isLoginAllowed()) {
+                    String role = account.getRole().getName();
+                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            String.valueOf(account.getId()), null, authorities);
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             } catch (JwtException | IllegalArgumentException ex) {
                 SecurityContextHolder.clearContext();
             }

@@ -1,12 +1,14 @@
 package vn.lemar.selfstorage.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,8 +71,19 @@ class AuthLoginHttpTest {
         String token = body.get("accessToken").asText();
 
         var claims = jwtService.parseAndValidate(token);
-        assertThat(claims.getSubject()).isEqualTo(String.valueOf(accountId));
-        assertThat(claims.get("email", String.class)).isEqualTo(email);
-        assertThat(claims.get("role", String.class)).isEqualTo(expectedRole);
+        assertThat(claims.getSubject()).isEqualTo(email);
+        assertThat(claims.get("email")).isNull();
+        assertThat(claims.get("role")).isNull();
+
+        mockMvc.perform(get("/api/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subject").value(String.valueOf(accountId)))
+                .andExpect(jsonPath("$.authorities[0]").value("ROLE_" + expectedRole));
+    }
+
+    @Test
+    void meRequiresAnAccessToken() throws Exception {
+        mockMvc.perform(get("/api/me"))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -8,8 +8,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mail.MailException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -31,6 +33,7 @@ import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsExc
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidOrExpiredTokenException;
 import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.domain.EmailVerificationToken;
 import vn.lemar.selfstorage.identity.domain.Role;
 import vn.lemar.selfstorage.identity.domain.RoleName;
@@ -111,7 +114,14 @@ public class AuthService {
 
         Role role = roleRepository.findByName(RoleName.CUSTOMER.name()).orElseThrow();
         Account account = new Account(email, passwordEncoder.encode(request.password()), role);
-        accountRepository.save(account);
+        try {
+            accountRepository.saveAndFlush(account);
+        } catch (DataIntegrityViolationException ex) {
+            if (isEmailUniqueConstraintViolation(ex)) {
+                throw new EmailAlreadyExistsException();
+            }
+            throw ex;
+        }
 
         issueVerificationToken(account);
         return new RegisterResponse(
@@ -138,7 +148,11 @@ public class AuthService {
     public ResendVerificationResponse resendVerificationEmail(ResendVerificationRequest request) {
         String email = Account.normalize(request.email());
         accountRepository.findByEmail(email).ifPresent(account -> {
-            if (account.isLoginAllowed()) {
+            if (account.getStatus() == AccountStatus.LOCKED
+                    || account.getStatus() == AccountStatus.BANNED) {
+                throw new AccountNotAllowedException(account.getStatus());
+            }
+            if (account.getStatus() != AccountStatus.UNVERIFIED) {
                 return;
             }
             tokenRepository.findByAccountIdAndConsumedAtIsNull(account.getId())
@@ -149,6 +163,18 @@ public class AuthService {
             issueVerificationToken(account);
         });
         return new ResendVerificationResponse(RESEND_ACK_MESSAGE);
+    }
+
+    private boolean isEmailUniqueConstraintViolation(DataIntegrityViolationException exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof ConstraintViolationException violation
+                    && "accounts_email_key".equals(violation.getConstraintName())) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     private void issueVerificationToken(Account account) {

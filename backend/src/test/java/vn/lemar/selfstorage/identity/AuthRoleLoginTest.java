@@ -79,8 +79,8 @@ class AuthRoleLoginTest {
         assertThat(response.expiresInSeconds()).isPositive();
 
         var claims = jwtService.parseAndValidate(response.accessToken());
-        assertThat(claims.getSubject()).isEqualTo(String.valueOf(account.getId()));
-        assertThat(claims.get("email", String.class)).isEqualTo(email);
-        assertThat(claims.get("role", String.class)).isEqualTo(roleName.name());
+        assertThat(claims.getSubject()).isEqualTo(email);
+        assertThat(claims.get("email")).isNull();
+        assertThat(claims.get("role")).isNull();
     }
 }

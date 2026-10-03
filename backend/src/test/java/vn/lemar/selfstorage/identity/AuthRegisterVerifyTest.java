@@ -9,6 +9,8 @@ import static org.mockito.Mockito.verify;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,7 +33,10 @@ import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedExce
 import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidOrExpiredTokenException;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
+import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.RoleName;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
+import vn.lemar.selfstorage.identity.repository.RoleRepository;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -53,6 +58,9 @@ class AuthRegisterVerifyTest {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
 
     @MockBean
     private JavaMailSender mailSender;
@@ -123,6 +131,26 @@ class AuthRegisterVerifyTest {
         var response = authService.resendVerificationEmail(
                 new ResendVerificationRequest("nobody-" + System.nanoTime() + "@test.local"));
         assertThat(response.message()).contains("Nếu email tồn tại");
+        verify(mailSender, org.mockito.Mockito.never()).send(any(SimpleMailMessage.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = AccountStatus.class, names = {"LOCKED", "BANNED"})
+    void resendForLockedOrBannedAccountReturnsStatusErrorWithoutMail(AccountStatus status) {
+        String email = status.name().toLowerCase() + "-" + System.nanoTime() + "@test.local";
+        Account account = new Account(
+                email,
+                "unused-password-hash",
+                roleRepository.findByName(RoleName.CUSTOMER.name()).orElseThrow());
+        account.setStatus(status);
+        accountRepository.saveAndFlush(account);
+
+        assertThatThrownBy(() -> authService.resendVerificationEmail(
+                new ResendVerificationRequest(email)))
+                .isInstanceOf(AccountNotAllowedException.class)
+                .hasMessage(status == AccountStatus.LOCKED
+                        ? "Tài khoản đang bị khóa"
+                        : "Tài khoản đã bị cấm");
         verify(mailSender, org.mockito.Mockito.never()).send(any(SimpleMailMessage.class));
     }
 
