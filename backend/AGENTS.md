@@ -1,20 +1,3 @@
-Dockerfile:5
-
---------------------
-
-   3 |     WORKDIR /app
-
-   4 |     COPY pom.xml .
-
-   5 | >>> RUN mvn -B -q dependency:go-offline
-
-   6 |     COPY src ./src
-
-   7 |     RUN mvn -B -q clean package -DskipTests
-
---------------------
-
-failed to solve: process "/bin/sh -c mvn -B -q dependency:go-offline" did not complete successfully: exit code: 1
 # AGENTS.md — backend
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · Maven wrapper · Postgres · Redis
