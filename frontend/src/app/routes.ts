@@ -8,5 +8,10 @@ export function viewFromLocation(): View {
   if (path === "/verify-email") return "verify";
   if (path === "/rental-requests/new") return "request";
   if (path === "/my-storage") return "my-storage";
+  if (path.startsWith("/my-storage/")) return "contract-detail";
+  if (path === "/proposals") return "proposals";
+  if (path === "/invoices") return "invoices";
+  if (path === "/appointments/new") return "appointments";
+  if (path === "/notifications") return "notifications";
   return "home";
 }

@@ -17,6 +17,16 @@ dist/
 Thumbs.db
 *.log
 
+# AI coding agent tooling/skills — local dev environment only, not project
+# code. These got committed by mistake and bloated the clone (~28MB total,
+# including a 14MB binary and cached decision images); PR #23 review flagged
+# it as repo hygiene. Untracked here, not deleted, so local setups keep
+# working; the narrower rules below (impeccable-ignore-start/end) are the
+# tool's own auto-managed block, left as-is.
+.agents/
+.codex/
+.impeccable/
+
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-developer overrides.
 .impeccable/config.local.json
