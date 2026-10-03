@@ -367,3 +367,22 @@ CREATE TABLE audit_logs (
 
 CREATE INDEX idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at);
+
+-- ---------------------------------------------------------------------------
+-- V3 — Email verification tokens (A3a-BE); mirror V3__add_email_verification_tokens.sql
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE email_verification_tokens (
+    id          BIGSERIAL PRIMARY KEY,
+    account_id  BIGINT NOT NULL REFERENCES accounts (id),
+    token_hash  VARCHAR(255) NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_email_verification_tokens_account ON email_verification_tokens (account_id);
+
+CREATE UNIQUE INDEX uq_email_verification_tokens_active
+    ON email_verification_tokens (account_id)
+    WHERE consumed_at IS NULL;
