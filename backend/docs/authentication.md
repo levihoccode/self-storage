@@ -2,7 +2,7 @@
 
 Mô hình xác thực của backend: stateless JWT + đọc DB mỗi request.
 Tài liệu này trả lời **"bạn là ai"** (authentication); phần **"bạn được làm gì"** (authorization)
-nằm ở [index.md › Policy route](index.md#policy-route-securityconfig).
+nằm ở [authorization.md](authorization.md).
 
 ## Tổng quan
 
