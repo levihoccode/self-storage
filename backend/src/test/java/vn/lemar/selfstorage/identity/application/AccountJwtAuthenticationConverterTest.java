@@ -40,6 +40,15 @@ class AccountJwtAuthenticationConverterTest {
     }
 
     @Test
+    void rejectsJwtWithBlankEmailClaim() {
+        Jwt jwt = jwt("   ");
+
+        assertThatThrownBy(() -> converter.convert(jwt))
+                .isInstanceOf(InvalidBearerTokenException.class)
+                .hasMessageContaining("email");
+    }
+
+    @Test
     void rejectsJwtForUnknownAccount() {
         when(accountRepository.findWithRoleByEmail("ghost@example.com")).thenReturn(Optional.empty());
 
