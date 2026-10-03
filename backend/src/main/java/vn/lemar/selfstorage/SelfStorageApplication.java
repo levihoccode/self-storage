@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Äiá»ƒm khá»Ÿi Ä‘á»™ng cá»§a há»‡ thá»‘ng self-storage.
+ * Điểm khởi động của hệ thống self-storage.
  *
- * <p>Kiáº¿n trÃºc modular monolith theo issue #15: má»—i flow nghiá»‡p vá»¥ lÃ  má»™t package con
- * trá»±c tiáº¿p cá»§a package nÃ y vÃ  Ä‘Æ°á»£c Spring Modulith coi lÃ  má»™t module Ä‘á»™c láº­p.
+ * <p>Kiến trúc modular monolith theo issue #15: mỗi flow nghiệp vụ là một package con
+ * trực tiếp của package này và được Spring Modulith coi là một module độc lập.
  */
 @SpringBootApplication
 public class SelfStorageApplication {
