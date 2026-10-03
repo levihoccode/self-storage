@@ -84,6 +84,27 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginRejectsUnknownEmail() {
+        when(accountRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest("ghost@example.com", "password")))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void loginAllowsActiveAccountWithoutEmailVerification() {
+        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
+        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
+        when(passwordEncoder.matches("password", "hash")).thenReturn(true);
+        when(jwtService.issueAccessToken(account)).thenReturn("signed.jwt.token");
+
+        LoginResponse response = authService.login(new LoginRequest("customer@example.com", "password"));
+
+        assertThat(account.isVerified()).isFalse();
+        assertThat(response.token()).isEqualTo("signed.jwt.token");
+    }
+
+    @Test
     void meReturnsEmailAndRoleForCurrentAccount() {
         Account account = new Account("Customer@Example.com ", "hash", new Role("CUSTOMER"));
         when(accountRepository.findWithRoleByEmail("customer@example.com")).thenReturn(Optional.of(account));
