@@ -79,7 +79,8 @@ class AuthServiceTest {
         when(passwordEncoder.matches("password", "password-hash")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("user@example.com", "password")))
-                .isInstanceOf(AccountNotAllowedException.class)
+                .isInstanceOfSatisfying(AccountNotAllowedException.class,
+                        ex -> assertThat(ex.getStatus()).isEqualTo(AccountStatus.BANNED))
                 .hasMessageNotContaining("Email hoặc mật khẩu");
     }
 

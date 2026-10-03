@@ -15,6 +15,7 @@ import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -45,5 +46,15 @@ class JwtServiceTest {
         assertThat(token.getClaims()).doesNotContainKey("sub");
         assertThat(token.getClaimAsString("iss")).isEqualTo("self-storage");
         assertThat(token.getExpiresAt()).isEqualTo(token.getIssuedAt().plus(Duration.ofMinutes(15)));
+    }
+
+    @Test
+    void constructorRejectsNonPositiveTtl() {
+        JwtEncoder encoder = mock(JwtEncoder.class);
+
+        assertThatThrownBy(() -> new JwtService(encoder, Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new JwtService(encoder, Duration.ofMinutes(-1)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

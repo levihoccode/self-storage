@@ -63,7 +63,7 @@ spec-gap gate above — docs never justify behavior the spec does not define.
 
 ## Commands
 
-- Build + tests + module boundary check: `./mvnw -B verify` (gồm Checkstyle lint — rule tối thiểu, `backend/checkstyle.xml` — và cổng coverage LINE ≥ 80%)
+- Build + tests + module boundary check: `./mvnw -B verify` (gồm Checkstyle lint — rule tối thiểu, `backend/checkstyle.xml` — và cổng coverage LINE/BRANCH ≥ 80%)
 - Single test class: `./mvnw -B test -Dtest=<ClassName>`
 - Run the app: `./mvnw spring-boot:run` (needs `docker compose up -d` for Postgres + Redis)
 
