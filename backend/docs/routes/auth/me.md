@@ -30,7 +30,7 @@ Không có body/query. Route nằm dưới `/api/auth/**` nhưng được match 
 | Status | Điều kiện | Body |
 |---|---|---|
 | 401 | Thiếu token / sai chữ ký / hết hạn / account đã bị xóa | Thường không có body (resource server trả trước controller) |
-| 403 | Token hợp lệ nhưng account không ACTIVE (`LOCKED` / `BANNED` / `UNVERIFIED`) | Không kèm body lỗi nghiệp vụ (Spring Security mặc định) |
+| 403 | Token hợp lệ nhưng account `BANNED` | Không kèm body lỗi nghiệp vụ (Spring Security mặc định) |
 
 ## Ví dụ
 
