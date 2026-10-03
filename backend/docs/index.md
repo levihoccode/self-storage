@@ -76,11 +76,15 @@ Chi tiết: `backend/sql/README.md`.
 docker compose up -d                  # Postgres + Redis + MailHog
 cd backend && ./mvnw spring-boot:run  # chạy app
 
-./mvnw -B verify                      # checkstyle + test + module boundary
+./mvnw -B verify                      # checkstyle + test + module boundary + coverage ≥80%
 ```
 
 > Lưu ý: `MigrationTest` và `SchemaValidationTest` tự skip khi máy không có Docker/Testcontainers,
 > nên `verify` local có thể xanh mà chưa validate Flyway/schema — CI mới chạy đủ hai test này.
+
+Coverage: `verify` chạy **cổng LINE ≥ 80%** toàn codebase (JaCoCo check) — dưới ngưỡng là đỏ.
+CI chặn thêm **dòng thay đổi ≥ 80%** (diff-cover) và lưu artifact `backend-coverage`
+(HTML + XML + `diff-cover.html`). Báo cáo local: `backend/target/site/jacoco/index.html`.
 
 Swagger UI: `http://localhost:8080/swagger-ui/index.html` — đã khai báo bearer scheme;
 bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi API cần đăng nhập.
