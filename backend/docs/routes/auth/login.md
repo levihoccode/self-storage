@@ -11,7 +11,7 @@
 
 | Field | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
-| `email` | string | ✔ | `@NotBlank` + `@Email`; chuẩn hoá `trim` + lowercase trước khi so |
+| `email` | string | ✔ | Validate `@NotBlank` + `@Email` trước (email có khoảng trắng đầu/cuối → 400); service sau đó chuẩn hoá `trim` + lowercase |
 | `password` | string | ✔ | `@NotBlank` |
 
 ```json

@@ -28,7 +28,7 @@ cd frontend && npm ci && npm run dev
 	chỉ cho local. Khi chạy `mvnw spring-boot:run` trực tiếp, đặt `JWT_SECRET` trong environment trước.
 - `JWT_ACCESS_TOKEN_TTL` là thời hạn access token dạng ISO-8601, mặc định `PT15M`.
 - Build + test BE: `cd backend && ./mvnw -B verify` (JaCoCo bật sẵn; CI chặn PR có dòng thay đổi coverage < 80%).
-- Seed dev (Flyway V2): các account `@lemar.vn` (admin/bom1/fm1/fm2/fs1/customer1/unverified/banned) — mật khẩu `Test@1234`; A3 sẽ thay bằng luồng auth thật.
+- Seed dev (Flyway V2): 8 account `@lemar.vn` (admin/bom1/fm1/fm2/fs1/customer1/unverified/banned) — mật khẩu `Test@1234`. `unverified` đăng nhập được nhưng chưa xác minh email; `banned` bị chặn (403). Đăng ký / verify email thuộc A3a.
 
 ## Cấu trúc
 

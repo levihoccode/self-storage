@@ -77,7 +77,8 @@ Chạy local không cần export tay: `application.yml` có
 Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__baseline_seed.sql`.
 Bản đọc được mirror ở `backend/sql/` — sửa SQL thì sửa cả hai nơi (CI check đồng bộ).
 
-Seed dev có 8 account `@lemar.vn` (đủ 5 role + 2 ca đặc biệt), mật khẩu `Test@1234`.
+Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
+(chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
@@ -91,6 +92,9 @@ cd backend && ./mvnw spring-boot:run  # chạy app
 
 ./mvnw -B verify                      # checkstyle + test + module boundary
 ```
+
+> Lưu ý: `MigrationTest` và `SchemaValidationTest` tự skip khi máy không có Docker/Testcontainers,
+> nên `verify` local có thể xanh mà chưa validate Flyway/schema — CI mới chạy đủ hai test này.
 
 Swagger UI: `http://localhost:8080/swagger-ui/index.html` — đã khai báo bearer scheme;
 bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi API cần đăng nhập.
