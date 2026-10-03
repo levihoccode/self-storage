@@ -3,10 +3,15 @@
 # Account
 - id
 - email (unique, normalized)
-- email_verified_at (nullable)
+- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) KHÔNG chặn đăng nhập,
+  nhưng chặn các thao tác yêu cầu xác minh (tối thiểu: claim/liên kết `RentalRequest` — Flow 1 §1.2;
+  các flow khác bổ sung khi triển khai)
 - role_id (N - 1: Role)
 - status
+  - ACTIVE: đang hoạt động — được đăng nhập/gọi API
+  - BANNED: bị admin chặn — không được đăng nhập/gọi API
 - created_at
+
 # Role
 **Overview:** vai trò trong hệ thống. Mỗi account được gán đúng một role qua `Account.role_id`; Admin quản lý, không hard-code trong source code.
 - id
@@ -459,6 +464,10 @@
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
+| `ACCOUNT_REGISTERED` | Tạo tài khoản mới | `Account` | Customer/Admin |
+
+- Xác minh email không tạo `AuditLog`; bản ghi là `Account.email_verified_at`. Nếu sau này có đường
+  verify khác self-service (admin verify hộ, đổi email re-verify), phải bổ sung action tương ứng.
 
 # Policy
 **Owner:** Flow 4 (business rules & phí); các flow chỉ đọc qua key.
