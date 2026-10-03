@@ -82,7 +82,7 @@ cd backend && ./mvnw spring-boot:run  # chạy app
 > Lưu ý: `MigrationTest` và `SchemaValidationTest` tự skip khi máy không có Docker/Testcontainers,
 > nên `verify` local có thể xanh mà chưa validate Flyway/schema — CI mới chạy đủ hai test này.
 
-Coverage: `verify` chạy **cổng LINE ≥ 80%** toàn codebase (JaCoCo check) — dưới ngưỡng là đỏ.
+Coverage: `verify` chạy **cổng LINE và BRANCH ≥ 80%** toàn codebase (JaCoCo check) — dưới ngưỡng là đỏ.
 CI chặn thêm **dòng thay đổi ≥ 80%** (diff-cover) và lưu artifact `backend-coverage`
 (HTML + XML + `diff-cover.html`). Báo cáo local: `backend/target/site/jacoco/index.html`.
 
