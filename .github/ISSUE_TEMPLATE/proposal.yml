@@ -1,0 +1,94 @@
+name: Proposal (đề xuất)
+description: Muốn thêm hoặc đổi thứ gì đó. Không phải bug, không phải spec gap đang chặn implement.
+title: "proposal: "
+labels: ["proposal"]
+assignees: ["levihoccode"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Phân biệt với Spec gap:**
+
+        - **Spec gap** — spec không nói, hoặc nói hai kiểu, và bạn **đang bị chặn**. Phải mở trước khi code tiếp.
+        - **Proposal** (form này) — spec đã rõ, bạn **chủ động muốn đổi/thêm**. Không chặn ai, nhưng cũng không được tự implement trước khi được duyệt.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Loại đề xuất
+      options:
+        - Đổi spec / luồng nghiệp vụ
+        - Feature mới
+        - Refactor / cấu trúc code
+        - Hạ tầng / CI
+        - Quy trình làm việc
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Vấn đề hiện tại
+      description: Cái gì đang tệ, ai chịu ảnh hưởng, tốn bao nhiêu
+    validations:
+      required: true
+
+  - type: input
+    id: evidence
+    attributes:
+      label: Bằng chứng
+      description: Vấn đề có thật — số liệu, log, output lệnh, hoặc đường dẫn file:dòng
+      placeholder: "backend/.../HandoverService.java:142 — 3 chỗ gọi trùng logic"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Đề xuất
+      description: Cụ thể, tới mức người khác làm theo được
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Phạm vi ảnh hưởng
+      description: File / module / flow / spec nào phải sửa. Có migration hay đổi API contract không?
+      value: |
+        Module: …
+        Spec phải sửa: …
+        Migration: …
+        Đổi contract FE: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Đã cân nhắc gì khác
+      description: Phương án khác và lý do không chọn. Không làm gì cả thì sao?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Ước lượng công
+      options:
+        - Nhỏ (dưới 1 ngày)
+        - Vừa (1-3 ngày)
+        - Lớn (hơn 3 ngày)
+        - Chưa rõ
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Xác nhận
+      options:
+        - label: Không tự implement trước khi @levihoccode duyệt proposal này.
+          required: true
+        - label: Nếu proposal đổi hành vi đã định nghĩa, tôi sẽ sửa spec và code trong cùng một PR sau khi được duyệt.
+          required: true
