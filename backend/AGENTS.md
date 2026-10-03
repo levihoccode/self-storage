@@ -102,3 +102,8 @@ spec-gap gate above — docs never justify behavior the spec does not define.
   200 with an error payload.
 - Schema changes only via migrations; no `ddl-auto`. Seed data lives in `V2__baseline_seed.sql`
   (mirror in `backend/sql/seed.sql`).
+- JPA entities use Lombok sparingly: `@Getter` (+ `@Setter` only where needed / via domain methods)
+  and `@NoArgsConstructor(access = PROTECTED)`. Do **not** use `@Data`, or default `@ToString` /
+  `@EqualsAndHashCode` on entities — lazy associations get loaded by surprise (or recurse infinitely),
+  and `hashCode` changes after persist because the generated id is assigned late. `@Builder` /
+  `@AllArgsConstructor` must be paired with `@NoArgsConstructor` to keep the constructor JPA requires.
