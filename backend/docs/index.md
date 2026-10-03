@@ -39,24 +39,10 @@ Code map (identity):
 ## Xác thực & phân quyền
 
 Mô hình stateless JWT: access token chỉ mang claim `email`; role + status được đọc lại từ DB
-mỗi request. Luồng đăng nhập, cấu trúc token, 401 vs 403 và các giới hạn hiện tại:
-[authentication.md](authentication.md).
+mỗi request. Chi tiết:
 
-### Policy route (SecurityConfig)
-
-| Route | Yêu cầu |
-|---|---|
-| `/api/health`, `/api/auth/**` | public — **trừ** `/api/auth/me` |
-| `/api/auth/me` | Bearer token + `ACCOUNT_ACTIVE` (match trước rule public) |
-| `/api/customer/**` | `ROLE_CUSTOMER` |
-| `/api/staff/**` | `ROLE_FS` |
-| `/api/fm/**` | `ROLE_FM` |
-| `/api/bom/**` | `ROLE_BOM` |
-| `/api/admin/**` | `ROLE_ADMIN` |
-| `/api/**` (còn lại) | `ACCOUNT_ACTIVE` |
-
-**401 vs 403**: chưa xác thực được (thiếu/sai/hết hạn token, account đã bị xóa) → `401`;
-đã xác thực nhưng thiếu quyền (sai role, status không ACTIVE) → `403`.
+- [authentication.md](authentication.md) — danh tính, token, luồng xác thực mỗi request, giới hạn.
+- [authorization.md](authorization.md) — authorities, policy route, 401 vs 403, điều kiện xác minh email.
 
 ## Cấu hình
 
@@ -122,6 +108,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | Tài liệu | Nội dung |
 |---|---|
 | [authentication.md](authentication.md) | Mô hình xác thực: token, luồng request, giới hạn |
+| [authorization.md](authorization.md) | Mô hình phân quyền: authorities, policy route, điều kiện xác minh |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |

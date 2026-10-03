@@ -73,6 +73,13 @@ if (account.isLoginAllowed()) {
 return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 ```
 
+## Trạng thái account
+
+- `status` (`AccountStatus`): `ACTIVE` (mặc định khi tạo) | `BANNED` — chỉ dùng để chặn truy cập.
+- `email_verified_at = null` (chưa xác minh) **không chặn login**; chỉ chặn các thao tác nghiệp vụ
+  yêu cầu xác minh — xem
+  [authorization.md › Điều kiện nghiệp vụ](authorization.md#điều-kiện-nghiệp-vụ-xác-minh-email).
+
 ## Vì sao token không mang role
 
 Token mang role thì nhanh hơn (không cần query DB mỗi request), nhưng khi admin khóa tài khoản
@@ -82,12 +89,8 @@ hoặc đổi role, token cũ vẫn dùng được tới lúc hết hạn. Mô h
 
 ## 401 vs 403
 
-| Status | Ý nghĩa | Ví dụ |
-|---|---|---|
-| 401 | Chưa xác thực được — không có danh tính hợp lệ | thiếu / sai / hết hạn token; account bị xóa |
-| 403 | Đã xác thực nhưng không đủ quyền | sai role cho route; status không `ACTIVE` |
-
-Bảng policy route đầy đủ: [index.md › Policy route](index.md#policy-route-securityconfig).
+401 là lỗi xác thực, 403 là lỗi phân quyền — bảng đối chiếu, policy route và điều kiện nghiệp vụ:
+[authorization.md](authorization.md).
 
 ## Cấu hình liên quan
 
