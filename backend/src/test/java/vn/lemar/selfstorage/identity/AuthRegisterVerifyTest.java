@@ -1,0 +1,165 @@
+package vn.lemar.selfstorage.identity;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import vn.lemar.selfstorage.identity.application.AuthService;
+import org.springframework.test.context.transaction.TestTransaction;
+import vn.lemar.selfstorage.identity.application.dto.LoginRequest;
+import vn.lemar.selfstorage.identity.application.dto.RegisterRequest;
+import vn.lemar.selfstorage.identity.application.dto.ResendVerificationRequest;
+import vn.lemar.selfstorage.identity.application.dto.VerifyEmailRequest;
+import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
+import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsException;
+import vn.lemar.selfstorage.identity.application.exception.InvalidOrExpiredTokenException;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
+import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.RoleName;
+import vn.lemar.selfstorage.identity.repository.AccountRepository;
+import vn.lemar.selfstorage.identity.repository.RoleRepository;
+
+@SpringBootTest
+@Testcontainers(disabledWithoutDocker = true)
+@Transactional
+@TestPropertySource(properties = "app.verify-base-url=http://localhost:8080/api/auth/verify-email")
+class AuthRegisterVerifyTest {
+
+    private static final Pattern TOKEN_IN_MAIL =
+            Pattern.compile("verify-email\\?token=([A-Za-z0-9_-]+)");
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    private static final String PASSWORD = "Abc12345";
+
+    @Autowired
+    private AuthService authService;
+
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @MockBean
+    private JavaMailSender mailSender;
+    private static void commitAndRestart() {
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
+    }
+    @Test
+    void registerVerifyThenLogin() {
+        String email = "user-" + java.util.UUID.randomUUID() + "@test.local";
+
+        authService.register(new RegisterRequest(email, PASSWORD));
+        commitAndRestart();
+
+        var account = accountRepository.findByEmail(email).orElseThrow();
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.UNVERIFIED);
+
+        String rawToken = captureTokenFromLastMail();
+        authService.verifyEmail(new VerifyEmailRequest(rawToken));
+
+        assertThat(accountRepository.findByEmail(email).orElseThrow().isLoginAllowed()).isTrue();
+
+        var login = authService.login(new LoginRequest(email, PASSWORD));
+        assertThat(login.email()).isEqualTo(email);
+        assertThat(login.role()).isEqualTo("CUSTOMER");
+        assertThat(login.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void loginBeforeVerifyIsRejected() {
+        String email = "unverified-" + System.nanoTime() + "@test.local";
+        authService.register(new RegisterRequest(email, PASSWORD));
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest(email, PASSWORD)))
+                .isInstanceOf(AccountNotAllowedException.class);
+    }
+
+    @Test
+    void duplicateRegisterThrowsConflict() {
+        String email = "dup-" + System.nanoTime() + "@test.local";
+        authService.register(new RegisterRequest(email, PASSWORD));
+
+        assertThatThrownBy(() -> authService.register(new RegisterRequest(email, PASSWORD)))
+                .isInstanceOf(EmailAlreadyExistsException.class);
+    }
+
+    @Test
+    void resendIssuesNewTokenAndAllowsVerify() {
+        String email = "resend-" + System.nanoTime() + "@test.local";
+        authService.register(new RegisterRequest(email, PASSWORD));
+        commitAndRestart();
+        String firstToken = captureTokenFromLastMail();
+
+        authService.resendVerificationEmail(new ResendVerificationRequest(email));
+        commitAndRestart();
+        String secondToken = captureTokenFromLastMail();
+
+        assertThatThrownBy(() -> authService.verifyEmail(new VerifyEmailRequest(firstToken)))
+                .isInstanceOf(InvalidOrExpiredTokenException.class);
+
+        authService.verifyEmail(new VerifyEmailRequest(secondToken));
+        assertThat(accountRepository.findByEmail(email).orElseThrow().isLoginAllowed()).isTrue();
+    }
+
+    @Test
+    void resendForUnknownEmailStillAcknowledges() {
+        var response = authService.resendVerificationEmail(
+                new ResendVerificationRequest("nobody-" + System.nanoTime() + "@test.local"));
+        assertThat(response.message()).contains("Nếu email tồn tại");
+        verify(mailSender, org.mockito.Mockito.never()).send(any(SimpleMailMessage.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = AccountStatus.class, names = {"LOCKED", "BANNED"})
+    void resendForLockedOrBannedAccountReturnsStatusErrorWithoutMail(AccountStatus status) {
+        String email = status.name().toLowerCase() + "-" + System.nanoTime() + "@test.local";
+        Account account = new Account(
+                email,
+                "unused-password-hash",
+                roleRepository.findByName(RoleName.CUSTOMER.name()).orElseThrow());
+        account.setStatus(status);
+        accountRepository.saveAndFlush(account);
+
+        assertThatThrownBy(() -> authService.resendVerificationEmail(
+                new ResendVerificationRequest(email)))
+                .isInstanceOf(AccountNotAllowedException.class)
+                .hasMessage(status == AccountStatus.LOCKED
+                        ? "Tài khoản đang bị khóa"
+                        : "Tài khoản đã bị cấm");
+        verify(mailSender, org.mockito.Mockito.never()).send(any(SimpleMailMessage.class));
+    }
+
+    private String captureTokenFromLastMail() {
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, atLeastOnce()).send(captor.capture());
+        SimpleMailMessage message = captor.getValue();
+        Matcher matcher = TOKEN_IN_MAIL.matcher(message.getText());
+        assertThat(matcher.find()).as("verification link in mail body").isTrue();
+        return matcher.group(1);
+    }
+}

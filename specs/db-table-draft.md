@@ -33,6 +33,21 @@
 
 **NOTES:**
 - Catalog permission cụ thể và mapping mặc định cho 5 role chưa chốt (thuộc Flow 5.0); không hard-code trong source code. Khi chốt thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+
+
+# EmailVerificationToken
+**Owner:** identity (A3a)
+**Overview:** token xác minh email sau đăng ký; gửi plain token qua email, lưu SHA-256 hex trong DB.
+- account_id (N - 1: Account)
+- token_hash
+- expires_at
+- consumed_at (nullable)
+- created_at
+
+**NOTES:**
+- Mỗi account tối đa một token chưa `consumed_at` (partial unique index).
+- TTL mặc định 24 giờ (application).
+
 # Facility
 - id
 - code (unique)
