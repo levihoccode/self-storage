@@ -39,9 +39,31 @@ Issue requirements:
 
 Only the ambiguous behavior is frozen. The rest of the task continues.
 
+## Docs must follow every feat/API change — hard gate
+
+`backend/docs/` is the living documentation of the backend. **Every feat or API that is created or
+changed must be cross-checked against `backend/docs/`; if docs need an update or a new file, that
+change is mandatory and goes into the same PR.** A PR with a behavior change and stale docs is not
+done.
+
+- New route → add a row to [`docs/routes.md`](docs/routes.md) and a detail file under
+  `docs/routes/`, starting from [`docs/templates/route.md`](docs/templates/route.md).
+- Changed contract — request, response, status codes, error body → update the route's detail file.
+- Changed authorization — route policy, roles, `ACCOUNT_ACTIVE` → update `docs/routes.md` and the
+  policy table in `docs/index.md`.
+- Changed config/env, seed data, migrations, run/test commands → update the matching section in
+  `docs/index.md`.
+- Removed route → remove it from `docs/routes.md` and delete its detail file.
+
+Examples inside docs must be **real output from a running app**, never invented. If a change
+genuinely needs no docs update, state that explicitly in the PR body with the reason.
+
+`backend/docs/` is **as-built** documentation: behavior authority stays with `specs/` and the
+spec-gap gate above — docs never justify behavior the spec does not define.
+
 ## Commands
 
-- Build + tests + module boundary check: `./mvnw -B verify` (gồm Checkstyle lint — rule tối thiểu, `backend/checkstyle.xml`)
+- Build + tests + module boundary check: `./mvnw -B verify` (gồm Checkstyle lint — rule tối thiểu, `backend/checkstyle.xml` — và cổng coverage LINE/BRANCH ≥ 80%)
 - Single test class: `./mvnw -B test -Dtest=<ClassName>`
 - Run the app: `./mvnw spring-boot:run` (needs `docker compose up -d` for Postgres + Redis)
 
@@ -78,4 +100,10 @@ Only the ambiguous behavior is frozen. The rest of the task continues.
   `canAccessFacility(actor, facilityId)` — no scattered `if (role == …)`.
 - Errors: dedicated exceptions + one handler returning a consistent JSON error body; never return
   200 with an error payload.
-- Schema changes only via migrations; no `ddl-auto`. Sample data lives in `mock-data.sql`.
+- Schema changes only via migrations; no `ddl-auto`. Seed data lives in `V2__baseline_seed.sql`
+  (mirror in `backend/sql/seed.sql`).
+- JPA entities use Lombok sparingly: `@Getter` (+ `@Setter` only where needed / via domain methods)
+  and `@NoArgsConstructor(access = PROTECTED)`. Do **not** use `@Data`, or default `@ToString` /
+  `@EqualsAndHashCode` on entities — lazy associations get loaded by surprise (or recurse infinitely),
+  and `hashCode` changes after persist because the generated id is assigned late. `@Builder` /
+  `@AllArgsConstructor` must be paired with `@NoArgsConstructor` to keep the constructor JPA requires.
