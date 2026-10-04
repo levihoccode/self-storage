@@ -34,6 +34,10 @@ Account `BANNED` không được cấp authority nào → mọi route yêu cầu
 | 401 | chưa xác thực được | thiếu / sai / hết hạn token; account bị xóa |
 | 403 | đã xác thực nhưng không đủ quyền | sai role cho route; `BANNED` |
 
+Mọi 401/403 trả body `{message, timestamp}` (401 kèm header `WWW-Authenticate`): 401 message là mô
+tả lỗi token từ Spring; 403 message là `"Bạn không có quyền truy cập"` (sai role) hoặc
+`"Tài khoản đã bị chặn"` (`BANNED`).
+
 ## Điều kiện nghiệp vụ: xác minh email
 
 - Khách chưa xác minh (`email_verified_at = null`) **vẫn đăng nhập được**, nhưng không được thực hiện

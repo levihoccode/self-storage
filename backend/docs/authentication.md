@@ -10,6 +10,7 @@ nằm ở [authorization.md](authorization.md).
 - Token **chỉ mang claim `email`** — không có `role`, không có `sub`.
 - Không lưu session phía server; mỗi request tự xác thực lại.
 - Role + status đọc từ DB mỗi request (qua converter) → khóa tài khoản / đổi role có hiệu lực ngay.
+- Mọi response theo envelope chung — xem [index.md › Quy ước data contract](index.md#quy-ước-data-contract).
 
 ## Token
 
@@ -100,14 +101,17 @@ hoặc đổi role, token cũ vẫn dùng được tới lúc hết hạn. Mô h
 
 ## Tín hiệu 401 cho client
 
-Token sai / hết hạn / thiếu claim bắt buộc → 401 **body rỗng**; chi tiết nằm ở header — output thật
-từ `ExpiredTokenTest`:
+Token sai / hết hạn / thiếu claim bắt buộc → 401 body `{message, timestamp}` **và** header
+`WWW-Authenticate` (RFC 6750) — output thật:
 
 ```text
-WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Jwt expired at 2026-10-04T06:27:59Z", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
+$ curl -s -i -H 'Authorization: Bearer abc.def.ghi' http://localhost:8080/api/auth/me
+WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Malformed token", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
+{"message":"An error occurred while attempting to decode the Jwt: Malformed token","timestamp":"2026-10-04T08:14:32.840856214Z"}
 ```
 
-Client xử lý theo `status = 401` (không đọc body); refresh token (#74) sẽ bám vào tín hiệu này.
+Client xử lý theo `status = 401` (không parse message để làm logic); `message` để hiển thị/log;
+refresh token (#74) sẽ bám vào tín hiệu này.
 
 ## Cấu hình liên quan
 

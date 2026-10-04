@@ -46,9 +46,16 @@ changed must be cross-checked against `backend/docs/`; if docs need an update or
 change is mandatory and goes into the same PR.** A PR with a behavior change and stale docs is not
 done.
 
+**Contract chi tiết sống ở annotation Swagger trong code — `docs/routes/*.md` KHÔNG chép lại
+contract.** `docs/routes/` ghi usage/actor/luồng/ghi chú; field, status code, message, ví dụ body
+nằm ở `@Operation` / `@ApiResponses` / `@Schema` / `@ExampleObject` trên controller.
+
 - New route → add a row to [`docs/routes.md`](docs/routes.md) and a detail file under
-  `docs/routes/`, starting from [`docs/templates/route.md`](docs/templates/route.md).
-- Changed contract — request, response, status codes, error body → update the route's detail file.
+  `docs/routes/`, starting from [`docs/templates/route.md`](docs/templates/route.md); annotate the
+  controller for Swagger.
+- Changed contract — request, response, status codes, error body → update the Swagger annotations
+  on the controller (and `docs/index.md › Quy ước data contract` if the shape is cross-route).
+- Changed usage / actor / flow — update the route's detail file.
 - Changed authorization — route policy, roles, `ACCOUNT_ACTIVE` → update `docs/routes.md` and the
   policy table in `docs/index.md`.
 - Changed config/env, seed data, migrations, run/test commands → update the matching section in

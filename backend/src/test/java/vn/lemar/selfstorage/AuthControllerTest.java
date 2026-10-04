@@ -48,9 +48,10 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"customer@example.com\",\"password\":\"password\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accountId").value(1))
-                .andExpect(jsonPath("$.email").value("customer@example.com"))
-                .andExpect(jsonPath("$.token").value("signed.jwt.token"));
+                .andExpect(jsonPath("$.message").value("Đăng nhập thành công"))
+                .andExpect(jsonPath("$.data.accountId").value(1))
+                .andExpect(jsonPath("$.data.email").value("customer@example.com"))
+                .andExpect(jsonPath("$.data.token").value("signed.jwt.token"));
     }
 
     @Test
@@ -82,6 +83,18 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"khong-phai-email\",\"password\":\"password\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void loginRejectsMalformedJson() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"))
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 }
