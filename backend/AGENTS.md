@@ -46,9 +46,17 @@ changed must be cross-checked against `backend/docs/`; if docs need an update or
 change is mandatory and goes into the same PR.** A PR with a behavior change and stale docs is not
 done.
 
+**The detailed contract lives in the Swagger annotations in code — `docs/routes/*.md` does NOT
+duplicate it.** `docs/routes/` keeps usage / actor / flow / notes; fields, status codes, messages
+and body examples live in `@Operation` / `@ApiResponses` / `@Schema` / `@ExampleObject` on the
+controller.
+
 - New route → add a row to [`docs/routes.md`](docs/routes.md) and a detail file under
-  `docs/routes/`, starting from [`docs/templates/route.md`](docs/templates/route.md).
-- Changed contract — request, response, status codes, error body → update the route's detail file.
+  `docs/routes/`, starting from [`docs/templates/route.md`](docs/templates/route.md); annotate the
+  controller for Swagger.
+- Changed contract — request, response, status codes, error body → update the Swagger annotations
+  on the controller (and `docs/index.md › Quy ước data contract` if the shape is cross-route).
+- Changed usage / actor / flow — update the route's detail file.
 - Changed authorization — route policy, roles, `ACCOUNT_ACTIVE` → update `docs/routes.md` and the
   policy table in `docs/index.md`.
 - Changed config/env, seed data, migrations, run/test commands → update the matching section in
@@ -98,8 +106,14 @@ spec-gap gate above — docs never justify behavior the spec does not define.
   `unit_id`.
 - Authorization goes through `can(actor, action, resource)` and
   `canAccessFacility(actor, facilityId)` — no scattered `if (role == …)`.
-- Errors: dedicated exceptions + one handler returning a consistent JSON error body; never return
-  200 with an error payload.
+- Response convention: success `{message, data}` (`ApiEnvelope`), errors `{message, timestamp}`
+  (`ApiError`); dedicated exceptions + handlers, never return 200 with an error payload.
+- Unexpected exception (bug) → 500 `{"message":"Internal server error"}`; details go to the log
+  only, never into the response. Framework errors (400/404/405/415…) keep their status with a
+  Vietnamese message.
+- Advice order decides: `ExceptionHandlerExceptionResolver` uses the **first matching** advice, not
+  the most specific handler — `AuthExceptionHandler` is `@Order(HIGHEST_PRECEDENCE)`,
+  `ApiExceptionHandler` is `@Order(LOWEST_PRECEDENCE)`. New advices must set `@Order` explicitly.
 - Schema changes only via migrations; no `ddl-auto`. Seed data lives in `V2__baseline_seed.sql`
   (mirror in `backend/sql/seed.sql`).
 - JPA entities use Lombok sparingly: `@Getter` (+ `@Setter` only where needed / via domain methods)

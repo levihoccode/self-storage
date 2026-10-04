@@ -60,7 +60,9 @@ class SecurityConfigTest {
     @Test
     void protectedRouteRejectsMissingToken() throws Exception {
         mockMvc.perform(get("/api/customer/probe"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
@@ -82,7 +84,8 @@ class SecurityConfigTest {
 
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com")))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền truy cập"));
     }
 
     @Test
@@ -93,7 +96,8 @@ class SecurityConfigTest {
 
         mockMvc.perform(get("/api/internal/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản đã bị chặn"));
     }
 
     @Test
@@ -123,8 +127,9 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/auth/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("customer@example.com"))
-                .andExpect(jsonPath("$.role").value("CUSTOMER"));
+                .andExpect(jsonPath("$.message").value("Lấy thông tin tài khoản thành công"))
+                .andExpect(jsonPath("$.data.email").value("customer@example.com"))
+                .andExpect(jsonPath("$.data.role").value("CUSTOMER"));
     }
 
     @Test
@@ -135,7 +140,8 @@ class SecurityConfigTest {
 
         mockMvc.perform(get("/api/auth/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản đã bị chặn"));
     }
 
     private Account account(String roleName, AccountStatus status) {

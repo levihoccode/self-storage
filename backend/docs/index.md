@@ -35,6 +35,7 @@ Code map (identity):
 | Phát JWT | `identity/application/JwtService.java` |
 | Verify + cấp quyền theo DB | `identity/application/AccountJwtAuthenticationConverter.java`, `identity/config/JwtConfiguration.java` |
 | Khai báo route policy | `SecurityConfig.java` |
+| Envelope + lỗi chung | `ApiEnvelope.java`, `ApiError.java`, `ApiExceptionHandler.java`, `JsonAuthenticationEntryPoint.java`, `JsonAccessDeniedHandler.java` |
 
 ## Xác thực & phân quyền
 
@@ -93,19 +94,27 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 
 - Base URL: `/api`; body JSON, `Content-Type: application/json`
 - API cần đăng nhập: `Authorization: Bearer <JWT>`
-- Lỗi nghiệp vụ auth (401/403 từ `AuthExceptionHandler`):
+- **Mọi response 2xx** — envelope `{message, data}`; `message` là câu tiếng Việt để FE hiển thị
+  trực tiếp, không hardcode phía FE:
 
 ```json
-{ "message": "Email hoặc mật khẩu không đúng", "timestamp": "2026-10-03T07:26:01.508529762Z" }
+{ "message": "Đăng nhập thành công", "data": { "accountId": 6, "email": "customer1@lemar.vn", "token": "eyJ..." } }
 ```
 
-- Lỗi validate request (400) dùng format mặc định của Spring Boot:
+- **Mọi lỗi 4xx/5xx** — `{message, timestamp}`; message set trong exception/handler tương ứng:
 
 ```json
-{ "timestamp": "2026-10-03T07:26:01.620+00:00", "status": 400, "error": "Bad Request", "path": "/api/auth/login" }
+{ "message": "Email hoặc mật khẩu không đúng", "timestamp": "2026-10-04T08:14:27.947381536Z" }
 ```
 
-- 401 do thiếu token có thể **không có body** (resource server trả trước khi vào controller).
+- 400 validate/JSON hỏng dùng message chung `"Dữ liệu không hợp lệ"`; 401/403 tầng security cũng
+  trả đúng shape trên (401 giữ header `WWW-Authenticate`, không còn body rỗng).
+- Lỗi không lường trước (bug) → 500 `{"message":"Internal server error","timestamp":"..."}` —
+  chi tiết exception chỉ vào log, không lộ ra response.
+- Lỗi khung (404 sai path, 405 sai method, 415 sai content-type…) giữ đúng status, message tiếng
+  Việt tương ứng. Đây là các status **nền, áp dụng cho mọi route** — Swagger từng route không lặp lại.
+- Message cố định tiếng Việt phía BE; i18n (nếu cần) xử lý phía FE sau.
+- Chi tiết các tầng bắt lỗi và bảng status: [error-handling.md](error-handling.md).
 
 ## Mục lục
 
@@ -113,6 +122,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 |---|---|
 | [authentication.md](authentication.md) | Mô hình xác thực: token, luồng request, giới hạn |
 | [authorization.md](authorization.md) | Mô hình phân quyền: authorities, policy route, điều kiện xác minh |
+| [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |
