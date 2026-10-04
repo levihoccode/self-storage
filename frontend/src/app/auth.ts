@@ -26,8 +26,9 @@ export interface AuthGateway {
 }
 
 const SESSION_STORAGE_KEY = "kho-moc-auth-session";
-const ACCESS_TOKEN_STORAGE_KEY = "kho-moc-access-token";
 const LEGACY_DEMO_SESSION_STORAGE_KEY = "kho-moc-demo-session";
+const LEGACY_ACCESS_TOKEN_STORAGE_KEY = "kho-moc-access-token";
+const SESSION_RESTORE_TIMEOUT_MS = 8000;
 
 type LoginResponse = {
   accountId: number;
@@ -54,33 +55,13 @@ function writeSession(session: AuthSession | null) {
   try {
     if (session) {
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-      writeAccessToken(session.token);
+      window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
     } else {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      writeAccessToken(null);
+      window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
     }
   } catch {
     // The current tab can still use the in-memory session when storage is unavailable.
-  }
-}
-
-function writeAccessToken(token: string | null) {
-  try {
-    if (token) {
-      window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-    } else {
-      window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // The current tab can still use the in-memory session.
-  }
-}
-
-function readAccessToken() {
-  try {
-    return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
   }
 }
 
@@ -96,7 +77,6 @@ export const authGateway: AuthGateway = {
       });
       writeSession(null);
       listeners.forEach((listener) => listener(null));
-      writeAccessToken(loginResponse.token);
       const currentUser = await apiRequest<CurrentUserResponse>("/api/auth/me", {
         accessToken: loginResponse.token,
       });
@@ -126,15 +106,20 @@ export const authGateway: AuthGateway = {
   },
   async restoreSession() {
     const cachedSession = readSession();
-    const accessToken = readAccessToken() ?? cachedSession?.token;
+    const accessToken = cachedSession?.token;
     if (!accessToken) {
       if (cachedSession) writeSession(null);
       return null;
     }
 
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => abortController.abort(), SESSION_RESTORE_TIMEOUT_MS);
+
     try {
       const currentUser = await apiRequest<CurrentUserResponse>("/api/auth/me", {
         accessToken,
+        dispatchAuthExpired: false,
+        signal: abortController.signal,
       });
       const session: AuthSession = {
         user: {
@@ -151,12 +136,17 @@ export const authGateway: AuthGateway = {
       listeners.forEach((listener) => listener(session));
       return session;
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      if (
+        abortController.signal.aborted ||
+        (error instanceof ApiError && (error.status === 401 || error.status === 403))
+      ) {
         writeSession(null);
         listeners.forEach((listener) => listener(null));
         return null;
       }
       throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   },
   logout() {

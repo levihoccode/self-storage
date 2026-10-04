@@ -2,6 +2,8 @@ type ApiRequestOptions = {
   method?: "GET" | "POST";
   body?: unknown;
   accessToken?: string;
+  dispatchAuthExpired?: boolean;
+  signal?: AbortSignal;
 };
 
 type ApiEnvelope<T> = {
@@ -32,6 +34,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     method: options.method ?? "GET",
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: options.signal,
   });
   const responseText = await response.text();
   let responseBody: unknown = null;
@@ -45,7 +48,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   if (!response.ok) {
-    if (response.status === 401 && options.accessToken) {
+    if (response.status === 401 && options.accessToken && options.dispatchAuthExpired !== false) {
       window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
     }
 
