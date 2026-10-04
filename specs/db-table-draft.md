@@ -91,9 +91,9 @@
 - Chỉ khoang có `status = Available` mới được chỉ định hoặc đặt cọc.
 - Sau khi đặt cọc thành công: `Available → Reserved`.
 - Khi Flow 2 hoàn tất bàn giao: `Reserved → Rented`.
-- Khi đơn hàng hết hạn hoặc bị no-show sau thời hạn giữ kho: `Reserved → Available`.
+- Khi đơn hàng hết hạn (`RentalOrder.expires_at`) hoặc bị no-show sau hạn đơn: `Reserved → Available`.
 - Khoang `Maintenance` không được sử dụng trong quá trình đặt cọc.
-- Thời hạn giữ kho được xác định bằng `RentalOrder.expires_at`, không cần `hold_expires_at` trên `StorageUnit`.
+- Hạn giữ kho là phần còn lại của hạn đơn (`RentalOrder.expires_at`, tính từ lúc tạo), không cần `hold_expires_at` trên `StorageUnit`.
 
 **NOTES:**
 - Nếu `StorageUnit.monthly_price` là `null`, giá hiệu lực lấy từ `UnitType.monthly_price`.
@@ -135,6 +135,7 @@
   - Quy ước: chỉ `trim` + lowercase. Không bỏ dấu chấm hay `+tag` — đó là hành vi riêng của Gmail, không phải chuẩn chung.
 # RentalOrder
 **Overview:** chứa các thông tin đơn hàng đã được `Approved` từ FM, sử dụng cho việc hẹn lịch của FS và khách hàng để tư vấn, ký hợp đồng, xem khoang tại kho bao gồm các thông tin:
+- id - dùng làm mã đơn hiển thị cho khách trong thông báo/email
 - request_id (1 - 1: RentalRequest)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit, null cho đến khi việc chỉ định khoang chứa giữa FM và Khách hàng hoàn thành)
@@ -144,21 +145,40 @@
   - Deposited: Khách hàng đã đặt cọc
   - Scheduled: Khách đã lên lịch hẹn
   - InProgress: Đơn hàng đang được xử lý (đã có `Appointment.staff_id` được phân công)
-  - Canceled: Hủy đơn hàng
+  - Canceled: Hủy đơn hàng — khách/FM hủy hoặc quá hạn (lý do ghi trong `cancel_reason`)
   - Done: khách đã hoàn tất check-in, ký hợp đồng, thanh toán cần thiết và nhận bàn giao khoang
-  - Expired:  quá hạn không thanh toán cọc / không đặt lịch / không đến nhận theo ngưỡng.
-- expires_at (nullable) - thời điểm hết hiệu lực giữ kho sau khi đặt cọc
+- expires_at (nullable)
+  - Hạn hoàn thành của đơn, set một lần khi tạo đơn (`now + order.expiry_days`); quá hạn mà chưa `Done` → `Canceled`
+  - Mọi hạn con gắn với đơn (hóa đơn, lịch hẹn, `due_at`) không được vượt `expires_at`
 
-**Cancellation Cascade:**
+## Cancellation Cascade
+
+Mọi nhánh chuyển `RentalOrder` sang `Canceled` đều chạy các bước dưới đây. Lý do ghi vào `cancel_reason` (chuỗi hiển thị cho khách, FM, FS):
+
+| Lý do (`cancel_reason`) | Nguồn | Title notification |
+|---|---|---|
+| Khách hủy đơn | Flow 2.5 | “Đơn thuê kho đã bị hủy” |
+| Khách không còn nhu cầu | Flow 1.3 — FM hủy sau khi liên hệ | “Đơn thuê kho đã bị hủy” |
+| Từ chối quá số khoang cho phép | Flow 1.3, Flow 2.5 | “Đơn thuê kho đã bị hủy” |
+| Khách không ký hợp đồng | Flow 2.5 | “Đơn thuê kho đã bị hủy” |
+| Quá hạn xác nhận đề xuất | Cron catch-all | “Đơn thuê kho đã hết hạn” |
+| Quá hạn thanh toán cọc | Cron hóa đơn, catch-all | “Đơn thuê kho đã hết hạn” |
+| Quá hạn đặt lịch check-in | Cron catch-all | “Đơn thuê kho đã hết hạn” |
+| Không đến nhận kho quá hạn giữ | Cron no-show, catch-all | “Đơn thuê kho đã hết hạn” |
+| Chưa hoàn tất bàn giao trong hạn | Cron handover, catch-all | “Đơn thuê kho đã hết hạn” |
+| Quá hạn thanh toán tháng đầu | Cron hóa đơn | “Đơn thuê kho đã hết hạn” |
+
+Các bước:
+- `RentalOrder.status -> Canceled`, ghi `cancel_reason`.
 - `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
+- `RentalContract` đang `Draft`/`Signed` chuyển `Canceled`; `Invoice` `Unpaid` gắn đơn chuyển `Canceled` (trừ invoice đã `Expired` theo cron, giữ nguyên; khoản đã thu xử lý theo policy).
 - Khoang được giải phóng: `StorageUnit.status -> Available`.
-- Tiền cọc xử lý theo chính sách Flow 4.
-- Ghi `cancel_reason`.
-- Ghi `AuditLog` cho từng entity bị thay đổi.
-- Gửi email và thông báo trên website.
-- Không tạo proposal hoặc Appointment mới.
 - `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
 - `Appointment` chưa diễn ra (`Pending`) chuyển `Canceled` kèm `cancel_reason`; lịch đã `Done` giữ nguyên.
+- Tiền cọc xử lý theo chính sách Flow 4.
+- Ghi `AuditLog` cho từng entity bị thay đổi.
+- Tạo notification `RENTAL_ORDER_CANCELED` cho khách và FM, title theo bảng trên, body có mã đơn cùng lý do.
+- Không tạo proposal hoặc Appointment mới.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -173,12 +193,13 @@
                                                 ▼
                                                Done
   ```
-  - Các nhánh ngoại lệ:
-    - Pending → Expired: khách không thanh toán cọc đúng hạn.
-    - Deposited → Expired: hết thời hạn giữ kho nhưng chưa đặt lịch.
+  - Các nhánh ngoại lệ (mọi chuyển sang `Canceled` đều ghi `cancel_reason`):
+    - Pending → Canceled, lý do "Quá hạn thanh toán cọc": khách không thanh toán cọc đúng hạn.
+    - Pending → Canceled, lý do "Quá hạn xác nhận đề xuất": khách không phản hồi proposal trong hạn đơn.
+    - Deposited → Canceled, lý do "Quá hạn đặt lịch check-in": hết thời hạn giữ kho nhưng chưa đặt lịch.
     - Scheduled/InProgress → Deposited: khách no-show nhưng vẫn còn trong thời hạn giữ kho.
-    - Scheduled/InProgress → Expired: khách no-show và đã hết thời hạn giữ kho.
-    - Pending/Deposited/Scheduled/InProgress → Canceled: đơn bị hủy.
+    - Scheduled/InProgress → Canceled, lý do "Không đến nhận kho quá hạn giữ": khách no-show và đã hết thời hạn giữ kho.
+    - Pending/Deposited/Scheduled/InProgress → Canceled: đơn bị khách/FM hủy.
 # RentalContract
 **Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
 - order_id (N - 1: RentalOrder)
@@ -249,7 +270,6 @@
 - status (Pending/Agreed/Rejected/Expired)
 - note
 - created_at
-- expires_at - TTL của proposal; quá hạn coi như khách không phản hồi
 
 **Constraints**
 - Mọi lần đề xuất lại đều tạo bản ghi mới cho cùng `RentalOrder`; bản ghi cũ giữ nguyên (lịch sử). Khoang hiệu lực = proposal `Agreed` mới nhất.
@@ -281,6 +301,7 @@
 
 **CONSTRAINTS:**
 - Không chuyển `Appointment` sang `Canceled` khi `HandoverRecord` liên kết vẫn là `IN_PROGRESS`.
+- `Appointment` (type `CHECKIN`) của một `RentalOrder` phải có thời điểm hẹn ≤ `RentalOrder.expires_at` — áp cho cả lịch tạo lại (no-show, quá hạn thanh toán, re-propose).
 # RentalAppointment
 **Overview:** nối lịch hẹn với đơn hàng.
 
@@ -442,18 +463,19 @@
 | `FS_ASSIGNED` | FM phân công FS | `Appointment` | FM |
 | `APPOINTMENT_RESCHEDULED` | Lịch hẹn được đặt lại | `Appointment` | Customer/FM |
 | `APPOINTMENT_CANCELED_NO_SHOW` | Cron xử lý khách không đến | `Appointment` | System |
+| `APPOINTMENT_CANCELED` | Hủy lịch chưa diễn ra khi đơn bị hủy (cancellation cascade) | `Appointment` | System |
 | `IDENTITY_VERIFIED` | FS xác minh danh tính người đến | `HandoverRecord` | FS |
 | `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
-| `RENTAL_ORDER_CANCELED` | Hủy đơn khi chạm `handover.max_rejection_count`, sau khi khách xác nhận | `RentalOrder`, `StorageUnit`, `ProposalFeedback` | FS |
+| `RENTAL_ORDER_CANCELED` | Hủy đơn do khách/FM/hệ thống: quá ngưỡng từ chối, quá hạn hoặc khách không còn nhu cầu | `RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract` | Customer/FM/System |
 | `HANDOVER_COMPLETED` | Hoàn tất bàn giao, đủ các cờ bắt buộc | `HandoverRecord` | FS/System |
 | `START_DATE_OVERRIDE_REQUESTED` | FS đề nghị đổi mốc tính tiền | `RentalContract` | FS |
 | `START_DATE_OVERRIDE_APPROVED` | FM duyệt đổi mốc tính tiền | `RentalContract` | FM |
 | `START_DATE_OVERRIDE_REJECTED` | FM từ chối đổi mốc tính tiền | `RentalContract` | FM |
 | `CONTRACT_SIGNED` | FS ghi nhận khách đã ký hợp đồng | `RentalContract` | FS |
 | `CONTRACT_ACTIVATED` | Hợp đồng có hiệu lực sau bàn giao | `RentalContract` | System |
-| `CONTRACT_CANCELED` | Hủy hợp đồng do quá `handover.payment_grace_hours` hoặc do khách từ chối ký | `RentalContract` | System |
-| `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán hoặc do khách hủy | `HandoverRecord` | System |
+| `CONTRACT_CANCELED` | Hủy hợp đồng do quá hạn thanh toán, khách từ chối ký hoặc theo cancellation cascade | `RentalContract` | System |
+| `HANDOVER_CANCELED` | Đóng biên bản do quá hạn thanh toán, khách hủy, no-show hoặc theo cancellation cascade | `HandoverRecord` | System |
 | `ACCESS_KEY_ISSUED` | Bàn giao chìa hoặc mã truy cập | `UnitAccessKey` | FS/System |
 | `STORAGE_UNIT_RENTED` | Khoang chuyển `Rented` sau bàn giao | `StorageUnit` | System |
 | `RENTAL_ORDER_DONE` | Đơn chuyển `Done` sau bàn giao | `RentalOrder` | System |
@@ -463,7 +485,7 @@
 | `ACCESS_KEY_REVOKED` | Thu hồi chìa hoặc vô hiệu hóa mã | `UnitAccessKey` | FS |
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
-| `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì | `StorageUnit` | System |
+| `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì hoặc giải phóng khoang khi đơn bị hủy | `StorageUnit` | System |
 | `ACCOUNT_REGISTERED` | Tạo tài khoản mới | `Account` | Customer/Admin |
 
 - Xác minh email không tạo `AuditLog`; bản ghi là `Account.email_verified_at`. Nếu sau này có đường
@@ -479,3 +501,55 @@
 **NOTES:**
 - Bảng key-value để BOM cấu hình (MVP chưa có UI — Flow 4).
 - Danh sách key + giá trị mặc định đang dùng nằm trong `draft.md` (Flow 1 §1.1, Flow 2 §2.1); key "chờ BOM" chưa seed.
+
+# OrderNotification
+**Overview:** liên kết RentalOrder với 1 Notification, chủ ý rằng thông báo dành cho đơn hàng.
+- order_id (N - 1: RentalOrder)
+- notification_id (1 -1: Notification)
+
+**NOTES:**
+- Tạo kèm mỗi notification gắn với một đơn (nhắc hạn, hủy đơn, lịch hẹn, ...).
+- Một `Notification` có tối đa một liên kết đơn.
+- Dùng để truy vấn thông báo theo đơn — ví dụ nhắc hết hạn chỉ gửi một lần cho mỗi đơn.
+
+# Notification
+**Overview:** thông báo web cho người dùng. Email chỉ gửi đi (không lưu) — fail không rollback nghiệp vụ.
+- account_id (N - 1: Account) - người nhận
+- type - loại thông báo theo catalog trong NOTES
+- title
+- body
+- read_at (nullable)
+- created_at
+
+**NOTES:**
+- Email: dev dùng MailHog. Khi fail chỉ log + vẫn lưu thông báo web.
+- Email và thông báo web dùng cùng `title`/`body`. Cách trình bày có thể khác nhau.
+- `type` là catalog riêng, tách khỏi audit catalog. Khi thêm một luồng notification đã biết, bổ sung type tương ứng.
+- Nhiều type notification trùng tên audit event (ví dụ `APPOINTMENT_CANCELED_NO_SHOW`, `RENTAL_ORDER_CANCELED`). Notification catalog tách khỏi audit catalog; khi code phải tách enum/type tương ứng, không nhầm hai bên.
+- `OTHER` chỉ dùng cho thông báo khẩn cấp thủ công khi chưa có type phù hợp. Không dùng thay cho một type nghiệp vụ đã biết. `title` và `body` phải mô tả cụ thể sự việc.
+- Quyền tạo `OTHER` phải được giới hạn cho người có quyền.
+- Chưa có bảng template. MVP lưu template theo `type` trong code. Template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
+- `RENTAL_REQUEST_APPROVED` chỉ phát khi `RentalOrder` được tạo, tức khi account đã tồn tại. Khách chưa có account chỉ nhận email duyệt ở Flow 1.1, notification phát ở Flow 1.2 sau khi xác minh email. Nội dung email duyệt khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại áp dụng sau khi account đã tồn tại.
+- Index `(account_id, read_at)` cho lọc và đếm chưa đọc, và index `(account_id, created_at DESC)` cho list sắp xếp và phân trang.
+- Một số type render khác nhau theo recipient. Ví dụ `APPOINTMENT_CREATED` gửi khách ngày/giờ, địa chỉ cơ sở và hướng dẫn giấy tờ. Gửi FM mã đơn, thời gian hẹn và cơ sở.
+- Nhắc gần hết hạn: cron gửi `RENTAL_ORDER_EXPIRING_SOON` trước `RentalOrder.expires_at` theo `order.expiry_reminder_days`, mỗi đơn một lần. `RentalRequest`/`ProposalFeedback` chưa có notification nhắc.
+- Notification type catalog:
+
+| Type | Khi nào dùng | Recipient |
+|---|---|---|
+| `RENTAL_REQUEST_APPROVED` | FM duyệt yêu cầu thuê kho, nội dung gồm link trỏ tới trang để duyệt proposal và thông tin khoang theo Flow 1.1 | Customer |
+| `RENTAL_REQUEST_REJECTED` | FM từ chối yêu cầu thuê kho, nội dung gồm lý do từ chối | Customer |
+| `PROPOSAL_REJECTED` | Khách từ chối proposal, nội dung gồm mã khoang và lý do (`note`) | FM |
+| `PROPOSAL_REPROPOSAL_REQUIRED` | FM cần đề xuất lại khoang khác (nội dung gồm mã đơn và mã khoang cũ) | FM |
+| `PROPOSAL_REPROPOSED` | FM tạo proposal mới, nội dung gồm link xác nhận | Customer |
+| `DEPOSIT_PAYMENT_SUCCEEDED` | Đặt cọc thành công | Customer |
+| `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in, nội dung khác nhau theo recipient (xem NOTES) | Customer, FM |
+| `APPOINTMENT_CANCELED_NO_SHOW` | Cron hủy lịch do khách không đến (nội dung gồm thời gian hẹn cũ và link đặt lịch mới) | Customer |
+| `FS_ASSIGNED` | FM phân công FS cho lịch hẹn, nội dung gồm thông tin lịch hẹn | FS |
+| `FS_ASSIGNMENT_REQUIRED` | FM cần phân công FS cho lịch check-in chưa có nhân viên phụ trách (nội dung gồm mã đơn, thời gian hẹn, cơ sở) | FM |
+| `HANDOVER_REJECTED` | Khách từ chối khoang tại check-in và muốn re-propose, nội dung gồm mã khoang và lý do | FM |
+| `HANDOVER_OVERDUE` | Cron đóng biên bản quá `due_at` khi khách đã đến, nội dung có link đặt lịch mới | Customer |
+| `RENTAL_ORDER_EXPIRING_SOON` | Cron nhắc trước khi `RentalOrder` hết hạn, nội dung gồm mã đơn, hạn đơn và số ngày còn lại | Customer |
+| `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy hoặc quá hạn, title theo `cancel_reason` (xem Cancellation Cascade) | Customer, FM |
+| `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
+| `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |
