@@ -24,8 +24,13 @@ Payload thật của token phát bởi `POST /api/auth/login`:
 }
 ```
 
-- `iss` cố định `self-storage`, được validate khi decode (`JwtValidators.createDefaultWithIssuer`).
-- `exp` = `iat` + `security.jwt.access-token-ttl` (mặc định `PT15M` = 900 giây).
+- `iss` cố định `self-storage` — bắt buộc, validate khi decode (`JwtIssuerValidator`).
+- `exp` = `iat` + `security.jwt.access-token-ttl` (mặc định `PT15M` = 900 giây) — bắt buộc;
+  kiểm hạn khi decode (`JwtTimestampValidator`, cho phép lệch đồng hồ 60 giây).
+- `email` — bắt buộc, dùng để tra account (`AccountJwtAuthenticationConverter`).
+- `iat` — metadata, không bắt buộc (không nơi nào đọc giá trị).
+- Token thiếu `exp` hoặc `email` bị từ chối ngay khi decode (`RequiredJwtClaimsValidator` → 401) —
+  mọi producer phải phát token đủ claim, một shape duy nhất.
 - Không có claim phân quyền — có chủ ý, xem "Vì sao token không mang role".
 
 ## Token được phát thế nào
@@ -39,7 +44,8 @@ contract nằm ở [routes/auth/login.md](routes/auth/login.md).
 Authorization: Bearer <JWT>
   │
   ▼ BearerTokenAuthenticationFilter (OAuth2 Resource Server)
-  │    JwtDecoder verify: chữ ký HS256 + exp + iss        (JwtConfiguration)
+  │    JwtDecoder verify: chữ ký HS256 + iss + claim bắt buộc (exp, email),
+  │    và exp còn hạn                                      (JwtConfiguration)
   ▼
 Jwt (claims: email, iss, exp…)
   │
@@ -92,6 +98,17 @@ hoặc đổi role, token cũ vẫn dùng được tới lúc hết hạn. Mô h
 401 là lỗi xác thực, 403 là lỗi phân quyền — bảng đối chiếu, policy route và điều kiện nghiệp vụ:
 [authorization.md](authorization.md).
 
+## Tín hiệu 401 cho client
+
+Token sai / hết hạn / thiếu claim bắt buộc → 401 **body rỗng**; chi tiết nằm ở header — output thật
+từ `ExpiredTokenTest`:
+
+```text
+WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Jwt expired at 2026-10-04T06:27:59Z", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
+```
+
+Client xử lý theo `status = 401` (không đọc body); refresh token (#74) sẽ bám vào tín hiệu này.
+
 ## Cấu hình liên quan
 
 | Biến | Ý nghĩa | Mặc định |
@@ -120,3 +137,5 @@ Chưa có (theo dõi ở issue #74):
 - `JwtServiceTest` — claims email-only, issuer, expiry.
 - `SecurityConfigTest` — route gate theo role/`ACCOUNT_ACTIVE`, `/me` 401/200/403, account bị xóa.
 - `AuthServiceTest` — login 401/403, chuẩn hoá email, `/me`.
+- `ExpiredTokenTest` — token hết hạn → 401 + header `WWW-Authenticate`.
+- `RequiredClaimsTest` — token thiếu `exp` / `email` → 401.
