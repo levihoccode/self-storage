@@ -109,6 +109,10 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 
 - 400 validate/JSON hỏng dùng message chung `"Dữ liệu không hợp lệ"`; 401/403 tầng security cũng
   trả đúng shape trên (401 giữ header `WWW-Authenticate`, không còn body rỗng).
+- Lỗi không lường trước (bug) → 500 `{"message":"Internal server error","timestamp":"..."}` —
+  chi tiết exception chỉ vào log, không lộ ra response.
+- Lỗi khung (404 sai path, 405 sai method, 415 sai content-type…) giữ đúng status, message tiếng
+  Việt tương ứng.
 - Message cố định tiếng Việt phía BE; i18n (nếu cần) xử lý phía FE sau.
 
 ## Mục lục
