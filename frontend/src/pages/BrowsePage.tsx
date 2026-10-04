@@ -5,12 +5,9 @@ import { PAGE_CONTAINER } from "../app/layout";
 import { facilities, formatPrice, UnitType, unitTypes } from "../mocks/catalog";
 import { UnitCard } from "../components/domain/UnitCard";
 import { UnitDetailsDialog } from "../components/domain/UnitDetailsDialog";
+import { Button } from "../components/ui/Button";
 
 const EYEBROW = "m-0 mb-[18px] font-mono text-mono uppercase tracking-[0.08em] text-brand";
-const PRIMARY_BUTTON =
-  "inline-flex min-h-11 w-full items-center justify-center gap-2.5 rounded-sm border border-transparent bg-brand px-[18px] py-0 text-[14px] font-[750] text-background transition-colors duration-[180ms] ease hover:bg-brand-strong";
-const SECONDARY_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm border border-brand bg-transparent px-[18px] py-0 text-[14px] font-[750] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background";
 const COMPACT_SELECT =
   "relative flex min-h-11 min-w-[190px] items-center gap-[10px] rounded-sm border border-border bg-surface px-3 py-[10px] focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)] max-[760px]:min-w-0";
 const COMPACT_SELECT_ELEMENT =
@@ -117,9 +114,9 @@ export function BrowsePage({ navigate }: { navigate: Navigate }) {
                 <div className="rounded-md border border-border bg-surface p-10">
                   <p className={EYEBROW}>Thử lại lựa chọn</p>
                   <h2 className="m-0 mb-5 text-[24px] font-bold text-ink">Chưa có quy mô này.</h2>
-                  <button className={SECONDARY_BUTTON} onClick={() => setTypeFilter("")}>
+                  <Button variant="secondary" className="py-0" onClick={() => setTypeFilter("")}>
                     Xem tất cả phương án <ArrowRight size={16} />
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -147,9 +144,9 @@ export function BrowsePage({ navigate }: { navigate: Navigate }) {
                     </div>
                   ))}
               </div>
-              <button className={PRIMARY_BUTTON} onClick={() => navigate("/rental-requests/new")}>
+              <Button className="w-full py-0" onClick={() => navigate("/rental-requests/new")}>
                 Gửi nhu cầu lưu trữ <ArrowRight size={16} />
-              </button>
+              </Button>
             </aside>
           </div>
         </div>
