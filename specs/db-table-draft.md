@@ -113,22 +113,21 @@
   - Deposited: Khách hàng đã đặt cọc
   - Scheduled: Khách đã lên lịch hẹn
   - InProgress: Đơn hàng đang được xử lý (đã có `Appointment.staff_id` được phân công)
-  - Canceled: Hủy đơn hàng
+  - Canceled: Hủy đơn hàng — khách/FM hủy hoặc quá hạn (lý do ghi trong `cancel_reason`)
   - Done: khách đã hoàn tất check-in, ký hợp đồng, thanh toán cần thiết và nhận bàn giao khoang
-  - Expired:  quá hạn không thanh toán cọc / không đặt lịch / không đến nhận theo ngưỡng.
 - expires_at (nullable) - thời điểm hết hiệu lực giữ kho sau khi đặt cọc
 
 **Cancellation Cascade:**
 - `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
 - Khoang được giải phóng: `StorageUnit.status -> Available`.
 - Tiền cọc xử lý theo chính sách Flow 4.
-- Ghi `cancel_reason`.
+- Ghi `cancel_reason` (bắt buộc): lý do hủy hoặc loại quá hạn.
 - Ghi `AuditLog` cho từng entity bị thay đổi.
 - Gửi email và thông báo trên website.
 - Không tạo proposal hoặc Appointment mới.
 - `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
 - `Appointment` chưa diễn ra (`Pending`) chuyển `Canceled` kèm `cancel_reason`; lịch đã `Done` giữ nguyên.
-- Tạo notification `RENTAL_ORDER_CANCELED` cho khách có account và FM, title “Đơn thuê kho đã bị hủy” và body có mã đơn cùng lý do hủy.
+- Tạo notification `RENTAL_ORDER_CANCELED` cho khách có account và FM, title theo `cancel_reason` (“Đơn thuê kho đã bị hủy” khi khách/FM hủy, “Đơn thuê kho đã hết hạn” khi quá hạn) và body có mã đơn cùng lý do.
 
 **NOTES:**
 - Trạng thái đơn hàng:
@@ -143,12 +142,12 @@
                                                 ▼
                                                Done
   ```
-  - Các nhánh ngoại lệ:
-    - Pending → Expired: khách không thanh toán cọc đúng hạn.
-    - Deposited → Expired: hết thời hạn giữ kho nhưng chưa đặt lịch.
+  - Các nhánh ngoại lệ (mọi chuyển sang `Canceled` đều ghi `cancel_reason`):
+    - Pending → Canceled, lý do "Quá hạn thanh toán cọc": khách không thanh toán cọc đúng hạn.
+    - Deposited → Canceled, lý do "Quá hạn đặt lịch check-in": hết thời hạn giữ kho nhưng chưa đặt lịch.
     - Scheduled/InProgress → Deposited: khách no-show nhưng vẫn còn trong thời hạn giữ kho.
-    - Scheduled/InProgress → Expired: khách no-show và đã hết thời hạn giữ kho.
-    - Pending/Deposited/Scheduled/InProgress → Canceled: đơn bị hủy.
+    - Scheduled/InProgress → Canceled, lý do "Không đến nhận kho quá hạn giữ": khách no-show và đã hết thời hạn giữ kho.
+    - Pending/Deposited/Scheduled/InProgress → Canceled: đơn bị khách/FM hủy.
 # RentalContract
 **Overview:** hợp đồng thuê, được sinh và ký on-site ở Flow 2.3 sau khi khách xác nhận hiện trạng khoang. `Invoice.contract_id` tham chiếu tới bảng này.
 - order_id (N - 1: RentalOrder)
@@ -483,6 +482,6 @@
 | `FS_ASSIGNMENT_REQUIRED` | FM cần phân công FS cho lịch check-in chưa có nhân viên phụ trách (nội dung gồm mã đơn, thời gian hẹn, cơ sở) | FM |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại check-in và muốn re-propose, nội dung gồm mã khoang và lý do | FM |
 | `RENTAL_ORDER_EXPIRING_SOON` | Cron nhắc trước khi `RentalOrder` hết hạn, nội dung gồm mã đơn, hạn giữ kho và số ngày còn lại | Customer |
-| `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy hoặc hết hạn (`Expired`) | Customer, FM |
+| `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy hoặc quá hạn, title theo `cancel_reason` (xem Cancellation Cascade) | Customer, FM |
 | `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
 | `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |

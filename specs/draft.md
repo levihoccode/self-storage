@@ -348,7 +348,7 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
 **NOTES:**
 - Mọi khoản thanh toán trong MVP đều qua cổng VNPay — một phương thức duy nhất (cọc, tiền thuê tháng, phí phát sinh); không thu tiền mặt. Các flow khác dùng chung nguyên tắc này.
 - Luồng từ việc đặt khoang -> đặt cọc -> chọn lịch hẹn là tuyến tính, tức là chỉ có đặt cọc mới có thể đặt lịch hẹn (check-in và bàn giao). Vì thế nên suy nghĩ đến việc cho đặt lịch hẹn (với loại là xem kho) trước khi đặt cọc, ở luồng này, mình có thể để FS xử lý nhiều lịch hẹn xem kho cùng 1 thời điểm (giống như 1 tour du lịch).
-- Sau khi khách đã trả tiền cọc, khoang chứa phải được giữ ở trạng thái Reserved cho đến ngày hẹn check-in/bàn giao. Hết hạn nếu quá `order.deposit_expiry_days` kể từ lúc cọc mà chưa bàn giao → mất cọc và chuyển đơn sang trạng thái Expired. Trường hợp hủy do lỗi cơ sở (hết khoang phù hợp) → hoàn cọc thủ công (C6); chính sách chi tiết thuộc Flow 4.
+- Sau khi khách đã trả tiền cọc, khoang chứa phải được giữ ở trạng thái Reserved cho đến ngày hẹn check-in/bàn giao. Hết hạn nếu quá `order.deposit_expiry_days` kể từ lúc cọc mà chưa bàn giao → mất cọc và chuyển đơn sang `Canceled` (quá hạn giữ kho). Trường hợp hủy do lỗi cơ sở (hết khoang phù hợp) → hoàn cọc thủ công (C6); chính sách chi tiết thuộc Flow 4.
 - IPN là nguồn xác nhận thanh toán duy nhất: verify checksum, kiểm tra `vnp_TmnCode` + `vnp_Amount` khớp invoice; handler idempotent theo `vnp_txn_ref` (VNPay retry tối đa 10 lần × 5 phút); trả đúng `RspCode` theo quy định VNPay; `vnp_ReturnUrl` chỉ dùng để hiển thị kết quả.
 #### 1.5 Chọn lịch check-in sau khi đặt cọc
 **Context:** Sau khi khách đã đặt cọc thành công (`RentalOrder.status = Deposited`), khoang chứa đã được giữ ở trạng thái `Reserved` nhưng đơn hàng chưa có lịch hẹn check-in. Flow 1 tiếp tục hỗ trợ khách hàng đặt lịch hẹn tại cơ sở, sau đó chuyển thông tin lịch hẹn cho Flow 2 để thực hiện các bước check-in và bàn giao khoang.
@@ -882,7 +882,7 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
     - `StorageUnit` tiếp tục giữ `Reserved`.
     - Gửi notification `APPOINTMENT_CANCELED_NO_SHOW` cho khách (title “Lịch hẹn check-in đã bị hủy do bạn không đến”, body có thời gian hẹn cũ và link đặt lịch mới) và cho phép khách đặt lịch mới.
   - Nếu `now >= RentalOrder.expires_at`:
-    - `RentalOrder.status = Expired`.
+    - `RentalOrder.status = Canceled` (lý do "Không đến nhận kho quá hạn giữ").
     - `StorageUnit.status` chuyển từ `Reserved` về `Available`.
     - Xử lý mất cọc theo policy.
 - `HandoverRecord` (`result = IN_PROGRESS`, `arrived_at` đã có) quá `due_at`:
@@ -890,13 +890,13 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
   - `RentalContract` (`Draft`/`Signed`) chuyển `Canceled`.
   - Đơn, khoang và cọc xử lý như nhánh no-show ở trên.
 - `Invoice` (`status = Unpaid`) quá `due_date`:
-  - `type = Deposit`: invoice `Expired`, `RentalOrder` tương ứng `Expired`.
+  - `type = Deposit`: invoice `Expired`, `RentalOrder` tương ứng `Canceled` (lý do "Quá hạn thanh toán cọc").
   - `type = Rental` + `RentalContract.status = Signed` (chưa bàn giao):
     - contract `Canceled`, `HandoverRecord = CANCELED` lý do "Quá hạn thanh toán tháng đầu".
-    - Đơn về `Deposited` hoặc `Expired` theo `RentalOrder.expires_at`; cọc theo policy.
+    - Đơn về `Deposited` hoặc `Canceled` (lý do quá hạn) theo `RentalOrder.expires_at`; cọc theo policy.
     - Invoice `Expired`.
   - `type = Rental` + `RentalContract.status = Active` (đang thuê):
     - Tiền thuê định kỳ quá hạn → xử lý theo Flow 6. Ngoài scope hiện tại, đánh dấu chờ.
-- `RentalOrder` có `expires_at` trong vòng `order.expiry_reminder_days` (mặc định 3 ngày) tới, chưa `Done`/`Canceled`/`Expired` và chưa được nhắc:
+- `RentalOrder` có `expires_at` trong vòng `order.expiry_reminder_days` (mặc định 3 ngày) tới, chưa `Done`/`Canceled` và chưa được nhắc:
   - Ghi notification `RENTAL_ORDER_EXPIRING_SOON` cho khách, title “Đơn thuê kho sắp hết hạn”, body có mã đơn, `expires_at` và số ngày còn lại.
   - Mỗi đơn chỉ nhắc một lần.
