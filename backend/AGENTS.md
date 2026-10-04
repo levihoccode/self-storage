@@ -46,9 +46,10 @@ changed must be cross-checked against `backend/docs/`; if docs need an update or
 change is mandatory and goes into the same PR.** A PR with a behavior change and stale docs is not
 done.
 
-**Contract chi tiết sống ở annotation Swagger trong code — `docs/routes/*.md` KHÔNG chép lại
-contract.** `docs/routes/` ghi usage/actor/luồng/ghi chú; field, status code, message, ví dụ body
-nằm ở `@Operation` / `@ApiResponses` / `@Schema` / `@ExampleObject` trên controller.
+**The detailed contract lives in the Swagger annotations in code — `docs/routes/*.md` does NOT
+duplicate it.** `docs/routes/` keeps usage / actor / flow / notes; fields, status codes, messages
+and body examples live in `@Operation` / `@ApiResponses` / `@Schema` / `@ExampleObject` on the
+controller.
 
 - New route → add a row to [`docs/routes.md`](docs/routes.md) and a detail file under
   `docs/routes/`, starting from [`docs/templates/route.md`](docs/templates/route.md); annotate the
@@ -107,11 +108,12 @@ spec-gap gate above — docs never justify behavior the spec does not define.
   `canAccessFacility(actor, facilityId)` — no scattered `if (role == …)`.
 - Response convention: success `{message, data}` (`ApiEnvelope`), errors `{message, timestamp}`
   (`ApiError`); dedicated exceptions + handlers, never return 200 with an error payload.
-- Unexpected exception (bug) → 500 `{"message":"Internal server error"}`; chi tiết chỉ vào log,
-  không lộ ra response. Lỗi khung (400/404/405/415…) giữ đúng status + message tiếng Việt.
-- Advice order quyết định: `ExceptionHandlerExceptionResolver` dùng advice **match đầu tiên**,
-  không phải handler cụ thể nhất — `AuthExceptionHandler` đặt `@Order(HIGHEST_PRECEDENCE)`,
-  `ApiExceptionHandler` `@Order(LOWEST_PRECEDENCE)`. Advice mới phải set `@Order` tường minh.
+- Unexpected exception (bug) → 500 `{"message":"Internal server error"}`; details go to the log
+  only, never into the response. Framework errors (400/404/405/415…) keep their status with a
+  Vietnamese message.
+- Advice order decides: `ExceptionHandlerExceptionResolver` uses the **first matching** advice, not
+  the most specific handler — `AuthExceptionHandler` is `@Order(HIGHEST_PRECEDENCE)`,
+  `ApiExceptionHandler` is `@Order(LOWEST_PRECEDENCE)`. New advices must set `@Order` explicitly.
 - Schema changes only via migrations; no `ddl-auto`. Seed data lives in `V2__baseline_seed.sql`
   (mirror in `backend/sql/seed.sql`).
 - JPA entities use Lombok sparingly: `@Getter` (+ `@Setter` only where needed / via domain methods)
