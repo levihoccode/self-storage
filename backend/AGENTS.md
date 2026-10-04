@@ -105,8 +105,13 @@ spec-gap gate above — docs never justify behavior the spec does not define.
   `unit_id`.
 - Authorization goes through `can(actor, action, resource)` and
   `canAccessFacility(actor, facilityId)` — no scattered `if (role == …)`.
-- Errors: dedicated exceptions + one handler returning a consistent JSON error body; never return
-  200 with an error payload.
+- Response convention: success `{message, data}` (`ApiEnvelope`), errors `{message, timestamp}`
+  (`ApiError`); dedicated exceptions + handlers, never return 200 with an error payload.
+- Unexpected exception (bug) → 500 `{"message":"Internal server error"}`; chi tiết chỉ vào log,
+  không lộ ra response. Lỗi khung (400/404/405/415…) giữ đúng status + message tiếng Việt.
+- Advice order quyết định: `ExceptionHandlerExceptionResolver` dùng advice **match đầu tiên**,
+  không phải handler cụ thể nhất — `AuthExceptionHandler` đặt `@Order(HIGHEST_PRECEDENCE)`,
+  `ApiExceptionHandler` `@Order(LOWEST_PRECEDENCE)`. Advice mới phải set `@Order` tường minh.
 - Schema changes only via migrations; no `ddl-auto`. Seed data lives in `V2__baseline_seed.sql`
   (mirror in `backend/sql/seed.sql`).
 - JPA entities use Lombok sparingly: `@Getter` (+ `@Setter` only where needed / via domain methods)

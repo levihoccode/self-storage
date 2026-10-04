@@ -112,7 +112,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 - Lỗi không lường trước (bug) → 500 `{"message":"Internal server error","timestamp":"..."}` —
   chi tiết exception chỉ vào log, không lộ ra response.
 - Lỗi khung (404 sai path, 405 sai method, 415 sai content-type…) giữ đúng status, message tiếng
-  Việt tương ứng.
+  Việt tương ứng. Đây là các status **nền, áp dụng cho mọi route** — Swagger từng route không lặp lại.
 - Message cố định tiếng Việt phía BE; i18n (nếu cần) xử lý phía FE sau.
 
 ## Mục lục
