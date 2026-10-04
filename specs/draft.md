@@ -142,7 +142,7 @@
     - **Không tìm thấy khoang chứa thích hợp**:
       - Chuyển status sang `Rejected` và nhập lý do: "Hết khoang chứa phù hợp tại chi nhánh".
       - Hệ thống ghi `RentalRequest.responded_at` = thời điểm từ chối.
-      - Hệ thống gửi một thông báo/email không thành công đến khách hàng kèm theo lý do.
+      - Hệ thống gửi email thông báo từ chối đến khách hàng kèm theo lý do.
       - Nếu khách đã có tài khoản, hệ thống tạo notification `RENTAL_REQUEST_REJECTED` cho khách, title “Yêu cầu thuê kho bị từ chối” và body nêu lý do từ chối.
 
 - **Hệ thống gửi email:**
@@ -175,6 +175,8 @@
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
 - [**Invoice**](./db-table-draft.md#invoice)
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 **NOTES**
 - Entry trong list yêu cầu đặt khoang chứa của FM không có facility vì khi đặt, khách chỉ định một chi nhánh cụ thể và người quản lý tại chi nhánh đó sẽ nhận được yêu cầu => không cần liệt kê facility field.
@@ -224,6 +226,8 @@
 - [**Account**](./db-table-draft.md#account)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 
 #### 1.3 Kiểm tra kho của tôi
@@ -250,7 +254,7 @@
       - type: `Deposit`
       - status: `Unpaid`
       - amount: số tiền cọc theo chính sách
-      - due_date: thời hạn thanh toán cọc theo `invoice.deposit_due_days` (3 ngày)
+      - due_date: thời hạn thanh toán cọc theo `invoice.deposit_due_days` (3 ngày), due_date = min(now + invoice.deposit_due_days, RentalOrder.expires_at)
   - *Từ chối < `proposal.max_rejection_count` lần*:
     - Hệ thống cập nhật bản ghi của `ProposalFeedback` sang `Rejected` (kèm note)
     - Hệ thống tạo notification `PROPOSAL_REJECTED` cho FM, title “Khách hàng đã từ chối đề xuất” và body:
@@ -281,6 +285,8 @@
 - [**Invoice**](./db-table-draft.md#invoice)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 
 #### 1.4 Đặt cọc
@@ -293,7 +299,13 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
 - Khách đăng nhập vào ứng dụng
 - Ấn vào mục "Hóa đơn" kiểm tra các hóa đơn cần thanh toán
 - Chọn hóa đơn đặt cọc (code=INV-DEP-...) cần thanh toán và bấm vào "Tiến hành thanh toán"
-- Ở đây hệ thống sẽ kiểm tra 4 trường hợp theo thứ tự:
+- Ở đây hệ thống sẽ kiểm tra 5 trường hợp theo thứ tự:
+  - **Đơn đã quá hạn (`RentalOrder.expires_at` < now):**
+    - Hệ thống từ chối giao dịch và hiển thị lỗi:
+      ```
+      Đơn thuê kho đã hết hạn. Vui lòng liên hệ cơ sở để được hỗ trợ.
+      ```
+    - Trả về trang "Hóa đơn".
   - **Khoang chứa đã được đặt cọc (status = `Reserved`):**
     - `RentalOrder` giữ nguyên (không hủy đơn)
     - Hệ thống từ chối giao dịch và hiển thị lỗi:
@@ -344,6 +356,8 @@ Khách đăng nhập vào ứng dụng thành công -> vào mục "Hóa đơn" -
 - [**PaymentTransaction**](./db-table-draft.md#paymenttransaction)
 - [**Invoice**](./db-table-draft.md#invoice)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 **Advanced Features:**
 - Nếu khoang chỉ bảo trì tạm thời, cho phép giữ Invoice = Unpaid và khách thanh toán lại khi khoang trở về Available.
@@ -362,7 +376,8 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Details:**
 - **Customer:**
   - Hệ thống điều hướng user đến trang chọn lịch hẹn.
-  - Khách chọn ngày và khung giờ hẹn đến nhận khoang: chọn lịch trong vòng `appointment.booking_window_days` (7 ngày) kể từ lúc cọc, ngày hẹn cách lúc cọc tối đa `appointment.max_days_after_deposit` (14 ngày).
+  - Khách chọn ngày và khung giờ hẹn đến nhận khoang: chọn lịch trong vòng `appointment.booking_window_days` (7 ngày) kể từ lúc cọc, ngày hẹn cách lúc cọc tối đa `appointment.max_days_after_deposit` (14 ngày) và không muộn hơn `RentalOrder.expires_at` (ràng buộc ở `# Appointment` › CONSTRAINTS).
+  - Nếu không còn ngày/khung giờ nào thỏa (đã sát hạn đơn): không cho xác nhận, hiển thị "Không còn khung giờ trước hạn giữ kho, vui lòng liên hệ cơ sở".
   - Khách ấn "Xác nhận".
   - Hệ thống tạo `Appointment(type = CHECKIN, status = Pending)` + `RentalAppointment` nối với `RentalOrder`.
   - Hệ thống tạo một bản ghi `HandoverRecord` cho đơn hàng để Flow 2 tiếp tục xử lý các bước check-in và bàn giao.
@@ -383,6 +398,8 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**Appointment**](./db-table-draft.md#appointment)
 - [**RentalAppointment**](./db-table-draft.md#rentalappointment)
 - [**HandoverRecord**](./db-table-draft.md#handoverrecord)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 **NOTES:**
 - `HandoverRecord` được tạo cùng lúc với `Appointment`.
@@ -457,7 +474,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
   - FS xem các lịch trong ngày được phân công cho mình.
   - Hệ thống hiển thị thông tin khách hàng, khoang chứa và `type` của lịch hẹn.
   - FS chọn lịch hẹn và bấm nút **Done** để xác nhận khách đã đến cơ sở.
-  - Hệ thống ghi nhận `Appointment.arrived_at`, cập nhật `Appointment.status = Done` và set `HandoverRecord.due_at = now + handover.due_days`.
+  - Hệ thống ghi nhận `Appointment.arrived_at`, cập nhật `Appointment.status = Done` và set `HandoverRecord.due_at = min(now + handover.due_days, RentalOrder.expires_at)`.
   - Trong trường hợp **khách không đến**, cron job của Flow 1 sẽ tự động cập nhật trạng thái của `Appointment` theo [Scheduled Jobs - Cron jobs](#scheduled-jobs---cron-jobs).
 - **Hệ thống:**
   - Kiểm tra các điều kiện:
@@ -557,7 +574,7 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 **Giai đoạn 2 — Hóa đơn và thanh toán tháng đầu:**
 
 - **Hệ thống:**
-  - Tạo `Invoice(type = Rental)`, prefix `RNT`, gắn `contract_id`, với số tiền tháng đầu và `due_date = now + handover.payment_grace_hours`. Tiền cọc ở Flow 1.4 không trừ vào hóa đơn này và được giữ riêng tới khi trả kho ở 2.a.3.
+  - Tạo `Invoice(type = Rental)`, prefix `RNT`, gắn `contract_id`, với số tiền tháng đầu và `due_date = min(now + handover.payment_grace_hours, RentalOrder.expires_at)`. Tiền cọc ở Flow 1.4 không trừ vào hóa đơn này và được giữ riêng tới khi trả kho ở 2.a.3.
   - Khi gateway xác nhận thành công, cập nhật `PaymentTransaction = Success`, `Invoice.status = Paid`.
   - Khi thanh toán thất bại, cập nhật `PaymentTransaction = Failed`; hóa đơn giữ nguyên chưa thanh toán và không tiếp tục bàn giao.
   - Quá hạn, [cron hóa đơn](#scheduled-jobs---cron-jobs) xử lý. Khi đơn còn trong hạn giữ kho, Flow 1 tạo lịch check-in mới, FM phân công FS theo Flow 5.3, và Flow 2 chạy lại từ 2.1 trên `Appointment` + `HandoverRecord` mới.
@@ -613,6 +630,8 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**HandoverRecord**](./db-table-draft.md#handoverrecord)
 - [**RentalOrder**](./db-table-draft.md#rentalorder)
 - [**UnitAccessKey**](./db-table-draft.md#unitaccesskey)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 **NOTES:**
 - MVP chưa sinh file biên bản: biên bản bàn giao là dữ liệu `HandoverRecord` xem trên website. Khách xác nhận khi đang đăng nhập là đủ, không cần chữ ký giấy; cần bản giấy thì làm sau.
@@ -696,6 +715,8 @@ Hệ thống điều hướng khách hàng đến trang đặt lịch hẹn -> K
 - [**Invoice**](./db-table-draft.md#invoice)
 - [**ProposalFeedback**](./db-table-draft.md#proposalfeedback)
 - [**StorageUnit**](./db-table-draft.md#storageunit)
+- [**Notification**](./db-table-draft.md#notification)
+- [**OrderNotification**](./db-table-draft.md#ordernotification)
 
 **Advanced Features (not MVP)**
 - Chính sách trả trước N tháng thay vì cố định 1 tháng (`prepaid_months` > 1).
@@ -875,7 +896,7 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
 ## Scheduled Jobs - Cron jobs
 ### Jobs định kỳ
 - `RentalRequest` quá `expires_at` mà vẫn `status = Pending` hoặc `Approved` → set `status = Expired`.
-- `Appointment` (type = `CHECKIN`) đã quá `end_at` nhưng `arrived_at` vẫn null:
+- `Appointment` (type = `CHECKIN`, `status = Pending`) đã quá `end_at` nhưng `arrived_at` vẫn null:
   - `Appointment.status = Canceled`, `cancel_reason = NoShow`.
   - `HandoverRecord.result = CANCELED`.
   - `HandoverRecord.reject_reason` = "Khách không đến nhận kho theo lịch hẹn."
@@ -908,4 +929,4 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
   - `Scheduled`/`InProgress` → `HandoverRecord.arrived_at` null thì "Không đến nhận kho quá hạn giữ", đã có thì "Chưa hoàn tất bàn giao trong hạn"; chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade).
 - `RentalOrder` có `expires_at` trong vòng `order.expiry_reminder_days` (mặc định 3 ngày) tới, chưa `Done`/`Canceled` và chưa được nhắc:
   - Ghi notification `RENTAL_ORDER_EXPIRING_SOON` cho khách, title “Đơn thuê kho sắp hết hạn”, body có mã đơn, `expires_at` và số ngày còn lại.
-  - Mỗi đơn chỉ nhắc một lần.
+  - Mỗi đơn chỉ nhắc một lần (kiểm tra qua liên kết `OrderNotification` theo `order_id` + type).
