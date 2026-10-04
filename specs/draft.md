@@ -897,6 +897,11 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
     - Invoice `Expired`.
   - `type = Rental` + `RentalContract.status = Active` (đang thuê):
     - Tiền thuê định kỳ quá hạn → xử lý theo Flow 6. Ngoài scope hiện tại, đánh dấu chờ.
+- `RentalOrder` có `expires_at` đã qua (`expires_at < now`) và chưa `Done`/`Canceled` → `Canceled` (catch-all: các nhánh no-show/hóa đơn ở trên có thể đã hủy trước, job phải idempotent):
+  - Ghi `cancel_reason` theo trạng thái: `Deposited` → "Quá hạn đặt lịch check-in"; `Scheduled`/`InProgress` → "Không đến nhận kho quá hạn giữ".
+  - `StorageUnit` đang `Reserved` → `Available`.
+  - Cọc xử lý theo policy.
+  - Tạo notification `RENTAL_ORDER_CANCELED` theo cancel cascade.
 - `RentalOrder` có `expires_at` trong vòng `order.expiry_reminder_days` (mặc định 3 ngày) tới, chưa `Done`/`Canceled` và chưa được nhắc:
   - Ghi notification `RENTAL_ORDER_EXPIRING_SOON` cho khách, title “Đơn thuê kho sắp hết hạn”, body có mã đơn, `expires_at` và số ngày còn lại.
   - Mỗi đơn chỉ nhắc một lần.
