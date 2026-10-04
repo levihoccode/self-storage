@@ -96,6 +96,7 @@
 | `appointment.capacity_mode` | fixed_windows |
 | `request.pending_expiry_days` | 7 ngày |
 | `order.deposit_expiry_days` | 30 ngày |
+| `order.expiry_reminder_days` | 3 ngày |
 
 #### 1.1 Yêu cầu đặt kho
 **Context:** Khách mới, chưa từng sử dụng dịch vụ, muốn tìm cho mình một khoang chứa phù hợp với nhu cầu.
@@ -119,9 +120,6 @@
     + `unit_type` phải tồn tại và được cung cấp tại `facility`.
    - Sau khi submit, hệ thống tạo bản ghi `RentalRequest` với `status = Pending` (mặc định), `created_at` = thời điểm submit và `expires_at = created_at + request.pending_expiry_days`.
   - Nhận phản hồi thông qua email và số điện thoại (telesale sẽ gọi để xác nhận)
-  - Sau khi FM duyệt request, hệ thống ghi notification `RENTAL_REQUEST_APPROVED` cho khách tại thời điểm `RentalOrder` được tạo, title “Yêu cầu thuê kho đã được duyệt” và body có link trỏ tới trang duyệt proposal. Lúc này tài khoản chắc chắn đã tồn tại:
-    - **Khách đã có tài khoản**: `RentalOrder` được tạo ngay trong transaction duyệt (xem mục FM bên dưới).
-    - **Khách chưa có account**: chỉ nhận email thông báo request đã được duyệt (nội dung ở mục **Hệ thống gửi email** bên dưới). Vì tài khoản chưa được tạo, email kèm link đăng ký account và nhắc rõ đây chỉ là email thông báo duyệt, khoang vẫn có thể được người khác đặt cọc. `RentalOrder` được tạo ở [mục 1.2](#12-khách-tạo-tài-khoản) sau khi khách xác minh email.
   - Khách thao tác tiếp ở [`Kho của tôi`](#13-kiểm-tra-kho-của-tôi) trước khi sang bước đặt cọc.
 
 - **FM:**
@@ -137,8 +135,10 @@
       - **Trong trường hợp email chưa có tài khoản:**
         - Hệ thống **không tạo `RentalOrder`** — `RentalRequest` giữ `status = Approved` + `unit_id` đã chỉ định + `expires_at`. Đơn được tạo khi khách đăng ký và xác minh email (mục 1.2).
       - **Trong trường hợp email đã có tài khoản:**
-        - Hệ thống tạo một bản ghi `ProposalFeedback` (status = `Pending`) cho khách hàng.
-        - Hệ thống tạo một bản ghi `RentalOrder` (status = `Pending`, `unit_id` chưa được gán cho đến khi `ProposalFeedback.status = Agreed`).
+        - Hệ thống tạo các bản ghi:
+          - `ProposalFeedback` (status = `Pending`) cho khách hàng.
+          - `Notification` (type = `RENTAL_REQUEST_APPROVED`, title “Yêu cầu thuê kho đã được duyệt”, body có link trỏ tới trang duyệt proposal).
+          - `RentalOrder` (status = `Pending`, `unit_id` chưa được gán cho đến khi `ProposalFeedback.status = Agreed`).
         - Hệ thống chuyển `RentalRequest.status` sang `Converted`.
     - **Không tìm thấy khoang chứa thích hợp**:
       - Chuyển status sang `Rejected` và nhập lý do: "Hết khoang chứa phù hợp tại chi nhánh".
@@ -897,3 +897,6 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
     - Invoice `Expired`.
   - `type = Rental` + `RentalContract.status = Active` (đang thuê):
     - Tiền thuê định kỳ quá hạn → xử lý theo Flow 6. Ngoài scope hiện tại, đánh dấu chờ.
+- `RentalOrder` có `expires_at` trong vòng `order.expiry_reminder_days` (mặc định 3 ngày) tới, chưa `Done`/`Canceled`/`Expired` và chưa được nhắc:
+  - Ghi notification `RENTAL_ORDER_EXPIRING_SOON` cho khách, title “Đơn thuê kho sắp hết hạn”, body có mã đơn, `expires_at` và số ngày còn lại.
+  - Mỗi đơn chỉ nhắc một lần.

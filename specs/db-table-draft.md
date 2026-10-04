@@ -459,13 +459,14 @@
 - Email: dev dùng MailHog. Khi fail chỉ log + vẫn lưu thông báo web.
 - Email và thông báo web dùng cùng `title`/`body`. Cách trình bày có thể khác nhau.
 - `type` là catalog riêng, tách khỏi audit catalog. Khi thêm một luồng notification đã biết, bổ sung type tương ứng.
+- `APPOINTMENT_CANCELED_NO_SHOW` trùng tên audit event. Notification catalog tách khỏi audit catalog; khi code phải tách enum/type tương ứng, không nhầm hai bên.
 - `OTHER` chỉ dùng cho thông báo khẩn cấp thủ công khi chưa có type phù hợp. Không dùng thay cho một type nghiệp vụ đã biết. `title` và `body` phải mô tả cụ thể sự việc.
 - Quyền tạo `OTHER` phải được giới hạn cho người có quyền.
 - Chưa có bảng template. MVP lưu template theo `type` trong code. Template dùng placeholder `{{key}}`, caller phải truyền đủ giá trị để render.
 - `RENTAL_REQUEST_APPROVED` chỉ phát khi `RentalOrder` được tạo, tức khi account đã tồn tại. Khách chưa có account chỉ nhận email duyệt ở Flow 1.1, notification phát ở Flow 1.2 sau khi xác minh email. Nội dung email duyệt khác nhau tùy khách đã có tài khoản hay chưa. Các type còn lại áp dụng sau khi account đã tồn tại.
 - Index `(account_id, read_at)` cho lọc và đếm chưa đọc, và index `(account_id, created_at DESC)` cho list sắp xếp và phân trang.
 - Một số type render khác nhau theo recipient. Ví dụ `APPOINTMENT_CREATED` gửi khách ngày/giờ, địa chỉ cơ sở và hướng dẫn giấy tờ. Gửi FM mã đơn, thời gian hẹn và cơ sở.
-- Chưa làm: nhắc nhở gần hết hạn. Dự kiến gửi notification nhắc trước khi hết hạn, cần chốt deadline áp dụng (request, proposal, deposit hoặc hold) và cron.
+- Nhắc gần hết hạn: cron gửi `RENTAL_ORDER_EXPIRING_SOON` trước `RentalOrder.expires_at` theo `order.expiry_reminder_days`, mỗi đơn một lần. `RentalRequest`/`ProposalFeedback` chưa có notification nhắc.
 - Notification type catalog:
 
 | Type | Khi nào dùng | Recipient |
@@ -481,6 +482,7 @@
 | `FS_ASSIGNED` | FM phân công FS cho lịch hẹn, nội dung gồm thông tin lịch hẹn | FS |
 | `FS_ASSIGNMENT_REQUIRED` | FM cần phân công FS cho lịch check-in chưa có nhân viên phụ trách (nội dung gồm mã đơn, thời gian hẹn, cơ sở) | FM |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại check-in và muốn re-propose, nội dung gồm mã khoang và lý do | FM |
-| `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy | Customer, FM |
+| `RENTAL_ORDER_EXPIRING_SOON` | Cron nhắc trước khi `RentalOrder` hết hạn, nội dung gồm mã đơn, hạn giữ kho và số ngày còn lại | Customer |
+| `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy hoặc hết hạn (`Expired`) | Customer, FM |
 | `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
 | `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |
