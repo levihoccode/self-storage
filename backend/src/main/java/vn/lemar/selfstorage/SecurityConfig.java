@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +23,8 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(
             HttpSecurity http,
-            Converter<Jwt, JwtAuthenticationToken> authenticationConverter) throws Exception {
+            Converter<Jwt, JwtAuthenticationToken> authenticationConverter,
+            ObjectMapper objectMapper) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -36,8 +38,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").hasAuthority(ACTIVE_ACCOUNT_AUTHORITY)
                         .anyRequest().permitAll())
-                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt
-                        .jwtAuthenticationConverter(authenticationConverter)));
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter))
+                        .authenticationEntryPoint(new JsonAuthenticationEntryPoint(objectMapper))
+                        .accessDeniedHandler(new JsonAccessDeniedHandler(objectMapper)));
         return http.build();
     }
 

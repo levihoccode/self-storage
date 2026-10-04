@@ -2,31 +2,17 @@
 
 Endpoint hạ tầng (không thuộc module nghiệp vụ nào) để xác nhận ứng dụng chạy được.
 
-> Chạy backend rồi mở Swagger UI — `http://localhost:8080/swagger-ui/index.html` — để gọi thử
-> trực tiếp.
+- **Actor / quyền:** public.
+- **Contract chi tiết:** annotation tại `HealthController.java`; Swagger UI —
+  `http://localhost:8080/swagger-ui/index.html`.
 
-## Request
+## Hành vi
 
-Không tham số, không cần xác thực.
-
-## Response 200
-
-| Field | Kiểu | Giá trị |
-|---|---|---|
-| `status` | string | `ok` |
-| `service` | string | `self-storage` |
-
-```json
-{"status":"ok","service":"self-storage"}
-```
+- Không chạm database/Redis — chỉ xác nhận HTTP layer sống.
 
 ## Ví dụ
 
 ```bash
-curl http://localhost:8080/api/health
-# {"status":"ok","service":"self-storage"}
+curl -s http://localhost:8080/api/health
+{"message":"Server còn sống tốt!","data":{"service":"self-storage","status":"ok"}}
 ```
-
-## Ghi chú
-
-- Không chạm database/Redis — chỉ xác nhận HTTP layer sống.

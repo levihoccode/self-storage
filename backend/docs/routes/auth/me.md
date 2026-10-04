@@ -1,36 +1,22 @@
 # GET /api/auth/me
 
-Xác minh session hiện tại là ai — FE dùng sau khi login để biết email + role.
+Xác minh session hiện tại là ai — FE dùng sau login để biết email + role.
 
-> Chạy backend, mở Swagger UI — `http://localhost:8080/swagger-ui/index.html` — bấm **Authorize**
-> và dán JWT từ `/api/auth/login` để gọi thử trực tiếp.
+- **Actor / quyền:** bearer token + authority `ACCOUNT_ACTIVE`.
+- **Contract chi tiết:** annotation tại `identity/controller/AuthController.java`; Swagger UI —
+  `http://localhost:8080/swagger-ui/index.html` (bấm **Authorize** và dán JWT).
 
-## Request
+## Luồng / hành vi
 
-| Header | Giá trị |
-|---|---|
-| `Authorization` | `Bearer <JWT>` (bắt buộc) |
+- Route nằm dưới `/api/auth/**` nhưng được match **trước** rule `permitAll` trong `SecurityConfig`,
+  nên vẫn yêu cầu token và status `ACTIVE`.
+- Role đọc từ DB **mỗi request**: admin đổi role hoặc khóa account thì request kế tiếp thấy hiệu lực ngay.
+- 401/403 trả body `{message, timestamp}`; 401 kèm header `WWW-Authenticate` — xem
+  [authentication.md › Tín hiệu 401 cho client](../../authentication.md#tín-hiệu-401-cho-client).
 
-Không có body/query. Route nằm dưới `/api/auth/**` nhưng được match **trước** rule
-`permitAll` trong `SecurityConfig`, nên vẫn yêu cầu token và status ACTIVE.
+## Ghi chú
 
-## Response 200
-
-| Field | Kiểu | Ghi chú |
-|---|---|---|
-| `email` | string | email của account |
-| `role` | string | `ADMIN` · `BOM` · `FM` · `FS` · `CUSTOMER` |
-
-```json
-{ "email": "customer1@lemar.vn", "role": "CUSTOMER" }
-```
-
-## Lỗi
-
-| Status | Điều kiện | Body |
-|---|---|---|
-| 401 | Thiếu token / sai chữ ký / hết hạn / account đã bị xóa | Thường không có body (resource server trả trước controller) |
-| 403 | Token hợp lệ nhưng account `BANNED` | Không kèm body lỗi nghiệp vụ (Spring Security mặc định) |
+- Đây là endpoint chính thức để FE lấy role, thay cho field `role` đã bỏ khỏi response login.
 
 ## Ví dụ
 
@@ -38,14 +24,12 @@ Không có body/query. Route nằm dưới `/api/auth/**` nhưng được match 
 TOKEN='<token từ POST /api/auth/login>'
 
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/auth/me
-# {"email":"customer1@lemar.vn","role":"CUSTOMER"}
+# {"message":"Lấy thông tin tài khoản thành công","data":{"email":"customer1@lemar.vn","role":"CUSTOMER"}}
 
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/auth/me
-# 401
+curl -s http://localhost:8080/api/auth/me
+# {"message":"Full authentication is required to access this resource","timestamp":"2026-10-04T08:14:32.831012049Z"}
+
+curl -s -i -H 'Authorization: Bearer abc.def.ghi' http://localhost:8080/api/auth/me | grep -iE 'WWW-Authenticate|^\{'
+# WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Malformed token", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
+# {"message":"An error occurred while attempting to decode the Jwt: Malformed token","timestamp":"2026-10-04T08:14:32.840856214Z"}
 ```
-
-## Ghi chú
-
-- Role đọc từ DB **mỗi request**: admin đổi role hoặc khóa account thì request kế tiếp
-  đã thấy hiệu lực ngay.
-- Đây là endpoint chính thức để FE lấy role, thay cho field `role` đã bỏ khỏi response login.

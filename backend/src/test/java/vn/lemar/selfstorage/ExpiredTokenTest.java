@@ -20,8 +20,8 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = SecurityConfigTest.ProbeController.class)
@@ -60,8 +60,9 @@ class ExpiredTokenTest {
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().string(""))
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE,
-                        containsString("error=\"invalid_token\"")));
+                        containsString("error=\"invalid_token\"")))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.message", containsString("Jwt expired at")));
     }
 }
