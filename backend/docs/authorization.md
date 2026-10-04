@@ -36,7 +36,7 @@ Account `BANNED` không được cấp authority nào → mọi route yêu cầu
 
 Mọi 401/403 trả body `{message, timestamp}` (401 kèm header `WWW-Authenticate`): 401 message là mô
 tả lỗi token từ Spring; 403 message là `"Bạn không có quyền truy cập"` (sai role) hoặc
-`"Tài khoản đã bị chặn"` (`BANNED`).
+`"Tài khoản đã bị chặn"` (`BANNED`). Chi tiết: [error-handling.md](error-handling.md).
 
 ## Điều kiện nghiệp vụ: xác minh email
 

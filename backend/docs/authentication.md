@@ -111,7 +111,8 @@ WWW-Authenticate: Bearer error="invalid_token", error_description="An error occu
 ```
 
 Client xử lý theo `status = 401` (không parse message để làm logic); `message` để hiển thị/log;
-refresh token (#74) sẽ bám vào tín hiệu này.
+refresh token (#74) sẽ bám vào tín hiệu này. Toàn bộ các tầng bắt lỗi:
+[error-handling.md](error-handling.md).
 
 ## Cấu hình liên quan
 

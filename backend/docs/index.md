@@ -114,6 +114,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 - Lỗi khung (404 sai path, 405 sai method, 415 sai content-type…) giữ đúng status, message tiếng
   Việt tương ứng. Đây là các status **nền, áp dụng cho mọi route** — Swagger từng route không lặp lại.
 - Message cố định tiếng Việt phía BE; i18n (nếu cần) xử lý phía FE sau.
+- Chi tiết các tầng bắt lỗi và bảng status: [error-handling.md](error-handling.md).
 
 ## Mục lục
 
@@ -121,6 +122,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 |---|---|
 | [authentication.md](authentication.md) | Mô hình xác thực: token, luồng request, giới hạn |
 | [authorization.md](authorization.md) | Mô hình phân quyền: authorities, policy route, điều kiện xác minh |
+| [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |
