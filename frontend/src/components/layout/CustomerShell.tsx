@@ -82,15 +82,6 @@ export function CustomerShell({
         }}
         onBrandClick={() => navigate("/")}
         onLogout={logout}
-        sidebarNote={
-          <div
-            className="grid gap-1 border-2 border-danger bg-danger/13 p-3 font-mono text-[10px] font-bold leading-[1.35] tracking-[0.04em] text-danger shadow-[0_0_14px_rgba(255,155,115,0.45),inset_0_0_18px_rgba(255,155,115,0.08)]"
-            role="note"
-          >
-            <strong className="text-[15px] tracking-[0.08em]">DEMO ONLY</strong>
-            <span>XÓA NGAY KHI BACKEND LOGIN XONG</span>
-          </div>
-        }
         contentClassName="mx-auto w-[min(1180px,calc(100%-80px))] pb-[100px] pt-16 max-[760px]:w-[min(100%-32px,600px)] max-[760px]:pb-[70px] max-[760px]:pt-[38px]"
         header={(openMobileMenu) => (
           <CustomerHeader
