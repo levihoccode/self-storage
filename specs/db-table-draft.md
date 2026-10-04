@@ -3,10 +3,36 @@
 # Account
 - id
 - email (unique, normalized)
-- email_verified_at (nullable)
+- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) KHÔNG chặn đăng nhập,
+  nhưng chặn các thao tác yêu cầu xác minh (tối thiểu: claim/liên kết `RentalRequest` — Flow 1 §1.2;
+  các flow khác bổ sung khi triển khai)
 - role_id (N - 1: Role)
 - status
+  - ACTIVE: đang hoạt động — được đăng nhập/gọi API
+  - BANNED: bị admin chặn — không được đăng nhập/gọi API
 - created_at
+
+# Role
+**Overview:** vai trò trong hệ thống. Mỗi account được gán đúng một role qua `Account.role_id`; Admin quản lý, không hard-code trong source code.
+- id
+- name (unique) - mã role; seed mặc định 5 role: `ADMIN`, `BOM`, `FM`, `FS`, `CUSTOMER`
+- created_at
+# Permission
+**Overview:** quyền/hành động cụ thể theo model RBAC, gán cho role qua `RolePermission`.
+- id
+- code (unique) - định danh quyền dạng `<resource>.<action>`, ví dụ `rental_request.approve`
+- description
+- created_at
+# RolePermission
+**Overview:** bảng nối N–N giữa `Role` và `Permission` — nguồn dữ liệu duy nhất cho việc role nào có quyền nào.
+- role_id (N - 1: Role)
+- permission_id (N - 1: Permission)
+
+**CONSTRAINTS:**
+- Unique `(role_id, permission_id)`.
+
+**NOTES:**
+- Catalog permission cụ thể và mapping mặc định cho 5 role chưa chốt (thuộc Flow 5.0); không hard-code trong source code. Khi chốt thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
 # Facility
 - id
 - code (unique)
@@ -14,6 +40,11 @@
 - address
 - operating_hours
 - status (Active/Inactive)
+- fm_account_id (N - 1: Account, nullable, unique) - FM phụ trách cơ sở; quan hệ 1–1
+
+**NOTES:**
+- `fm_account_id` là nguồn duy nhất lưu quan hệ FM–Facility (1–1): mỗi facility có tối đa một FM; mỗi FM phụ trách tối đa một facility. Account không lưu `facility_id` cho FM — cần biết FM phụ trách facility nào thì truy vấn ngược từ `Facility`.
+- `AccountFacilityAssignment` chỉ dùng cho FS (1–n); không dùng cho FM.
 # AccountFacilityAssignment
 **Owner:** Flow 5
 **Overview:** mapping account (chỉ dùng cho FS) với Facility, phục vụ RBAC data-scope khi một cơ sở có nhiều FS (1–n). Không dùng cho FM.
@@ -455,6 +486,10 @@ Các bước:
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì hoặc giải phóng khoang khi đơn bị hủy | `StorageUnit` | System |
+| `ACCOUNT_REGISTERED` | Tạo tài khoản mới | `Account` | Customer/Admin |
+
+- Xác minh email không tạo `AuditLog`; bản ghi là `Account.email_verified_at`. Nếu sau này có đường
+  verify khác self-service (admin verify hộ, đổi email re-verify), phải bổ sung action tương ứng.
 
 # Policy
 **Owner:** Flow 4 (business rules & phí); các flow chỉ đọc qua key.

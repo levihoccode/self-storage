@@ -13,6 +13,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
+@org.springframework.test.context.TestPropertySource(properties = {
+    "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+})
 class SchemaValidationTest {
 
     @Container

@@ -8,6 +8,7 @@ type FieldProps = {
   placeholder?: string;
   icon?: ReactNode;
   suffix?: string;
+  defaultValue?: string;
 };
 
 export const FIELD_GROUP = "mb-[17px]";
@@ -25,6 +26,7 @@ export function FormField({
   placeholder,
   icon,
   suffix,
+  defaultValue,
 }: FieldProps) {
   return (
     <div className={FIELD_GROUP}>
@@ -44,6 +46,7 @@ export function FormField({
           type={type}
           required={required}
           placeholder={placeholder}
+          defaultValue={defaultValue}
           autoComplete={name === "email" ? "email" : undefined}
           className={INPUT_ELEMENT}
         />

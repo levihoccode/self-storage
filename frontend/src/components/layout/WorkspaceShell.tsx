@@ -32,6 +32,9 @@ export function WorkspaceShell({
   onLogout,
   theme,
   onThemeToggle,
+  sidebarNote,
+  header,
+  contentClassName,
   children,
 }: {
   roleLabel: string;
@@ -39,10 +42,18 @@ export function WorkspaceShell({
   activePath: string;
   onNavigate: (path: string) => void;
   onBrandClick: () => void;
-  user: { name: string; email: string };
+  user?: { name: string; email: string };
   onLogout: () => void;
-  theme: Theme;
-  onThemeToggle: () => void;
+  theme?: Theme;
+  onThemeToggle?: () => void;
+  /** Extra content pinned above the logout button (e.g. a demo/env banner). */
+  sidebarNote?: ReactNode;
+  /** Override the default topbar (theme toggle + profile menu) — receives a
+   * callback to open the mobile sidebar, since that state lives in here. */
+  header?: (openMobileMenu: () => void) => ReactNode;
+  /** Override the content wrapper's own classes (width/padding), when a
+   * role's header height/shape needs different clearance than the default. */
+  contentClassName?: string;
   children: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -114,6 +125,7 @@ export function WorkspaceShell({
           })}
         </nav>
         <div className="mt-auto grid gap-4 px-2 pt-[18px]">
+          {sidebarNote}
           <button
             className="inline-flex items-center gap-[9px] border-0 bg-transparent px-3 py-2 text-left text-[13px] font-bold text-muted hover:text-danger"
             onClick={onLogout}
@@ -130,57 +142,64 @@ export function WorkspaceShell({
         />
       )}
       <section className="min-w-0 flex-1 ml-[268px] max-[760px]:ml-0">
-        <header className="sticky top-0 z-[15] flex min-h-16 items-center justify-between border-b border-border bg-surface px-6 py-2.5 max-[760px]:px-4">
-          <button
-            className={SIDEBAR_ICON_BUTTON}
-            onClick={() => setMenuOpen(true)}
-            aria-label="Mở menu"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="ml-auto flex items-center gap-6 max-[760px]:gap-3">
-            <ThemeToggle theme={theme} onToggle={onThemeToggle} />
-            <div className="relative" ref={profileRef}>
-              <button
-                className="flex items-center gap-2.5 border-y-0 border-r-0 border-l border-border bg-transparent pl-5 text-left text-ink hover:text-ink max-[760px]:pl-3"
-                onClick={() => setProfileOpen((current) => !current)}
-                aria-expanded={profileOpen}
-                aria-haspopup="menu"
-              >
-                <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-brand font-extrabold text-dark">
-                  {user.name.slice(0, 1)}
-                </span>
-                <span className="grid gap-px">
-                  <strong className="text-[12px]">{user.name}</strong>
-                  <small className="text-[10px] text-muted">{roleLabel}</small>
-                </span>
-                <ChevronDown className="max-[760px]:hidden" size={16} />
-              </button>
-              {profileOpen && (
-                <div
-                  className="absolute right-0 top-[calc(100%+12px)] z-40 w-[220px] rounded-[6px] border border-border bg-surface p-2 shadow-[var(--shadow-soft),0_0_18px_rgba(53,133,142,0.18)]"
-                  role="menu"
+        {header ? (
+          header(() => setMenuOpen(true))
+        ) : (
+          <header className="sticky top-0 z-[15] flex min-h-16 items-center justify-between border-b border-border bg-surface px-6 py-2.5 max-[760px]:px-4">
+            <button
+              className={SIDEBAR_ICON_BUTTON}
+              onClick={() => setMenuOpen(true)}
+              aria-label="Mở menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="ml-auto flex items-center gap-6 max-[760px]:gap-3">
+              {theme && onThemeToggle && <ThemeToggle theme={theme} onToggle={onThemeToggle} />}
+              <div className="relative" ref={profileRef}>
+                <button
+                  className="flex items-center gap-2.5 border-y-0 border-r-0 border-l border-border bg-transparent pl-5 text-left text-ink hover:text-ink max-[760px]:pl-3"
+                  onClick={() => setProfileOpen((current) => !current)}
+                  aria-expanded={profileOpen}
+                  aria-haspopup="menu"
                 >
-                  <div className="grid gap-0.5 border-b border-border p-2.5">
-                    <strong className="text-[12px]">{user.name}</strong>
-                    <span className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] font-medium text-muted">
-                      {user.email}
-                    </span>
-                  </div>
-                  <button
-                    className="flex w-full items-center gap-[9px] border-0 bg-transparent px-2.5 py-[11px] text-left text-[12px] font-bold text-danger hover:bg-brand-soft"
-                    role="menuitem"
-                    onClick={onLogout}
+                  <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-brand font-extrabold text-dark">
+                    {user?.name.slice(0, 1)}
+                  </span>
+                  <span className="grid gap-px">
+                    <strong className="text-[12px]">{user?.name}</strong>
+                    <small className="text-[10px] text-muted">{roleLabel}</small>
+                  </span>
+                  <ChevronDown className="max-[760px]:hidden" size={16} />
+                </button>
+                {profileOpen && (
+                  <div
+                    className="absolute right-0 top-[calc(100%+12px)] z-40 w-[220px] rounded-[6px] border border-border bg-surface p-2 shadow-[var(--shadow-soft),0_0_18px_rgba(53,133,142,0.18)]"
+                    role="menu"
                   >
-                    <LogOut size={16} /> Đăng xuất
-                  </button>
-                </div>
-              )}
+                    <div className="grid gap-0.5 border-b border-border p-2.5">
+                      <strong className="text-[12px]">{user?.name}</strong>
+                      <span className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] font-medium text-muted">
+                        {user?.email}
+                      </span>
+                    </div>
+                    <button
+                      className="flex w-full items-center gap-[9px] border-0 bg-transparent px-2.5 py-[11px] text-left text-[12px] font-bold text-danger hover:bg-brand-soft"
+                      role="menuitem"
+                      onClick={onLogout}
+                    >
+                      <LogOut size={16} /> Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
+        )}
         <div
-          className="mx-auto w-[min(1180px,calc(100%-80px))] pb-[100px] pt-10 max-[760px]:w-[min(100%-32px,600px)] max-[760px]:pb-[70px] max-[760px]:pt-7"
+          className={
+            contentClassName ??
+            "mx-auto w-[min(1180px,calc(100%-80px))] pb-[100px] pt-10 max-[760px]:w-[min(100%-32px,600px)] max-[760px]:pb-[70px] max-[760px]:pt-7"
+          }
           id="main-content"
         >
           {children}

@@ -25,8 +25,8 @@ CREATE TABLE accounts (
     password_hash     VARCHAR(255) NOT NULL,
     email_verified_at TIMESTAMPTZ,
     role_id           BIGINT NOT NULL REFERENCES roles (id),
-    status            VARCHAR(20) NOT NULL DEFAULT 'UNVERIFIED'
-                      CHECK (status IN ('ACTIVE', 'UNVERIFIED', 'LOCKED', 'BANNED')),
+    status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+                      CHECK (status IN ('ACTIVE', 'BANNED')),
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -37,7 +37,8 @@ CREATE TABLE facilities (
     address         TEXT,
     operating_hours TEXT,
     status          VARCHAR(20) NOT NULL DEFAULT 'Active'
-                    CHECK (status IN ('Active', 'Inactive'))
+                    CHECK (status IN ('Active', 'Inactive')),
+    fm_account_id   BIGINT UNIQUE REFERENCES accounts (id)   -- FM phụ trách (1–1); NULL = chưa gán
 );
 
 -- Chỉ dùng cho FS (Flow 5) — data-scope khi một cơ sở có nhiều FS; không dùng cho FM.
@@ -46,6 +47,20 @@ CREATE TABLE account_facility_assignments (
     facility_id BIGINT NOT NULL REFERENCES facilities (id),
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (account_id, facility_id)
+);
+
+-- RBAC data-driven (Flow 5): role — permission.
+CREATE TABLE permissions (
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(100) NOT NULL UNIQUE,   -- <resource>.<action>, ví dụ rental_request.approve
+    description TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE role_permissions (
+    role_id       BIGINT NOT NULL REFERENCES roles (id),
+    permission_id BIGINT NOT NULL REFERENCES permissions (id),
+    PRIMARY KEY (role_id, permission_id)
 );
 
 -- ---------------------------------------------------------------------------

@@ -9,6 +9,11 @@ Bản đọc được của SQL — **mirror byte-identical** với Flyway migra
 
 **Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Nguồn sự thật của thiết kế vẫn là `specs/db-table-draft.md`.
 
+## Vòng đời baseline (V1)
+
+- **Khi mọi DB đã apply migration còn disposable** (chưa có prod/staging/sandbox dùng dữ liệu thật): được sửa trực tiếp `V1__baseline_schema.sql` + mirror `schema.sql`, không cần migration mới. Đổi lại, đồng đội phải `docker compose down -v && docker compose up -d` một lần vì Flyway báo checksum mismatch.
+- **Khi có bất kỳ DB không thể xoá trắng** (prod, staging, sandbox có người dùng): V1 và mọi migration đã apply **đóng băng**. Thay đổi schema chỉ được thêm bằng migration mới (`V3__…`, `V4__…`, theo số kế tiếp), không sửa file đã apply.
+
 ## Chạy migration
 
 Migrations tự chạy khi app khởi động (Flyway + `spring.datasource`). Máy dev:
@@ -30,4 +35,4 @@ psql "$DB_URL" -f sql/seed.sql
 
 ## Seed (V2) — mật khẩu dev
 
-Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin1`(ADMIN) · `bom1`(BOM) · `fm1`(FM) · `fs1`(FS, gán cơ sở Q7) · `customer1`(CUSTOMER) · `unverified` · `locked`.
+Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin`(ADMIN) · `bom1`(BOM) · `fm1`(FM, gán Q7) · `fm2`(FM, gán TD) · `fs1`(FS, gán Q7) · `customer1`(CUSTOMER) · `unverified` · `banned`.

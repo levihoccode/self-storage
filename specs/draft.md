@@ -61,6 +61,12 @@
 
 
 ## Business workflow
+
+- **Xác minh email:** khách hàng chưa xác minh email (`email_verified_at = null`) vẫn đăng nhập được,
+  nhưng không được thực hiện các thao tác nghiệp vụ liên quan đến thuê kho (liên kết/claim đơn,
+  đặt cọc, ký hợp đồng, nhận kho, trả kho…). Chi tiết field: `db-table-draft.md › Account`;
+  mỗi flow bổ sung danh sách thao tác cụ thể khi triển khai.
+
 ### 1. Đặt kho
 **FLOW:**
 ```

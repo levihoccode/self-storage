@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:../.env[.properties]
   application:
     name: self-storage
   datasource:
@@ -24,6 +26,13 @@ spring:
           auth: ${MAIL_SMTP_AUTH:false}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:false}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH:10}
 
 server:
   port: ${SERVER_PORT:8080}

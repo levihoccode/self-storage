@@ -8,6 +8,11 @@ import { PublicFooter } from "./components/layout/PublicFooter";
 import { PublicHeader } from "./components/layout/PublicHeader";
 import { CustomerShell } from "./components/layout/CustomerShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
+import { ContractDetailPage } from "./pages/ContractDetailPage";
+import { ProposalsPage } from "./pages/ProposalsPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
+import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -57,8 +62,23 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
-  if (view === "my-storage" && !session) {
-    navigate("/login");
+  const isCustomerView =
+    view === "my-storage" ||
+    view === "contract-detail" ||
+    view === "proposals" ||
+    view === "invoices" ||
+    view === "appointments" ||
+    view === "notifications" ||
+    (view === "request" && !!session);
+  const needsLoginRedirect = isCustomerView && !session;
+
+  useEffect(() => {
+    if (needsLoginRedirect) {
+      navigate("/login");
+    }
+  }, [needsLoginRedirect]);
+
+  if (needsLoginRedirect) {
     return null;
   }
   return (
@@ -68,13 +88,25 @@ function App() {
       </a>
       {isAuthView ? (
         <AuthPage view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
-      ) : view === "my-storage" ? (
+      ) : isCustomerView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
-          <MyStoragePage navigate={navigate} />
+          {view === "my-storage" && <MyStoragePage navigate={navigate} />}
+          {view === "contract-detail" && <ContractDetailPage navigate={navigate} />}
+          {view === "proposals" && <ProposalsPage navigate={navigate} />}
+          {view === "invoices" && <InvoicesPage navigate={navigate} />}
+          {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}
+          {view === "notifications" && <NotificationsPage navigate={navigate} />}
+          {view === "request" && <RequestPage navigate={navigate} embedded />}
         </CustomerShell>
       ) : (
         <>
-          <PublicHeader view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
+          <PublicHeader
+            view={view}
+            navigate={navigate}
+            theme={theme}
+            onThemeToggle={toggleTheme}
+            session={session}
+          />
           <main id="main-content">
             {view === "home" && <LandingPage navigate={navigate} />}
             {view === "units" && <BrowsePage navigate={navigate} />}
