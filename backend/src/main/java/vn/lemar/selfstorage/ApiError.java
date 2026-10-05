@@ -8,8 +8,7 @@ import java.time.Instant;
  */
 @Schema(description = "Envelope lỗi — mọi 4xx/5xx")
 public record ApiError(
-        @Schema(description = "Câu thông báo hiển thị trực tiếp cho người dùng",
-                example = "Email hoặc mật khẩu không đúng")
+        @Schema(description = "Câu thông báo hiển thị trực tiếp cho người dùng")
         String message,
 
         @Schema(description = "Thời điểm lỗi (ISO-8601, UTC)",
