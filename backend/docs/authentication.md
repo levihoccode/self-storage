@@ -101,14 +101,17 @@ hoặc đổi role, token cũ vẫn dùng được tới lúc hết hạn. Mô h
 
 ## Tín hiệu 401 cho client
 
-Token sai / hết hạn / thiếu claim bắt buộc → 401 body `{message, timestamp}` **và** header
-`WWW-Authenticate` (RFC 6750) — output thật:
+Token sai / hết hạn / thiếu claim bắt buộc → 401 body chung `{message, timestamp}` **và** header
+`WWW-Authenticate` (RFC 6750, không kèm `error_description`) — output thật:
 
 ```text
 $ curl -s -i -H 'Authorization: Bearer abc.def.ghi' http://localhost:8080/api/auth/me
-WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Malformed token", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
-{"message":"An error occurred while attempting to decode the Jwt: Malformed token","timestamp":"2026-10-04T08:14:32.840856214Z"}
+WWW-Authenticate: Bearer error="invalid_token"
+{"message":"Bạn cần đăng nhập để tiếp tục.","timestamp":"2026-10-05T06:20:49.329273914Z"}
 ```
+
+Chi tiết lỗi token chỉ ghi log server (debug), không trả cho client; thiếu token hoàn toàn thì
+header là `Bearer` trần.
 
 Client xử lý theo `status = 401` (không parse message để làm logic); `message` để hiển thị/log;
 refresh token (#74) sẽ bám vào tín hiệu này. Toàn bộ các tầng bắt lỗi:

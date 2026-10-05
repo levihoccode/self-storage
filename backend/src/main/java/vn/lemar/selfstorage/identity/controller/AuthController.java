@@ -68,7 +68,7 @@ public class AuthController {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = """
-                                    {"message":"An error occurred while attempting to decode the Jwt: Malformed token",
+                                    {"message":"Bạn cần đăng nhập để tiếp tục.",
                                     "timestamp":"2026-10-04T08:14:32.840856214Z"}"""))),
             @ApiResponse(responseCode = "403", description = "Token hợp lệ nhưng account BANNED",
                     content = @Content(mediaType = "application/json",

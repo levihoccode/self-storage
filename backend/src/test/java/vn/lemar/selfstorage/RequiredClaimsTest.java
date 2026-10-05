@@ -18,7 +18,6 @@ import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConvert
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -56,7 +55,7 @@ class RequiredClaimsTest {
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message", containsString("missing required claims")));
+                .andExpect(jsonPath("$.message").value("Bạn cần đăng nhập để tiếp tục."));
     }
 
     @Test

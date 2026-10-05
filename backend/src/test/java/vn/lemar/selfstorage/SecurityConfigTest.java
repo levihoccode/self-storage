@@ -30,6 +30,7 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,7 +62,8 @@ class SecurityConfigTest {
     void protectedRouteRejectsMissingToken() throws Exception {
         mockMvc.perform(get("/api/customer/probe"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
+                .andExpect(jsonPath("$.message").value("Bạn cần đăng nhập để tiếp tục."))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 

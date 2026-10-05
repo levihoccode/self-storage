@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { Navigate, Notice } from "../../app/types";
-import { authGateway, DEMO_EMAIL, DEMO_PASSWORD } from "../../app/auth";
+import { authGateway, type UserRole } from "../../app/auth";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import {
   FIELD_GROUP,
@@ -10,6 +10,14 @@ import {
   INPUT_ELEMENT,
   INPUT_WRAP,
 } from "../../components/ui/FormField";
+
+const ROLE_PAGE_NAMES: Record<UserRole, string> = {
+  ADMIN: "quản trị viên",
+  BOM: "BOM",
+  FM: "FM",
+  FS: "FS",
+  CUSTOMER: "khách hàng",
+};
 
 export function LoginForm({ navigate }: { navigate: Navigate }) {
   const [notice, setNotice] = useState<Notice>(null);
@@ -25,13 +33,22 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
       return;
     }
     setIsSubmitting(true);
-    const result = await authGateway.login(email, password);
-    setIsSubmitting(false);
-    if (!result.ok) {
-      setNotice({ tone: "error", message: result.message });
-      return;
+    try {
+      const result = await authGateway.login(email, password);
+      if (!result.ok) {
+        setNotice({ tone: "error", message: result.message });
+        return;
+      }
+      if (result.session.user.role !== "CUSTOMER") {
+        const roleName = ROLE_PAGE_NAMES[result.session.user.role];
+        authGateway.logout();
+        setNotice({ tone: "info", message: `Trang của ${roleName} đang được hoàn thiện.` });
+        return;
+      }
+      navigate("/my-storage");
+    } finally {
+      setIsSubmitting(false);
     }
-    navigate("/my-storage");
   }
   return (
     <>
@@ -91,14 +108,17 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
           type="submit"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Đang kiểm tra…" : "Đăng nhập"}{" "}
-          {!isSubmitting && <ArrowRight size={17} />}
+          {isSubmitting ? (
+            <>
+              <LoaderCircle size={17} className="animate-spin" aria-hidden="true" />
+              Đang kiểm tra…
+            </>
+          ) : (
+            <>
+              Đăng nhập <ArrowRight size={17} />
+            </>
+          )}
         </button>
-        <div className="mt-5 grid gap-1 rounded-sm border border-dashed border-border p-3 font-mono text-[11px] leading-relaxed text-muted">
-          <strong className="font-sans text-xs text-ink">Tài khoản demo</strong>
-          <span>Email: {DEMO_EMAIL}</span>
-          <span>Mật khẩu: {DEMO_PASSWORD}</span>
-        </div>
         {notice && <DemoNotice tone={notice.tone}>{notice.message}</DemoNotice>}
       </form>
       <p className="mt-5 text-center text-xs text-muted">
