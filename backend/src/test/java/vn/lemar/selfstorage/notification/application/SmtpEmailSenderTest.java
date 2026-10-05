@@ -6,17 +6,31 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.util.Properties;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class SmtpEmailSenderTest {
 
     private final JavaMailSender mailSender = mock(JavaMailSender.class);
     private final SmtpEmailSender sender = new SmtpEmailSender(mailSender, "noreply@lemar.vn");
+
+    @AfterEach
+    void clearSynchronizations() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
 
     @Test
     void sendsMessageWithGivenFields() {
@@ -33,6 +47,23 @@ class SmtpEmailSenderTest {
     }
 
     @Test
+    void sendsHtmlMessage() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+
+        boolean result = sender.sendHtml("a@b.vn", "Tiêu đề", "<p>Nội dung</p>");
+
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(captor.capture());
+        MimeMessage sent = captor.getValue();
+        sent.saveChanges();
+        assertThat(result).isTrue();
+        assertThat(sent.getSubject()).isEqualTo("Tiêu đề");
+        assertThat(sent.getAllRecipients()[0].toString()).isEqualTo("a@b.vn");
+        assertThat(sent.getContentType()).contains("text/html");
+        assertThat(sent.getContent()).isEqualTo("<p>Nội dung</p>");
+    }
+
+    @Test
     void swallowsMailFailureAndReturnsFalse() {
         doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
 
@@ -40,9 +71,50 @@ class SmtpEmailSenderTest {
     }
 
     @Test
+    void swallowsHtmlFailureAndReturnsFalse() {
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+        doThrow(new MailSendException("smtp down")).when(mailSender).send(any(MimeMessage.class));
+
+        assertThat(sender.sendHtml("a@b.vn", "s", "<p>b</p>")).isFalse();
+    }
+
+    @Test
     void skipsBlankRecipient() {
         assertThat(sender.send(" ", "s", "b")).isFalse();
         assertThat(sender.send(null, "s", "b")).isFalse();
         verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    void defersToAfterCommitWhenTransactionActive() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            boolean result = sender.send("a@b.vn", "s", "b");
+
+            assertThat(result).isTrue();
+            verifyNoInteractions(mailSender);
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            verify(mailSender).send(any(SimpleMailMessage.class));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void doesNotSendWhenTransactionRollsBack() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            sender.send("a@b.vn", "s", "b");
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization ->
+                            synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+
+            verifyNoInteractions(mailSender);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }

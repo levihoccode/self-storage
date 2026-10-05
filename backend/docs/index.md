@@ -74,8 +74,13 @@ Chi tiết: `backend/sql/README.md`.
 ## Gửi email (module notification)
 
 - Module khác inject `vn.lemar.selfstorage.notification.EmailSender` và gọi
-  `send(to, subject, body)` — văn bản thuần, trả `true/false`.
-- Gửi lỗi chỉ log, không ném exception → không rollback nghiệp vụ của caller.
+  `send(to, subject, body)` (văn bản thuần) hoặc `sendHtml(to, subject, htmlBody)`.
+- Gửi lỗi chỉ log, không ném exception → không rollback nghiệp vụ của caller; `true` = đã gửi
+  hoặc đã xếp lịch, `false` = không gửi được (thiếu recipient/lỗi).
+- Đang trong transaction → email được xếp lịch gửi **sau commit**; rollback thì không gửi.
+  Ngoài transaction gửi ngay.
+- Có sẵn layout HTML chuẩn: `NotificationEmailLayout.wrap(title, body)` → truyền thẳng vào
+  `sendHtml(...)`.
 - Cấu hình: `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD` (dev: MailHog `localhost:1025`,
   xem thư tại `http://localhost:8025`), địa chỉ gửi `MAIL_FROM` (mặc định `noreply@lemar.vn`).
 - Chưa có template/outbox: caller tự dựng `subject` và `body`.
