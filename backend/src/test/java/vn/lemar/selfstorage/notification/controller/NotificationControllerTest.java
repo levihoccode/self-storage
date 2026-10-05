@@ -225,6 +225,19 @@ class NotificationControllerTest {
     }
 
     @Test
+    void createOtherRejectsInvalidEmail() throws Exception {
+        authenticate("admin@example.com", "ADMIN");
+        String request = "{\"recipientEmail\":\"not-an-email\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
+
+        mockMvc.perform(post("/api/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("admin@example.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
+    }
+
+    @Test
     void createOtherRejectsMissingTitle() throws Exception {
         authenticate("admin@example.com", "ADMIN");
 
