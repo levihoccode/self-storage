@@ -37,7 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/fm/**").hasRole("FM")
                         .requestMatchers("/api/bom/**").hasRole("BOM")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/notifications").hasAnyRole("ADMIN", "BOM")
+                        .requestMatchers(HttpMethod.POST, "/api/notifications").hasAnyRole("ADMIN", "BOM", "FM")
                         .requestMatchers("/api/**").hasAuthority(ACTIVE_ACCOUNT_AUTHORITY)
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer

@@ -1,14 +1,14 @@
 # POST /api/notifications
 
-Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account.
+Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account theo email.
 
-- **Actor / quyền:** bearer token + role `ADMIN` hoặc `BOM` (chặn tại `SecurityConfig`).
+- **Actor / quyền:** bearer token + role `ADMIN`, `BOM` hoặc `FM` (chặn tại `SecurityConfig`).
 - **Contract chi tiết:** annotation tại `notification/controller/NotificationController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
 ## Luồng / hành vi
 
-- Body: `recipientAccountId` (bắt buộc, account phải tồn tại — 404 nếu không), `title`, `body`.
+- Body: `recipientEmail` (bắt buộc, phải thuộc account tồn tại — 404 nếu không), `title`, `body`.
 - Type cố định `OTHER` — chỉ dùng khi chưa có type nghiệp vụ phù hợp.
 - Ghi bản ghi web + gửi email (layout HTML chung, gửi sau commit) cho account nhận; email lỗi
   không rollback bản ghi web — xem `index.md › Gửi email (module notification)`.
@@ -17,20 +17,26 @@ Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account.
 ## Ví dụ
 
 ```bash
-ADMIN_TOKEN='<token của admin@lemar.vn>'
+FM_TOKEN='<token của fm1@lemar.vn>'
 CUST_TOKEN='<token của customer1@lemar.vn>'
 
-# 200 — admin tạo cho customer1 (accountId = 6)
+# 200 — FM tạo cho khách theo email
 curl -s -X POST http://localhost:8080/api/notifications \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"recipientAccountId":6,"title":"Bảo trì khẩn cấp","body":"Cơ sở tạm đóng để bảo trì ngày mai."}'
-# {"message":"Tạo thông báo thành công","data":{"id":5,"type":"OTHER","title":"Bảo trì khẩn cấp","body":"Cơ sở tạm đóng để bảo trì ngày mai.","readAt":null,"createdAt":"2026-10-05T12:20:39.012401376Z","orderId":null}}
+  -H "Authorization: Bearer $FM_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"recipientEmail":"hungthanh1412hz@gmail.com","title":"Thử gửi từ FM","body":"FM gửi thông báo thủ công cho khách qua email."}'
+# {"message":"Tạo thông báo thành công","data":{"id":4,"type":"OTHER","title":"Thử gửi từ FM","body":"FM gửi thông báo thủ công cho khách qua email.","readAt":null,"createdAt":"2026-10-05T14:26:00.965787173Z","orderId":null}}
+
+# 404 — email không thuộc account nào
+curl -s -X POST http://localhost:8080/api/notifications \
+  -H "Authorization: Bearer $FM_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"recipientEmail":"khong-ton-tai@example.com","title":"x","body":"y"}'
+# {"message":"Không tìm thấy tài khoản","timestamp":"2026-10-05T14:26:25.055008592Z"}
 
 # 403 — customer không có quyền tạo
 curl -s -X POST http://localhost:8080/api/notifications \
   -H "Authorization: Bearer $CUST_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"recipientAccountId":1,"title":"x","body":"y"}'
-# {"message":"Bạn không có quyền truy cập","timestamp":"2026-10-05T07:37:09.923125581Z"}
+  -d '{"recipientEmail":"hungthanh1412hz@gmail.com","title":"x","body":"y"}'
+# {"message":"Bạn không có quyền truy cập","timestamp":"2026-10-05T14:26:25.067659577Z"}
 ```
 
 ## Liên quan

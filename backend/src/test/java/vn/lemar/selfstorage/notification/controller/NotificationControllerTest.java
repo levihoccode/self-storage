@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import vn.lemar.selfstorage.SecurityConfig;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
+import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
@@ -162,11 +163,12 @@ class NotificationControllerTest {
     @Test
     void createOtherIsForbiddenForCustomer() throws Exception {
         authenticate("customer@example.com", "CUSTOMER");
+        String request = "{\"recipientEmail\":\"target@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
 
         mockMvc.perform(post("/api/notifications")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"recipientAccountId\":5,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"))
+                        .content(request))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Bạn không có quyền truy cập"));
     }
@@ -174,18 +176,52 @@ class NotificationControllerTest {
     @Test
     void createOtherIsAllowedForAdmin() throws Exception {
         authenticate("admin@example.com", "ADMIN");
+        when(accountQueryService.requireIdByEmail("target@example.com")).thenReturn(5L);
         when(accountQueryService.requireEmailById(5L)).thenReturn("target@example.com");
         when(notificationService.createOther(5L, "target@example.com", "Bảo trì", "Nội dung"))
                 .thenReturn(notification(20L, "OTHER"));
+        String request = "{\"recipientEmail\":\"target@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
 
         mockMvc.perform(post("/api/notifications")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("admin@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"recipientAccountId\":5,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"))
+                        .content(request))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Tạo thông báo thành công"))
                 .andExpect(jsonPath("$.data.id").value(20))
                 .andExpect(jsonPath("$.data.type").value("OTHER"));
+    }
+
+    @Test
+    void createOtherIsAllowedForFm() throws Exception {
+        authenticate("fm@example.com", "FM");
+        when(accountQueryService.requireIdByEmail("target@example.com")).thenReturn(5L);
+        when(accountQueryService.requireEmailById(5L)).thenReturn("target@example.com");
+        when(notificationService.createOther(5L, "target@example.com", "Bảo trì", "Nội dung"))
+                .thenReturn(notification(21L, "OTHER"));
+        String request = "{\"recipientEmail\":\"target@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
+
+        mockMvc.perform(post("/api/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Tạo thông báo thành công"))
+                .andExpect(jsonPath("$.data.id").value(21));
+    }
+
+    @Test
+    void createOtherReturnsNotFoundForUnknownEmail() throws Exception {
+        authenticate("fm@example.com", "FM");
+        when(accountQueryService.requireIdByEmail("missing@example.com"))
+                .thenThrow(new AccountNotFoundException());
+        String request = "{\"recipientEmail\":\"missing@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
+
+        mockMvc.perform(post("/api/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -195,7 +231,7 @@ class NotificationControllerTest {
         mockMvc.perform(post("/api/notifications")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("admin@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"recipientAccountId\":5,\"body\":\"Nội dung\"}"))
+                        .content("{\"recipientEmail\":\"target@example.com\",\"body\":\"Nội dung\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
     }

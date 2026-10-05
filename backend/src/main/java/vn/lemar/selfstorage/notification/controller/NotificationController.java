@@ -33,7 +33,7 @@ import vn.lemar.selfstorage.notification.domain.Notification;
 /**
  * API notification của account đang đăng nhập — accountId lấy từ principal, không nhận từ caller.
  *
- * <p>POST {@code OTHER} chỉ ADMIN/BOM (chặn ở {@code SecurityConfig}).
+ * <p>POST {@code OTHER} chỉ ADMIN/BOM/FM (chặn ở {@code SecurityConfig}).
  */
 @Validated
 @RestController
@@ -110,7 +110,8 @@ public class NotificationController {
     }
 
     @Operation(summary = "Tạo thông báo OTHER",
-            description = "Thông báo khẩn cấp thủ công; chỉ ADMIN/BOM. `recipientAccountId` phải tồn tại.")
+            description = "Thông báo khẩn cấp thủ công; chỉ ADMIN/BOM/FM. `recipientEmail` phải thuộc "
+                    + "một account đang tồn tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Tạo thành công"),
             @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ"),
@@ -121,9 +122,10 @@ public class NotificationController {
     @PostMapping
     public ResponseEntity<ApiEnvelope<NotificationDetailResponse>> createOther(
             @Valid @RequestBody CreateOtherRequest request) {
-        String recipientEmail = accountQueryService.requireEmailById(request.recipientAccountId());
+        Long recipientAccountId = accountQueryService.requireIdByEmail(request.recipientEmail());
+        String recipientEmail = accountQueryService.requireEmailById(recipientAccountId);
         Notification notification = notificationService.createOther(
-                request.recipientAccountId(), recipientEmail, request.title(), request.body());
+                recipientAccountId, recipientEmail, request.title(), request.body());
         return ResponseEntity.ok(ApiEnvelope.ok(CREATE_MESSAGE, NotificationDetailResponse.from(notification, null)));
     }
 
