@@ -10,14 +10,15 @@
 
 - Idempotent: đã đọc rồi thì trả nguyên trạng, không ghi lại `read_at`.
 - 404 khi notification không tồn tại hoặc thuộc account khác.
+- Response cùng dạng `detail.md`, kèm `orderId` khi thông báo gắn đơn.
 
 ## Ví dụ
 
 ```bash
 TOKEN='<token của customer1@lemar.vn>'
 
-curl -s -X PATCH -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications/2/read
-# {"message":"Đã đánh dấu thông báo là đã đọc","data":{"id":2,"type":"OTHER","title":"Bảo trì khẩn cấp","body":"Cơ sở tạm đóng để bảo trì ngày mai.","readAt":"2026-10-05T07:37:09.819877134Z","createdAt":"2026-10-05T07:37:09.677410Z"}}
+curl -s -X PATCH -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications/6/read
+# {"message":"Đã đánh dấu thông báo là đã đọc","data":{"id":6,"type":"OTHER","title":"Hello","body":"Chào mừng bạn đến với LEMAR Self Storage.","readAt":"2026-10-05T12:20:50.937433514Z","createdAt":"2026-10-05T12:20:45.673829Z","orderId":null}}
 ```
 
 ## Liên quan

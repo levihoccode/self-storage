@@ -2,6 +2,7 @@ package vn.lemar.selfstorage.notification.controller;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -117,6 +118,33 @@ class NotificationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(10))
                 .andExpect(jsonPath("$.data.body").value("Nội dung"));
+    }
+
+    @Test
+    void listIncludesOrderIdForOrderLinkedNotification() throws Exception {
+        authenticate("customer@example.com", "CUSTOMER");
+        when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
+        when(notificationService.listForAccount(1L, null, 0, 20))
+                .thenReturn(List.of(notification(10L, "RENTAL_ORDER_EXPIRING_SOON")));
+        when(notificationService.orderIdsOf(List.of(10L))).thenReturn(Map.of(10L, 77L));
+
+        mockMvc.perform(get("/api/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].orderId").value(77));
+    }
+
+    @Test
+    void detailIncludesOrderIdWhenNotificationLinkedToOrder() throws Exception {
+        authenticate("customer@example.com", "CUSTOMER");
+        when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
+        when(notificationService.getForAccount(1L, 10L)).thenReturn(notification(10L, "DEPOSIT_PAYMENT_SUCCEEDED"));
+        when(notificationService.orderIdOf(10L)).thenReturn(77L);
+
+        mockMvc.perform(get("/api/notifications/10")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderId").value(77));
     }
 
     @Test

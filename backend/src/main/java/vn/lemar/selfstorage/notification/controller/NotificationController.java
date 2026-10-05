@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.notification.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -55,7 +56,8 @@ public class NotificationController {
     }
 
     @Operation(summary = "Danh sách thông báo của tôi",
-            description = "Summary không gồm `body`, sắp xếp mới nhất trước; lọc `is_read`, phân trang `page`/`size`.")
+            description = "Summary không gồm `body`, sắp xếp mới nhất trước; lọc `is_read`, phân trang "
+                    + "`page`/`size`. `orderId` kèm theo khi thông báo gắn đơn hàng, null nếu không.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token")
@@ -66,15 +68,19 @@ public class NotificationController {
             @RequestParam(name = "is_read", required = false) Boolean isRead,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        List<NotificationSummaryResponse> data = notificationService
-                .listForAccount(currentAccountId(authentication), isRead, page, size)
-                .stream()
-                .map(NotificationSummaryResponse::from)
+        List<Notification> notifications =
+                notificationService.listForAccount(currentAccountId(authentication), isRead, page, size);
+        Map<Long, Long> orderIds =
+                notificationService.orderIdsOf(notifications.stream().map(Notification::getId).toList());
+        List<NotificationSummaryResponse> data = notifications.stream()
+                .map(notification -> NotificationSummaryResponse.from(notification, orderIds.get(notification.getId())))
                 .toList();
         return ResponseEntity.ok(ApiEnvelope.ok(LIST_MESSAGE, data));
     }
 
-    @Operation(summary = "Chi tiết thông báo", description = "Chỉ trả notification thuộc account đang đăng nhập.")
+    @Operation(summary = "Chi tiết thông báo",
+            description = "Chỉ trả notification thuộc account đang đăng nhập. `orderId` kèm theo khi "
+                    + "thông báo gắn đơn hàng, null nếu không.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lấy chi tiết thành công"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
@@ -86,7 +92,8 @@ public class NotificationController {
             @PathVariable Long notificationId) {
         Notification notification =
                 notificationService.getForAccount(currentAccountId(authentication), notificationId);
-        NotificationDetailResponse response = NotificationDetailResponse.from(notification);
+        NotificationDetailResponse response =
+                NotificationDetailResponse.from(notification, notificationService.orderIdOf(notificationId));
         return ResponseEntity.ok(ApiEnvelope.ok(DETAIL_MESSAGE, response));
     }
 
@@ -117,11 +124,12 @@ public class NotificationController {
         String recipientEmail = accountQueryService.requireEmailById(request.recipientAccountId());
         Notification notification = notificationService.createOther(
                 request.recipientAccountId(), recipientEmail, request.title(), request.body());
-        return ResponseEntity.ok(ApiEnvelope.ok(CREATE_MESSAGE, NotificationDetailResponse.from(notification)));
+        return ResponseEntity.ok(ApiEnvelope.ok(CREATE_MESSAGE, NotificationDetailResponse.from(notification, null)));
     }
 
     @Operation(summary = "Đánh dấu thông báo đã đọc",
-            description = "Idempotent; 404 nếu không thuộc account hiện tại.")
+            description = "Idempotent; 404 nếu không thuộc account hiện tại. `orderId` kèm theo khi "
+                    + "thông báo gắn đơn hàng, null nếu không.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Đánh dấu thành công"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
@@ -132,7 +140,9 @@ public class NotificationController {
             Authentication authentication,
             @PathVariable Long notificationId) {
         Notification notification = notificationService.markRead(currentAccountId(authentication), notificationId);
-        return ResponseEntity.ok(ApiEnvelope.ok(MARK_READ_MESSAGE, NotificationDetailResponse.from(notification)));
+        NotificationDetailResponse response =
+                NotificationDetailResponse.from(notification, notificationService.orderIdOf(notification.getId()));
+        return ResponseEntity.ok(ApiEnvelope.ok(MARK_READ_MESSAGE, response));
     }
 
     @Operation(summary = "Đánh dấu tất cả thông báo đã đọc",

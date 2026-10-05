@@ -11,6 +11,7 @@ Danh sách thông báo web của account đang đăng nhập — nguồn cho not
 - Trả summary **không gồm `body`**, sắp xếp `created_at DESC`.
 - Phân trang `page` (mặc định 0) / `size` (mặc định 20, tối đa 100).
 - Lọc trạng thái đọc: `is_read=true|false`; bỏ trống = tất cả.
+- `orderId` trả kèm khi thông báo gắn đơn (`OrderNotification`), null nếu không — FE dùng để mở trang đơn.
 
 ## Ghi chú nghiệp vụ
 
@@ -23,10 +24,10 @@ Danh sách thông báo web của account đang đăng nhập — nguồn cho not
 TOKEN='<token của customer1@lemar.vn>'
 
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications
-# {"message":"Lấy danh sách thông báo thành công","data":[{"id":2,"type":"OTHER","title":"Bảo trì khẩn cấp","readAt":null,"createdAt":"2026-10-05T07:37:09.677410Z"},{"id":1,"type":"OTHER","title":"Hello","readAt":"2026-10-05T07:33:05.541342Z","createdAt":"2026-10-05T07:16:05.049194Z"}]}
+# {"message":"Lấy danh sách thông báo thành công","data":[{"id":6,"type":"OTHER","title":"Hello","readAt":null,"createdAt":"2026-10-05T12:20:45.673829Z","orderId":null},{"id":5,"type":"OTHER","title":"Bảo trì khẩn cấp","readAt":null,"createdAt":"2026-10-05T12:20:39.012401Z","orderId":null}]}
 
-curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/notifications?is_read=false'
-# {"message":"Lấy danh sách thông báo thành công","data":[]}
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/notifications?is_read=true'
+# {"message":"Lấy danh sách thông báo thành công","data":[{"id":6,"type":"OTHER","title":"Hello","readAt":"2026-10-05T12:20:50.937434Z","createdAt":"2026-10-05T12:20:45.673829Z","orderId":null}]}
 ```
 
 ## Liên quan

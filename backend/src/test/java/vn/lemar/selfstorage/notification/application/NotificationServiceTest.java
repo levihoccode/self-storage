@@ -243,4 +243,34 @@ class NotificationServiceTest {
 
         assertThat(notification.getReadAt()).isNotNull();
     }
+
+    @Test
+    void orderIdsOfMapsOrderLinks() {
+        when(orderNotificationRepository.findByNotificationIdIn(List.of(1L, 2L)))
+                .thenReturn(List.of(new OrderNotification(7L, 1L)));
+
+        assertThat(notificationService.orderIdsOf(List.of(1L, 2L))).containsExactly(Map.entry(1L, 7L));
+    }
+
+    @Test
+    void orderIdsOfReturnsEmptyWithoutQueryForEmptyInput() {
+        assertThat(notificationService.orderIdsOf(List.of())).isEmpty();
+
+        verifyNoInteractions(orderNotificationRepository);
+    }
+
+    @Test
+    void orderIdOfReturnsNullWhenNotLinked() {
+        when(orderNotificationRepository.findByNotificationId(1L)).thenReturn(Optional.empty());
+
+        assertThat(notificationService.orderIdOf(1L)).isNull();
+    }
+
+    @Test
+    void orderIdOfReturnsOrderIdWhenLinked() {
+        when(orderNotificationRepository.findByNotificationId(1L))
+                .thenReturn(Optional.of(new OrderNotification(7L, 1L)));
+
+        assertThat(notificationService.orderIdOf(1L)).isEqualTo(7L);
+    }
 }

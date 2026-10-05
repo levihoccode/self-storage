@@ -1,7 +1,9 @@
 package vn.lemar.selfstorage.notification.application;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -111,6 +113,24 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long unreadCount(Long accountId) {
         return notificationRepository.countByAccountIdAndReadAtIsNull(accountId);
+    }
+
+    /** Map notificationId → orderId cho các notification có liên kết đơn. */
+    @Transactional(readOnly = true)
+    public Map<Long, Long> orderIdsOf(Collection<Long> notificationIds) {
+        if (notificationIds.isEmpty()) {
+            return Map.of();
+        }
+        return orderNotificationRepository.findByNotificationIdIn(notificationIds).stream()
+                .collect(Collectors.toMap(OrderNotification::getNotificationId, OrderNotification::getOrderId));
+    }
+
+    /** orderId của notification — null nếu không gắn đơn. */
+    @Transactional(readOnly = true)
+    public Long orderIdOf(Long notificationId) {
+        return orderNotificationRepository.findByNotificationId(notificationId)
+                .map(OrderNotification::getOrderId)
+                .orElse(null);
     }
 
     private Notification persist(Long accountId, NotificationType type, String title, String body,
