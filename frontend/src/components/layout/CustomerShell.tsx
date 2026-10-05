@@ -1,7 +1,8 @@
-import { CalendarDays, ChevronDown, LogOut, Menu, PackageOpen, Receipt } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, LogOut, Menu, PackageOpen, Receipt } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
+import { unreadNotificationCount } from "../../mocks/notifications";
 import { NotificationBell } from "../domain/NotificationBell";
 import type { Theme } from "../ui/ThemeToggle";
 import { ThemeToggle } from "../ui/ThemeToggle";
@@ -30,6 +31,13 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
     icon: CalendarDays,
     ready: true,
   },
+  {
+    label: "Thông báo",
+    path: "/notifications",
+    view: "notifications" as View,
+    icon: Bell,
+    ready: true,
+  },
 ];
 
 const SIDEBAR_ICON_BUTTON =
@@ -50,7 +58,12 @@ export function CustomerShell({
 }) {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const session = authGateway.getSession();
+  const unreadNotifications = unreadNotificationCount("CUSTOMER", session?.user.email);
   const activeItem = navigation.find((item) => item.view === view);
+
+  const navItems = navigation.map((item) =>
+    item.path === "/notifications" ? { ...item, badge: unreadNotifications } : item,
+  );
 
   function logout() {
     authGateway.logout();
@@ -61,7 +74,7 @@ export function CustomerShell({
     <>
       <WorkspaceShell
         roleLabel="Không gian của bạn"
-        navItems={navigation}
+        navItems={navItems}
         activePath={activeItem?.path ?? ""}
         onNavigate={(path) => {
           const target = navigation.find((item) => item.path === path);
