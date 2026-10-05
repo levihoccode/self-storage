@@ -116,7 +116,6 @@ function App() {
     view === "proposals" ||
     view === "invoices" ||
     view === "appointments" ||
-    view === "notifications" ||
     (view === "request" && !!session);
   const isFmView =
     view === "fm-rental-requests" ||
@@ -130,13 +129,27 @@ function App() {
     view === "fm-reports" ||
     view === "fm-invoices" ||
     view === "fm-contracts";
+  const isNotificationView = view === "notifications";
   // The route guard only picks the screen to render; the real gate is the API
-  // (403 on /api/** for the wrong role).
-  const requiredRole: UserRole | null = isFmView ? "FM" : isCustomerView ? "CUSTOMER" : null;
-  const needsLoginRedirect = !isAuthLoading && requiredRole !== null && !session;
+  // (403 on /api/** for the wrong role). /notifications is shared by every
+  // role per fe-pages/shared/03; today only CUSTOMER and FM have a shell.
+  const allowedRoles: UserRole[] | null = isFmView
+    ? ["FM"]
+    : isCustomerView
+      ? ["CUSTOMER"]
+      : isNotificationView
+        ? ["CUSTOMER", "FM"]
+        : null;
+  const needsLoginRedirect = !isAuthLoading && allowedRoles !== null && !session;
   const isWrongRole =
-    !isAuthLoading && requiredRole !== null && !!session && session.user.role !== requiredRole;
+    !isAuthLoading &&
+    allowedRoles !== null &&
+    !!session &&
+    !allowedRoles.includes(session.user.role);
   const roleHome = session ? ROLE_HOME[session.user.role] : undefined;
+  const isCustomerShellView =
+    isCustomerView || (isNotificationView && session?.user.role === "CUSTOMER");
+  const isFmShellView = isFmView || (isNotificationView && session?.user.role === "FM");
 
   useEffect(() => {
     if (needsLoginRedirect) {
@@ -172,7 +185,7 @@ function App() {
       </a>
       {isAuthView ? (
         <AuthPage view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
-      ) : isCustomerView ? (
+      ) : isCustomerShellView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "my-storage" && <MyStoragePage navigate={navigate} />}
           {view === "contract-detail" && <ContractDetailPage navigate={navigate} />}
@@ -182,7 +195,7 @@ function App() {
           {view === "notifications" && <NotificationsPage navigate={navigate} />}
           {view === "request" && <RequestPage navigate={navigate} embedded />}
         </CustomerShell>
-      ) : isFmView ? (
+      ) : isFmShellView ? (
         <FmShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "fm-rental-requests" && <RentalRequestQueuePage navigate={navigate} />}
           {view === "fm-proposal-redo" && <ProposalRedoPage navigate={navigate} />}
@@ -195,6 +208,7 @@ function App() {
           {view === "fm-reports" && <FacilityReportPage navigate={navigate} />}
           {view === "fm-invoices" && <FacilityInvoicesPage />}
           {view === "fm-contracts" && <CustomerContractOverviewPage navigate={navigate} />}
+          {isNotificationView && <NotificationsPage navigate={navigate} />}
         </FmShell>
       ) : (
         <>

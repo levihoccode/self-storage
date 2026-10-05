@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bell,
   CalendarClock,
   CalendarDays,
   Inbox,
@@ -13,6 +14,7 @@ import {
 import { useState } from "react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
+import { unreadNotificationCount } from "../../mocks/notifications";
 import { ComingSoonDialog } from "../ui/ComingSoonDialog";
 import type { Theme } from "../ui/ThemeToggle";
 import { WorkspaceShell, type WorkspaceNavItem } from "./WorkspaceShell";
@@ -70,6 +72,7 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
     icon: UserSquare2,
     ready: true,
   },
+  { label: "Thông báo", path: "/notifications", view: "notifications", icon: Bell, ready: true },
 ];
 
 export function FmShell({
@@ -87,7 +90,12 @@ export function FmShell({
 }) {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const session = authGateway.getSession();
+  const unreadNotifications = unreadNotificationCount("FM", session?.user.email);
   const activeItem = navigation.find((item) => item.ready && item.view === view);
+
+  const navItems = navigation.map((item) =>
+    item.path === "/notifications" ? { ...item, badge: unreadNotifications } : item,
+  );
 
   function logout() {
     authGateway.logout();
@@ -98,7 +106,7 @@ export function FmShell({
     <>
       <WorkspaceShell
         roleLabel="Facility Manager"
-        navItems={navigation}
+        navItems={navItems}
         activePath={activeItem?.path ?? ""}
         onNavigate={(path) => {
           const target = navigation.find((item) => item.path === path);

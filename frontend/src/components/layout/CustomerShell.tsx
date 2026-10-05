@@ -57,7 +57,7 @@ export function CustomerShell({
 }) {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const session = authGateway.getSession();
-  const unreadNotifications = unreadNotificationCount();
+  const unreadNotifications = unreadNotificationCount("CUSTOMER", session?.user.email);
   const activeItem = navigation.find((item) => item.view === view);
 
   const navItems = navigation.map((item) =>

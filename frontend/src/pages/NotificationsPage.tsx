@@ -1,15 +1,18 @@
-import { AlertTriangle, CheckCheck, Receipt, UserCheck } from "lucide-react";
+import { AlertTriangle, CheckCheck, Megaphone, Plus, Receipt, UserCheck } from "lucide-react";
 import { useState } from "react";
+import { authGateway } from "../app/auth";
 import type { Navigate } from "../app/types";
 import {
   isNotificationRead,
   markAllNotificationsRead,
   markNotificationRead,
-  notifications,
+  notificationsFor,
   type Notification,
   type NotificationGroup,
 } from "../mocks/notifications";
 import { Button } from "../components/ui/Button";
+import { ComposeNotificationDialog } from "../components/domain/ComposeNotificationDialog";
+import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 const GROUP_ICON: Record<NotificationGroup, typeof AlertTriangle> = {
@@ -17,6 +20,7 @@ const GROUP_ICON: Record<NotificationGroup, typeof AlertTriangle> = {
   invoice: Receipt,
   assignment: UserCheck,
   expiry: AlertTriangle,
+  other: Megaphone,
 };
 
 const GROUP_ICON_CLASS: Record<NotificationGroup, string> = {
@@ -24,6 +28,7 @@ const GROUP_ICON_CLASS: Record<NotificationGroup, string> = {
   invoice: "bg-brand-soft text-brand",
   assignment: "bg-brand-soft text-accent",
   expiry: "bg-danger/14 text-danger",
+  other: "bg-muted/14 text-muted",
 };
 
 export function NotificationsPage({ navigate }: { navigate: Navigate }) {
@@ -31,17 +36,22 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   // survives this page unmounting when the user navigates away and back.
   // This counter just forces a re-render after mutating that shared state.
   const [, refresh] = useState(0);
-  const items = notifications;
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const session = authGateway.getSession();
+  const role = session?.user.role ?? "CUSTOMER";
+  const items = notificationsFor(role, session?.user.email);
   const unreadCount = items.filter((item) => !isNotificationRead(item.id)).length;
 
   function openNotification(notification: Notification) {
     markNotificationRead(notification.id);
     refresh((count) => count + 1);
-    navigate(notification.path);
+    // Thông báo type OTHER không gắn resource nào — bấm chỉ để đánh dấu đã đọc.
+    if (notification.path) navigate(notification.path);
   }
 
   function markAllRead() {
-    markAllNotificationsRead();
+    markAllNotificationsRead(items);
     refresh((count) => count + 1);
   }
 
@@ -54,10 +64,19 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
             {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : "Bạn đã đọc hết thông báo"}
           </p>
         </div>
-        <Button variant="secondary" disabled={unreadCount === 0} onClick={markAllRead}>
-          <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {role === "FM" && (
+            <Button onClick={() => setComposeOpen(true)}>
+              <Plus size={16} /> Tạo thông báo
+            </Button>
+          )}
+          <Button variant="secondary" disabled={unreadCount === 0} onClick={markAllRead}>
+            <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
+          </Button>
+        </div>
       </div>
+
+      {sentTo && <DemoNotice tone="success">Đã gửi thông báo tới {sentTo} (demo).</DemoNotice>}
 
       {items.length === 0 ? (
         <SurfaceState variant="empty" title="Chưa có thông báo nào" />
@@ -99,6 +118,16 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
             );
           })}
         </div>
+      )}
+
+      {composeOpen && (
+        <ComposeNotificationDialog
+          onClose={() => setComposeOpen(false)}
+          onCreated={(recipientName) => {
+            setComposeOpen(false);
+            setSentTo(recipientName);
+          }}
+        />
       )}
     </main>
   );
