@@ -1,8 +1,8 @@
-import { Bell, CalendarDays, ChevronDown, LogOut, Menu, PackageOpen, Receipt } from "lucide-react";
+import { CalendarDays, ChevronDown, LogOut, Menu, PackageOpen, Receipt } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
-import { unreadNotificationCount } from "../../mocks/notifications";
+import { NotificationBell } from "../domain/NotificationBell";
 import type { Theme } from "../ui/ThemeToggle";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { ComingSoonDialog } from "../ui/ComingSoonDialog";
@@ -30,13 +30,6 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
     icon: CalendarDays,
     ready: true,
   },
-  {
-    label: "Thông báo",
-    path: "/notifications",
-    view: "notifications" as View,
-    icon: Bell,
-    ready: true,
-  },
 ];
 
 const SIDEBAR_ICON_BUTTON =
@@ -57,12 +50,7 @@ export function CustomerShell({
 }) {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const session = authGateway.getSession();
-  const unreadNotifications = unreadNotificationCount("CUSTOMER", session?.user.email);
   const activeItem = navigation.find((item) => item.view === view);
-
-  const navItems = navigation.map((item) =>
-    item.path === "/notifications" ? { ...item, badge: unreadNotifications } : item,
-  );
 
   function logout() {
     authGateway.logout();
@@ -73,7 +61,7 @@ export function CustomerShell({
     <>
       <WorkspaceShell
         roleLabel="Không gian của bạn"
-        navItems={navItems}
+        navItems={navigation}
         activePath={activeItem?.path ?? ""}
         onNavigate={(path) => {
           const target = navigation.find((item) => item.path === path);
@@ -90,6 +78,7 @@ export function CustomerShell({
             onThemeToggle={onThemeToggle}
             onOpenMenu={openMobileMenu}
             onLogout={logout}
+            onNavigate={navigate}
             onOpenComingSoon={() => setComingSoonOpen(true)}
           />
         )}
@@ -113,6 +102,7 @@ function CustomerHeader({
   onThemeToggle,
   onOpenMenu,
   onLogout,
+  onNavigate,
   onOpenComingSoon,
 }: {
   session: ReturnType<typeof authGateway.getSession>;
@@ -120,6 +110,7 @@ function CustomerHeader({
   onThemeToggle: () => void;
   onOpenMenu: () => void;
   onLogout: () => void;
+  onNavigate: Navigate;
   onOpenComingSoon: () => void;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -148,6 +139,7 @@ function CustomerHeader({
         <Menu size={20} />
       </button>
       <div className="flex items-center gap-6 max-[760px]:gap-3">
+        <NotificationBell onNavigate={onNavigate} />
         <ThemeToggle theme={theme} onToggle={onThemeToggle} />
         <div className="relative" ref={profileRef}>
           <button

@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
 import {
   isNotificationRead,
@@ -11,12 +11,16 @@ import {
 const DROPDOWN_ITEM_LIMIT = 6;
 
 /**
- * Chuông thông báo cho shell staff (spec `fe-pages/shared/03`): dropdown 5-10
- * item gần nhất + link tới trang đầy đủ. Tự đọc session để biết role, nên
- * shell nào dùng cũng chỉ cần render component này.
+ * Chuông thông báo cho shell (spec `fe-pages/shared/03`): dropdown 5-10 item
+ * gần nhất + link tới trang đầy đủ. Tự đọc session để biết role, nên shell nào
+ * dùng cũng chỉ cần render component này.
+ *
+ * Panel neo vào mép phải nội dung header (không dính theo vị trí chuông) để
+ * không tràn viewport ở width hẹp; animation chảy ra từ đúng vị trí chuông.
  */
 export function NotificationBell({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ x: number; inset: number } | null>(null);
   // Đọc state nằm ở mocks/notifications.ts (module-level Set); counter này chỉ
   // để re-render sau khi mutate.
   const [, refresh] = useState(0);
@@ -45,6 +49,28 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
     };
   }, []);
 
+  function togglePanel() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    // Đo chuông + header để neo panel vào mép phải nội dung header (bằng đúng
+    // padding của shell — FM px-6, customer pill px-4) và lấy gốc animation
+    // đúng vị trí chuông.
+    const container = containerRef.current;
+    const header = container?.closest("header");
+    if (container && header) {
+      const bellRect = container.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const inset = Number.parseFloat(window.getComputedStyle(header).paddingRight) || 24;
+      setAnchor({
+        inset,
+        x: Math.round(headerRect.right - inset - (bellRect.left + bellRect.width / 2)),
+      });
+    }
+    setOpen(true);
+  }
+
   function openNotification(notification: Notification) {
     markNotificationRead(notification.id);
     refresh((count) => count + 1);
@@ -54,10 +80,10 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
   }
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div ref={containerRef}>
       <button
         className="relative grid h-[38px] w-[38px] place-items-center rounded-sm border border-border bg-surface text-ink"
-        onClick={() => setOpen((current) => !current)}
+        onClick={togglePanel}
         aria-label={unreadCount > 0 ? `Thông báo (${unreadCount} chưa đọc)` : "Thông báo"}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -71,8 +97,14 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
       </button>
       {open && (
         <div
-          className="absolute right-0 top-[calc(100%+12px)] z-40 w-[min(360px,calc(100vw-32px))] rounded-[6px] border border-border bg-surface p-2 shadow-[var(--shadow-soft),0_0_18px_rgba(53,133,142,0.18)]"
+          className="absolute top-[calc(100%+10px)] z-40 w-[min(360px,calc(100vw-32px))] animate-[notification-panel-in_240ms_cubic-bezier(0.22,1,0.36,1)] rounded-[6px] border border-border bg-surface p-2 shadow-[var(--shadow-soft),0_0_18px_rgba(53,133,142,0.18)]"
           role="menu"
+          style={
+            {
+              right: `${anchor?.inset ?? 24}px`,
+              "--notif-origin-x": anchor ? `${anchor.x}px` : undefined,
+            } as CSSProperties
+          }
         >
           <div className="flex items-center justify-between border-b border-border p-2.5">
             <strong className="text-[12px]">Thông báo</strong>
