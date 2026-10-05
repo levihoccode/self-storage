@@ -27,9 +27,9 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/auth/me
 # {"message":"Lấy thông tin tài khoản thành công","data":{"email":"customer1@lemar.vn","role":"CUSTOMER"}}
 
 curl -s http://localhost:8080/api/auth/me
-# {"message":"Full authentication is required to access this resource","timestamp":"2026-10-04T08:14:32.831012049Z"}
+# {"message":"Bạn cần đăng nhập để tiếp tục.","timestamp":"2026-10-05T06:20:49.321777582Z"}
 
 curl -s -i -H 'Authorization: Bearer abc.def.ghi' http://localhost:8080/api/auth/me | grep -iE 'WWW-Authenticate|^\{'
-# WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Malformed token", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
-# {"message":"An error occurred while attempting to decode the Jwt: Malformed token","timestamp":"2026-10-04T08:14:32.840856214Z"}
+# WWW-Authenticate: Bearer error="invalid_token"
+# {"message":"Bạn cần đăng nhập để tiếp tục.","timestamp":"2026-10-05T06:20:49.329273914Z"}
 ```
