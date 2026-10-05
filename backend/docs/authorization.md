@@ -25,6 +25,7 @@ Account `BANNED` không được cấp authority nào → mọi route yêu cầu
 | `/api/fm/**` | `ROLE_FM` |
 | `/api/bom/**` | `ROLE_BOM` |
 | `/api/admin/**` | `ROLE_ADMIN` |
+| `POST /api/notifications` | `ROLE_ADMIN` · `ROLE_BOM` · `ROLE_FM` |
 | `/api/**` (còn lại) | `ACCOUNT_ACTIVE` |
 
 ## 401 vs 403
