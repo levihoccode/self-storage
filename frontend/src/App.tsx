@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useState } from "react";
-import { authGateway } from "./app/auth";
+import { authGateway, type AuthSession } from "./app/auth";
+import { AUTH_SESSION_EXPIRED_EVENT } from "./app/api";
 import { AuthPage } from "./pages/auth/AuthPage";
 import { BrowsePage } from "./pages/BrowsePage";
 import { LandingPage } from "./pages/LandingPage";
@@ -30,7 +31,8 @@ function getInitialTheme(): Theme {
 function App() {
   const [view, setView] = useState<View>(viewFromLocation);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [session, setSession] = useState(authGateway.getSession);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
@@ -49,7 +51,41 @@ function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  useEffect(() => authGateway.subscribe(setSession), []);
+  useEffect(() => {
+    function onSessionExpired() {
+      authGateway.logout();
+      window.history.replaceState({}, "", "/login");
+      startTransition(() => setView(viewFromLocation()));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const unsubscribe = authGateway.subscribe((nextSession) => {
+      if (isActive) setSession(nextSession);
+    });
+
+    authGateway
+      .restoreSession()
+      .then((restoredSession) => {
+        if (isActive) setSession(restoredSession);
+      })
+      .catch(() => {
+        if (isActive) setSession(null);
+      })
+      .finally(() => {
+        if (isActive) setIsAuthLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, []);
 
   function navigate(path: string) {
     window.history.pushState({}, "", path);
@@ -70,16 +106,27 @@ function App() {
     view === "appointments" ||
     view === "notifications" ||
     (view === "request" && !!session);
-  const needsLoginRedirect = isCustomerView && !session;
+  const needsLoginRedirect =
+    !isAuthLoading && isCustomerView && (!session || session.user.role !== "CUSTOMER");
 
   useEffect(() => {
     if (needsLoginRedirect) {
+      if (session && session.user.role !== "CUSTOMER") {
+        authGateway.logout();
+      }
       navigate("/login");
     }
-  }, [needsLoginRedirect]);
+  }, [needsLoginRedirect, session]);
 
   if (needsLoginRedirect) {
     return null;
+  }
+  if (isAuthLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background text-muted" role="status">
+        Đang tải phiên đăng nhập…
+      </div>
+    );
   }
   return (
     <div className="app-shell" data-theme={theme}>
