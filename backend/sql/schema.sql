@@ -367,3 +367,27 @@ CREATE TABLE audit_logs (
 
 CREATE INDEX idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at);
+
+-- ---------------------------------------------------------------------------
+-- Notification
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE notifications (
+    id         BIGSERIAL PRIMARY KEY,
+    account_id BIGINT NOT NULL REFERENCES accounts (id),
+    type       VARCHAR(60) NOT NULL,
+    title      VARCHAR(255) NOT NULL,
+    body       TEXT NOT NULL,
+    read_at    TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_notifications_account_read ON notifications (account_id, read_at);
+CREATE INDEX idx_notifications_account_created ON notifications (account_id, created_at DESC);
+
+-- Liên kết thông báo dành cho đơn hàng: mỗi notification tối đa một đơn.
+CREATE TABLE order_notifications (
+    order_id        BIGINT NOT NULL REFERENCES rental_orders (id),
+    notification_id BIGINT NOT NULL UNIQUE REFERENCES notifications (id),
+    PRIMARY KEY (order_id, notification_id)
+);

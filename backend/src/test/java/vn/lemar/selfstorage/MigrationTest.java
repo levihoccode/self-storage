@@ -30,7 +30,8 @@ class MigrationTest {
             "unit_types", "policies", "storage_units",
             "rental_requests", "rental_orders", "rental_contracts", "invoices",
             "proposal_feedbacks", "appointments", "rental_appointments",
-            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs");
+            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs",
+            "notifications", "order_notifications");
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
