@@ -71,6 +71,15 @@ Chi tiết: `backend/sql/README.md`.
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
 
+## Gửi email (module notification)
+
+- Module khác inject `vn.lemar.selfstorage.notification.EmailSender` và gọi
+  `send(to, subject, body)` — văn bản thuần, trả `true/false`.
+- Gửi lỗi chỉ log, không ném exception → không rollback nghiệp vụ của caller.
+- Cấu hình: `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD` (dev: MailHog `localhost:1025`,
+  xem thư tại `http://localhost:8025`), địa chỉ gửi `MAIL_FROM` (mặc định `noreply@lemar.vn`).
+- Chưa có template/outbox: caller tự dựng `subject` và `body`.
+
 ## Chạy & kiểm thử
 
 ```bash
