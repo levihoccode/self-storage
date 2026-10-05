@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.lemar.selfstorage.ApiEnvelope;
 import vn.lemar.selfstorage.ApiError;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.domain.RoleName;
@@ -42,22 +43,20 @@ public class PingFacilityController {
     @Operation(summary = "Kiểm tra quyền truy cập cơ sở (demo)",
             description = "Endpoint demo dùng để kiểm tra RBAC và facility scope.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Có quyền truy cập cơ sở"),
+            @ApiResponse(responseCode = "200", description = "Có quyền truy cập cơ sở",
+                    content = @Content(schema = @Schema(implementation = ApiEnvelope.class))),
             @ApiResponse(responseCode = "401", description = "Request chưa được xác thực",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "403", description = "Role hoặc facility scope bị từ chối",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping("/ping/{facilityId}")
-    public ResponseEntity<Map<String, Object>> pingFacility(
+    public ResponseEntity<ApiEnvelope<Map<String, Object>>> pingFacility(
             @Parameter(description = "ID cơ sở cần kiểm tra quyền truy cập", required = true)
             @PathVariable Long facilityId) {
         access.can(RoleName.ADMIN, RoleName.BOM, RoleName.FM, RoleName.FS);
         access.canAccessFacility(facilityId);
 
-        return ResponseEntity.ok(Map.of(
-                "message", "pong",
-                "facilityId", facilityId
-        ));
+        return ResponseEntity.ok(ApiEnvelope.ok("pong", Map.of("facilityId", facilityId)));
     }
 }

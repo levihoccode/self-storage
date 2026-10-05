@@ -41,14 +41,17 @@ sau đó `Access` kiểm tra role và facility scope:
 
 ## 401 vs 403
 
-| Status | Nghĩa | Ví dụ |
-|---|---|---|
-| 401 | chưa xác thực được | thiếu / sai / hết hạn token; account bị xóa |
-| 403 | đã xác thực nhưng không đủ quyền | sai role cho route; `BANNED` |
-
 Mọi 401/403 trả body `{message, timestamp}` (401 kèm header `WWW-Authenticate`): 401 message là mô
-tả lỗi token từ Spring; 403 message là `"Bạn không có quyền truy cập"` (sai role) hoặc
-`"Tài khoản đã bị chặn"` (`BANNED`). Chi tiết: [error-handling.md](error-handling.md).
+tả lỗi token từ Spring. 403 có các message sau:
+
+| Nguồn | Message |
+|---|---|
+| Sai role cho route (SecurityConfig) | `"Bạn không có quyền truy cập"` |
+| Account `BANNED` | `"Tài khoản đã bị chặn"` |
+| Guard `Access.can()` sai role | `"Bạn không có quyền thực hiện thao tác này"` |
+| Guard `Access.canAccessFacility()` ngoài phạm vi cơ sở | `"Bạn không được gán vào cơ sở này"` |
+
+Chi tiết: [error-handling.md](error-handling.md).
 
 ## Điều kiện nghiệp vụ: xác minh email
 

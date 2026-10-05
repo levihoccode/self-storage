@@ -72,7 +72,8 @@ class AccessFacilityScopeTest {
     void fmAccessesOwnFacilityViaFmAccountId() throws Exception {
         mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fm1@lemar.vn")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("pong"));
+                .andExpect(jsonPath("$.message").value("pong"))
+                .andExpect(jsonPath("$.data.facilityId").value(q7));
         mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fm2@lemar.vn")))
                 .andExpect(status().isOk());
     }

@@ -10,7 +10,8 @@ Endpoint demo để kiểm tra RBAC và facility scope; không thực hiện ngh
 
 - Security yêu cầu request đã xác thực và account đang hoạt động.
 - `Access.can()` kiểm tra role; `Access.canAccessFacility()` kiểm tra quyền với `facilityId`.
-- Request hợp lệ trả `pong` cùng `facilityId`; role không được phép hoặc truy cập chéo cơ sở bị từ chối.
+- Request hợp lệ trả success envelope `{message, data}`, trong đó `message` là `pong` và
+  `data.facilityId` là ID cơ sở đã kiểm tra; role không được phép hoặc truy cập chéo cơ sở bị từ chối.
 
 ## Ghi chú nghiệp vụ
 
