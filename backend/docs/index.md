@@ -83,7 +83,13 @@ Chi tiết: `backend/sql/README.md`.
   `sendHtml(...)`.
 - Cấu hình: `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD` (dev: MailHog `localhost:1025`,
   xem thư tại `http://localhost:8025`), địa chỉ gửi `MAIL_FROM` (mặc định `noreply@lemar.vn`).
-- Chưa có template/outbox: caller tự dựng `subject` và `body`.
+- Caller tự dựng `subject` và `body`.
+- **Known limitation**:
+  - Gửi best-effort, không retry/outbox. Process chết sau commit nhưng trước khi gửi xong thì
+    email mất, không dấu vết. Gửi lỗi trả `false` và không thử lại.
+  - Gửi đồng bộ trên thread caller, kể cả nhánh afterCommit — SMTP chậm làm chậm response.
+    Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker, cần đổi spec trước.
+  - Layout HTML là mẫu cố định dùng chung, chưa có template theo `type` của notification.
 
 ## Chạy & kiểm thử
 
