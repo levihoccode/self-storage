@@ -1,5 +1,7 @@
 package vn.lemar.selfstorage.notification.application;
 
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
@@ -8,13 +10,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import vn.lemar.selfstorage.notification.domain.Notification;
+import vn.lemar.selfstorage.notification.domain.OrderNotification;
 import vn.lemar.selfstorage.notification.repository.NotificationRepository;
+import vn.lemar.selfstorage.notification.repository.OrderNotificationRepository;
 
 /**
  * Thông báo web + email (A5).
  *
  * <p>Quy tắc: email lỗi chỉ được log — KHÔNG rollback việc lưu thông báo web.
- * Không import sang module khác; caller tự truyền {@code accountId} và {@code recipientEmail}.
+ * Nội dung theo template hardcode của {@link NotificationTemplateCatalog}; riêng {@code OTHER}
+ * tạo thủ công qua {@link #createOther}. Không import sang module khác; caller tự truyền
+ * {@code accountId} và {@code recipientEmail}.
  */
 @Service
 public class NotificationService {
@@ -22,16 +28,49 @@ public class NotificationService {
     private static final Logger LOG = LoggerFactory.getLogger(NotificationService.class);
 
     private final NotificationRepository notificationRepository;
+    private final OrderNotificationRepository orderNotificationRepository;
+    private final NotificationTemplateCatalog templateCatalog;
     private final JavaMailSender mailSender;
 
-    public NotificationService(NotificationRepository notificationRepository, JavaMailSender mailSender) {
+    public NotificationService(
+            NotificationRepository notificationRepository,
+            OrderNotificationRepository orderNotificationRepository,
+            NotificationTemplateCatalog templateCatalog,
+            JavaMailSender mailSender) {
         this.notificationRepository = notificationRepository;
+        this.orderNotificationRepository = orderNotificationRepository;
+        this.templateCatalog = templateCatalog;
         this.mailSender = mailSender;
     }
 
+    /**
+     * Tạo notification theo template của {@code type} và gửi email.
+     *
+     * @param orderId nếu khác null thì ghi thêm liên kết {@link OrderNotification}
+     * @throws IllegalArgumentException thiếu giá trị placeholder hoặc type không có template
+     */
     @Transactional
-    public Notification create(Long accountId, String recipientEmail, String type, String title, String body) {
-        Notification notification = notificationRepository.save(new Notification(accountId, type, title, body));
+    public Notification notify(Long accountId, String recipientEmail, NotificationRecipient recipient,
+            NotificationType type, Map<String, ?> values, Long orderId) {
+        NotificationTemplateCatalog.Template template = templateCatalog.resolve(type, recipient);
+        String title = template.renderTitle(values);
+        String body = template.renderBody(values);
+        return persist(accountId, type, title, body, recipientEmail, orderId);
+    }
+
+    /** Tạo notification {@code OTHER} với title/body thủ công — không dùng template. */
+    @Transactional
+    public Notification createOther(Long accountId, String recipientEmail, String title, String body) {
+        return persist(accountId, NotificationType.OTHER, title, body, recipientEmail, null);
+    }
+
+    private Notification persist(Long accountId, NotificationType type, String title, String body,
+            String recipientEmail, Long orderId) {
+        Notification notification =
+                notificationRepository.save(new Notification(accountId, type.name(), title, body));
+        if (orderId != null) {
+            orderNotificationRepository.save(new OrderNotification(orderId, notification.getId()));
+        }
         sendEmailQuietly(recipientEmail, title, body);
         return notification;
     }
