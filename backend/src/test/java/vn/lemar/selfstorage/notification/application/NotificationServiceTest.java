@@ -200,6 +200,41 @@ class NotificationServiceTest {
     }
 
     @Test
+    void listForAccountWithoutFilterReturnsAll() {
+        when(notificationRepository.findByAccountIdOrderByCreatedAtDesc(eq(1L), any())).thenReturn(Page.empty());
+
+        notificationService.listForAccount(1L, null, 0, 20);
+
+        verify(notificationRepository).findByAccountIdOrderByCreatedAtDesc(eq(1L), any());
+    }
+
+    @Test
+    void listForAccountReadFilterUsesReadFinder() {
+        when(notificationRepository.findByAccountIdAndReadAtIsNotNullOrderByCreatedAtDesc(eq(1L), any()))
+                .thenReturn(Page.empty());
+
+        notificationService.listForAccount(1L, true, 0, 20);
+
+        verify(notificationRepository).findByAccountIdAndReadAtIsNotNullOrderByCreatedAtDesc(eq(1L), any());
+    }
+
+    @Test
+    void notifyRejectsOtherType() {
+        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@lemar.vn",
+                NotificationRecipient.CUSTOMER, NotificationType.OTHER, Map.of(), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("OTHER");
+    }
+
+    @Test
+    void notifyRejectsNullValues() {
+        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@lemar.vn",
+                NotificationRecipient.CUSTOMER, NotificationType.RENTAL_REQUEST_APPROVED, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unitCode");
+    }
+
+    @Test
     void markAsRead() {
         Notification notification = new Notification(2L, "TYPE", "title", "body");
 
