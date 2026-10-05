@@ -182,6 +182,25 @@ export const notifications: Notification[] = [
     path: "/fm/rental-requests",
     audience: "FM",
   },
+  // FS — catalog có FS_ASSIGNED; FS chưa có shell/route nên chưa gắn deep link.
+  {
+    id: "notif-fs-001",
+    group: "assignment",
+    title: "Bạn được phân công lịch check-in",
+    content: "Lịch check-in đơn order-503 lúc 09:00 ngày 30/09/2026 tại Kho Mộc — Tân Bình Hub.",
+    sentAt: "28/09/2026 15:10",
+    isRead: false,
+    audience: "FS",
+  },
+  {
+    id: "notif-fs-002",
+    group: "assignment",
+    title: "Lịch bàn giao ngày mai",
+    content: "Nhắc lịch bàn giao khoang B-014 (đơn order-507) lúc 14:00 ngày 01/10/2026.",
+    sentAt: "27/09/2026 18:00",
+    isRead: true,
+    audience: "FS",
+  },
 ];
 
 /**
