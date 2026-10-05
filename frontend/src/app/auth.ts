@@ -136,6 +136,9 @@ export const authGateway: AuthGateway = {
       listeners.forEach((listener) => listener(session));
       return session;
     } catch (error) {
+      // An aborted restore (backend slower than SESSION_RESTORE_TIMEOUT_MS) is treated as an
+      // unverifiable session and cleared. Trade-off: a transient slow start forces re-login
+      // even though the token may still be valid — accepted to keep startup bounded.
       if (
         abortController.signal.aborted ||
         (error instanceof ApiError && (error.status === 401 || error.status === 403))
