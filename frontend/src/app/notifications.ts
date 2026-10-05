@@ -113,7 +113,10 @@ export async function fetchNotifications(): Promise<NotificationItem[]> {
 }
 
 export async function markNotificationRead(id: number): Promise<void> {
-  await apiRequest(`/api/notifications/${id}/read`, { method: "PATCH", accessToken: accessToken() });
+  await apiRequest(`/api/notifications/${id}/read`, {
+    method: "PATCH",
+    accessToken: accessToken(),
+  });
   await refreshUnreadCount();
 }
 
