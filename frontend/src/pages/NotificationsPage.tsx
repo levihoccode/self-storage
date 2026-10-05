@@ -123,9 +123,9 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
       {composeOpen && (
         <ComposeNotificationDialog
           onClose={() => setComposeOpen(false)}
-          onCreated={(recipientName) => {
+          onCreated={(recipientEmail) => {
             setComposeOpen(false);
-            setSentTo(recipientName);
+            setSentTo(recipientEmail);
           }}
         />
       )}

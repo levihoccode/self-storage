@@ -1,8 +1,8 @@
 import { Send } from "lucide-react";
 import { FormEvent, useId } from "react";
-import { addNotification, notificationRecipients } from "../../mocks/notifications";
+import { addNotification } from "../../mocks/notifications";
 import { Button } from "../ui/Button";
-import { FIELD_LABEL, FormField, SelectField } from "../ui/FormField";
+import { FIELD_LABEL, FormField } from "../ui/FormField";
 import { useModalA11y } from "../ui/useModalA11y";
 
 const TEXTAREA_CLASS =
@@ -18,7 +18,7 @@ export function ComposeNotificationDialog({
   onCreated,
 }: {
   onClose: () => void;
-  onCreated: (recipientName: string) => void;
+  onCreated: (recipientEmail: string) => void;
 }) {
   const titleId = useId();
   const containerRef = useModalA11y<HTMLDivElement>(onClose);
@@ -26,14 +26,12 @@ export function ComposeNotificationDialog({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const recipient = notificationRecipients.find(
-      (candidate) => candidate.email === String(data.get("recipient") || ""),
-    );
+    const recipientEmail = String(data.get("recipientEmail") || "").trim();
     const title = String(data.get("title") || "").trim();
     const content = String(data.get("content") || "").trim();
-    if (!recipient || !title || !content) return;
-    addNotification({ recipient, title, content });
-    onCreated(recipient.name);
+    if (!recipientEmail || !title || !content) return;
+    addNotification({ recipientEmail, title, content });
+    onCreated(recipientEmail);
   }
 
   return (
@@ -59,14 +57,12 @@ export function ComposeNotificationDialog({
           API.
         </p>
         <form onSubmit={submit}>
-          <SelectField
-            label="Người nhận"
-            name="recipient"
+          <FormField
+            label="Email người nhận"
+            name="recipientEmail"
+            type="email"
             required
-            options={notificationRecipients.map((recipient) => ({
-              value: recipient.email,
-              label: `${recipient.name} — ${recipient.email}`,
-            }))}
+            placeholder="khach@example.com"
           />
           <FormField
             label="Tiêu đề"

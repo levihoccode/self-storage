@@ -25,15 +25,6 @@ export const NOTIFICATION_GROUP_LABEL: Record<NotificationGroup, string> = {
   other: "Khác",
 };
 
-export type NotificationRecipient = { name: string; email: string };
-
-/** Danh bạ customer cho form "Tạo thông báo" (mock; thay bằng API khi BE sẵn sàng). */
-export const notificationRecipients: NotificationRecipient[] = [
-  { name: "Nguyễn Minh Anh", email: "customer1@lemar.vn" },
-  { name: "Trần Thu Hà", email: "customer2@lemar.vn" },
-  { name: "Lê Quốc Bảo", email: "customer3@lemar.vn" },
-];
-
 const CUSTOM_NOTIFICATIONS_STORAGE_KEY = "kho-moc-custom-notifications";
 
 /** Thông báo type OTHER đã tạo trong phiên demo — persist để sống qua reload/đổi account. */
@@ -250,7 +241,7 @@ let customNotificationSeq = 0;
  * chọn; quyền tạo thật chờ Flow 5.0). Thay bằng POST /api/notifications khi có API.
  */
 export function addNotification(input: {
-  recipient: NotificationRecipient;
+  recipientEmail: string;
   title: string;
   content: string;
 }): Notification {
@@ -264,7 +255,7 @@ export function addNotification(input: {
     sentAt: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
     isRead: false,
     audience: "CUSTOMER",
-    recipientEmail: input.recipient.email,
+    recipientEmail: input.recipientEmail,
   };
   notifications.unshift(item);
   writeCustomNotifications();
