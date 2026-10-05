@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { Navigate, Notice } from "../../app/types";
+import { ROLE_HOME } from "../../app/routes";
 import { authGateway, type UserRole } from "../../app/auth";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import {
@@ -39,13 +40,14 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
         setNotice({ tone: "error", message: result.message });
         return;
       }
-      if (result.session.user.role !== "CUSTOMER") {
+      const home = ROLE_HOME[result.session.user.role];
+      if (!home) {
         const roleName = ROLE_PAGE_NAMES[result.session.user.role];
         authGateway.logout();
         setNotice({ tone: "info", message: `Trang của ${roleName} đang được hoàn thiện.` });
         return;
       }
-      navigate("/my-storage");
+      navigate(home);
     } finally {
       setIsSubmitting(false);
     }
