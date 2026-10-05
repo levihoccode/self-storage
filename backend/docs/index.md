@@ -15,7 +15,7 @@ Kiến trúc **modular monolith** theo issue #15: `vn.lemar.selfstorage` là pac
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
-Hiện tại chỉ module `identity` có code chạy; các module khác mới là khung.
+Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility manager.
 
 Layout trong một module:
 
@@ -34,6 +34,8 @@ Code map (identity):
 | Login + `/me` | `identity/application/AuthService.java`, `identity/controller/AuthController.java` |
 | Phát JWT | `identity/application/JwtService.java` |
 | Verify + cấp quyền theo DB | `identity/application/AccountJwtAuthenticationConverter.java`, `identity/config/JwtConfiguration.java` |
+| RBAC + facility scope | `identity/application/Access.java`, `identity/application/CurrentAccountProvider.java` |
+| Kiểm tra FM phụ trách facility | `facility/application/FacilityAccess.java` |
 | Khai báo route policy | `SecurityConfig.java` |
 | Envelope + lỗi chung | `ApiEnvelope.java`, `ApiError.java`, `ApiExceptionHandler.java`, `JsonAuthenticationEntryPoint.java`, `JsonAccessDeniedHandler.java` |
 
@@ -44,6 +46,12 @@ mỗi request. Chi tiết:
 
 - [authentication.md](authentication.md) — danh tính, token, luồng xác thực mỗi request, giới hạn.
 - [authorization.md](authorization.md) — authorities, policy route, 401 vs 403, điều kiện xác minh email.
+
+Policy bổ sung ở method cho endpoint demo A3b:
+
+| Route | Yêu cầu |
+|---|---|
+| `GET /api/facility-access/ping/{facilityId}` | `ACCOUNT_ACTIVE`; `Access` chỉ cho ADMIN/BOM/FM/FS và kiểm tra facility scope trước khi trả pong. |
 
 ## Cấu hình
 

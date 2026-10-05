@@ -27,6 +27,18 @@ Account `BANNED` không được cấp authority nào → mọi route yêu cầu
 | `/api/admin/**` | `ROLE_ADMIN` |
 | `/api/**` (còn lại) | `ACCOUNT_ACTIVE` |
 
+## Guard tại method (A3b)
+
+Endpoint demo `/api/facility-access/ping/{facilityId}` đi qua policy `/api/**` ở trên,
+sau đó `Access` kiểm tra role và facility scope:
+
+| Role | Phạm vi được phép |
+|---|---|
+| `ADMIN`, `BOM` | Mọi facility |
+| `FM` | Facility có `fm_account_id` là account hiện tại |
+| `FS` | Facility có assignment của account hiện tại trong `account_facility_assignments` |
+| Role khác | Bị từ chối (`403`) |
+
 ## 401 vs 403
 
 | Status | Nghĩa | Ví dụ |
@@ -49,6 +61,4 @@ tả lỗi token từ Spring; 403 message là `"Bạn không có quyền truy c�
 
 ## Chưa có
 
-- `Access.can(actor, action, resource)` / `canAccessFacility(actor, facilityId)` — điểm kiểm quyền
-  chi tiết, bổ sung khi A3b vào (#57, #66).
 - Permission-based (role → permissions): mới có schema, chưa code nào đọc.
