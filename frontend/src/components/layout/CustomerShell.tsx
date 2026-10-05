@@ -1,8 +1,8 @@
 import { Bell, CalendarDays, ChevronDown, LogOut, Menu, PackageOpen, Receipt } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
+import { useUnreadNotificationCount } from "../../app/notifications";
 import type { Navigate, View } from "../../app/types";
-import { unreadNotificationCount } from "../../mocks/notifications";
 import { NotificationBell } from "../domain/NotificationBell";
 import type { Theme } from "../ui/ThemeToggle";
 import { ThemeToggle } from "../ui/ThemeToggle";
@@ -58,7 +58,7 @@ export function CustomerShell({
 }) {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const session = authGateway.getSession();
-  const unreadNotifications = unreadNotificationCount("CUSTOMER", session?.user.email);
+  const unreadNotifications = useUnreadNotificationCount();
   const activeItem = navigation.find((item) => item.view === view);
 
   const navItems = navigation.map((item) =>

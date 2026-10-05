@@ -2,18 +2,19 @@ import { Bell } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
 import {
-  isNotificationRead,
+  fetchNotifications,
+  formatNotificationTime,
   markNotificationRead,
-  notificationsFor,
-  type Notification,
-} from "../../mocks/notifications";
+  notificationPath,
+  useUnreadNotificationCount,
+  type NotificationItem,
+} from "../../app/notifications";
 
 const DROPDOWN_ITEM_LIMIT = 6;
 
 /**
- * Chuông thông báo cho shell (spec `fe-pages/shared/03`): dropdown 5-10 item
- * gần nhất + link tới trang đầy đủ. Tự đọc session để biết role, nên shell nào
- * dùng cũng chỉ cần render component này.
+ * Chuông thông báo (spec `fe-pages/shared/03`): dropdown 5-10 item gần nhất +
+ * link tới trang đầy đủ, dữ liệu từ API `/api/notifications`.
  *
  * Panel neo vào mép phải nội dung header (không dính theo vị trí chuông) để
  * không tràn viewport ở width hẹp; animation chảy ra từ đúng vị trí chuông.
@@ -21,16 +22,13 @@ const DROPDOWN_ITEM_LIMIT = 6;
 export function NotificationBell({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; inset: number } | null>(null);
-  // Đọc state nằm ở mocks/notifications.ts (module-level Set); counter này chỉ
-  // để re-render sau khi mutate.
-  const [, refresh] = useState(0);
+  const [items, setItems] = useState<NotificationItem[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
+  const unreadCount = useUnreadNotificationCount();
   const session = authGateway.getSession();
   const role = session?.user.role ?? "CUSTOMER";
-  const items = notificationsFor(role, session?.user.email);
-  const unreadCount = items.filter((item) => !isNotificationRead(item.id)).length;
-  const latest = items.slice(0, DROPDOWN_ITEM_LIMIT);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -48,6 +46,18 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  async function loadItems() {
+    setIsLoading(true);
+    setLoadError(false);
+    try {
+      setItems(await fetchNotifications());
+    } catch {
+      setLoadError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   function togglePanel() {
     if (open) {
@@ -69,15 +79,27 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
       });
     }
     setOpen(true);
+    void loadItems();
   }
 
-  function openNotification(notification: Notification) {
-    markNotificationRead(notification.id);
-    refresh((count) => count + 1);
+  async function openNotification(notification: NotificationItem) {
     setOpen(false);
-    // Thông báo không gắn resource (type OTHER) thì bấm chỉ để đánh dấu đã đọc.
-    if (notification.path) onNavigate(notification.path);
+    try {
+      await markNotificationRead(notification.id);
+    } catch {
+      // Không chặn điều hướng; badge sẽ được làm mới ở lần mở sau.
+    }
+    setItems(
+      (current) =>
+        current?.map((item) =>
+          item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item,
+        ) ?? current,
+    );
+    const path = notificationPath(notification, role);
+    if (path) onNavigate(path);
   }
+
+  const latest = (items ?? []).slice(0, DROPDOWN_ITEM_LIMIT);
 
   return (
     <div ref={containerRef}>
@@ -112,17 +134,21 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
               <span className="text-[11px] text-muted">{unreadCount} chưa đọc</span>
             )}
           </div>
-          {latest.length === 0 ? (
+          {isLoading && !items ? (
+            <p className="m-0 p-3 text-[12px] text-muted">Đang tải thông báo…</p>
+          ) : loadError && !items ? (
+            <p className="m-0 p-3 text-[12px] text-danger">Không tải được thông báo.</p>
+          ) : latest.length === 0 ? (
             <p className="m-0 p-3 text-[12px] text-muted">Chưa có thông báo nào.</p>
           ) : (
             latest.map((notification) => {
-              const isRead = isNotificationRead(notification.id);
+              const isRead = !!notification.readAt;
               return (
                 <button
                   key={notification.id}
                   className="flex w-full items-start gap-2.5 border-0 border-b border-border bg-transparent px-2.5 py-3 text-left last:border-b-0 hover:bg-brand-soft"
                   role="menuitem"
-                  onClick={() => openNotification(notification)}
+                  onClick={() => void openNotification(notification)}
                 >
                   <span
                     className={`mt-[6px] h-2 w-2 shrink-0 rounded-full ${isRead ? "bg-border" : "bg-brand"}`}
@@ -132,10 +158,10 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
                       {notification.title}
                     </span>
                     <span className="mt-0.5 block text-[11px] leading-normal text-muted">
-                      {notification.content}
+                      {notification.body}
                     </span>
                     <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
-                      {notification.sentAt}
+                      {formatNotificationTime(notification.createdAt)}
                     </span>
                   </span>
                 </button>

@@ -1,18 +1,18 @@
-import { AlertTriangle, CheckCheck, Megaphone, Plus, Receipt, UserCheck } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, CheckCheck, Megaphone, Receipt, UserCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { authGateway } from "../app/auth";
-import type { Navigate } from "../app/types";
 import {
-  isNotificationRead,
+  fetchNotifications,
+  formatNotificationTime,
   markAllNotificationsRead,
   markNotificationRead,
-  notificationsFor,
-  type Notification,
+  notificationGroup,
+  notificationPath,
   type NotificationGroup,
-} from "../mocks/notifications";
+  type NotificationItem,
+} from "../app/notifications";
+import type { Navigate } from "../app/types";
 import { Button } from "../components/ui/Button";
-import { ComposeNotificationDialog } from "../components/domain/ComposeNotificationDialog";
-import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 const GROUP_ICON: Record<NotificationGroup, typeof AlertTriangle> = {
@@ -32,27 +32,77 @@ const GROUP_ICON_CLASS: Record<NotificationGroup, string> = {
 };
 
 export function NotificationsPage({ navigate }: { navigate: Navigate }) {
-  // Read state lives in mocks/notifications.ts (module-level Set) so it
-  // survives this page unmounting when the user navigates away and back.
-  // This counter just forces a re-render after mutating that shared state.
-  const [, refresh] = useState(0);
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [items, setItems] = useState<NotificationItem[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const session = authGateway.getSession();
   const role = session?.user.role ?? "CUSTOMER";
-  const items = notificationsFor(role, session?.user.email);
-  const unreadCount = items.filter((item) => !isNotificationRead(item.id)).length;
 
-  function openNotification(notification: Notification) {
-    markNotificationRead(notification.id);
-    refresh((count) => count + 1);
-    // Thông báo type OTHER không gắn resource nào — bấm chỉ để đánh dấu đã đọc.
-    if (notification.path) navigate(notification.path);
+  useEffect(() => {
+    let isActive = true;
+    async function loadInitial() {
+      try {
+        const data = await fetchNotifications();
+        if (isActive) setItems(data);
+      } catch {
+        if (isActive) setLoadError(true);
+      } finally {
+        if (isActive) setIsLoading(false);
+      }
+    }
+    void loadInitial();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  // Retry từ nút trong error state — setState nằm ở event handler, không phải effect.
+  async function retry() {
+    setIsLoading(true);
+    setLoadError(false);
+    try {
+      setItems(await fetchNotifications());
+    } catch {
+      setLoadError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function markAllRead() {
-    markAllNotificationsRead(items);
-    refresh((count) => count + 1);
+  const list = items ?? [];
+  const unreadCount = list.filter((item) => !item.readAt).length;
+
+  async function openNotification(notification: NotificationItem) {
+    setActionError(null);
+    try {
+      await markNotificationRead(notification.id);
+      setItems(
+        (current) =>
+          current?.map((item) =>
+            item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item,
+          ) ?? current,
+      );
+    } catch {
+      setActionError("Không đánh dấu đã đọc được — thử lại sau.");
+    }
+    const path = notificationPath(notification, role);
+    if (path) navigate(path);
+  }
+
+  async function markAllRead() {
+    setActionError(null);
+    try {
+      await markAllNotificationsRead();
+      setItems(
+        (current) =>
+          current?.map((item) =>
+            item.readAt ? item : { ...item, readAt: new Date().toISOString() },
+          ) ?? current,
+      );
+    } catch {
+      setActionError("Không đánh dấu tất cả được — thử lại sau.");
+    }
   }
 
   return (
@@ -61,40 +111,51 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
         <div>
           <h1 className="m-0 text-[28px] tracking-[-0.03em] text-ink">Trung tâm thông báo</h1>
           <p className="mt-2 text-[13px] text-muted">
-            {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : "Bạn đã đọc hết thông báo"}
+            {isLoading
+              ? "Đang tải thông báo…"
+              : unreadCount > 0
+                ? `${unreadCount} thông báo chưa đọc`
+                : "Bạn đã đọc hết thông báo"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {role === "FM" && (
-            <Button onClick={() => setComposeOpen(true)}>
-              <Plus size={16} /> Tạo thông báo
-            </Button>
-          )}
-          <Button variant="secondary" disabled={unreadCount === 0} onClick={markAllRead}>
-            <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
-          </Button>
-        </div>
+        <Button variant="secondary" disabled={isLoading || unreadCount === 0} onClick={markAllRead}>
+          <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
+        </Button>
       </div>
 
-      {sentTo && <DemoNotice tone="success">Đã gửi thông báo tới {sentTo} (demo).</DemoNotice>}
+      {actionError && (
+        <p className="mb-4 mt-0 rounded-sm border border-danger/40 bg-danger/14 px-3 py-[11px] text-[12px] text-danger">
+          {actionError}
+        </p>
+      )}
 
-      {items.length === 0 ? (
+      {isLoading ? (
+        <SurfaceState variant="loading" title="Đang tải thông báo…" />
+      ) : loadError ? (
+        <SurfaceState
+          variant="error"
+          title="Không tải được thông báo"
+          description="Kiểm tra kết nối tới máy chủ rồi thử lại."
+          action={{ label: "Thử lại", onClick: () => void retry() }}
+        />
+      ) : list.length === 0 ? (
         <SurfaceState variant="empty" title="Chưa có thông báo nào" />
       ) : (
         <div className="grid gap-2.5">
-          {items.map((notification) => {
-            const Icon = GROUP_ICON[notification.group];
-            const isRead = isNotificationRead(notification.id);
+          {list.map((notification) => {
+            const group = notificationGroup(notification.type);
+            const Icon = GROUP_ICON[group];
+            const isRead = !!notification.readAt;
             return (
               <button
                 key={notification.id}
                 className={`flex items-start gap-4 border p-5 text-left transition-colors hover:border-brand max-[760px]:flex-col max-[760px]:items-stretch ${
                   isRead ? "border-border bg-surface" : "border-l-4 border-brand bg-brand-soft"
                 }`}
-                onClick={() => openNotification(notification)}
+                onClick={() => void openNotification(notification)}
               >
                 <span
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${GROUP_ICON_CLASS[notification.group]}`}
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${GROUP_ICON_CLASS[group]}`}
                 >
                   <Icon size={17} />
                 </span>
@@ -108,26 +169,16 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
                     {!isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />}
                   </div>
                   <p className="mb-0 mt-1.5 text-[13px] leading-[1.5] text-muted">
-                    {notification.content}
+                    {notification.body}
                   </p>
                   <p className="mb-0 mt-2 font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
-                    {notification.sentAt}
+                    {formatNotificationTime(notification.createdAt)}
                   </p>
                 </div>
               </button>
             );
           })}
         </div>
-      )}
-
-      {composeOpen && (
-        <ComposeNotificationDialog
-          onClose={() => setComposeOpen(false)}
-          onCreated={(recipientEmail) => {
-            setComposeOpen(false);
-            setSentTo(recipientEmail);
-          }}
-        />
       )}
     </main>
   );

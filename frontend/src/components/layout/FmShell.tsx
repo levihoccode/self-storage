@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { authGateway } from "../../app/auth";
+import { useUnreadNotificationCount } from "../../app/notifications";
 import type { Navigate, View } from "../../app/types";
-import { unreadNotificationCount } from "../../mocks/notifications";
 import { ComingSoonDialog } from "../ui/ComingSoonDialog";
 import type { Theme } from "../ui/ThemeToggle";
 import { WorkspaceShell, type WorkspaceNavItem } from "./WorkspaceShell";
@@ -90,7 +90,7 @@ export function FmShell({
 }) {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const session = authGateway.getSession();
-  const unreadNotifications = unreadNotificationCount("FM", session?.user.email);
+  const unreadNotifications = useUnreadNotificationCount();
   // Re-propose là trang chi tiết của luồng yêu cầu đặt kho (spec fm/02) —
   // highlight mục cha thay vì để sidebar không có mục nào active.
   const activeView = view === "fm-proposal-redo" ? "fm-rental-requests" : view;
