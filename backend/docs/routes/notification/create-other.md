@@ -10,7 +10,8 @@ Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account.
 
 - Body: `recipientAccountId` (bắt buộc, account phải tồn tại — 404 nếu không), `title`, `body`.
 - Type cố định `OTHER` — chỉ dùng khi chưa có type nghiệp vụ phù hợp.
-- Ghi bản ghi web + gửi email cho account nhận; email lỗi không rollback bản ghi web.
+- Ghi bản ghi web + gửi email (layout HTML chung, gửi sau commit) cho account nhận; email lỗi
+  không rollback bản ghi web — xem `index.md › Gửi email (module notification)`.
 
 ## Ví dụ
 

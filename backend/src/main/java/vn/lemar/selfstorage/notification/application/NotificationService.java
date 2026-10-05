@@ -3,14 +3,11 @@ package vn.lemar.selfstorage.notification.application;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.exception.NotificationNotFoundException;
 import vn.lemar.selfstorage.notification.domain.Notification;
 import vn.lemar.selfstorage.notification.domain.OrderNotification;
@@ -20,7 +17,9 @@ import vn.lemar.selfstorage.notification.repository.OrderNotificationRepository;
 /**
  * Thông báo web + email (A5).
  *
- * <p>Quy tắc: email lỗi chỉ được log — KHÔNG rollback việc lưu thông báo web.
+ * <p>Email gửi qua {@link EmailSender} với layout {@link NotificationEmailLayout}: đang trong
+ * transaction nên được xếp lịch gửi **sau commit**, rollback thì không gửi. Lỗi gửi chỉ log,
+ * KHÔNG rollback việc lưu thông báo web.
  * Nội dung theo template hardcode của {@link NotificationTemplateCatalog}; riêng {@code OTHER}
  * tạo thủ công qua {@link #createOther}. Không import sang module khác; caller tự truyền
  * {@code accountId} và {@code recipientEmail}.
@@ -28,22 +27,20 @@ import vn.lemar.selfstorage.notification.repository.OrderNotificationRepository;
 @Service
 public class NotificationService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(NotificationService.class);
-
     private final NotificationRepository notificationRepository;
     private final OrderNotificationRepository orderNotificationRepository;
     private final NotificationTemplateCatalog templateCatalog;
-    private final JavaMailSender mailSender;
+    private final EmailSender emailSender;
 
     public NotificationService(
             NotificationRepository notificationRepository,
             OrderNotificationRepository orderNotificationRepository,
             NotificationTemplateCatalog templateCatalog,
-            JavaMailSender mailSender) {
+            EmailSender emailSender) {
         this.notificationRepository = notificationRepository;
         this.orderNotificationRepository = orderNotificationRepository;
         this.templateCatalog = templateCatalog;
-        this.mailSender = mailSender;
+        this.emailSender = emailSender;
     }
 
     /**
@@ -123,20 +120,7 @@ public class NotificationService {
         if (orderId != null) {
             orderNotificationRepository.save(new OrderNotification(orderId, notification.getId()));
         }
-        sendEmailQuietly(recipientEmail, title, body);
+        emailSender.sendHtml(recipientEmail, title, NotificationEmailLayout.wrap(title, body));
         return notification;
-    }
-
-    private void sendEmailQuietly(String to, String subject, String text) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(text);
-            mailSender.send(message);
-        } catch (Exception e) {
-            LOG.warn("Gửi email thất bại (không rollback thông báo web): to={}, subject={}, error={}",
-                    to, subject, e.getMessage());
-        }
     }
 }

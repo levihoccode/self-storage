@@ -11,11 +11,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.domain.Notification;
 import vn.lemar.selfstorage.notification.domain.OrderNotification;
 import vn.lemar.selfstorage.notification.repository.NotificationRepository;
@@ -25,7 +23,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -41,14 +38,14 @@ class NotificationServiceTest {
     private OrderNotificationRepository orderNotificationRepository;
 
     @Mock
-    private JavaMailSender mailSender;
+    private EmailSender emailSender;
 
     private NotificationService notificationService;
 
     @BeforeEach
     void setUp() {
         notificationService = new NotificationService(
-                notificationRepository, orderNotificationRepository, new NotificationTemplateCatalog(), mailSender);
+                notificationRepository, orderNotificationRepository, new NotificationTemplateCatalog(), emailSender);
     }
 
     private void stubSaveAssignsId(long id) {
@@ -72,7 +69,10 @@ class NotificationServiceTest {
         assertThat(result.getBody()).contains("A-01").contains("https://lemar.vn/p/1");
         assertThat(result.getCreatedAt()).isNotNull();
         assertThat(result.getReadAt()).isNull();
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        ArgumentCaptor<String> htmlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailSender).sendHtml(
+                eq("customer1@lemar.vn"), eq("Yêu cầu thuê kho đã được duyệt"), htmlCaptor.capture());
+        assertThat(htmlCaptor.getValue()).contains("LEMAR SELF STORAGE").contains("A-01");
     }
 
     @Test
@@ -98,7 +98,7 @@ class NotificationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("proposalLink");
 
-        verifyNoInteractions(notificationRepository, orderNotificationRepository, mailSender);
+        verifyNoInteractions(notificationRepository, orderNotificationRepository, emailSender);
     }
 
     @Test
@@ -110,7 +110,7 @@ class NotificationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("PROPOSAL_REJECTED/CUSTOMER");
 
-        verifyNoInteractions(notificationRepository, orderNotificationRepository, mailSender);
+        verifyNoInteractions(notificationRepository, orderNotificationRepository, emailSender);
     }
 
     @Test
@@ -137,19 +137,20 @@ class NotificationServiceTest {
         assertThat(result.getType()).isEqualTo("OTHER");
         assertThat(result.getTitle()).isEqualTo("Bảo trì khẩn cấp");
         verifyNoInteractions(orderNotificationRepository);
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(emailSender).sendHtml(eq("customer1@lemar.vn"), eq("Bảo trì khẩn cấp"), any());
     }
 
     @Test
     void emailFailureDoesNotRollbackWebNotification() {
         stubSaveAssignsId(1L);
-        doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
+        when(emailSender.sendHtml(any(), any(), any())).thenReturn(false);
 
         Notification result = notificationService.notify(1L, "customer1@lemar.vn", NotificationRecipient.CUSTOMER,
                 NotificationType.DEPOSIT_PAYMENT_SUCCEEDED, Map.of("orderCode", "O-1"), null);
 
         assertThat(result.getType()).isEqualTo("DEPOSIT_PAYMENT_SUCCEEDED");
         verify(notificationRepository).save(any(Notification.class));
+        verify(emailSender).sendHtml(eq("customer1@lemar.vn"), any(), any());
     }
 
     @Test
