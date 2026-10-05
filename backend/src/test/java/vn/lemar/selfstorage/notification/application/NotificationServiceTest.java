@@ -1,6 +1,8 @@
 package vn.lemar.selfstorage.notification.application;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -21,7 +24,9 @@ import vn.lemar.selfstorage.notification.repository.OrderNotificationRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -145,6 +150,53 @@ class NotificationServiceTest {
 
         assertThat(result.getType()).isEqualTo("DEPOSIT_PAYMENT_SUCCEEDED");
         verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void markReadSetsReadAt() {
+        Notification notification = new Notification(1L, "TYPE", "Tiêu đề", "Nội dung");
+        when(notificationRepository.findByIdAndAccountId(10L, 1L)).thenReturn(Optional.of(notification));
+
+        Notification result = notificationService.markRead(1L, 10L);
+
+        assertThat(result.getReadAt()).isNotNull();
+        verify(notificationRepository).save(notification);
+    }
+
+    @Test
+    void markReadIsIdempotent() {
+        Notification notification = new Notification(1L, "TYPE", "Tiêu đề", "Nội dung");
+        notification.markRead();
+        when(notificationRepository.findByIdAndAccountId(10L, 1L)).thenReturn(Optional.of(notification));
+
+        notificationService.markRead(1L, 10L);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+    }
+
+    @Test
+    void markAllReadUpdatesUnreadOnly() {
+        Notification first = new Notification(1L, "TYPE", "A", "a");
+        Notification second = new Notification(1L, "TYPE", "B", "b");
+        when(notificationRepository.findByAccountIdAndReadAtIsNull(1L)).thenReturn(List.of(first, second));
+
+        int marked = notificationService.markAllRead(1L);
+
+        assertThat(marked).isEqualTo(2);
+        assertThat(first.getReadAt()).isNotNull();
+        assertThat(second.getReadAt()).isNotNull();
+        verify(notificationRepository).saveAll(List.of(first, second));
+    }
+
+    @Test
+    void listForAccountFiltersByReadState() {
+        when(notificationRepository.findByAccountIdAndReadAtIsNullOrderByCreatedAtDesc(eq(1L), any()))
+                .thenReturn(Page.empty());
+
+        notificationService.listForAccount(1L, false, 0, 20);
+
+        verify(notificationRepository).findByAccountIdAndReadAtIsNullOrderByCreatedAtDesc(eq(1L), any());
+        verify(notificationRepository, never()).findByAccountIdOrderByCreatedAtDesc(any(), any());
     }
 
     @Test

@@ -35,6 +35,7 @@ import vn.lemar.selfstorage.notification.domain.Notification;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -70,7 +71,7 @@ class NotificationControllerTest {
     void listReturnsSummaryOfCurrentAccountWithoutBody() throws Exception {
         authenticate("customer@example.com", "CUSTOMER");
         when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
-        when(notificationService.listForAccount(1L, 0, 20))
+        when(notificationService.listForAccount(1L, null, 0, 20))
                 .thenReturn(List.of(notification(10L, "RENTAL_REQUEST_APPROVED")));
 
         mockMvc.perform(get("/api/notifications")
@@ -169,6 +170,63 @@ class NotificationControllerTest {
                         .content("{\"recipientAccountId\":5,\"body\":\"Nội dung\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
+    }
+
+    @Test
+    void listPassesUnreadFilter() throws Exception {
+        authenticate("customer@example.com", "CUSTOMER");
+        when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
+        when(notificationService.listForAccount(1L, false, 0, 20)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/notifications?is_read=false")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void markReadReturnsUpdatedNotification() throws Exception {
+        authenticate("customer@example.com", "CUSTOMER");
+        when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
+        when(notificationService.markRead(1L, 10L)).thenReturn(readNotification(10L, "RENTAL_REQUEST_APPROVED"));
+
+        mockMvc.perform(patch("/api/notifications/10/read")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã đánh dấu thông báo là đã đọc"))
+                .andExpect(jsonPath("$.data.id").value(10))
+                .andExpect(jsonPath("$.data.readAt").isNotEmpty());
+    }
+
+    @Test
+    void markReadReturns404ForOtherAccountNotification() throws Exception {
+        authenticate("customer@example.com", "CUSTOMER");
+        when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
+        when(notificationService.markRead(1L, 99L)).thenThrow(new NotificationNotFoundException());
+
+        mockMvc.perform(patch("/api/notifications/99/read")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Không tìm thấy thông báo"));
+    }
+
+    @Test
+    void markAllReadReturnsZeroUnread() throws Exception {
+        authenticate("customer@example.com", "CUSTOMER");
+        when(accountQueryService.requireIdByEmail("customer@example.com")).thenReturn(1L);
+        when(notificationService.markAllRead(1L)).thenReturn(1);
+
+        mockMvc.perform(patch("/api/notifications/read-all")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã đánh dấu tất cả thông báo là đã đọc"))
+                .andExpect(jsonPath("$.data.unreadCount").value(0));
+    }
+
+    private Notification readNotification(Long id, String type) {
+        Notification notification = notification(id, type);
+        ReflectionTestUtils.setField(notification, "readAt", Instant.now());
+        return notification;
     }
 
     private void authenticate(String email, String roleName) {

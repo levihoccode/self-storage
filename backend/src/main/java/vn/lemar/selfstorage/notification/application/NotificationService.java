@@ -67,11 +67,20 @@ public class NotificationService {
         return persist(accountId, NotificationType.OTHER, title, body, recipientEmail, null);
     }
 
-    /** Danh sách notification của account, mới nhất trước. */
+    /** Danh sách notification của account, mới nhất trước; {@code isRead} null = tất cả. */
     @Transactional(readOnly = true)
-    public List<Notification> listForAccount(Long accountId, int page, int size) {
+    public List<Notification> listForAccount(Long accountId, Boolean isRead, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        if (isRead == null) {
+            return notificationRepository.findByAccountIdOrderByCreatedAtDesc(accountId, pageable).getContent();
+        }
+        if (isRead) {
+            return notificationRepository
+                    .findByAccountIdAndReadAtIsNotNullOrderByCreatedAtDesc(accountId, pageable)
+                    .getContent();
+        }
         return notificationRepository
-                .findByAccountIdOrderByCreatedAtDesc(accountId, PageRequest.of(page, size))
+                .findByAccountIdAndReadAtIsNullOrderByCreatedAtDesc(accountId, pageable)
                 .getContent();
     }
 
@@ -80,6 +89,26 @@ public class NotificationService {
     public Notification getForAccount(Long accountId, Long notificationId) {
         return notificationRepository.findByIdAndAccountId(notificationId, accountId)
                 .orElseThrow(NotificationNotFoundException::new);
+    }
+
+    /** Đánh dấu đã đọc, idempotent. */
+    @Transactional
+    public Notification markRead(Long accountId, Long notificationId) {
+        Notification notification = getForAccount(accountId, notificationId);
+        if (notification.getReadAt() == null) {
+            notification.markRead();
+            notificationRepository.save(notification);
+        }
+        return notification;
+    }
+
+    /** Đánh dấu tất cả chưa đọc của account; trả số bản ghi vừa cập nhật. */
+    @Transactional
+    public int markAllRead(Long accountId) {
+        List<Notification> unread = notificationRepository.findByAccountIdAndReadAtIsNull(accountId);
+        unread.forEach(Notification::markRead);
+        notificationRepository.saveAll(unread);
+        return unread.size();
     }
 
     @Transactional(readOnly = true)
