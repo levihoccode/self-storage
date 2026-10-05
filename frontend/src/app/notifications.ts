@@ -113,9 +113,11 @@ export async function fetchNotificationSummaries(size: number): Promise<Notifica
 export async function fetchNotificationPage(
   page: number,
   size: number,
+  isRead?: boolean,
 ): Promise<NotificationItem[]> {
+  const readParam = isRead === undefined ? "" : `&is_read=${isRead}`;
   const summaries = await apiRequest<NotificationSummary[]>(
-    `/api/notifications?page=${page}&size=${size}`,
+    `/api/notifications?page=${page}&size=${size}${readParam}`,
     { accessToken: accessToken() },
   );
   return Promise.all(

@@ -8,6 +8,7 @@ import {
   markNotificationRead,
   notificationGroup,
   notificationPath,
+  useUnreadNotificationCount,
   type NotificationGroup,
   type NotificationItem,
 } from "../app/notifications";
@@ -45,6 +46,8 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [readFilter, setReadFilter] = useState<"all" | "unread">("all");
+  const unreadCount = useUnreadNotificationCount();
   const session = authGateway.getSession();
   const role = session?.user.role ?? "CUSTOMER";
 
@@ -74,9 +77,31 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
     setIsLoading(true);
     setLoadError(false);
     try {
-      const data = await fetchNotificationPage(0, PAGE_SIZE);
+      const data = await fetchNotificationPage(
+        0,
+        PAGE_SIZE,
+        readFilter === "unread" ? false : undefined,
+      );
       setItems(data);
       setPage(0);
+      setHasMore(data.length === PAGE_SIZE);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function changeFilter(next: "all" | "unread") {
+    if (next === readFilter) return;
+    setReadFilter(next);
+    setPage(0);
+    setIsLoading(true);
+    setLoadError(false);
+    setActionError(null);
+    try {
+      const data = await fetchNotificationPage(0, PAGE_SIZE, next === "unread" ? false : undefined);
+      setItems(data);
       setHasMore(data.length === PAGE_SIZE);
     } catch {
       setLoadError(true);
@@ -90,7 +115,11 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
     setActionError(null);
     try {
       const nextPage = page + 1;
-      const data = await fetchNotificationPage(nextPage, PAGE_SIZE);
+      const data = await fetchNotificationPage(
+        nextPage,
+        PAGE_SIZE,
+        readFilter === "unread" ? false : undefined,
+      );
       setItems((current) => [...(current ?? []), ...data]);
       setPage(nextPage);
       setHasMore(data.length === PAGE_SIZE);
@@ -102,18 +131,20 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   }
 
   const list = items ?? [];
-  const unreadCount = list.filter((item) => !item.readAt).length;
+  const unreadOnly = readFilter === "unread";
 
   async function openNotification(notification: NotificationItem) {
     setActionError(null);
     try {
       await markNotificationRead(notification.id);
-      setItems(
-        (current) =>
-          current?.map((item) =>
-            item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item,
-          ) ?? current,
-      );
+      setItems((current) => {
+        if (!current) return current;
+        // Đang lọc "Chưa đọc" thì item đã đọc phải rời danh sách.
+        if (unreadOnly) return current.filter((item) => item.id !== notification.id);
+        return current.map((item) =>
+          item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item,
+        );
+      });
     } catch {
       setActionError("Không đánh dấu đã đọc được — thử lại sau.");
     }
@@ -125,12 +156,13 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
     setActionError(null);
     try {
       await markAllNotificationsRead();
-      setItems(
-        (current) =>
-          current?.map((item) =>
-            item.readAt ? item : { ...item, readAt: new Date().toISOString() },
-          ) ?? current,
-      );
+      setItems((current) => {
+        if (!current) return current;
+        if (unreadOnly) return [];
+        return current.map((item) =>
+          item.readAt ? item : { ...item, readAt: new Date().toISOString() },
+        );
+      });
     } catch {
       setActionError("Không đánh dấu tất cả được — thử lại sau.");
     }
@@ -150,6 +182,31 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          <div
+            className="inline-flex overflow-hidden rounded-sm border border-border"
+            role="group"
+            aria-label="Lọc thông báo"
+          >
+            {(
+              [
+                ["all", "Tất cả"],
+                ["unread", "Chưa đọc"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                className={`border-0 px-[14px] py-[9px] text-[12px] font-bold transition-colors ${
+                  readFilter === value
+                    ? "bg-brand-soft text-ink"
+                    : "bg-transparent text-muted hover:text-ink"
+                }`}
+                aria-pressed={readFilter === value}
+                onClick={() => void changeFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {role === "FM" && (
             <Button onClick={() => setComposeOpen(true)}>
               <Plus size={16} /> Tạo thông báo
@@ -183,7 +240,10 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
           action={{ label: "Thử lại", onClick: () => void retry() }}
         />
       ) : list.length === 0 ? (
-        <SurfaceState variant="empty" title="Chưa có thông báo nào" />
+        <SurfaceState
+          variant="empty"
+          title={unreadOnly ? "Không có thông báo chưa đọc" : "Chưa có thông báo nào"}
+        />
       ) : (
         <>
           <div className="grid gap-2.5">
