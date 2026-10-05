@@ -11,6 +11,9 @@ import org.springframework.web.util.HtmlUtils;
  * client), preheader cho preview, header thương hiệu, footer "email tự động".
  *
  * <p>Dùng cho {@code EmailSender.sendHtml(...)}; title/body được escape HTML trước khi nhúng.
+ *
+ * <p>Known limitation: một layout cố định dùng chung, chưa có hệ template theo {@code type}
+ * của notification (spec sẽ cần sau). Chỉ hỗ trợ title + các đoạn văn, không có block tuỳ biến.
  */
 public final class NotificationEmailLayout {
 

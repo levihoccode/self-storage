@@ -13,6 +13,11 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import vn.lemar.selfstorage.notification.EmailSender;
 
+/**
+ * Cài đặt {@link EmailSender} gửi qua SMTP. Mọi exception khi gửi bị nuốt (chỉ log) để không
+ * rollback nghiệp vụ của caller. Bước deliver chạy đồng bộ trên thread gọi, kể cả nhánh
+ * afterCommit — xem "Known limitation" trong {@link EmailSender}.
+ */
 @Service
 class SmtpEmailSender implements EmailSender {
 
