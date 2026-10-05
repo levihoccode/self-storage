@@ -30,7 +30,8 @@ class MigrationTest {
             "unit_types", "policies", "storage_units",
             "rental_requests", "rental_orders", "rental_contracts", "invoices",
             "proposal_feedbacks", "appointments", "rental_appointments",
-            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs");
+            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs",
+            "notifications", "order_notifications");
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -60,7 +61,7 @@ class MigrationTest {
     }
 
     @Test
-    void migrateTaoDuBangVaSeedDev() throws Exception {
+    void migrateCreatesAllTablesAndDevSeed() throws Exception {
         MigrateResult result = flyway().migrate();
         assertThat(result.migrationsExecuted).isPositive();
 
@@ -71,6 +72,7 @@ class MigrationTest {
                 assertThat(tableExists(connection, table)).as(table).isTrue();
             }
 
+            assertThat(count(connection, "notifications")).isZero();
             assertThat(count(connection, "roles")).isEqualTo(5);
             assertThat(count(connection, "accounts")).isEqualTo(8);
             assertThat(count(connection, "facilities")).isEqualTo(2);

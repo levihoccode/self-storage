@@ -14,6 +14,8 @@ Bản đọc được của SQL — **mirror byte-identical** với Flyway migra
 - **Khi mọi DB đã apply migration còn disposable** (chưa có prod/staging/sandbox dùng dữ liệu thật): được sửa trực tiếp `V1__baseline_schema.sql` + mirror `schema.sql`, không cần migration mới. Đổi lại, đồng đội phải `docker compose down -v && docker compose up -d` một lần vì Flyway báo checksum mismatch.
 - **Khi có bất kỳ DB không thể xoá trắng** (prod, staging, sandbox có người dùng): V1 và mọi migration đã apply **đóng băng**. Thay đổi schema chỉ được thêm bằng migration mới (`V3__…`, `V4__…`, theo số kế tiếp), không sửa file đã apply.
 
+**Lưu ý:** chỉ **baseline V1/V2** có mirror trong `sql/`. Các migration mới hơn (V3+…) đọc trực tiếp trong `db/migration/` (mỗi file tự mô tả trong header).
+
 ## Chạy migration
 
 Migrations tự chạy khi app khởi động (Flyway + `spring.datasource`). Máy dev:
