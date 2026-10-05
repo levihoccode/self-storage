@@ -1,0 +1,83 @@
+name: Bug
+description: Hành vi chạy sai so với spec
+title: "bug: <module hoặc màn> — "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bug ở đây nghĩa là **chạy khác spec**. Nếu spec không nói gì về hành vi đó thì đây không phải bug —
+        mở issue **Spec gap**.
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Tầng
+      options:
+        - BE — API
+        - BE — server-side
+        - FE — màn hình
+        - Infra / CI
+    validations:
+      required: true
+
+  - type: input
+    id: spec_ref
+    attributes:
+      label: Spec quy định hành vi đúng
+      description: File + heading + trích đoạn. Sai so với spec ở đâu.
+      placeholder: "specs/draft.md › §2.4 — khách xác nhận biên bản là bước bắt buộc"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Bước tái hiện
+      value: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: input
+    id: expected
+    attributes:
+      label: Kết quả đúng
+    validations:
+      required: true
+
+  - type: input
+    id: actual
+    attributes:
+      label: Kết quả thực tế
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bằng chứng
+      description: Log, output lệnh, ảnh chụp, hoặc đường dẫn file:dòng
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Môi trường
+      options:
+        - Local
+        - Staging
+        - Production
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Ảnh hưởng
+      description: Chặn luồng nào, có mất tiền / mất dữ liệu / lộ quyền không
+    validations:
+      required: true

@@ -1,4 +1,12 @@
+import type { UserRole } from "./auth";
 import { View } from "./types";
+
+// Trang chủ của mỗi role sau khi đăng nhập. Role chưa có trang (ADMIN/BOM/FS)
+// không có entry — LoginForm giữ thông báo "đang được hoàn thiện".
+export const ROLE_HOME: Partial<Record<UserRole, string>> = {
+  CUSTOMER: "/my-storage",
+  FM: "/fm/rental-requests",
+};
 
 export function viewFromLocation(): View {
   const path = window.location.pathname;
@@ -8,6 +16,11 @@ export function viewFromLocation(): View {
   if (path === "/verify-email") return "verify";
   if (path === "/rental-requests/new") return "request";
   if (path === "/my-storage") return "my-storage";
+  if (path.startsWith("/my-storage/")) return "contract-detail";
+  if (path === "/proposals") return "proposals";
+  if (path === "/invoices") return "invoices";
+  if (path === "/appointments/new") return "appointments";
+  if (path === "/notifications") return "notifications";
   if (path === "/fm/rental-requests") return "fm-rental-requests";
   if (path.startsWith("/fm/rental-orders/") && path.endsWith("/re-propose")) {
     return "fm-proposal-redo";

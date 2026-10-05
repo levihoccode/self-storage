@@ -45,10 +45,11 @@ function unitMonthlyPrice(unitTypeId: string) {
 export function FacilityReportPage({ navigate }: { navigate: Navigate }) {
   const [period, setPeriod] = useState<PeriodFilter>("30d");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Chỉ hẹn giờ tắt loading; việc bật loading nằm ở handler đổi filter để
+  // tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect).
   useEffect(() => {
-    setLoading(true);
     const timer = window.setTimeout(() => setLoading(false), 500);
     return () => window.clearTimeout(timer);
   }, [period, typeFilter]);
@@ -90,7 +91,10 @@ export function FacilityReportPage({ navigate }: { navigate: Navigate }) {
         <select
           className={FILTER_SELECT}
           value={period}
-          onChange={(event) => setPeriod(event.target.value as PeriodFilter)}
+          onChange={(event) => {
+            setPeriod(event.target.value as PeriodFilter);
+            setLoading(true);
+          }}
         >
           {(Object.keys(PERIOD_LABEL) as PeriodFilter[]).map((value) => (
             <option key={value} value={value}>
@@ -101,7 +105,10 @@ export function FacilityReportPage({ navigate }: { navigate: Navigate }) {
         <select
           className={FILTER_SELECT}
           value={typeFilter}
-          onChange={(event) => setTypeFilter(event.target.value)}
+          onChange={(event) => {
+            setTypeFilter(event.target.value);
+            setLoading(true);
+          }}
         >
           <option value="all">Tất cả loại kho</option>
           {unitTypes.map((type) => (

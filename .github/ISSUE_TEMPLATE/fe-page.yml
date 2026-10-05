@@ -1,0 +1,122 @@
+name: FE — màn hình / luồng
+description: Một màn hoặc một luồng trong frontend, theo page spec
+title: "FE <khu vực>: "
+labels: ["enhancement", "fe"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thứ phải chứng minh ở FE không phải "build xanh" mà là **màn đó trông và hành xử đúng**:
+        ảnh chụp, đủ ba trạng thái, và không tự nghĩ ra nghiệp vụ.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Khu vực
+      options:
+        - Customer
+        - FM (facility manager)
+        - FS (facility staff)
+        - BOM
+        - Admin
+        - Shared / component dùng chung
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Loại việc
+      options:
+        - Màn mới
+        - Sửa màn có sẵn
+        - Component dùng chung
+        - Refactor style / layout
+    validations:
+      required: true
+
+  - type: input
+    id: page_spec
+    attributes:
+      label: Page spec
+      description: File trong specs/fe-pages (nhánh specs/fe-pages)
+      placeholder: "fe-pages/customer/07-nhan-khoa.md — hoặc: chưa có"
+    validations:
+      required: true
+
+  - type: input
+    id: route
+    attributes:
+      label: Route
+      description: Đường dẫn và nơi khai báo trong src/app/routes.ts
+      placeholder: "/my-storage/:unitId/handover"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Việc cần làm
+      description: Gạch đầu dòng
+    validations:
+      required: true
+
+  - type: textarea
+    id: data_source
+    attributes:
+      label: Nguồn dữ liệu
+      description: Mock hay API thật? Endpoint nào, đã có chưa?
+      value: |
+        Nguồn: mock / API …
+        Endpoint: …
+        Chưa có API → chặn cái gì: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: states
+    attributes:
+      label: Ba trạng thái
+      description: loading · empty · error — mỗi cái một dòng
+      value: |
+        loading: …
+        empty: …
+        error: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Xong khi
+      value: |
+        - [ ] …
+        - [ ] …
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bằng chứng khi xong
+      description: Ảnh chụp màn hình (đủ ba trạng thái) + output build/format
+    validations:
+      required: true
+
+  - type: input
+    id: depends_on
+    attributes:
+      label: Phụ thuộc
+      placeholder: "#30 B4, #14"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Xác nhận
+      options:
+        - label: Không tự suy luận nghiệp vụ — trạng thái và action lấy từ dữ liệu API trả về.
+          required: true
+        - label: Page spec thiếu hoặc lệch flow mới thì mở issue "Spec gap", không tự quyết giao diện.
+          required: true

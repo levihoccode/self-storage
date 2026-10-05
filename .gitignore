@@ -9,7 +9,22 @@
 *.p12
 *.pfx
 
-# Local tooling and OS files
+# Java / Maven (backend/)
+backend/target/
+*.class
+hs_err_pid*
+replay_pid*
+
+# Node / Vite (frontend/)
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+
+# Local tooling, IDE and OS files
+.idea/
+*.iml
+.vscode/
 .DS_Store
 Thumbs.db
 *.log

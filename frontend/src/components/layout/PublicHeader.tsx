@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, LogOut, Menu, X } from "lucide-react";
 import { Navigate, View } from "../../app/types";
 import { PAGE_CONTAINER } from "../../app/layout";
+import { ROLE_HOME } from "../../app/routes";
 import { authGateway, type AuthSession } from "../../app/auth";
 import { Brand } from "../ui/Brand";
 import type { Theme } from "../ui/ThemeToggle";
@@ -42,8 +43,7 @@ export function PublicHeader({
     authGateway.logout();
     navigate("/login");
   }
-  const homePath =
-    session?.user.role === "facility_manager" ? "/fm/rental-requests" : "/my-storage";
+  const homePath = session ? (ROLE_HOME[session.user.role] ?? "/") : "/";
   const navLink =
     "border-0 bg-transparent text-[13px] font-[650] text-muted transition-colors duration-[180ms] ease hover:text-brand max-[760px]:p-3 max-[760px]:text-left";
 
