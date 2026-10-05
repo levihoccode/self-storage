@@ -71,6 +71,26 @@ Chi tiết: `backend/sql/README.md`.
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
 
+## Gửi email (module notification)
+
+- Module khác inject `vn.lemar.selfstorage.notification.EmailSender` và gọi
+  `send(to, subject, body)` (văn bản thuần) hoặc `sendHtml(to, subject, htmlBody)`.
+- Gửi lỗi chỉ log, không ném exception → không rollback nghiệp vụ của caller; `true` = đã gửi
+  hoặc đã xếp lịch, `false` = không gửi được (thiếu recipient/lỗi).
+- Đang trong transaction → email được xếp lịch gửi **sau commit**; rollback thì không gửi.
+  Ngoài transaction gửi ngay.
+- Có sẵn layout HTML chuẩn: `NotificationEmailLayout.wrap(title, body)` → truyền thẳng vào
+  `sendHtml(...)`.
+- Cấu hình: `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD` (dev: MailHog `localhost:1025`,
+  xem thư tại `http://localhost:8025`), địa chỉ gửi `MAIL_FROM` (mặc định `noreply@lemar.vn`).
+- Caller tự dựng `subject` và `body`.
+- **Known limitation**:
+  - Gửi best-effort, không retry/outbox. Process chết sau commit nhưng trước khi gửi xong thì
+    email mất, không dấu vết. Gửi lỗi trả `false` và không thử lại.
+  - Gửi đồng bộ trên thread caller, kể cả nhánh afterCommit — SMTP chậm làm chậm response.
+    Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker, cần đổi spec trước.
+  - Layout HTML là mẫu cố định dùng chung, chưa có template theo `type` của notification.
+
 ## Chạy & kiểm thử
 
 ```bash
