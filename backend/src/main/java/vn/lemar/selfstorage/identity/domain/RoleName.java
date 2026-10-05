@@ -1,6 +1,9 @@
 package vn.lemar.selfstorage.identity.domain;
 
-/** 5 role của hệ thống, khớp bảng roles (seed V2). */
+import org.springframework.modulith.NamedInterface;
+
+/** Public role names accepted by identity authorization APIs. */
+@NamedInterface("application")
 public enum RoleName {
     ADMIN, BOM, FM, FS, CUSTOMER
 }

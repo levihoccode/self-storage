@@ -27,6 +27,9 @@ Account `BANNED` không được cấp authority nào → mọi route yêu cầu
 | `/api/admin/**` | `ROLE_ADMIN` |
 | `/api/**` (còn lại) | `ACCOUNT_ACTIVE` |
 
+`POST /api/notifications` đi qua policy `/api/**`; quyền tạo `OTHER` được kiểm tra tại method
+bằng `Access.can(RoleName.ADMIN, RoleName.BOM)`.
+
 ## Guard tại method (A3b)
 
 Endpoint demo `/api/facility-access/ping/{facilityId}` đi qua policy `/api/**` ở trên,

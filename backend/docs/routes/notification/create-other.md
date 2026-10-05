@@ -2,7 +2,7 @@
 
 Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account.
 
-- **Actor / quyền:** bearer token + role `ADMIN` hoặc `BOM` (chặn tại `SecurityConfig`).
+- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE`; `Access.can(RoleName.ADMIN, RoleName.BOM)` kiểm tra role tại method.
 - **Contract chi tiết:** annotation tại `notification/controller/NotificationController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
@@ -30,7 +30,7 @@ curl -s -X POST http://localhost:8080/api/notifications \
 curl -s -X POST http://localhost:8080/api/notifications \
   -H "Authorization: Bearer $CUST_TOKEN" -H 'Content-Type: application/json' \
   -d '{"recipientAccountId":1,"title":"x","body":"y"}'
-# {"message":"Bạn không có quyền truy cập","timestamp":"2026-10-05T07:37:09.923125581Z"}
+# HTTP 403 — role không được phép (method guard `Access.can`).
 ```
 
 ## Liên quan
