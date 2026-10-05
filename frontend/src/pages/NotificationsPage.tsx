@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCheck, Megaphone, Receipt, UserCheck } from "lucide-react";
+import { AlertTriangle, CheckCheck, Megaphone, Plus, Receipt, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authGateway } from "../app/auth";
 import {
@@ -13,6 +13,8 @@ import {
 } from "../app/notifications";
 import type { Navigate } from "../app/types";
 import { Button } from "../components/ui/Button";
+import { ComposeNotificationDialog } from "../components/domain/ComposeNotificationDialog";
+import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 const GROUP_ICON: Record<NotificationGroup, typeof AlertTriangle> = {
@@ -36,6 +38,8 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const session = authGateway.getSession();
   const role = session?.user.role ?? "CUSTOMER";
 
@@ -118,10 +122,23 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
                 : "Bạn đã đọc hết thông báo"}
           </p>
         </div>
-        <Button variant="secondary" disabled={isLoading || unreadCount === 0} onClick={markAllRead}>
-          <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {role === "FM" && (
+            <Button onClick={() => setComposeOpen(true)}>
+              <Plus size={16} /> Tạo thông báo
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            disabled={isLoading || unreadCount === 0}
+            onClick={markAllRead}
+          >
+            <CheckCheck size={16} /> Đánh dấu đã đọc tất cả
+          </Button>
+        </div>
       </div>
+
+      {sentTo && <DemoNotice tone="success">Đã gửi thông báo tới {sentTo}.</DemoNotice>}
 
       {actionError && (
         <p className="mb-4 mt-0 rounded-sm border border-danger/40 bg-danger/14 px-3 py-[11px] text-[12px] text-danger">
@@ -179,6 +196,16 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
             );
           })}
         </div>
+      )}
+
+      {composeOpen && (
+        <ComposeNotificationDialog
+          onClose={() => setComposeOpen(false)}
+          onCreated={(recipientEmail) => {
+            setComposeOpen(false);
+            setSentTo(recipientEmail);
+          }}
+        />
       )}
     </main>
   );
