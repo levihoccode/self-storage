@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -36,6 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/fm/**").hasRole("FM")
                         .requestMatchers("/api/bom/**").hasRole("BOM")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/notifications").hasAnyRole("ADMIN", "BOM")
                         .requestMatchers("/api/**").hasAuthority(ACTIVE_ACCOUNT_AUTHORITY)
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer

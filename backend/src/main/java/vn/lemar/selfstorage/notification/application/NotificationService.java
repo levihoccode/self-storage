@@ -1,14 +1,17 @@
 package vn.lemar.selfstorage.notification.application;
 
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import vn.lemar.selfstorage.notification.application.exception.NotificationNotFoundException;
 import vn.lemar.selfstorage.notification.domain.Notification;
 import vn.lemar.selfstorage.notification.domain.OrderNotification;
 import vn.lemar.selfstorage.notification.repository.NotificationRepository;
@@ -62,6 +65,26 @@ public class NotificationService {
     @Transactional
     public Notification createOther(Long accountId, String recipientEmail, String title, String body) {
         return persist(accountId, NotificationType.OTHER, title, body, recipientEmail, null);
+    }
+
+    /** Danh sách notification của account, mới nhất trước. */
+    @Transactional(readOnly = true)
+    public List<Notification> listForAccount(Long accountId, int page, int size) {
+        return notificationRepository
+                .findByAccountIdOrderByCreatedAtDesc(accountId, PageRequest.of(page, size))
+                .getContent();
+    }
+
+    /** Notification thuộc đúng account — không thuộc thì coi như không tồn tại. */
+    @Transactional(readOnly = true)
+    public Notification getForAccount(Long accountId, Long notificationId) {
+        return notificationRepository.findByIdAndAccountId(notificationId, accountId)
+                .orElseThrow(NotificationNotFoundException::new);
+    }
+
+    @Transactional(readOnly = true)
+    public long unreadCount(Long accountId) {
+        return notificationRepository.countByAccountIdAndReadAtIsNull(accountId);
     }
 
     private Notification persist(Long accountId, NotificationType type, String title, String body,
