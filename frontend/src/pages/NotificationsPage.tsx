@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCheck, Megaphone, Plus, Receipt, UserCheck } from "
 import { useEffect, useState } from "react";
 import { authGateway } from "../app/auth";
 import {
-  fetchNotifications,
+  fetchNotificationPage,
   formatNotificationTime,
   markAllNotificationsRead,
   markNotificationRead,
@@ -25,6 +25,8 @@ const GROUP_ICON: Record<NotificationGroup, typeof AlertTriangle> = {
   other: Megaphone,
 };
 
+const PAGE_SIZE = 20;
+
 const GROUP_ICON_CLASS: Record<NotificationGroup, string> = {
   approval: "bg-success/14 text-success",
   invoice: "bg-brand-soft text-brand",
@@ -40,6 +42,9 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const session = authGateway.getSession();
   const role = session?.user.role ?? "CUSTOMER";
 
@@ -47,8 +52,11 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
     let isActive = true;
     async function loadInitial() {
       try {
-        const data = await fetchNotifications();
-        if (isActive) setItems(data);
+        const data = await fetchNotificationPage(0, PAGE_SIZE);
+        if (isActive) {
+          setItems(data);
+          setHasMore(data.length === PAGE_SIZE);
+        }
       } catch {
         if (isActive) setLoadError(true);
       } finally {
@@ -66,11 +74,30 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
     setIsLoading(true);
     setLoadError(false);
     try {
-      setItems(await fetchNotifications());
+      const data = await fetchNotificationPage(0, PAGE_SIZE);
+      setItems(data);
+      setPage(0);
+      setHasMore(data.length === PAGE_SIZE);
     } catch {
       setLoadError(true);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadMore() {
+    setIsLoadingMore(true);
+    setActionError(null);
+    try {
+      const nextPage = page + 1;
+      const data = await fetchNotificationPage(nextPage, PAGE_SIZE);
+      setItems((current) => [...(current ?? []), ...data]);
+      setPage(nextPage);
+      setHasMore(data.length === PAGE_SIZE);
+    } catch {
+      setActionError("Không tải thêm được — thử lại sau.");
+    } finally {
+      setIsLoadingMore(false);
     }
   }
 
@@ -158,44 +185,53 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
       ) : list.length === 0 ? (
         <SurfaceState variant="empty" title="Chưa có thông báo nào" />
       ) : (
-        <div className="grid gap-2.5">
-          {list.map((notification) => {
-            const group = notificationGroup(notification.type);
-            const Icon = GROUP_ICON[group];
-            const isRead = !!notification.readAt;
-            return (
-              <button
-                key={notification.id}
-                className={`flex items-start gap-4 border p-5 text-left transition-colors hover:border-brand max-[760px]:flex-col max-[760px]:items-stretch ${
-                  isRead ? "border-border bg-surface" : "border-l-4 border-brand bg-brand-soft"
-                }`}
-                onClick={() => void openNotification(notification)}
-              >
-                <span
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${GROUP_ICON_CLASS[group]}`}
+        <>
+          <div className="grid gap-2.5">
+            {list.map((notification) => {
+              const group = notificationGroup(notification.type);
+              const Icon = GROUP_ICON[group];
+              const isRead = !!notification.readAt;
+              return (
+                <button
+                  key={notification.id}
+                  className={`flex items-start gap-4 border p-5 text-left transition-colors hover:border-brand max-[760px]:flex-col max-[760px]:items-stretch ${
+                    isRead ? "border-border bg-surface" : "border-l-4 border-brand bg-brand-soft"
+                  }`}
+                  onClick={() => void openNotification(notification)}
                 >
-                  <Icon size={17} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <p
-                      className={`m-0 text-[14px] ${isRead ? "font-semibold text-ink" : "font-bold text-ink"}`}
-                    >
-                      {notification.title}
+                  <span
+                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${GROUP_ICON_CLASS[group]}`}
+                  >
+                    <Icon size={17} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p
+                        className={`m-0 text-[14px] ${isRead ? "font-semibold text-ink" : "font-bold text-ink"}`}
+                      >
+                        {notification.title}
+                      </p>
+                      {!isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />}
+                    </div>
+                    <p className="mb-0 mt-1.5 text-[13px] leading-[1.5] text-muted">
+                      {notification.body}
                     </p>
-                    {!isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />}
+                    <p className="mb-0 mt-2 font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
+                      {formatNotificationTime(notification.createdAt)}
+                    </p>
                   </div>
-                  <p className="mb-0 mt-1.5 text-[13px] leading-[1.5] text-muted">
-                    {notification.body}
-                  </p>
-                  <p className="mb-0 mt-2 font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
-                    {formatNotificationTime(notification.createdAt)}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+          {hasMore && (
+            <div className="mt-4 flex justify-center">
+              <Button variant="secondary" pending={isLoadingMore} onClick={() => void loadMore()}>
+                Xem thêm
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {composeOpen && (

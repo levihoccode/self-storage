@@ -2,7 +2,7 @@ import { Bell } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { authGateway } from "../../app/auth";
 import {
-  fetchNotifications,
+  fetchNotificationSummaries,
   formatNotificationTime,
   markNotificationRead,
   notificationPath,
@@ -51,7 +51,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
     setIsLoading(true);
     setLoadError(false);
     try {
-      setItems(await fetchNotifications());
+      setItems(await fetchNotificationSummaries(DROPDOWN_ITEM_LIMIT));
     } catch {
       setLoadError(true);
     } finally {
@@ -157,9 +157,11 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
                     <span className="block text-[12px] font-bold text-ink">
                       {notification.title}
                     </span>
-                    <span className="mt-0.5 block text-[11px] leading-normal text-muted">
-                      {notification.body}
-                    </span>
+                    {notification.body && (
+                      <span className="mt-0.5 block text-[11px] leading-normal text-muted">
+                        {notification.body}
+                      </span>
+                    )}
                     <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
                       {formatNotificationTime(notification.createdAt)}
                     </span>

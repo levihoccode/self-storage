@@ -60,9 +60,10 @@ export function notificationPath(
       if (role === "FM") return "/fm/rental-requests";
       return role === "CUSTOMER" ? "/my-storage" : undefined;
     case "APPOINTMENT_CREATED":
+      // Customer chưa có màn xem lịch đã tạo (chỉ có form đặt mới) — chỉ mark read.
+      return role === "FM" ? "/fm/appointments" : undefined;
     case "FS_ASSIGNMENT_REQUIRED":
-      if (role === "FM") return "/fm/appointments";
-      return role === "CUSTOMER" ? "/appointments/new" : undefined;
+      return role === "FM" ? "/fm/appointments" : undefined;
     case "RENTAL_REQUEST_APPROVED":
     case "RENTAL_REQUEST_REJECTED":
     case "PROPOSAL_REPROPOSED":
@@ -91,14 +92,32 @@ function accessToken(): string | undefined {
 }
 
 /**
- * Lấy summary rồi bù `body` bằng detail từng item. BE cố ý bỏ `body` khỏi
- * summary; FE spec (`fe-pages/shared/03`) yêu cầu item hiển thị nội dung —
- * đây là N+1, đề xuất BE thêm `body` vào summary hoặc endpoint bulk.
+ * Summary cho dropdown chuông — 1 request, chỉ title/thời gian (không cần body).
  */
-export async function fetchNotifications(): Promise<NotificationItem[]> {
-  const summaries = await apiRequest<NotificationSummary[]>("/api/notifications?page=0&size=100", {
-    accessToken: accessToken(),
-  });
+export async function fetchNotificationSummaries(size: number): Promise<NotificationItem[]> {
+  const summaries = await apiRequest<NotificationSummary[]>(
+    `/api/notifications?page=0&size=${size}`,
+    {
+      accessToken: accessToken(),
+    },
+  );
+  return summaries.map((summary) => ({ ...summary, body: "" }));
+}
+
+/**
+ * Một trang danh sách cho trang đầy đủ: lấy summary rồi bù `body` bằng detail
+ * từng item. BE cố ý bỏ `body` khỏi summary; FE spec (`fe-pages/shared/03`) yêu
+ * cầu item hiển thị nội dung — N+1 trong phạm vi 1 trang, đề xuất BE thêm `body`
+ * vào summary hoặc endpoint bulk.
+ */
+export async function fetchNotificationPage(
+  page: number,
+  size: number,
+): Promise<NotificationItem[]> {
+  const summaries = await apiRequest<NotificationSummary[]>(
+    `/api/notifications?page=${page}&size=${size}`,
+    { accessToken: accessToken() },
+  );
   return Promise.all(
     summaries.map(async (summary) => {
       try {
@@ -157,17 +176,32 @@ export function subscribeUnread(listener: () => void) {
   };
 }
 
-export async function refreshUnreadCount(): Promise<void> {
-  try {
-    const { unreadCount: next } = await apiRequest<{ unreadCount: number }>(
-      "/api/notifications/unread-count",
-      { accessToken: accessToken() },
-    );
-    unreadCount = next;
-    emit();
-  } catch {
-    // Lỗi mạng thì giữ số cũ; lần refresh sau sẽ cập nhật.
-  }
+// Đăng xuất / đổi account → reset badge ngay, tránh số chưa đọc của account cũ.
+authGateway.subscribe(() => {
+  unreadCount = 0;
+  emit();
+});
+
+let unreadRequest: Promise<void> | null = null;
+
+export function refreshUnreadCount(): Promise<void> {
+  // Single-flight: nhiều consumer (chuông + sidebar) mount cùng lúc chỉ gọi 1 request.
+  if (unreadRequest) return unreadRequest;
+  unreadRequest = (async () => {
+    try {
+      const { unreadCount: next } = await apiRequest<{ unreadCount: number }>(
+        "/api/notifications/unread-count",
+        { accessToken: accessToken() },
+      );
+      unreadCount = next;
+      emit();
+    } catch {
+      // Lỗi mạng thì giữ số cũ; lần refresh sau sẽ cập nhật.
+    } finally {
+      unreadRequest = null;
+    }
+  })();
+  return unreadRequest;
 }
 
 export function useUnreadNotificationCount(): number {
