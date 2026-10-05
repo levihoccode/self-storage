@@ -1,5 +1,5 @@
 type ApiRequestOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH";
   body?: unknown;
   accessToken?: string;
   dispatchAuthExpired?: boolean;
