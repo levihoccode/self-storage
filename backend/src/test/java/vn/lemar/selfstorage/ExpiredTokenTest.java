@@ -18,7 +18,6 @@ import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConvert
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,9 +59,8 @@ class ExpiredTokenTest {
         mockMvc.perform(get("/api/customer/probe")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized())
-                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE,
-                        containsString("error=\"invalid_token\"")))
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"invalid_token\""))
                 .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.message", containsString("Jwt expired at")));
+                .andExpect(jsonPath("$.message").value("Bạn cần đăng nhập để tiếp tục."));
     }
 }

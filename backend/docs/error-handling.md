@@ -43,7 +43,7 @@ nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè.
 | 200 | controller | riêng từng route (envelope `{message, data}`) |
 | 400 | `ApiExceptionHandler` | `Dữ liệu không hợp lệ` |
 | 401 | `AuthExceptionHandler` | `Email hoặc mật khẩu không đúng` (sai email/mật khẩu) |
-| 401 | `JsonAuthenticationEntryPoint` | mô tả lỗi từ Spring (vd `… Jwt expired at …`) + header `WWW-Authenticate` |
+| 401 | `JsonAuthenticationEntryPoint` | `Bạn cần đăng nhập để tiếp tục.` + header `WWW-Authenticate` (`Bearer` / `Bearer error="invalid_token"`) |
 | 403 | `AuthExceptionHandler` | `Tài khoản đã bị chặn` (login với account `BANNED`) |
 | 403 | `JsonAccessDeniedHandler` | `Tài khoản đã bị chặn` (`BANNED`) hoặc `Bạn không có quyền truy cập` (sai role) |
 | 404 | `ApiExceptionHandler` | `Không tìm thấy tài nguyên` |
@@ -57,10 +57,10 @@ nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè.
 ## Ví dụ (output thật)
 
 ```text
-# 401 token — kèm header chuẩn RFC 6750
+# 401 token — body chung; header RFC 6750 không kèm error_description
 $ curl -s -i -H 'Authorization: Bearer abc.def.ghi' http://localhost:8080/api/auth/me
-WWW-Authenticate: Bearer error="invalid_token", error_description="An error occurred while attempting to decode the Jwt: Malformed token", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
-{"message":"An error occurred while attempting to decode the Jwt: Malformed token","timestamp":"2026-10-04T08:14:32.840856214Z"}
+WWW-Authenticate: Bearer error="invalid_token"
+{"message":"Bạn cần đăng nhập để tiếp tục.","timestamp":"2026-10-05T06:20:49.329273914Z"}
 
 # 403 — account BANNED
 {"message":"Tài khoản đã bị chặn","timestamp":"2026-10-04T08:14:28.027349693Z"}
