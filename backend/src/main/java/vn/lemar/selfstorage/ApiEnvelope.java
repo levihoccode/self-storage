@@ -8,8 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "Envelope response thành công — mọi 2xx")
 public record ApiEnvelope<T>(
-        @Schema(description = "Câu thông báo hiển thị trực tiếp cho người dùng",
-                example = "Đăng nhập thành công")
+        @Schema(description = "Câu thông báo hiển thị trực tiếp cho người dùng")
         String message,
 
         @Schema(description = "Dữ liệu theo từng route")

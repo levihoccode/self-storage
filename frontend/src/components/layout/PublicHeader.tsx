@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, LogOut, Menu, X } from "lucide-react";
 import { Navigate, View } from "../../app/types";
 import { PAGE_CONTAINER } from "../../app/layout";
+import { ROLE_HOME } from "../../app/routes";
 import { authGateway, type AuthSession } from "../../app/auth";
 import { Brand } from "../ui/Brand";
 import type { Theme } from "../ui/ThemeToggle";
@@ -42,6 +43,7 @@ export function PublicHeader({
     authGateway.logout();
     navigate("/login");
   }
+  const homePath = session ? (ROLE_HOME[session.user.role] ?? "/") : "/";
   const navLink =
     "border-0 bg-transparent text-[13px] font-[650] text-muted transition-colors duration-[180ms] ease hover:text-brand max-[760px]:p-3 max-[760px]:text-left";
 
@@ -92,7 +94,7 @@ export function PublicHeader({
             <>
               <button
                 className="inline-flex items-center gap-2 rounded-[4px] border border-brand bg-transparent px-[17px] py-[11px] text-[13px] font-[650] text-brand transition-colors duration-[180ms] ease hover:bg-brand hover:text-background max-[760px]:mt-1 max-[760px]:justify-between max-[760px]:p-3 max-[760px]:text-left"
-                onClick={() => go("/my-storage")}
+                onClick={() => go(homePath)}
               >
                 Không gian của bạn <ArrowRight size={16} />
               </button>

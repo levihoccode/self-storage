@@ -1,5 +1,8 @@
 /**
- * Gửi email và thông báo web, đọc từ bảng OutboxEvent (issue #15 mục 4).
+ * Gửi email và thông báo web. Đọc account qua public API của identity (issue #15: mọi module
+ * đọc được từ facility, pricing, identity).
  */
-@org.springframework.modulith.ApplicationModule(displayName = "Notification", allowedDependencies = {})
+@org.springframework.modulith.ApplicationModule(
+        displayName = "Notification",
+        allowedDependencies = {"identity::application"})
 package vn.lemar.selfstorage.notification;
