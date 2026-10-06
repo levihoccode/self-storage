@@ -34,7 +34,18 @@ const httpGateway: PaymentGateway = {
   },
 };
 
-let demoCallCount = 0;
+// Lưu bộ đếm vào sessionStorage vì sau mỗi lần bấm trang bị tải lại (redirect), biến trong bộ nhớ sẽ mất.
+const DEMO_COUNT_KEY = "kho-moc-demo-pay-count";
+
+function nextDemoCallCount(): number {
+  try {
+    const next = Number(window.sessionStorage.getItem(DEMO_COUNT_KEY) ?? "0") + 1;
+    window.sessionStorage.setItem(DEMO_COUNT_KEY, String(next));
+    return next;
+  } catch {
+    return 1;
+  }
+}
 
 /**
  * DEMO ONLY — REMOVE WHEN THE BACKEND ENDPOINT POST /api/invoices/{id}/pay EXISTS.
@@ -44,8 +55,7 @@ let demoCallCount = 0;
 const demoGateway: PaymentGateway = {
   async startPayment(invoiceId) {
     await new Promise((resolve) => window.setTimeout(resolve, 600));
-    demoCallCount += 1;
-    const code = demoCallCount % 2 === 1 ? "00" : "24";
+    const code = nextDemoCallCount() % 2 === 1 ? "00" : "24";
     const params = new URLSearchParams({
       vnp_ResponseCode: code,
       vnp_TxnRef: `DEMO${invoiceId}`,
