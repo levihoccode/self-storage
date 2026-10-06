@@ -18,12 +18,12 @@ class ModuleStructureTest {
     private static final ApplicationModules MODULES = ApplicationModules.of(SelfStorageApplication.class);
 
     @Test
-    void khongCoPhuThuocSaiChieuHoacVongLap() {
+    void noForbiddenModuleDependencies() {
         MODULES.verify();
     }
 
     @Test
-    void inSoDoModuleDeDoiChieu() {
+    void printModuleMapForReference() {
         MODULES.forEach(System.out::println);
     }
 }

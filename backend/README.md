@@ -8,6 +8,11 @@ Spring Boot 3.3.5 · Java 17 · Maven · Spring Modulith 1.2.5 · PostgreSQL 16 
 
 ## Chạy
 
+Ứng dụng cần `JWT_SECRET` là chuỗi Base64 giải mã thành ít nhất 32 byte. Có thể tạo key mới
+bằng `openssl rand -base64 32`; Docker Compose tự nạp giá trị từ `.env` (xem `.env.example`).
+Khi chạy `spring-boot:run` trực tiếp, đặt `JWT_SECRET` trong environment của shell.
+`JWT_ACCESS_TOKEN_TTL` nhận duration ISO-8601 và mặc định là `PT15M`.
+
 ```bash
 docker compose up --build          # từ thư mục gốc repo
 curl http://localhost:8080/api/health

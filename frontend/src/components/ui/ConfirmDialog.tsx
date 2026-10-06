@@ -1,4 +1,6 @@
 import { Loader2 } from "lucide-react";
+import { useId } from "react";
+import { useModalA11y } from "./useModalA11y";
 
 /**
  * Shared destructive/blocking confirmation dialog (return, cancel, delete, etc.).
@@ -24,6 +26,9 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const titleId = useId();
+  const containerRef = useModalA11y<HTMLDivElement>(onCancel);
+
   return (
     <div
       className="fixed inset-0 z-[90] grid place-items-center bg-[rgba(7,16,19,0.68)] p-5"
@@ -31,16 +36,15 @@ export function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="w-[min(420px,100%)] rounded-md border border-border bg-surface p-7 shadow-soft-token"
+        ref={containerRef}
+        tabIndex={-1}
+        className="w-[min(420px,100%)] rounded-md border border-border bg-surface p-7 shadow-soft-token focus:outline-none"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2
-          id="confirm-dialog-title"
-          className="mb-[10px] mt-0 text-[19px] leading-[1.2] tracking-[-0.03em]"
-        >
+        <h2 id={titleId} className="mb-[10px] mt-0 text-[19px] leading-[1.2] tracking-[-0.03em]">
           {title}
         </h2>
         {description && (

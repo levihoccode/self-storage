@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useState } from "react";
-import { authGateway } from "./app/auth";
+import { authGateway, type AuthSession, type UserRole } from "./app/auth";
+import { AUTH_SESSION_EXPIRED_EVENT } from "./app/api";
 import { AuthPage } from "./pages/auth/AuthPage";
 import { BrowsePage } from "./pages/BrowsePage";
 import { LandingPage } from "./pages/LandingPage";
@@ -7,9 +8,26 @@ import { RequestPage } from "./pages/RequestPage";
 import { PublicFooter } from "./components/layout/PublicFooter";
 import { PublicHeader } from "./components/layout/PublicHeader";
 import { CustomerShell } from "./components/layout/CustomerShell";
+import { FmShell } from "./components/layout/FmShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
+import { ContractDetailPage } from "./pages/ContractDetailPage";
+import { ProposalsPage } from "./pages/ProposalsPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
+import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { RentalRequestQueuePage } from "./pages/fm/RentalRequestQueuePage";
+import { ProposalRedoPage } from "./pages/fm/ProposalRedoPage";
+import { AppointmentSchedulePage } from "./pages/fm/AppointmentSchedulePage";
+import { ReturnRequestQueuePage } from "./pages/fm/ReturnRequestQueuePage";
+import { ExtendRequestQueuePage } from "./pages/fm/ExtendRequestQueuePage";
+import { SupportRequestQueuePage } from "./pages/fm/SupportRequestQueuePage";
+import { StorageUnitManagementPage } from "./pages/fm/StorageUnitManagementPage";
+import { StaffListPage } from "./pages/fm/StaffListPage";
+import { FacilityReportPage } from "./pages/fm/FacilityReportPage";
+import { FacilityInvoicesPage } from "./pages/fm/FacilityInvoicesPage";
+import { CustomerContractOverviewPage } from "./pages/fm/CustomerContractOverviewPage";
 import type { Theme } from "./components/ui/ThemeToggle";
-import { viewFromLocation } from "./app/routes";
+import { ROLE_HOME, viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
 
 const THEME_STORAGE_KEY = "kho-moc-theme";
@@ -25,7 +43,8 @@ function getInitialTheme(): Theme {
 function App() {
   const [view, setView] = useState<View>(viewFromLocation);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [session, setSession] = useState(authGateway.getSession);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
@@ -44,7 +63,41 @@ function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  useEffect(() => authGateway.subscribe(setSession), []);
+  useEffect(() => {
+    function onSessionExpired() {
+      authGateway.logout();
+      window.history.replaceState({}, "", "/login");
+      startTransition(() => setView(viewFromLocation()));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const unsubscribe = authGateway.subscribe((nextSession) => {
+      if (isActive) setSession(nextSession);
+    });
+
+    authGateway
+      .restoreSession()
+      .then((restoredSession) => {
+        if (isActive) setSession(restoredSession);
+      })
+      .catch(() => {
+        if (isActive) setSession(null);
+      })
+      .finally(() => {
+        if (isActive) setIsAuthLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, []);
 
   function navigate(path: string) {
     window.history.pushState({}, "", path);
@@ -57,9 +110,60 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
-  if (view === "my-storage" && !session) {
-    navigate("/login");
+  const isCustomerView =
+    view === "my-storage" ||
+    view === "contract-detail" ||
+    view === "proposals" ||
+    view === "invoices" ||
+    view === "appointments" ||
+    view === "notifications" ||
+    (view === "request" && !!session);
+  const isFmView =
+    view === "fm-rental-requests" ||
+    view === "fm-proposal-redo" ||
+    view === "fm-appointments" ||
+    view === "fm-return-requests" ||
+    view === "fm-extend-requests" ||
+    view === "fm-support-requests" ||
+    view === "fm-storage-units" ||
+    view === "fm-staff" ||
+    view === "fm-reports" ||
+    view === "fm-invoices" ||
+    view === "fm-contracts";
+  // The route guard only picks the screen to render; the real gate is the API
+  // (403 on /api/** for the wrong role).
+  const requiredRole: UserRole | null = isFmView ? "FM" : isCustomerView ? "CUSTOMER" : null;
+  const needsLoginRedirect = !isAuthLoading && requiredRole !== null && !session;
+  const isWrongRole =
+    !isAuthLoading && requiredRole !== null && !!session && session.user.role !== requiredRole;
+  const roleHome = session ? ROLE_HOME[session.user.role] : undefined;
+
+  useEffect(() => {
+    if (needsLoginRedirect) {
+      navigate("/login");
+      return;
+    }
+    if (isWrongRole && session) {
+      // A role with its own home keeps the session and moves there; roles
+      // without a screen yet (ADMIN/BOM/FS) go back to the login page.
+      if (roleHome) {
+        navigate(roleHome);
+      } else {
+        authGateway.logout();
+        navigate("/login");
+      }
+    }
+  }, [isWrongRole, needsLoginRedirect, roleHome, session]);
+
+  if (needsLoginRedirect || isWrongRole) {
     return null;
+  }
+  if (isAuthLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background text-muted" role="status">
+        Đang tải phiên đăng nhập…
+      </div>
+    );
   }
   return (
     <div className="app-shell" data-theme={theme}>
@@ -68,13 +172,39 @@ function App() {
       </a>
       {isAuthView ? (
         <AuthPage view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
-      ) : view === "my-storage" ? (
+      ) : isCustomerView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
-          <MyStoragePage navigate={navigate} />
+          {view === "my-storage" && <MyStoragePage navigate={navigate} />}
+          {view === "contract-detail" && <ContractDetailPage navigate={navigate} />}
+          {view === "proposals" && <ProposalsPage navigate={navigate} />}
+          {view === "invoices" && <InvoicesPage navigate={navigate} />}
+          {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}
+          {view === "notifications" && <NotificationsPage navigate={navigate} />}
+          {view === "request" && <RequestPage navigate={navigate} embedded />}
         </CustomerShell>
+      ) : isFmView ? (
+        <FmShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
+          {view === "fm-rental-requests" && <RentalRequestQueuePage navigate={navigate} />}
+          {view === "fm-proposal-redo" && <ProposalRedoPage navigate={navigate} />}
+          {view === "fm-appointments" && <AppointmentSchedulePage />}
+          {view === "fm-return-requests" && <ReturnRequestQueuePage />}
+          {view === "fm-extend-requests" && <ExtendRequestQueuePage />}
+          {view === "fm-support-requests" && <SupportRequestQueuePage />}
+          {view === "fm-storage-units" && <StorageUnitManagementPage navigate={navigate} />}
+          {view === "fm-staff" && <StaffListPage />}
+          {view === "fm-reports" && <FacilityReportPage navigate={navigate} />}
+          {view === "fm-invoices" && <FacilityInvoicesPage />}
+          {view === "fm-contracts" && <CustomerContractOverviewPage navigate={navigate} />}
+        </FmShell>
       ) : (
         <>
-          <PublicHeader view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
+          <PublicHeader
+            view={view}
+            navigate={navigate}
+            theme={theme}
+            onThemeToggle={toggleTheme}
+            session={session}
+          />
           <main id="main-content">
             {view === "home" && <LandingPage navigate={navigate} />}
             {view === "units" && <BrowsePage navigate={navigate} />}
