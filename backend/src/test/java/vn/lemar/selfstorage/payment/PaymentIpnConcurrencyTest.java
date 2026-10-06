@@ -41,6 +41,9 @@ import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
  * {@link VnPayGatewayTest} lo phần đó.
  */
 @SpringBootTest(properties = {
+        // Boot full context nên cần cả secret của identity: `security.jwt.secret` không có
+        // default, máy dev qua được là nhờ `.env`, CI thì không có nên phải khai ở đây.
+        "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
         "vnpay.tmn-code=" + PaymentIpnConcurrencyTest.TMN_CODE,
         "vnpay.hash-secret=0123456789abcdef0123456789abcdef",
         "vnpay.pay-url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
