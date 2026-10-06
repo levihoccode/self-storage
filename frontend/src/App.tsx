@@ -8,6 +8,7 @@ import { PublicFooter } from "./components/layout/PublicFooter";
 import { PublicHeader } from "./components/layout/PublicHeader";
 import { CustomerShell } from "./components/layout/CustomerShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
+import { PaymentResultPage } from "./pages/PaymentResultPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -57,7 +58,8 @@ function App() {
   }
 
   const isAuthView = view === "login" || view === "register" || view === "verify";
-  if (view === "my-storage" && !session) {
+  const isCustomerView = view === "my-storage" || view === "payment-result";
+  if (isCustomerView && !session) {
     navigate("/login");
     return null;
   }
@@ -68,9 +70,13 @@ function App() {
       </a>
       {isAuthView ? (
         <AuthPage view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme} />
-      ) : view === "my-storage" ? (
+      ) : isCustomerView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
-          <MyStoragePage navigate={navigate} />
+          {view === "my-storage" ? (
+            <MyStoragePage navigate={navigate} />
+          ) : (
+            <PaymentResultPage navigate={navigate} />
+          )}
         </CustomerShell>
       ) : (
         <>

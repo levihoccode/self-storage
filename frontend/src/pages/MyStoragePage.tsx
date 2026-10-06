@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarDays, MapPin, ReceiptText } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Navigate } from "../app/types";
+import { PayButton } from "../components/domain/PayButton";
 import { rentedStorage, StorageStatus } from "../mocks/customer";
 
 const statusLabel: Record<StorageStatus, string> = {
@@ -139,6 +140,7 @@ function StorageCard({
           <ReceiptText size={16} />
           <span>{storage.paymentLabel}</span>
         </div>
+        {storage.unpaidInvoiceId && <PayButton invoiceId={storage.unpaidInvoiceId} />}
         <div className="flex flex-wrap items-center gap-2">
           <button
             className={SECONDARY_BUTTON}
