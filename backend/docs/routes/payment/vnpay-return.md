@@ -25,12 +25,13 @@ Nơi VNPay đẩy trình duyệt khách về sau khi thanh toán xong. **Chỉ �
 
 ## Ví dụ
 
-Từ `SecurityConfigTest`, gọi qua cả tầng MVC và không kèm token:
-
-```text
-GET /api/payments/vnpay/return?vnp_TxnRef=TXN1&vnp_ResponseCode=00
-200
+```bash
+curl -s 'http://localhost:8080/api/payments/vnpay/return?vnp_TxnRef=TEST1&vnp_ResponseCode=00&vnp_SecureHash=deadbeef'
+{"responseCode":"00","validSignature":false,"txnRef":"TEST1"}
 ```
+
+Chữ ký sai vẫn trả 200 — kết quả nằm ở `validSignature`. Thứ tự field không cố định vì response
+dựng bằng `Map.of`; FE đừng phụ thuộc vào thứ tự.
 
 ## Liên quan
 

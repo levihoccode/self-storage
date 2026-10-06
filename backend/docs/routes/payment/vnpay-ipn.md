@@ -40,19 +40,17 @@ Lỗi ngoài dự kiến trả `99` thay vì HTTP 500, bắt ở controller nên
 
 ## Ví dụ
 
-Body dưới đây lấy từ test chạy thật, không phải chép tay:
+Gọi tay, không kèm `vnp_SecureHash` hợp lệ:
 
-```text
-# IpnResponseTest — serialize bằng Jackson thật
-{"RspCode":"00","Message":"Confirm Success"}
-
-# SecurityConfigTest — gọi qua cả tầng MVC, không kèm token
-GET /api/payments/vnpay/ipn?vnp_TxnRef=TXN1&vnp_SecureHash=deadbeef
-200 {"RspCode":"00","Message":"Confirm Success"}
+```bash
+curl -s 'http://localhost:8080/api/payments/vnpay/ipn?vnp_TxnRef=TEST1&vnp_SecureHash=deadbeef'
+{"RspCode":"97","Message":"Invalid signature"}
 ```
 
-Gọi tay trên trình duyệt (không có `vnp_SecureHash` hợp lệ) trả `97` — đúng, vì không có chữ ký
-thì không chứng minh được request đến từ VNPay.
+`97` ở đây là đúng chứ không phải lỗi: không có chữ ký hợp lệ thì không chứng minh được request
+đến từ VNPay. Đáng chú ý là nó trả **200 chứ không phải 401** — route này public, đúng như thiết kế.
+
+Hai key viết hoa `RspCode`/`Message` cũng thấy rõ trong chính response này.
 
 ## Liên quan
 
