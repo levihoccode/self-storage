@@ -33,6 +33,8 @@ DispatcherServlet
   │                                     hoặc "Bạn không được gán vào cơ sở này"
   │      AccountNotFoundException     → 404 "Không tìm thấy tài khoản"
   │      FacilityNotFoundException    → 404 "Không tìm thấy cơ sở"
+  │    NotificationExceptionHandler (HIGHEST_PRECEDENCE)
+  │      NotificationNotFoundException → 404 "Không tìm thấy thông báo"
   │    ApiExceptionHandler (LOWEST_PRECEDENCE)
   │      validate / JSON hỏng         → 400 "Dữ liệu không hợp lệ"
   │      lỗi khung (ErrorResponse)    → giữ status + message tiếng Việt (404/405/415…)
@@ -40,9 +42,10 @@ DispatcherServlet
 ```
 
 **Thứ tự advice:** `ExceptionHandlerExceptionResolver` chọn advice **match đầu tiên**, không phải
-handler cụ thể nhất. Vì vậy `AuthExceptionHandler` đặt `@Order(HIGHEST_PRECEDENCE)`,
-`ApiExceptionHandler` đặt `@Order(LOWEST_PRECEDENCE)`; advice mới phải set `@Order` tường minh —
-nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè.
+handler cụ thể nhất. Vì vậy `AuthExceptionHandler` và `NotificationExceptionHandler` đặt
+`@Order(HIGHEST_PRECEDENCE)`, `ApiExceptionHandler` đặt `@Order(LOWEST_PRECEDENCE)`; advice mới
+phải set `@Order` tường minh — nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè. Hai advice cùng mức
+cao không đè nhau vì mỗi cái match theo exception type riêng.
 
 ## Bảng status
 
@@ -57,6 +60,7 @@ nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè.
 | 403 | `AuthExceptionHandler` | `Bạn không có quyền thực hiện thao tác này` (thiếu permission) hoặc `Bạn không được gán vào cơ sở này` (ngoài facility scope) |
 | 403 | `JsonAccessDeniedHandler` | `Tài khoản đã bị chặn` (`BANNED`) hoặc `Bạn không có quyền truy cập` (sai role) |
 | 404 | `AuthExceptionHandler` | `Không tìm thấy tài khoản` / `Không tìm thấy cơ sở` (nghiệp vụ) |
+| 404 | `NotificationExceptionHandler` | `Không tìm thấy thông báo` (nghiệp vụ) |
 | 404 | `ApiExceptionHandler` | `Không tìm thấy tài nguyên` (khung — sai path) |
 | 405 | `ApiExceptionHandler` | `Phương thức không được hỗ trợ` |
 | 415 | `ApiExceptionHandler` | `Định dạng nội dung không được hỗ trợ` |
