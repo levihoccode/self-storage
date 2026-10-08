@@ -18,4 +18,9 @@ public class FacilityAccess {
     public boolean isManagedBy(Long accountId, Long facilityId) {
         return facilityAccessRepository.isManagedBy(accountId, facilityId);
     }
+
+    @Transactional(readOnly = true)
+    public boolean exists(Long facilityId) {
+        return facilityAccessRepository.exists(facilityId);
+    }
 }

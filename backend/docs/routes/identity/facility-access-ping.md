@@ -14,8 +14,10 @@ Endpoint demo để kiểm tra RBAC và facility scope; không thực hiện ngh
 ## Luồng / hành vi
 
 - Security yêu cầu request đã xác thực và account đang hoạt động.
-- `Access.can(permission, facilityId)` kiểm tra role có `facility.access` không, rồi mới kiểm
-  facility scope (ADMIN/BOM toàn cục; FM theo `fm_account_id`; FS theo assignment).
+- `Access.can(permission, facilityId)` kiểm tra role có `facility.access` không, rồi kiểm facility
+  scope (ADMIN/BOM toàn cục; FM theo `fm_account_id`; FS theo assignment).
+- Facility không tồn tại → `404` (kiểm sau bước permission; role không có quyền vẫn `403` nên
+  không thấy được facility nào tồn tại).
 - Request hợp lệ trả success envelope `{message, data}`, trong đó `message` là `pong` và
   `data.facilityId` là ID cơ sở đã kiểm tra; role không được phép hoặc truy cập chéo cơ sở bị từ chối.
 

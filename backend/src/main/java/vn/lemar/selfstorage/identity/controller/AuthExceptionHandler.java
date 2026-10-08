@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.lemar.selfstorage.ApiError;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
+import vn.lemar.selfstorage.identity.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.application.exception.UnauthenticatedException;
@@ -29,6 +30,11 @@ public class AuthExceptionHandler {
 
     @ExceptionHandler(AccountNotFoundException.class)
     public ResponseEntity<ApiError> handleAccountNotFound(AccountNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(FacilityNotFoundException.class)
+    public ResponseEntity<ApiError> handleFacilityNotFound(FacilityNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
     }
 

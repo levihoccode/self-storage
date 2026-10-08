@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
+import vn.lemar.selfstorage.identity.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.PermissionScope;
@@ -79,9 +80,21 @@ class AccessTest {
     }
 
     @Test
+    void nonexistentFacilityNotFound() {
+        stubAccount(7L, "FM");
+        stubScope(PermissionScope.FACILITY);
+        when(facilityAccess.exists(3L)).thenReturn(false);
+
+        assertThatThrownBy(() -> access.can(PERMISSION, 3L))
+                .isInstanceOf(FacilityNotFoundException.class);
+        verify(facilityAccess, never()).isManagedBy(7L, 3L);
+    }
+
+    @Test
     void fmAllowedOnManagedFacility() {
         stubAccount(7L, "FM");
         stubScope(PermissionScope.FACILITY);
+        when(facilityAccess.exists(1L)).thenReturn(true);
         when(facilityAccess.isManagedBy(7L, 1L)).thenReturn(true);
 
         assertThatCode(() -> access.can(PERMISSION, 1L)).doesNotThrowAnyException();
@@ -91,6 +104,7 @@ class AccessTest {
     void fmDeniedOnOtherFacility() {
         stubAccount(7L, "FM");
         stubScope(PermissionScope.FACILITY);
+        when(facilityAccess.exists(2L)).thenReturn(true);
         when(facilityAccess.isManagedBy(7L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> access.can(PERMISSION, 2L)).isInstanceOf(ForbiddenException.class);
@@ -100,6 +114,7 @@ class AccessTest {
     void fsAllowedOnAssignedFacility() {
         stubAccount(9L, "FS");
         stubScope(PermissionScope.FACILITY);
+        when(facilityAccess.exists(1L)).thenReturn(true);
         when(assignments.existsByAccountIdAndFacilityId(9L, 1L)).thenReturn(true);
 
         assertThatCode(() -> access.can(PERMISSION, 1L)).doesNotThrowAnyException();
@@ -109,6 +124,7 @@ class AccessTest {
     void fsDeniedOnUnassignedFacility() {
         stubAccount(9L, "FS");
         stubScope(PermissionScope.FACILITY);
+        when(facilityAccess.exists(2L)).thenReturn(true);
         when(assignments.existsByAccountIdAndFacilityId(9L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> access.can(PERMISSION, 2L)).isInstanceOf(ForbiddenException.class);
@@ -118,6 +134,7 @@ class AccessTest {
     void adminBypassesFacilityScope() {
         stubAccount(1L, "ADMIN");
         stubScope(PermissionScope.FACILITY);
+        when(facilityAccess.exists(2L)).thenReturn(true);
 
         assertThatCode(() -> access.can(PERMISSION, 2L)).doesNotThrowAnyException();
         verify(facilityAccess, never()).isManagedBy(1L, 2L);

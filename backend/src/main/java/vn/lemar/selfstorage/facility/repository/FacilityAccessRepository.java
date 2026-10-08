@@ -18,4 +18,10 @@ public class FacilityAccessRepository {
                         + "where id = ? and fm_account_id = ?)",
                 Boolean.class, facilityId, accountId));
     }
+
+    public boolean exists(Long facilityId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "select exists(select 1 from facilities where id = ?)",
+                Boolean.class, facilityId));
+    }
 }

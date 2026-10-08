@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
+import vn.lemar.selfstorage.identity.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.PermissionScope;
@@ -35,6 +36,11 @@ import vn.lemar.selfstorage.identity.repository.PermissionRepository;
  * role + permission trong cùng 1 session với lúc load account, nếu không sẽ gặp
  * LazyInitializationException.
  */
+// TODO(flow-5): khi số endpoint tăng, cân nhắc guard bằng annotation (Spring @PreAuthorize gọi
+// bean, hoặc annotation riêng + interceptor) để khỏi quên ở call site. Chưa làm ở A3b vì
+// @PreAuthorize cần hàm boolean — mất semantics hiện tại (403 theo message, 404 facility không
+// tồn tại, IllegalStateException khi gọi sai dạng) và tạo cơ chế guard thứ hai cạnh can().
+// Xem review PR #97.
 @Component
 public class Access {
 
@@ -66,14 +72,19 @@ public class Access {
     }
 
     /**
-     * Hành động theo cơ sở: role phải có permission scope FACILITY và facilityId phải thuộc phạm
-     * vi của account. 403 nếu role không có permission; lỗi lập trình nếu mapping là GLOBAL hoặc
-     * facilityId null.
+     * Hành động theo cơ sở: role phải có permission scope FACILITY, facility phải tồn tại, và
+     * facilityId phải thuộc phạm vi của account. 403 nếu role không có permission (kiểm trước —
+     * role không có quyền không thấy được facility nào tồn tại); 404 nếu facility không tồn tại;
+     * lỗi lập trình nếu mapping là GLOBAL hoặc facilityId null.
      */
     @Transactional(readOnly = true)
     public void can(String permissionCode, Long facilityId) {
         Objects.requireNonNull(facilityId, "facilityId bắt buộc cho hành động theo cơ sở");
         Account account = requirePermission(permissionCode, PermissionScope.FACILITY);
+
+        if (!facilityAccess.exists(facilityId)) {
+            throw new FacilityNotFoundException();
+        }
 
         RoleName role = RoleName.valueOf(account.getRole().getName());
         if (GLOBAL_FACILITY_ROLES.contains(role)) {

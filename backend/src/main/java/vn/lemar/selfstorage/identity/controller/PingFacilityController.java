@@ -47,6 +47,8 @@ public class PingFacilityController {
             @ApiResponse(responseCode = "401", description = "Request chưa được xác thực",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
             @ApiResponse(responseCode = "403", description = "Role hoặc facility scope bị từ chối",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "404", description = "Cơ sở không tồn tại",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping("/ping/{facilityId}")

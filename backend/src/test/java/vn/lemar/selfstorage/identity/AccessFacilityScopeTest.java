@@ -119,6 +119,16 @@ class AccessFacilityScopeTest {
     }
 
     @Test
+    void unknownFacilityReturns404AfterPermissionCheck() throws Exception {
+        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("fm1@lemar.vn")))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("admin@lemar.vn")))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("customer1@lemar.vn")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void fmBlockedFromCreatingOtherNotification() throws Exception {
         mockMvc.perform(post("/api/notifications")
                         .header("Authorization", bearerOf("fm1@lemar.vn"))
