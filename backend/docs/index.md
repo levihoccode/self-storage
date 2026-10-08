@@ -18,7 +18,8 @@ Kiến trúc **modular monolith** theo issue #15: `vn.lemar.selfstorage` là pac
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
-Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility manager.
+Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
+và FM phụ trách facility.
 
 Layout trong một module:
 

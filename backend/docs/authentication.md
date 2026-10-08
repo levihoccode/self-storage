@@ -64,7 +64,8 @@ Jwt (claims: email, iss, exp…)
   ▼
 JwtAuthenticationToken → SecurityContext
   │
-  ▼ authorizeHttpRequests đối chiếu rule (bảng policy)
+  ▼ authorizeHttpRequests đối chiếu rule (policy khai báo trong `SecurityConfig`;
+       quyền từng route xem [routes.md](routes.md))
 ```
 
 Principal name = email của account trong DB. Snippet rút gọn:
