@@ -18,17 +18,37 @@ const roles: RoleName[] = ["Admin", "BOM", "FM", "FS", "Customer"];
 
 const permissions: Permission[] = [
   { id: "perm-1", code: "account.read", description: "Xem danh sách tài khoản", group: "Account" },
-  { id: "perm-2", code: "account.write", description: "Tạo và cập nhật tài khoản", group: "Account" },
+  {
+    id: "perm-2",
+    code: "account.write",
+    description: "Tạo và cập nhật tài khoản",
+    group: "Account",
+  },
   { id: "perm-3", code: "account.lock", description: "Khóa/mở khóa tài khoản", group: "Account" },
   { id: "perm-4", code: "role.read", description: "Xem cấu hình vai trò", group: "RBAC" },
   { id: "perm-5", code: "role.write", description: "Chỉnh sửa quyền của vai trò", group: "RBAC" },
   { id: "perm-6", code: "facility.read", description: "Xem danh sách kho", group: "Facility" },
   { id: "perm-7", code: "facility.write", description: "Quản lý thông tin kho", group: "Facility" },
   { id: "perm-8", code: "rental_request.read", description: "Xem yêu cầu thuê", group: "Rental" },
-  { id: "perm-9", code: "rental_request.approve", description: "Duyệt yêu cầu thuê", group: "Rental" },
+  {
+    id: "perm-9",
+    code: "rental_request.approve",
+    description: "Duyệt yêu cầu thuê",
+    group: "Rental",
+  },
   { id: "perm-10", code: "invoice.read", description: "Xem hóa đơn", group: "Invoice" },
-  { id: "perm-11", code: "invoice.write", description: "Cập nhật trạng thái thanh toán", group: "Invoice" },
-  { id: "perm-12", code: "policy.update", description: "Chỉnh sửa chính sách hệ thống", group: "Policy" },
+  {
+    id: "perm-11",
+    code: "invoice.write",
+    description: "Cập nhật trạng thái thanh toán",
+    group: "Invoice",
+  },
+  {
+    id: "perm-12",
+    code: "policy.update",
+    description: "Chỉnh sửa chính sách hệ thống",
+    group: "Policy",
+  },
 ];
 
 const initialMatrix: RolePermissionMap = {
@@ -162,7 +182,8 @@ export function RolePermissionManagement({ navigate }: { navigate: Navigate }) {
               Role & <span>permission.</span>
             </h1>
             <p>
-              Quản lý quyền truy cập theo mô hình RBAC, với bảng quyền theo role và cảnh báo khi gỡ quyền nhạy cảm.
+              Quản lý quyền truy cập theo mô hình RBAC, với bảng quyền theo role và cảnh báo khi gỡ
+              quyền nhạy cảm.
             </p>
           </div>
         </div>
@@ -171,10 +192,18 @@ export function RolePermissionManagement({ navigate }: { navigate: Navigate }) {
       <section className="container admin-account-content">
         <div className="admin-account-actions">
           <div className="admin-account-action-group">
-            <button className="button button-primary" type="button" onClick={() => navigate("/admin/accounts")}>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => navigate("/admin/accounts")}
+            >
               <ShieldCheck size={16} /> Quản lý tài khoản
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/admin/audit-log")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/admin/audit-log")}
+            >
               <Database size={16} /> Audit log
             </button>
           </div>
@@ -191,7 +220,9 @@ export function RolePermissionManagement({ navigate }: { navigate: Navigate }) {
                 <ShieldCheck size={18} />
                 <strong>Ma trận quyền</strong>
               </div>
-              <span className="admin-account-toolbar__count">{visiblePermissions.length} permissions</span>
+              <span className="admin-account-toolbar__count">
+                {visiblePermissions.length} permissions
+              </span>
             </div>
 
             <div className="admin-account-filters">
@@ -209,7 +240,10 @@ export function RolePermissionManagement({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Role đang xem</span>
-                <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as RoleName)}>
+                <select
+                  value={selectedRole}
+                  onChange={(event) => setSelectedRole(event.target.value as RoleName)}
+                >
                   {roles.map((role) => (
                     <option key={role} value={role}>
                       {role}
@@ -283,18 +317,24 @@ export function RolePermissionManagement({ navigate }: { navigate: Navigate }) {
               <div className="detail-field">
                 <span>Granted permissions</span>
                 <strong>
-                  {Object.values(matrix[selectedRole]).filter(Boolean).length}/{visiblePermissions.length}
+                  {Object.values(matrix[selectedRole]).filter(Boolean).length}/
+                  {visiblePermissions.length}
                 </strong>
               </div>
             </div>
 
             <div className="admin-account-warning">
               <AlertTriangle size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
-              Cảnh báo bảo mật: việc gỡ quyền nhạy cảm khỏi role có nhiều account có thể ảnh hưởng tới toàn bộ hệ thống.
+              Cảnh báo bảo mật: việc gỡ quyền nhạy cảm khỏi role có nhiều account có thể ảnh hưởng
+              tới toàn bộ hệ thống.
             </div>
 
             <div className="admin-account-actions-panel">
-              <button className="button button-primary button-full" type="button" onClick={saveChanges}>
+              <button
+                className="button button-primary button-full"
+                type="button"
+                onClick={saveChanges}
+              >
                 <Check size={16} /> Lưu cấu hình RBAC
               </button>
               <button

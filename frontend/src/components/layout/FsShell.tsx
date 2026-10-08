@@ -1,10 +1,4 @@
-import {
-  AlertTriangle,
-  CalendarClock,
-  ClipboardCheck,
-  FileWarning,
-  Truck,
-} from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardCheck, FileWarning, Truck } from "lucide-react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
 import { Brand } from "../ui/Brand";
@@ -12,10 +6,25 @@ import type { Theme } from "../ui/ThemeToggle";
 import { TopRightActions } from "./TopRightActions";
 
 const navigation = [
-  { label: "Lịch làm việc", path: "/fs/schedule", view: "fs-schedule" as View, icon: CalendarClock },
-  { label: "Bàn giao", path: "/fs/appointments/101/handover", view: "fs-handover" as View, icon: ClipboardCheck },
+  {
+    label: "Lịch làm việc",
+    path: "/fs/schedule",
+    view: "fs-schedule" as View,
+    icon: CalendarClock,
+  },
+  {
+    label: "Bàn giao",
+    path: "/fs/appointments/101/handover",
+    view: "fs-handover" as View,
+    icon: ClipboardCheck,
+  },
   { label: "Trả kho", path: "/fs/appointments/101/return", view: "fs-return" as View, icon: Truck },
-  { label: "Hỗ trợ", path: "/fs/support-requests", view: "fs-support" as View, icon: AlertTriangle },
+  {
+    label: "Hỗ trợ",
+    path: "/fs/support-requests",
+    view: "fs-support" as View,
+    icon: AlertTriangle,
+  },
   { label: "Sự cố", path: "/fs/incidents/new", view: "fs-incidents" as View, icon: FileWarning },
 ];
 

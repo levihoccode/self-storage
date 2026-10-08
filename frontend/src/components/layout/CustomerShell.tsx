@@ -1,11 +1,4 @@
-import {
-  Bell,
-  CalendarDays,
-  Menu,
-  PackageOpen,
-  Receipt,
-  X,
-} from "lucide-react";
+import { Bell, CalendarDays, Menu, PackageOpen, Receipt, X } from "lucide-react";
 import { useState } from "react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";

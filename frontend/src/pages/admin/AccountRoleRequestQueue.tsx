@@ -75,7 +75,9 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
   const [roleFilter, setRoleFilter] = useState<"all" | RequestRole>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | RequestStatus>("all");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(initialRequests.find((item) => item.status === "Pending")?.id ?? "");
+  const [selectedId, setSelectedId] = useState(
+    initialRequests.find((item) => item.status === "Pending")?.id ?? "",
+  );
 
   const filteredRequests = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -100,7 +102,9 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
   function executeRequest(request: AccountRoleRequest) {
     setRequests((current) =>
       current.map((item) =>
-        item.id === request.id ? { ...item, status: "Done", note: item.note ?? "Đã thực thi bởi Admin." } : item,
+        item.id === request.id
+          ? { ...item, status: "Done", note: item.note ?? "Đã thực thi bởi Admin." }
+          : item,
       ),
     );
   }
@@ -115,7 +119,8 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
               Hàng chờ <span>role request.</span>
             </h1>
             <p>
-              Thực thi yêu cầu bổ nhiệm vai trò do BOM gửi lên, đảm bảo dữ liệu được cập nhật trong một giao dịch duy nhất.
+              Thực thi yêu cầu bổ nhiệm vai trò do BOM gửi lên, đảm bảo dữ liệu được cập nhật trong
+              một giao dịch duy nhất.
             </p>
           </div>
         </div>
@@ -124,15 +129,27 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
       <section className="container admin-account-content">
         <div className="admin-account-actions">
           <div className="admin-account-action-group">
-            <button className="button button-primary" type="button" onClick={() => navigate("/admin/accounts")}>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => navigate("/admin/accounts")}
+            >
               <Users size={16} /> Quản lý tài khoản
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/admin/audit-log")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/admin/audit-log")}
+            >
               <Clock3 size={16} /> Audit log
             </button>
           </div>
 
-          <button className="button button-quiet" type="button" onClick={() => navigate("/notifications")}>
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => navigate("/notifications")}
+          >
             <FileWarning size={16} /> Thông báo
           </button>
         </div>
@@ -164,7 +181,10 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Role</span>
-                <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}>
+                <select
+                  value={roleFilter}
+                  onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
+                >
                   {roleOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -175,7 +195,10 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Status</span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                >
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -217,10 +240,14 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
                           </div>
                         </td>
                         <td>
-                          <span className={`account-role-tag role-${request.role.toLowerCase()}`}>{request.role}</span>
+                          <span className={`account-role-tag role-${request.role.toLowerCase()}`}>
+                            {request.role}
+                          </span>
                         </td>
                         <td>
-                          <span className={`account-status-tag status-${request.status.toLowerCase()}`}>
+                          <span
+                            className={`account-status-tag status-${request.status.toLowerCase()}`}
+                          >
                             {request.status}
                           </span>
                         </td>
@@ -231,7 +258,9 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
               </table>
 
               {!filteredRequests.length && (
-                <div className="empty-state">Không có role request nào phù hợp với bộ lọc hiện tại.</div>
+                <div className="empty-state">
+                  Không có role request nào phù hợp với bộ lọc hiện tại.
+                </div>
               )}
             </div>
           </div>
@@ -244,7 +273,9 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
                     <p className="eyebrow">Request detail</p>
                     <h2>{selectedRequest.targetName}</h2>
                   </div>
-                  <span className={`account-status-tag status-${selectedRequest.status.toLowerCase()}`}>
+                  <span
+                    className={`account-status-tag status-${selectedRequest.status.toLowerCase()}`}
+                  >
                     {selectedRequest.status}
                   </span>
                 </div>
@@ -256,7 +287,9 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
                   </div>
                   <div className="detail-field">
                     <span>Role</span>
-                    <strong className={`detail-role detail-role--${selectedRequest.role.toLowerCase()}`}>
+                    <strong
+                      className={`detail-role detail-role--${selectedRequest.role.toLowerCase()}`}
+                    >
                       {selectedRequest.role}
                     </strong>
                   </div>
@@ -285,7 +318,8 @@ export function AccountRoleRequestQueue({ navigate }: { navigate: Navigate }) {
                     onClick={() => executeRequest(selectedRequest)}
                     disabled={selectedRequest.status === "Done"}
                   >
-                    <CheckCheck size={16} /> {selectedRequest.status === "Done" ? "Đã thực thi" : "Thực thi request"}
+                    <CheckCheck size={16} />{" "}
+                    {selectedRequest.status === "Done" ? "Đã thực thi" : "Thực thi request"}
                   </button>
 
                   <button

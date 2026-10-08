@@ -139,15 +139,27 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
       <section className="container admin-account-content">
         <div className="admin-account-actions">
           <div className="admin-account-action-group">
-            <button className="button button-primary" type="button" onClick={() => navigate("/admin/accounts")}>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => navigate("/admin/accounts")}
+            >
               <UserPlus size={16} /> Tạo tài khoản
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/admin/rbac")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/admin/rbac")}
+            >
               <ShieldCheck size={16} /> Quản lý RBAC
             </button>
           </div>
 
-          <button className="button button-quiet" type="button" onClick={() => navigate("/admin/audit-log")}>
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => navigate("/admin/audit-log")}
+          >
             <Download size={16} /> Xuất báo cáo
           </button>
         </div>
@@ -159,7 +171,9 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
                 <Users size={18} />
                 <strong>Danh sách tài khoản</strong>
               </div>
-              <span className="admin-account-toolbar__count">{filteredAccounts.length} tài khoản</span>
+              <span className="admin-account-toolbar__count">
+                {filteredAccounts.length} tài khoản
+              </span>
             </div>
 
             <div className="admin-account-filters">
@@ -177,7 +191,10 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Role</span>
-                <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}>
+                <select
+                  value={roleFilter}
+                  onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
+                >
                   {roleOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -188,7 +205,10 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Status</span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                >
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -229,7 +249,9 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
                           </span>
                         </td>
                         <td>
-                          <span className={`account-status-tag status-${account.status.toLowerCase()}`}>
+                          <span
+                            className={`account-status-tag status-${account.status.toLowerCase()}`}
+                          >
                             {account.status}
                           </span>
                         </td>
@@ -256,7 +278,9 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
                     <p className="eyebrow">Account detail</p>
                     <h2>{selectedAccount.name}</h2>
                   </div>
-                  <span className={`account-status-tag status-${selectedAccount.status.toLowerCase()}`}>
+                  <span
+                    className={`account-status-tag status-${selectedAccount.status.toLowerCase()}`}
+                  >
                     {selectedAccount.status}
                   </span>
                 </div>
@@ -268,7 +292,9 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
                   </div>
                   <div className="detail-field">
                     <span>Vai trò</span>
-                    <strong className={`detail-role detail-role--${selectedAccount.role.toLowerCase()}`}>
+                    <strong
+                      className={`detail-role detail-role--${selectedAccount.role.toLowerCase()}`}
+                    >
                       {selectedAccount.role}
                     </strong>
                   </div>
@@ -284,7 +310,8 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
 
                 {(selectedAccount.role === "FM" || selectedAccount.role === "FS") && (
                   <div className="admin-account-warning">
-                    Cảnh báo: tài khoản đang giữ Facility assignment. Khi đổi role, hệ thống sẽ tự động gỡ khỏi facility hiện tại.
+                    Cảnh báo: tài khoản đang giữ Facility assignment. Khi đổi role, hệ thống sẽ tự
+                    động gỡ khỏi facility hiện tại.
                   </div>
                 )}
 
@@ -297,7 +324,8 @@ export function AccountManagement({ navigate }: { navigate: Navigate }) {
                     type="button"
                     onClick={() => toggleAccountStatus(selectedAccount)}
                   >
-                    <Lock size={16} /> {selectedAccount.status === "Locked" ? "Mở khóa" : "Khóa tài khoản"}
+                    <Lock size={16} />{" "}
+                    {selectedAccount.status === "Locked" ? "Mở khóa" : "Khóa tài khoản"}
                   </button>
                   <button
                     className="button button-full admin-account-secondary-button"

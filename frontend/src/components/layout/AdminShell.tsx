@@ -1,10 +1,4 @@
-import {
-  ClipboardList,
-  Database,
-  History,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+import { ClipboardList, Database, History, ShieldCheck, Users } from "lucide-react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
 import { Brand } from "../ui/Brand";
@@ -71,7 +65,6 @@ export function AdminShell({
             </button>
           ))}
         </nav>
-
       </aside>
 
       <section className="admin-main">

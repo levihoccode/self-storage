@@ -119,7 +119,8 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
               Login <span>history.</span>
             </h1>
             <p>
-              Theo dõi đăng nhập thành công và thất bại theo email, IP, thiết bị để phát hiện dấu hiệu bất thường.
+              Theo dõi đăng nhập thành công và thất bại theo email, IP, thiết bị để phát hiện dấu
+              hiệu bất thường.
             </p>
           </div>
         </div>
@@ -128,15 +129,27 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
       <section className="container admin-account-content">
         <div className="admin-account-actions">
           <div className="admin-account-action-group">
-            <button className="button button-primary" type="button" onClick={() => navigate("/admin/accounts")}>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => navigate("/admin/accounts")}
+            >
               <UserRound size={16} /> Tài khoản
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/admin/audit-log")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/admin/audit-log")}
+            >
               <ShieldCheck size={16} /> Audit log
             </button>
           </div>
 
-          <button className="button button-quiet" type="button" onClick={() => navigate("/admin/login-history")}>
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => navigate("/admin/login-history")}
+          >
             <CalendarRange size={16} /> Refresh
           </button>
         </div>
@@ -166,7 +179,10 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Status</span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                >
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -198,7 +214,11 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
                         <td>
                           <div className="account-user">
                             <strong>{entry.email}</strong>
-                            <span>{entry.accountId ? `Account: ${entry.accountId}` : "Account: Không xác định"}</span>
+                            <span>
+                              {entry.accountId
+                                ? `Account: ${entry.accountId}`
+                                : "Account: Không xác định"}
+                            </span>
                           </div>
                         </td>
                         <td>
@@ -208,7 +228,9 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
                           </div>
                         </td>
                         <td>
-                          <span className={`account-status-tag status-${entry.status.toLowerCase()}`}>
+                          <span
+                            className={`account-status-tag status-${entry.status.toLowerCase()}`}
+                          >
                             {entry.status}
                           </span>
                         </td>
@@ -220,7 +242,9 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
               </table>
 
               {!filteredEntries.length && (
-                <div className="empty-state">Không có lịch sử đăng nhập nào phù hợp với bộ lọc.</div>
+                <div className="empty-state">
+                  Không có lịch sử đăng nhập nào phù hợp với bộ lọc.
+                </div>
               )}
             </div>
           </div>
@@ -233,7 +257,9 @@ export function LoginHistory({ navigate }: { navigate: Navigate }) {
                     <p className="eyebrow">Login detail</p>
                     <h2>{selectedEntry.email}</h2>
                   </div>
-                  <span className={`account-status-tag status-${selectedEntry.status.toLowerCase()}`}>
+                  <span
+                    className={`account-status-tag status-${selectedEntry.status.toLowerCase()}`}
+                  >
                     {selectedEntry.status}
                   </span>
                 </div>

@@ -75,7 +75,14 @@ const initialLogs: AuditLogEntry[] = [
   },
 ];
 
-const entityOptions = ["all", "Account", "RolePermission", "FacilityAssignment", "RentalRequest", "LoginHistory"] as const;
+const entityOptions = [
+  "all",
+  "Account",
+  "RolePermission",
+  "FacilityAssignment",
+  "RentalRequest",
+  "LoginHistory",
+] as const;
 
 export function AuditLog({ navigate }: { navigate: Navigate }) {
   const [logs, setLogs] = useState<AuditLogEntry[]>(initialLogs);
@@ -88,7 +95,8 @@ export function AuditLog({ navigate }: { navigate: Navigate }) {
     const keyword = query.trim().toLowerCase();
 
     return logs.filter((log) => {
-      const matchesAccount = !accountId || log.accountId.toLowerCase().includes(accountId.toLowerCase());
+      const matchesAccount =
+        !accountId || log.accountId.toLowerCase().includes(accountId.toLowerCase());
       const matchesEntity = entityType === "all" || log.entityType === entityType;
       const matchesQuery =
         !keyword ||
@@ -119,7 +127,8 @@ export function AuditLog({ navigate }: { navigate: Navigate }) {
               Audit <span>log.</span>
             </h1>
             <p>
-              Theo dõi toàn bộ thay đổi nhạy cảm của nhân viên và thực thể trong hệ thống để phục vụ kiểm tra, điều tra và báo cáo.
+              Theo dõi toàn bộ thay đổi nhạy cảm của nhân viên và thực thể trong hệ thống để phục vụ
+              kiểm tra, điều tra và báo cáo.
             </p>
           </div>
         </div>
@@ -128,15 +137,27 @@ export function AuditLog({ navigate }: { navigate: Navigate }) {
       <section className="container admin-account-content">
         <div className="admin-account-actions">
           <div className="admin-account-action-group">
-            <button className="button button-primary" type="button" onClick={() => navigate("/admin/accounts")}>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => navigate("/admin/accounts")}
+            >
               <ShieldCheck size={16} /> Accounts
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/admin/rbac")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/admin/rbac")}
+            >
               <AlertCircle size={16} /> RBAC
             </button>
           </div>
 
-          <button className="button button-quiet" type="button" onClick={() => navigate("/admin/login-history")}>
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => navigate("/admin/login-history")}
+          >
             <CalendarRange size={16} /> Login history
           </button>
         </div>
@@ -175,7 +196,10 @@ export function AuditLog({ navigate }: { navigate: Navigate }) {
 
               <label className="filter-field">
                 <span>Entity</span>
-                <select value={entityType} onChange={(event) => setEntityType(event.target.value as typeof entityType)}>
+                <select
+                  value={entityType}
+                  onChange={(event) => setEntityType(event.target.value as typeof entityType)}
+                >
                   {entityOptions.map((option) => (
                     <option key={option} value={option}>
                       {option === "all" ? "Tất cả" : option}
@@ -274,7 +298,11 @@ export function AuditLog({ navigate }: { navigate: Navigate }) {
                 </div>
 
                 <div className="admin-account-actions-panel">
-                  <button className="button button-primary button-full" type="button" onClick={() => navigate("/admin/accounts")}>
+                  <button
+                    className="button button-primary button-full"
+                    type="button"
+                    onClick={() => navigate("/admin/accounts")}
+                  >
                     Xem account liên quan <ArrowRight size={16} />
                   </button>
                 </div>

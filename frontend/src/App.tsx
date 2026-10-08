@@ -128,7 +128,11 @@ function App() {
           onThemeToggle={toggleTheme}
           isScrolled={isScrolled}
         >
-          {view === "my-storage" ? <MyStoragePage navigate={navigate} /> : <NotificationsCenter navigate={navigate} />}
+          {view === "my-storage" ? (
+            <MyStoragePage navigate={navigate} />
+          ) : (
+            <NotificationsCenter navigate={navigate} />
+          )}
         </CustomerShell>
       ) : isAdminView ? (
         <AdminShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
