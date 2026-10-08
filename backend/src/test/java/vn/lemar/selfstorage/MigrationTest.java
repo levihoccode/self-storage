@@ -50,6 +50,14 @@ class MigrationTest {
         }
     }
 
+    private static int countWhere(Connection connection, String table, String where) throws Exception {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("SELECT count(*) FROM " + table + " WHERE " + where)) {
+            rs.next();
+            return rs.getInt(1);
+        }
+    }
+
     private static boolean tableExists(Connection connection, String table) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement("SELECT to_regclass(?) IS NOT NULL")) {
             statement.setString(1, "public." + table);
@@ -83,6 +91,8 @@ class MigrationTest {
             // V3: permission catalog + mapping mặc định (A3b, #57).
             assertThat(count(connection, "permissions")).isEqualTo(24);
             assertThat(count(connection, "role_permissions")).isEqualTo(31);
+            assertThat(countWhere(connection, "role_permissions", "scope = 'FACILITY'")).isEqualTo(23);
+            assertThat(countWhere(connection, "role_permissions", "scope = 'GLOBAL'")).isEqualTo(8);
 
             // #57: quan hệ FM–Facility 1–1 trên facilities.
             try (Statement statement = connection.createStatement();

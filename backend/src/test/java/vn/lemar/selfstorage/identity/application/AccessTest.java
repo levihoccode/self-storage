@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.PermissionScope;
 import vn.lemar.selfstorage.identity.domain.Role;
 import vn.lemar.selfstorage.identity.repository.AccountFacilityAssignmentRepository;
 import vn.lemar.selfstorage.identity.repository.PermissionRepository;
@@ -29,22 +32,45 @@ class AccessTest {
     private final Access access = new Access(accountProvider, assignments, permissions, facilityAccess);
 
     @Test
-    void missingPermissionDeniedBeforeScopeCheck() {
+    void missingMappingDeniedOnGlobalForm() {
         stubAccount(7L, "FM");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(false);
+        stubScope(null);
 
-        assertThatThrownBy(() -> access.can(PERMISSION, 1L)).isInstanceOf(ForbiddenException.class);
-        verify(facilityAccess, never()).isManagedBy(7L, 1L);
+        assertThatThrownBy(() -> access.can(PERMISSION)).isInstanceOf(ForbiddenException.class);
     }
 
     @Test
-    void globalOverloadSkipsFacilityScope() {
+    void missingMappingDeniedOnFacilityForm() {
         stubAccount(7L, "FM");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(true);
+        stubScope(null);
+
+        assertThatThrownBy(() -> access.can(PERMISSION, 1L)).isInstanceOf(ForbiddenException.class);
+        verifyNoInteractions(facilityAccess);
+    }
+
+    @Test
+    void globalMappingRejectsFacilityForm() {
+        stubAccount(1L, "ADMIN");
+        stubScope(PermissionScope.GLOBAL);
+
+        assertThatThrownBy(() -> access.can(PERMISSION, 1L)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void facilityMappingRejectsGlobalForm() {
+        stubAccount(7L, "FM");
+        stubScope(PermissionScope.FACILITY);
+
+        assertThatThrownBy(() -> access.can(PERMISSION)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void globalFormSkipsFacilityScope() {
+        stubAccount(1L, "ADMIN");
+        stubScope(PermissionScope.GLOBAL);
 
         assertThatCode(() -> access.can(PERMISSION)).doesNotThrowAnyException();
-        verify(facilityAccess, never()).isManagedBy(7L, 1L);
-        verify(assignments, never()).existsByAccountIdAndFacilityId(7L, 1L);
+        verifyNoInteractions(facilityAccess, assignments);
     }
 
     @Test
@@ -55,7 +81,7 @@ class AccessTest {
     @Test
     void fmAllowedOnManagedFacility() {
         stubAccount(7L, "FM");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(true);
+        stubScope(PermissionScope.FACILITY);
         when(facilityAccess.isManagedBy(7L, 1L)).thenReturn(true);
 
         assertThatCode(() -> access.can(PERMISSION, 1L)).doesNotThrowAnyException();
@@ -64,7 +90,7 @@ class AccessTest {
     @Test
     void fmDeniedOnOtherFacility() {
         stubAccount(7L, "FM");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(true);
+        stubScope(PermissionScope.FACILITY);
         when(facilityAccess.isManagedBy(7L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> access.can(PERMISSION, 2L)).isInstanceOf(ForbiddenException.class);
@@ -73,7 +99,7 @@ class AccessTest {
     @Test
     void fsAllowedOnAssignedFacility() {
         stubAccount(9L, "FS");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(true);
+        stubScope(PermissionScope.FACILITY);
         when(assignments.existsByAccountIdAndFacilityId(9L, 1L)).thenReturn(true);
 
         assertThatCode(() -> access.can(PERMISSION, 1L)).doesNotThrowAnyException();
@@ -82,7 +108,7 @@ class AccessTest {
     @Test
     void fsDeniedOnUnassignedFacility() {
         stubAccount(9L, "FS");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(true);
+        stubScope(PermissionScope.FACILITY);
         when(assignments.existsByAccountIdAndFacilityId(9L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> access.can(PERMISSION, 2L)).isInstanceOf(ForbiddenException.class);
@@ -91,7 +117,7 @@ class AccessTest {
     @Test
     void adminBypassesFacilityScope() {
         stubAccount(1L, "ADMIN");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(true);
+        stubScope(PermissionScope.FACILITY);
 
         assertThatCode(() -> access.can(PERMISSION, 2L)).doesNotThrowAnyException();
         verify(facilityAccess, never()).isManagedBy(1L, 2L);
@@ -100,9 +126,13 @@ class AccessTest {
     @Test
     void customerWithoutPermissionDenied() {
         stubAccount(5L, "CUSTOMER");
-        when(permissions.roleHasPermission(ROLE_ID, PERMISSION)).thenReturn(false);
+        stubScope(null);
 
         assertThatThrownBy(() -> access.can(PERMISSION, 1L)).isInstanceOf(ForbiddenException.class);
+    }
+
+    private void stubScope(PermissionScope scope) {
+        when(permissions.findScope(ROLE_ID, PERMISSION)).thenReturn(Optional.ofNullable(scope));
     }
 
     private void stubAccount(Long id, String roleName) {
