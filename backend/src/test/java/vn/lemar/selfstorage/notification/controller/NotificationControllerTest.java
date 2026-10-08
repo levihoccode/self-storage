@@ -220,33 +220,14 @@ class NotificationControllerTest {
     }
 
     @Test
-    void createOtherIsAllowedForFm() throws Exception {
-        authenticate("fm@example.com", "FM");
-        when(accountQueryService.requireIdByEmail("target@example.com")).thenReturn(5L);
-        when(accountQueryService.requireEmailById(5L)).thenReturn("target@example.com");
-        when(notificationService.createOther(5L, "target@example.com", "Bảo trì", "Nội dung"))
-                .thenReturn(notification(21L, "OTHER"));
-        String request = "{\"recipientEmail\":\"target@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
-
-        mockMvc.perform(post("/api/notifications")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Tạo thông báo thành công"))
-                .andExpect(jsonPath("$.data.id").value(21));
-        verify(access).can("notification.create_other");
-    }
-
-    @Test
     void createOtherReturnsNotFoundForUnknownEmail() throws Exception {
-        authenticate("fm@example.com", "FM");
+        authenticate("admin@example.com", "ADMIN");
         when(accountQueryService.requireIdByEmail("missing@example.com"))
                 .thenThrow(new AccountNotFoundException());
         String request = "{\"recipientEmail\":\"missing@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
 
         mockMvc.perform(post("/api/notifications")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("admin@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isNotFound());

@@ -133,19 +133,6 @@ export async function fetchNotificationPage(
   );
 }
 
-/** Thông báo thủ công type `OTHER` — API cho ADMIN/BOM/FM; người nhận theo email. */
-export async function createOtherNotification(input: {
-  recipientEmail: string;
-  title: string;
-  body: string;
-}): Promise<void> {
-  await apiRequest("/api/notifications", {
-    method: "POST",
-    body: input,
-    accessToken: accessToken(),
-  });
-}
-
 export async function markNotificationRead(id: number): Promise<void> {
   await apiRequest(`/api/notifications/${id}/read`, {
     method: "PATCH",

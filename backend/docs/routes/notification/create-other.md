@@ -1,13 +1,13 @@
 ---
 auth-model: permission-bound
-purpose: Tạo thông báo OTHER thủ công cho một account (ADMIN/BOM/FM).
+purpose: Tạo thông báo OTHER thủ công cho một account (ADMIN/BOM).
 ---
 # POST /api/notifications
 
 Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account theo email.
 
 - **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE`; `Access.can("notification.create_other")` kiểm
-  tra permission qua `role_permissions` (ADMIN, BOM, FM) — [catalog](../../permission-catalog.md).
+  tra permission qua `role_permissions` (ADMIN, BOM) — [catalog](../../permission-catalog.md).
 - **Contract chi tiết:** annotation tại `notification/controller/NotificationController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
@@ -22,26 +22,26 @@ Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account theo emai
 ## Ví dụ
 
 ```bash
-FM_TOKEN='<token của fm1@lemar.vn>'
+ADMIN_TOKEN='<token của admin@lemar.vn>'
 CUST_TOKEN='<token của customer1@lemar.vn>'
 
-# 200 — FM tạo cho khách theo email
+# 200 — admin tạo cho khách theo email
 curl -s -X POST http://localhost:8080/api/notifications \
-  -H "Authorization: Bearer $FM_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"recipientEmail":"hungthanh1412hz@gmail.com","title":"Thử gửi từ FM","body":"FM gửi thông báo thủ công cho khách qua email."}'
-# {"message":"Tạo thông báo thành công","data":{"id":4,"type":"OTHER","title":"Thử gửi từ FM","body":"FM gửi thông báo thủ công cho khách qua email.","readAt":null,"createdAt":"2026-10-05T14:26:00.965787173Z","orderId":null}}
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"recipientEmail":"customer1@lemar.vn","title":"Bảo trì khẩn cấp","body":"Kho tạm đóng để bảo trì ngày mai."}'
+# {"message":"Tạo thông báo thành công","data":{"id":1,"type":"OTHER","title":"Bảo trì khẩn cấp","body":"Kho tạm đóng để bảo trì ngày mai.","readAt":null,"createdAt":"2026-10-08T14:33:41.699472688Z","orderId":null}}
 
 # 404 — email không thuộc account nào
 curl -s -X POST http://localhost:8080/api/notifications \
-  -H "Authorization: Bearer $FM_TOKEN" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
   -d '{"recipientEmail":"khong-ton-tai@example.com","title":"x","body":"y"}'
-# {"message":"Không tìm thấy tài khoản","timestamp":"2026-10-05T14:26:25.055008592Z"}
+# {"message":"Không tìm thấy tài khoản","timestamp":"2026-10-08T14:33:48.819687103Z"}
 
 # 403 — customer không có quyền tạo
 curl -s -X POST http://localhost:8080/api/notifications \
   -H "Authorization: Bearer $CUST_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"recipientEmail":"hungthanh1412hz@gmail.com","title":"x","body":"y"}'
-# {"message":"Bạn không có quyền thực hiện thao tác này", ...}
+  -d '{"recipientEmail":"customer1@lemar.vn","title":"x","body":"y"}'
+# {"message":"Bạn không có quyền thực hiện thao tác này","timestamp":"2026-10-08T14:33:48.836112910Z"}
 ```
 
 ## Liên quan

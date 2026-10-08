@@ -34,7 +34,7 @@ import vn.lemar.selfstorage.notification.domain.Notification;
 /**
  * API notification của account đang đăng nhập — accountId lấy từ principal, không nhận từ caller.
  *
- * <p>POST {@code OTHER} chỉ ADMIN/BOM/FM (kiểm tra qua {@code Access}).
+ * <p>POST {@code OTHER} chỉ ADMIN/BOM (kiểm tra qua {@code Access}).
  */
 @Validated
 @RestController
@@ -114,7 +114,7 @@ public class NotificationController {
     }
 
     @Operation(summary = "Tạo thông báo OTHER",
-            description = "Thông báo khẩn cấp thủ công; chỉ ADMIN/BOM/FM. `recipientEmail` phải thuộc "
+            description = "Thông báo khẩn cấp thủ công; chỉ ADMIN/BOM. `recipientEmail` phải thuộc "
                     + "một account đang tồn tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Tạo thành công"),
