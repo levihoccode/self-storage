@@ -1,3 +1,6 @@
+---
+purpose: Cách backend xử lý lỗi và format response lỗi — envelope, các tầng bắt lỗi, bảng status nền.
+---
 # Error Handling
 
 Cách backend xử lý lỗi và format response lỗi — trạng thái hiện tại (as-built).
@@ -25,6 +28,13 @@ DispatcherServlet
   │    AuthExceptionHandler (HIGHEST_PRECEDENCE)
   │      InvalidCredentialsException  → 401 "Email hoặc mật khẩu không đúng"
   │      AccountNotAllowedException   → 403 "Tài khoản đã bị chặn"
+  │      UnauthenticatedException     → 401 "Yêu cầu chưa được xác thực"
+  │      ForbiddenException           → 403 "Bạn không có quyền thực hiện thao tác này"
+  │                                     hoặc "Bạn không được gán vào cơ sở này"
+  │      AccountNotFoundException     → 404 "Không tìm thấy tài khoản"
+  │      FacilityNotFoundException    → 404 "Không tìm thấy cơ sở"
+  │    NotificationExceptionHandler (HIGHEST_PRECEDENCE)
+  │      NotificationNotFoundException → 404 "Không tìm thấy thông báo"
   │    ApiExceptionHandler (LOWEST_PRECEDENCE)
   │      validate / JSON hỏng         → 400 "Dữ liệu không hợp lệ"
   │      lỗi khung (ErrorResponse)    → giữ status + message tiếng Việt (404/405/415…)
@@ -32,9 +42,10 @@ DispatcherServlet
 ```
 
 **Thứ tự advice:** `ExceptionHandlerExceptionResolver` chọn advice **match đầu tiên**, không phải
-handler cụ thể nhất. Vì vậy `AuthExceptionHandler` đặt `@Order(HIGHEST_PRECEDENCE)`,
-`ApiExceptionHandler` đặt `@Order(LOWEST_PRECEDENCE)`; advice mới phải set `@Order` tường minh —
-nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè.
+handler cụ thể nhất. Vì vậy `AuthExceptionHandler` và `NotificationExceptionHandler` đặt
+`@Order(HIGHEST_PRECEDENCE)`, `ApiExceptionHandler` đặt `@Order(LOWEST_PRECEDENCE)`; advice mới
+phải set `@Order` tường minh — nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè. Hai advice cùng mức
+cao không đè nhau vì mỗi cái match theo exception type riêng.
 
 ## Bảng status
 
@@ -43,16 +54,22 @@ nếu không, lỗi nghiệp vụ sẽ bị catch-all 500 đè.
 | 200 | controller | riêng từng route (envelope `{message, data}`) |
 | 400 | `ApiExceptionHandler` | `Dữ liệu không hợp lệ` |
 | 401 | `AuthExceptionHandler` | `Email hoặc mật khẩu không đúng` (sai email/mật khẩu) |
+| 401 | `AuthExceptionHandler` | `Yêu cầu chưa được xác thực` (guard chạy khi thiếu/xóa account) |
 | 401 | `JsonAuthenticationEntryPoint` | `Bạn cần đăng nhập để tiếp tục.` + header `WWW-Authenticate` (`Bearer` / `Bearer error="invalid_token"`) |
 | 403 | `AuthExceptionHandler` | `Tài khoản đã bị chặn` (login với account `BANNED`) |
+| 403 | `AuthExceptionHandler` | `Bạn không có quyền thực hiện thao tác này` (thiếu permission) hoặc `Bạn không được gán vào cơ sở này` (ngoài facility scope) |
 | 403 | `JsonAccessDeniedHandler` | `Tài khoản đã bị chặn` (`BANNED`) hoặc `Bạn không có quyền truy cập` (sai role) |
-| 404 | `ApiExceptionHandler` | `Không tìm thấy tài nguyên` |
+| 404 | `AuthExceptionHandler` | `Không tìm thấy tài khoản` / `Không tìm thấy cơ sở` (nghiệp vụ) |
+| 404 | `NotificationExceptionHandler` | `Không tìm thấy thông báo` (nghiệp vụ) |
+| 404 | `ApiExceptionHandler` | `Không tìm thấy tài nguyên` (khung — sai path) |
 | 405 | `ApiExceptionHandler` | `Phương thức không được hỗ trợ` |
 | 415 | `ApiExceptionHandler` | `Định dạng nội dung không được hỗ trợ` |
 | 4xx khác | `ApiExceptionHandler` | `Yêu cầu không hợp lệ` |
 | 500 | `ApiExceptionHandler` | `Internal server error` — chi tiết exception chỉ vào log |
 
-404/405/415/500 là status nền, áp dụng cho mọi route — Swagger từng route không lặp lại.
+405/415 là status nền, áp dụng cho mọi route — Swagger từng route không lặp lại. 404 có cả nhánh
+khung (`ApiExceptionHandler` — sai path) lẫn nhánh nghiệp vụ (`AuthExceptionHandler` — tài khoản/cơ
+sở không tồn tại), nên route cần phân biệt thì ghi rõ trong Swagger.
 
 ## Ví dụ (output thật)
 
@@ -75,8 +92,8 @@ WWW-Authenticate: Bearer error="invalid_token"
 {"message":"Không tìm thấy tài nguyên","timestamp":"2026-10-04T08:46:24.796283083Z"}
 ```
 
-500 chưa có route thật nào ném; test `ApiExceptionHandlerTest` assert
-`jsonPath("$.message").value("Internal server error")` và body không chứa chi tiết nội bộ.
+500 hiện xảy ra khi path/query sai kiểu — `MethodArgumentTypeMismatchException` rơi vào catch-all
+(bug đã biết: #106). `ApiExceptionHandlerTest` assert body generic không lộ chi tiết nội bộ.
 
 ## Chưa theo envelope
 

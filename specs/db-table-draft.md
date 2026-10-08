@@ -27,12 +27,15 @@
 **Overview:** bảng nối N–N giữa `Role` và `Permission` — nguồn dữ liệu duy nhất cho việc role nào có quyền nào.
 - role_id (N - 1: Role)
 - permission_id (N - 1: Permission)
+- scope (GLOBAL/FACILITY) - phạm vi áp dụng của mapping: GLOBAL = hành động toàn cục; FACILITY = bắt buộc truyền `facility_id` và bị kiểm facility scope
 
 **CONSTRAINTS:**
 - Unique `(role_id, permission_id)`.
 
 **NOTES:**
-- Catalog permission cụ thể và mapping mặc định cho 5 role chưa chốt (thuộc Flow 5.0); không hard-code trong source code. Khi chốt thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+- Catalog khởi điểm + mapping mặc định cho 5 role đã chốt tại spec-gap #57 (2026-10-08) — nguồn: `backend/docs/permission-catalog.md`; seed `V3__rbac_permissions_seed.sql`. Mở rộng dần khi Flow 3–7 chốt; không hard-code mapping trong source code, thêm quyền mới thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+- `scope` thuộc mapping chứ không thuộc `Permission`: cùng một permission có thể GLOBAL ở role này và FACILITY ở role khác (vd `rental_request.read`: ADMIN/BOM global, FM/FS facility).
+- Quản trị hệ thống (`account`/`role`/`permission`) là role-bound qua namespace route, không tạo permission — tránh tự nâng quyền qua dữ liệu mapping.
 # Facility
 - id
 - code (unique)

@@ -1,3 +1,6 @@
+---
+purpose: Đăng nhập bằng email + mật khẩu, trả access token (JWT).
+---
 # POST /api/auth/login
 
 Đăng nhập bằng email + mật khẩu, trả access token (JWT).

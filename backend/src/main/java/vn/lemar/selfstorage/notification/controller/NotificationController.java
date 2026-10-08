@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import vn.lemar.selfstorage.ApiEnvelope;
+import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.dto.CreateOtherRequest;
@@ -33,7 +34,7 @@ import vn.lemar.selfstorage.notification.domain.Notification;
 /**
  * API notification của account đang đăng nhập — accountId lấy từ principal, không nhận từ caller.
  *
- * <p>POST {@code OTHER} chỉ ADMIN/BOM/FM (chặn ở {@code SecurityConfig}).
+ * <p>POST {@code OTHER} chỉ ADMIN/BOM/FM (kiểm tra qua {@code Access}).
  */
 @Validated
 @RestController
@@ -49,10 +50,13 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final AccountQueryService accountQueryService;
+    private final Access access;
 
-    public NotificationController(NotificationService notificationService, AccountQueryService accountQueryService) {
+    public NotificationController(NotificationService notificationService, AccountQueryService accountQueryService,
+                                  Access access) {
         this.notificationService = notificationService;
         this.accountQueryService = accountQueryService;
+        this.access = access;
     }
 
     @Operation(summary = "Danh sách thông báo của tôi",
@@ -122,6 +126,7 @@ public class NotificationController {
     @PostMapping
     public ResponseEntity<ApiEnvelope<NotificationDetailResponse>> createOther(
             @Valid @RequestBody CreateOtherRequest request) {
+        access.can("notification.create_other");
         Long recipientAccountId = accountQueryService.requireIdByEmail(request.recipientEmail());
         String recipientEmail = accountQueryService.requireEmailById(recipientAccountId);
         Notification notification = notificationService.createOther(

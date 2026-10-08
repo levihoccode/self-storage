@@ -1,3 +1,7 @@
+---
+auth-model: ownership
+purpose: Danh sách thông báo của account đang đăng nhập (lọc is_read, phân trang).
+---
 # GET /api/notifications
 
 Danh sách thông báo web của account đang đăng nhập — nguồn cho notification center (chuông + trang đầy đủ).

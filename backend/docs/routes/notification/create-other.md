@@ -1,8 +1,13 @@
+---
+auth-model: permission-bound
+purpose: Tạo thông báo OTHER thủ công cho một account (ADMIN/BOM/FM).
+---
 # POST /api/notifications
 
 Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account theo email.
 
-- **Actor / quyền:** bearer token + role `ADMIN`, `BOM` hoặc `FM` (chặn tại `SecurityConfig`).
+- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE`; `Access.can("notification.create_other")` kiểm
+  tra permission qua `role_permissions` (ADMIN, BOM, FM) — [catalog](../../permission-catalog.md).
 - **Contract chi tiết:** annotation tại `notification/controller/NotificationController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
@@ -36,7 +41,7 @@ curl -s -X POST http://localhost:8080/api/notifications \
 curl -s -X POST http://localhost:8080/api/notifications \
   -H "Authorization: Bearer $CUST_TOKEN" -H 'Content-Type: application/json' \
   -d '{"recipientEmail":"hungthanh1412hz@gmail.com","title":"x","body":"y"}'
-# {"message":"Bạn không có quyền truy cập","timestamp":"2026-10-05T14:26:25.067659577Z"}
+# {"message":"Bạn không có quyền thực hiện thao tác này", ...}
 ```
 
 ## Liên quan

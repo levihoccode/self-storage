@@ -1,3 +1,6 @@
+---
+purpose: Bản đồ tài liệu backend — backend đang có gì, quy ước chung, mục lục.
+---
 # Tài liệu Backend — Self Storage
 
 Tài liệu này mô tả backend đang có gì và nó hoạt động thế nào, ở mức **medium-level**:
@@ -15,7 +18,8 @@ Kiến trúc **modular monolith** theo issue #15: `vn.lemar.selfstorage` là pac
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
-Hiện tại chỉ module `identity` có code chạy; các module khác mới là khung.
+Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
+và FM phụ trách facility.
 
 Layout trong một module:
 
@@ -34,6 +38,8 @@ Code map (identity):
 | Login + `/me` | `identity/application/AuthService.java`, `identity/controller/AuthController.java` |
 | Phát JWT | `identity/application/JwtService.java` |
 | Verify + cấp quyền theo DB | `identity/application/AccountJwtAuthenticationConverter.java`, `identity/config/JwtConfiguration.java` |
+| RBAC (permission + facility scope) | `identity/application/Access.java`, `identity/repository/PermissionRepository.java`, `identity/application/CurrentAccountProvider.java` |
+| Kiểm tra FM phụ trách facility | `facility/application/FacilityAccess.java` |
 | Khai báo route policy | `SecurityConfig.java` |
 | Envelope + lỗi chung | `ApiEnvelope.java`, `ApiError.java`, `ApiExceptionHandler.java`, `JsonAuthenticationEntryPoint.java`, `JsonAccessDeniedHandler.java` |
 
@@ -43,7 +49,11 @@ Mô hình stateless JWT: access token chỉ mang claim `email`; role + status đ
 mỗi request. Chi tiết:
 
 - [authentication.md](authentication.md) — danh tính, token, luồng xác thực mỗi request, giới hạn.
-- [authorization.md](authorization.md) — authorities, policy route, 401 vs 403, điều kiện xác minh email.
+- [authorization.md](authorization.md) — authorities, ba kiểu ràng buộc quyền, 401 vs 403, điều kiện xác minh email.
+- [permission-catalog.md](permission-catalog.md) — catalog permission + mapping role mặc định.
+
+Guard RBAC cho route nghiệp vụ đi qua `Access.can(permission[, facilityId])`; quyền quản trị hệ thống
+(role-bound) giữ ở `SecurityConfig` (`/api/admin/**` → `ADMIN`). Chi tiết từng route: [routes.md](routes.md).
 
 ## Cấu hình
 
@@ -61,8 +71,9 @@ Chạy local không cần export tay: `application.yml` có
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__baseline_seed.sql`.
-Bản đọc được mirror ở `backend/sql/` — sửa SQL thì sửa cả hai nơi (CI check đồng bộ).
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__baseline_seed.sql`,
+`V3__rbac_permissions_seed.sql`. V1/V2 có mirror ở `backend/sql/` — sửa thì sửa cả hai nơi
+(CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
 (chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
@@ -143,7 +154,8 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | Tài liệu | Nội dung |
 |---|---|
 | [authentication.md](authentication.md) | Mô hình xác thực: token, luồng request, giới hạn |
-| [authorization.md](authorization.md) | Mô hình phân quyền: authorities, policy route, điều kiện xác minh |
+| [authorization.md](authorization.md) | Mô hình phân quyền: authorities, ba kiểu ràng buộc, điều kiện xác minh |
+| [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |

@@ -1,3 +1,6 @@
+---
+purpose: Mô hình xác thực — JWT, vòng đời token, resolve account mỗi request.
+---
 # Authentication Model
 
 Mô hình xác thực của backend: stateless JWT + đọc DB mỗi request.
@@ -61,7 +64,8 @@ Jwt (claims: email, iss, exp…)
   ▼
 JwtAuthenticationToken → SecurityContext
   │
-  ▼ authorizeHttpRequests đối chiếu rule (bảng policy)
+  ▼ authorizeHttpRequests đối chiếu rule (policy khai báo trong `SecurityConfig`;
+       quyền từng route xem [routes.md](routes.md))
 ```
 
 Principal name = email của account trong DB. Snippet rút gọn:

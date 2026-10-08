@@ -1,7 +1,18 @@
+---
+purpose: Việc còn lại đã biết nhưng chưa có issue riêng — ghi để không quên.
+---
 # Follow-up
 
 Việc còn lại đã biết, chưa có issue riêng — ghi để không quên. Việc nào thành task chính thức
 thì mở issue theo workflow; file này không thay thế issue.
+
+## RBAC
+
+- Guard hiện gọi trực tiếp `Access.can(...)` ở controller. Cân nhắc chuyển sang annotation
+  (`@PreAuthorize` gọi bean, hoặc annotation riêng + interceptor) khi số endpoint tăng — lý do chưa
+  làm ghi ở `TODO(flow-5)` trong `identity/application/Access.java`.
+- Quản trị hệ thống (`/api/admin/**`) chưa có endpoint nào; permission catalog mở rộng dần theo
+  Flow 3–7 — xem [permission-catalog.md](permission-catalog.md).
 
 ## Notification
 

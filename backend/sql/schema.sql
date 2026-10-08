@@ -60,6 +60,8 @@ CREATE TABLE permissions (
 CREATE TABLE role_permissions (
     role_id       BIGINT NOT NULL REFERENCES roles (id),
     permission_id BIGINT NOT NULL REFERENCES permissions (id),
+    scope         VARCHAR(20) NOT NULL DEFAULT 'GLOBAL'
+                  CHECK (scope IN ('GLOBAL', 'FACILITY')),  -- GLOBAL: hành động toàn cục; FACILITY: bắt buộc facility_id + kiểm scope
     PRIMARY KEY (role_id, permission_id)
 );
 
