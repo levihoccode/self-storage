@@ -6,7 +6,7 @@ purpose: Việc còn lại đã biết nhưng chưa có issue riêng — ghi đ�
 Việc còn lại đã biết, chưa có issue riêng — ghi để không quên. Việc nào thành task chính thức
 thì mở issue theo workflow; file này không thay thế issue.
 
-## RBAC (A3b)
+## RBAC
 
 - Guard hiện gọi trực tiếp `Access.can(...)` ở controller. Cân nhắc chuyển sang annotation
   (`@PreAuthorize` gọi bean, hoặc annotation riêng + interceptor) khi số endpoint tăng — lý do chưa

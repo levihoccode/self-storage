@@ -18,7 +18,7 @@ import vn.lemar.selfstorage.identity.application.Access;
 import java.util.Map;
 
 /**
- * Endpoint DEMO để test Access.can(permission, facilityId) (A3b).
+ * Endpoint DEMO để test Access.can(permission, facilityId).
  *
  * <p>Cố tình KHÔNG đặt dưới /api/fm/**, /api/bom/**, /api/admin/**,
  * /api/staff/** — các prefix đó bị SecurityConfig chặn cứng theo role qua

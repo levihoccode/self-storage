@@ -23,7 +23,7 @@ Endpoint demo để kiểm tra RBAC và facility scope; không thực hiện ngh
 
 ## Ghi chú nghiệp vụ
 
-- Đây là endpoint demo phục vụ kiểm tra quyền A3b, không thay thế policy guard của các API nghiệp vụ.
+- Đây là endpoint demo phục vụ kiểm tra quyền, không thay thế policy guard của các API nghiệp vụ.
 
 ## Ví dụ
 

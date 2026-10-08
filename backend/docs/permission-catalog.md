@@ -41,7 +41,7 @@ Sắp theo code alphabet.
 | `appointment.checkin` | Xác nhận khách đã đến (Done) | | | | F | | §2.1 |
 | `appointment.create` | Chọn lịch check-in | | | | | own | §1.5 |
 | `appointment.read` | Xem lịch theo cơ sở / được gán | G | G | F | F | | §2.1 |
-| `facility.access` | Truy cập dữ liệu cơ sở (permission tạm cho endpoint demo A3b) | F | F | F | F | | #96 — `GET /api/facility-access/ping/{facilityId}` |
+| `facility.access` | Truy cập dữ liệu cơ sở (permission tạm cho endpoint demo) | F | F | F | F | | #96 — `GET /api/facility-access/ping/{facilityId}` |
 | `handover_record.inspect` | Ghi/xác nhận hiện trạng khoang | | | | F | own | §2.2 |
 | `handover_record.reject` | Từ chối khoang tại chỗ | | | | | own | §2.5 |
 | `handover_record.verify_identity` | Xác minh danh tính | | | | F | | §2.2 |

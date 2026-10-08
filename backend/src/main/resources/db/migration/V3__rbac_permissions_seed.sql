@@ -1,5 +1,5 @@
 -- ============================================================================
--- V3 — RBAC permission catalog + mapping mặc định cho 5 role (A3b, #57)
+-- V3 — RBAC permission catalog + mapping mặc định cho 5 role (#57)
 --
 -- Catalog: backend/docs/permission-catalog.md — sửa catalog thì sửa cả hai nơi.
 -- V3+ không mirror trong backend/sql/ (chỉ baseline V1/V2 có mirror).
@@ -13,7 +13,7 @@ INSERT INTO permissions (code, description) VALUES
     ('appointment.checkin',                         'Xác nhận khách đã đến (Done)'),
     ('appointment.create',                          'Chọn lịch check-in'),
     ('appointment.read',                            'Xem lịch hẹn theo cơ sở / được gán'),
-    ('facility.access',                             'Truy cập dữ liệu cơ sở (permission tạm cho endpoint demo A3b)'),
+    ('facility.access',                             'Truy cập dữ liệu cơ sở (permission tạm cho endpoint demo)'),
     ('handover_record.inspect',                     'Ghi/xác nhận hiện trạng khoang'),
     ('handover_record.reject',                      'Từ chối khoang tại chỗ'),
     ('handover_record.verify_identity',             'Xác minh danh tính khi bàn giao'),
