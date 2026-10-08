@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.lemar.selfstorage.ApiEnvelope;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
-import vn.lemar.selfstorage.identity.domain.RoleName;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.dto.CreateOtherRequest;
 import vn.lemar.selfstorage.notification.application.dto.NotificationDetailResponse;
@@ -126,7 +125,7 @@ public class NotificationController {
     @PostMapping
     public ResponseEntity<ApiEnvelope<NotificationDetailResponse>> createOther(
             @Valid @RequestBody CreateOtherRequest request) {
-        access.can(RoleName.ADMIN, RoleName.BOM);
+        access.can("notification.create_other");
         String recipientEmail = accountQueryService.requireEmailById(request.recipientAccountId());
         Notification notification = notificationService.createOther(
                 request.recipientAccountId(), recipientEmail, request.title(), request.body());

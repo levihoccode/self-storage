@@ -14,12 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.lemar.selfstorage.ApiEnvelope;
 import vn.lemar.selfstorage.ApiError;
 import vn.lemar.selfstorage.identity.application.Access;
-import vn.lemar.selfstorage.identity.domain.RoleName;
 
 import java.util.Map;
 
 /**
- * Endpoint DEMO để test Access.can()/canAccessFacility() (A3b).
+ * Endpoint DEMO để test Access.can(permission, facilityId) (A3b).
  *
  * <p>Cố tình KHÔNG đặt dưới /api/fm/**, /api/bom/**, /api/admin/**,
  * /api/staff/** — các prefix đó bị SecurityConfig chặn cứng theo role qua
@@ -28,7 +27,7 @@ import java.util.Map;
  * quyết định ai được/không. Endpoint này rơi vào rule tổng quát cuối của
  * SecurityConfig ("/api/**" -> hasAuthority(ACTIVE_ACCOUNT_AUTHORITY)):
  * chỉ cần account đã login + active, Access mới là nơi quyết định role nào
- * được, facility nào được — đúng đúng tinh thần "diem kiem quyen duy nhat".
+ * được, facility nào được — đúng tinh thần "điểm kiểm quyền duy nhất".
  */
 @RestController
 @RequestMapping("/api/facility-access")
@@ -54,8 +53,7 @@ public class PingFacilityController {
     public ResponseEntity<ApiEnvelope<Map<String, Object>>> pingFacility(
             @Parameter(description = "ID cơ sở cần kiểm tra quyền truy cập", required = true)
             @PathVariable Long facilityId) {
-        access.can(RoleName.ADMIN, RoleName.BOM, RoleName.FM, RoleName.FS);
-        access.canAccessFacility(facilityId);
+        access.can("facility.access", facilityId);
 
         return ResponseEntity.ok(ApiEnvelope.ok("pong", Map.of("facilityId", facilityId)));
     }

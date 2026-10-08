@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.identity;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,8 +24,8 @@ import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 /**
- * Phạm vi cơ sở theo spec: ADMIN/BOM toàn cục; FM theo facilities.fm_account_id;
- * FS theo account_facility_assignments. Dùng dữ liệu seed V2/V4:
+ * RBAC guard tích hợp (permission catalog V3 + facility scope theo spec): ADMIN/BOM toàn cục;
+ * FM theo facilities.fm_account_id; FS theo account_facility_assignments. Dùng dữ liệu seed:
  * fm1 -> Q7, fm2 -> TD, fs1 -> Q7.
  */
 @SpringBootTest
@@ -61,6 +63,10 @@ class AccessFacilityScopeTest {
 
     private long facilityId(String code) {
         return jdbc.queryForObject("select id from facilities where code = ?", Long.class, code);
+    }
+
+    private long accountId(String email) {
+        return jdbc.queryForObject("select id from accounts where email = ?", Long.class, email);
     }
 
     private String bearerOf(String email) {
@@ -110,5 +116,29 @@ class AccessFacilityScopeTest {
     void unauthenticatedRequestReturns401() throws Exception {
         mockMvc.perform(get(PING + q7))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void fmBlockedFromCreatingOtherNotification() throws Exception {
+        mockMvc.perform(post("/api/notifications")
+                        .header("Authorization", bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(otherBody()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void bomCreatesOtherNotification() throws Exception {
+        mockMvc.perform(post("/api/notifications")
+                        .header("Authorization", bearerOf("bom1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(otherBody()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.type").value("OTHER"));
+    }
+
+    private String otherBody() {
+        return "{\"recipientAccountId\":%d,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"
+                .formatted(accountId("customer1@lemar.vn"));
     }
 }

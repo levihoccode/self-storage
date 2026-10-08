@@ -25,7 +25,6 @@ import vn.lemar.selfstorage.SecurityConfig;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
-import vn.lemar.selfstorage.identity.domain.RoleName;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.domain.Account;
@@ -170,7 +169,7 @@ class NotificationControllerTest {
     @Test
     void createOtherIsForbiddenForCustomer() throws Exception {
         authenticate("customer@example.com", "CUSTOMER");
-        doThrow(new ForbiddenException()).when(access).can(RoleName.ADMIN, RoleName.BOM);
+        doThrow(new ForbiddenException()).when(access).can("notification.create_other");
 
         mockMvc.perform(post("/api/notifications")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com"))
@@ -195,7 +194,7 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.message").value("Tạo thông báo thành công"))
                 .andExpect(jsonPath("$.data.id").value(20))
                 .andExpect(jsonPath("$.data.type").value("OTHER"));
-        verify(access).can(RoleName.ADMIN, RoleName.BOM);
+        verify(access).can("notification.create_other");
     }
 
     @Test
@@ -211,7 +210,7 @@ class NotificationControllerTest {
                         .content("{\"recipientAccountId\":5,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.type").value("OTHER"));
-        verify(access).can(RoleName.ADMIN, RoleName.BOM);
+        verify(access).can("notification.create_other");
     }
 
     @Test

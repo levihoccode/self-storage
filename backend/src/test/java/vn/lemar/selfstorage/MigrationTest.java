@@ -80,6 +80,9 @@ class MigrationTest {
             assertThat(count(connection, "storage_units")).isEqualTo(8);
             assertThat(count(connection, "policies")).isEqualTo(6);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
+            // V3: permission catalog + mapping mặc định (A3b, #57).
+            assertThat(count(connection, "permissions")).isEqualTo(24);
+            assertThat(count(connection, "role_permissions")).isEqualTo(31);
 
             // #57: quan hệ FM–Facility 1–1 trên facilities.
             try (Statement statement = connection.createStatement();

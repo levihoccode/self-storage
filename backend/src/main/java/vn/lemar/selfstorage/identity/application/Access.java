@@ -1,7 +1,7 @@
 package vn.lemar.selfstorage.identity.application;
 
-import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -13,24 +13,25 @@ import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.RoleName;
 import vn.lemar.selfstorage.identity.repository.AccountFacilityAssignmentRepository;
+import vn.lemar.selfstorage.identity.repository.PermissionRepository;
 
 /**
- * Điểm kiểm quyền DUY NHẤT của hệ thống (issue #15 mục 7). Mọi nơi cần guard
- * (controller/service) chỉ gọi 2 hàm public ở đây. Flow 5 sau này chỉ đổi
- * ruột bên trong can()/canAccessFacility(), không đụng tới call site nào.
+ * Điểm kiểm quyền RBAC DUY NHẤT của hệ thống. Mọi guard gọi một trong hai overload; Flow 5 chỉ
+ * thay ruột bên trong, không đụng call site.
  *
- * <p>Cả 2 hàm đều @Transactional vì Account.role là LAZY fetch và
- * open-in-view=false: phải đọc role trong cùng 1 session với lúc load
- * account, nếu không sẽ gặp LazyInitializationException.
+ * <p>Permission code lấy từ catalog: backend/docs/permission-catalog.md — code dùng trong source
+ * phải có trong catalog trước.
  *
- * <p>Phạm vi cơ sở theo spec: ADMIN/BOM toàn cục; FM theo
- * facilities.fm_account_id; FS theo account_facility_assignments; các role
- * khác bị chặn. Caller vẫn nên gọi can() trước để kiểm role.
+ * <ul>
+ *   <li>{@code can(permission)} — hành động toàn cục.</li>
+ *   <li>{@code can(permission, facilityId)} — hành động theo cơ sở; facilityId bắt buộc.
+ *       ADMIN/BOM bỏ qua scope; FM kiểm facilities.fm_account_id; FS kiểm
+ *       account_facility_assignments.</li>
+ * </ul>
  *
- * <pre>
- *   access.can(RoleName.ADMIN, RoleName.BOM);
- *   access.canAccessFacility(facilityId);
- * </pre>
+ * <p>Cả hai hàm đều @Transactional vì Account.role là LAZY fetch và open-in-view=false: phải đọc
+ * role + permission trong cùng 1 session với lúc load account, nếu không sẽ gặp
+ * LazyInitializationException.
  */
 @Component
 public class Access {
@@ -43,48 +44,48 @@ public class Access {
 
     private final CurrentAccountProvider currentAccountProvider;
     private final AccountFacilityAssignmentRepository assignmentRepository;
+    private final PermissionRepository permissionRepository;
     private final FacilityAccess facilityAccess;
 
     public Access(CurrentAccountProvider currentAccountProvider,
                   AccountFacilityAssignmentRepository assignmentRepository,
+                  PermissionRepository permissionRepository,
                   FacilityAccess facilityAccess) {
         this.currentAccountProvider = currentAccountProvider;
         this.assignmentRepository = assignmentRepository;
+        this.permissionRepository = permissionRepository;
         this.facilityAccess = facilityAccess;
     }
 
-    /**
-     * Chặn nếu account hiện tại không có role nằm trong allowedRoles.
-     * Ném ForbiddenException (-> 403) nếu không hợp lệ.
-     */
+    /** Hành động toàn cục. Ném ForbiddenException (-> 403) nếu role không có permission. */
     @Transactional(readOnly = true)
-    public void can(RoleName... allowedRoles) {
-        Account account = currentAccountProvider.getCurrentAccount();
-        String currentRoleName = account.getRole().getName();
-
-        boolean allowed = Arrays.stream(allowedRoles)
-                .anyMatch(role -> role.name().equals(currentRoleName));
-
-        if (!allowed) {
-            throw new ForbiddenException();
-        }
+    public void can(String permissionCode) {
+        Objects.requireNonNull(permissionCode, "permissionCode");
+        check(permissionCode, null);
     }
 
     /**
-     * Chặn nếu account hiện tại không có quyền với facilityId này.
-     * ADMIN/BOM luôn được phép; FM kiểm qua facilities.fm_account_id;
-     * FS kiểm qua account_facility_assignments.
-     * Ném ForbiddenException (-> 403) nếu không hợp lệ.
+     * Hành động theo cơ sở: role phải có permission và facilityId phải thuộc phạm vi của account.
+     * facilityId bắt buộc — null là lỗi lập trình (NPE), không có nghĩa "bỏ scope".
      */
     @Transactional(readOnly = true)
-    public void canAccessFacility(Long facilityId) {
-        if (facilityId == null) {
-            throw new ForbiddenException("Không xác định được cơ sở cần truy cập");
+    public void can(String permissionCode, Long facilityId) {
+        Objects.requireNonNull(permissionCode, "permissionCode");
+        check(permissionCode, Objects.requireNonNull(facilityId, "facilityId bắt buộc cho hành động theo cơ sở"));
+    }
+
+    private void check(String permissionCode, Long facilityId) {
+        Account account = currentAccountProvider.getCurrentAccount();
+
+        if (!permissionRepository.roleHasPermission(account.getRole().getId(), permissionCode)) {
+            throw new ForbiddenException();
         }
 
-        Account account = currentAccountProvider.getCurrentAccount();
-        RoleName role = RoleName.valueOf(account.getRole().getName());
+        if (facilityId == null) {
+            return;
+        }
 
+        RoleName role = RoleName.valueOf(account.getRole().getName());
         if (GLOBAL_FACILITY_ROLES.contains(role)) {
             return;
         }
@@ -97,7 +98,8 @@ public class Access {
         };
 
         if (!allowed) {
-            LOG.warn("Account {} bị chặn truy cập facility {}", account.getId(), facilityId);
+            LOG.warn("Account {} bị chặn truy cập facility {} (permission {})",
+                    account.getId(), facilityId, permissionCode);
             throw new ForbiddenException("Bạn không được gán vào cơ sở này");
         }
     }
