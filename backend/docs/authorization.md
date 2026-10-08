@@ -24,7 +24,7 @@ Mỗi chức năng chọn đúng **một** trong ba model; mỗi model một cô
 | Model | Câu hỏi kiểm | Công cụ | Ví dụ |
 |---|---|---|---|
 | **Role-bound** | Chức năng thuộc về role nào? | Route namespace trong `SecurityConfig` (`/api/admin/**` → `hasRole("ADMIN")`) | Quản trị tài khoản / role / permission |
-| **Permission-bound** | Role này có capability X? | `Access.can(permission, facilityId)` + dữ liệu `role_permissions` | Duyệt yêu cầu; tạo notification `OTHER` |
+| **Permission-bound** | Role này có capability X? | `Access.can(permission[, facilityId])` + dữ liệu `role_permissions` | Duyệt yêu cầu; tạo notification `OTHER` |
 | **Ownership** | Actor có phải chủ tài nguyên? | Check ở service, không thuộc RBAC | Khách xem/hủy đơn của mình |
 
 Quy tắc chọn:
@@ -34,15 +34,47 @@ Quy tắc chọn:
 - Gán cho role khác **có thể có lý do nghiệp vụ** (FM/BOM cùng đọc, BOM tạo notification…) → permission.
 - Phụ thuộc vào **instance dữ liệu** → ownership.
 
-`can()` có hai dạng gọi — dạng gọi phải khớp `role_permissions.scope`, không có ngữ nghĩa “null = bỏ scope”:
+### Role-bound — guard ở route namespace
 
-- `can(permission)` — chỉ cho mapping scope `GLOBAL`.
-- `can(permission, facilityId)` — chỉ cho mapping scope `FACILITY`; `facilityId` bắt buộc;
-  facility phải tồn tại (`404`) trước khi kiểm scope; ADMIN/BOM bỏ qua scope; FM/FS kiểm
-  `fm_account_id` / `account_facility_assignments`.
-- Gọi sai dạng là lỗi lập trình (`IllegalStateException`), không âm thầm bỏ scope.
+Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard nằm **một chỗ duy nhất** ở
+`SecurityConfig`; controller/service không tự check role.
 
-Catalog và quy ước đặt code: [permission-catalog.md](permission-catalog.md).
+```java
+// SecurityConfig.java — ví dụ namespace quản trị hệ thống
+.requestMatchers("/api/admin/**").hasRole("ADMIN")
+```
+
+Thêm chức năng role-bound → đặt controller dưới namespace tương ứng; không tạo permission.
+
+### Permission-bound — guard ở method bằng `Access.can(...)`
+
+Capability gán được cho role qua dữ liệu `role_permissions`. Code phải có trong
+[permission-catalog.md](permission-catalog.md) **trước** khi wire; dạng gọi phải khớp `scope` của
+mapping — gọi sai dạng là lỗi lập trình (`IllegalStateException`), không âm thầm bỏ scope.
+
+```java
+// Global (scope GLOBAL) — NotificationController.java
+access.can("notification.create_other");    // 403 nếu role thiếu permission
+
+// Theo cơ sở (scope FACILITY) — PingFacilityController.java
+access.can("facility.access", facilityId);  // 403 thiếu permission → 404 facility không tồn tại → 403 ngoài scope
+```
+
+`facilityId` bắt buộc ở dạng 2 tham số; ADMIN/BOM bỏ qua scope, FM/FS kiểm
+`fm_account_id` / `account_facility_assignments`.
+
+### Ownership — guard ở service, không thuộc RBAC
+
+Quyền gắn với **instance dữ liệu**, không theo role → không tạo permission. Kiểm ở service;
+tài nguyên không thuộc actor trả `404` như "không tồn tại" (không lộ sự tồn tại).
+
+```java
+// NotificationService.java — chỉ trả notification của chính account
+public Notification getForAccount(Long accountId, Long notificationId) {
+    return notificationRepository.findByIdAndAccountId(notificationId, accountId)
+            .orElseThrow(NotificationNotFoundException::new);
+}
+```
 
 ## 401 vs 403
 
