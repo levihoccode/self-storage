@@ -23,8 +23,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import vn.lemar.selfstorage.SecurityConfig;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
+import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
+import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.domain.Role;
@@ -33,7 +35,9 @@ import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.exception.NotificationNotFoundException;
 import vn.lemar.selfstorage.notification.domain.Notification;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -57,6 +61,9 @@ class NotificationControllerTest {
 
     @MockBean
     private AccountQueryService accountQueryService;
+
+    @MockBean
+    private Access access;
 
     @MockBean
     private AccountRepository accountRepository;
@@ -162,13 +169,14 @@ class NotificationControllerTest {
     @Test
     void createOtherIsForbiddenForCustomer() throws Exception {
         authenticate("customer@example.com", "CUSTOMER");
+        doThrow(new ForbiddenException()).when(access).can("notification.create_other");
 
         mockMvc.perform(post("/api/notifications")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"recipientAccountId\":5,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Bạn không có quyền truy cập"));
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền thực hiện thao tác này"));
     }
 
     @Test
@@ -186,6 +194,23 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.message").value("Tạo thông báo thành công"))
                 .andExpect(jsonPath("$.data.id").value(20))
                 .andExpect(jsonPath("$.data.type").value("OTHER"));
+        verify(access).can("notification.create_other");
+    }
+
+    @Test
+    void createOtherIsAllowedForBom() throws Exception {
+        authenticate("bom@example.com", "BOM");
+        when(accountQueryService.requireEmailById(5L)).thenReturn("target@example.com");
+        when(notificationService.createOther(5L, "target@example.com", "Bảo trì", "Nội dung"))
+                .thenReturn(notification(20L, "OTHER"));
+
+        mockMvc.perform(post("/api/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("bom@example.com"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"recipientAccountId\":5,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.type").value("OTHER"));
+        verify(access).can("notification.create_other");
     }
 
     @Test

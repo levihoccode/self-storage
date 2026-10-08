@@ -1,3 +1,6 @@
+---
+purpose: Kiểm tra ứng dụng còn sống (endpoint hạ tầng).
+---
 # GET /api/health
 
 Endpoint hạ tầng (không thuộc module nghiệp vụ nào) để xác nhận ứng dụng chạy được.
