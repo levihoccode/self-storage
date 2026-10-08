@@ -1,3 +1,6 @@
+---
+purpose: Mô hình phân quyền — authorities, ba kiểu ràng buộc quyền, 401 vs 403; chi tiết từng route xem routes/.
+---
 # Authorization Model
 
 Phân quyền backend: **ai được làm gì** sau khi đã xác thực. Phần danh tính/token nằm ở
@@ -14,33 +17,30 @@ Phân quyền backend: **ai được làm gì** sau khi đã xác thực. Phần
 
 Account `BANNED` không được cấp authority nào → mọi route yêu cầu quyền đều 403.
 
-## Policy route (SecurityConfig)
+## Models — ba kiểu ràng buộc quyền
 
-| Route | Yêu cầu |
-|---|---|
-| `/api/health`, `/api/auth/**` (trừ `/me`) | public |
-| `/api/auth/me` | `ACCOUNT_ACTIVE` |
-| `/api/customer/**` | `ROLE_CUSTOMER` |
-| `/api/staff/**` | `ROLE_FS` |
-| `/api/fm/**` | `ROLE_FM` |
-| `/api/bom/**` | `ROLE_BOM` |
-| `/api/admin/**` | `ROLE_ADMIN` |
-| `/api/**` (còn lại) | `ACCOUNT_ACTIVE` |
+Mỗi chức năng chọn đúng **một** trong ba model; mỗi model một công cụ:
 
-`POST /api/notifications` đi qua policy `/api/**`; quyền tạo `OTHER` được kiểm tra tại method
-bằng `Access.can(RoleName.ADMIN, RoleName.BOM)`.
+| Model | Câu hỏi kiểm | Công cụ | Ví dụ |
+|---|---|---|---|
+| **Role-bound** | Chức năng thuộc về role nào? | Route namespace trong `SecurityConfig` (`/api/admin/**` → `hasRole("ADMIN")`) | Quản trị tài khoản / role / permission |
+| **Permission-bound** | Role này có capability X? | `Access.can(permission, facilityId)` + dữ liệu `role_permissions` | Duyệt yêu cầu; tạo notification `OTHER` |
+| **Ownership** | Actor có phải chủ tài nguyên? | Check ở service, không thuộc RBAC | Khách xem/hủy đơn của mình |
 
-## Guard tại method (A3b)
+Quy tắc chọn:
 
-Endpoint demo `/api/facility-access/ping/{facilityId}` đi qua policy `/api/**` ở trên,
-sau đó `Access` kiểm tra role và facility scope:
+- Gán cho role khác là **vô nghĩa hoặc nguy hiểm** (quản trị hệ thống, tự nâng quyền) → role-bound.
+  Không tạo permission; guard nằm một chỗ duy nhất ở `SecurityConfig`.
+- Gán cho role khác **có thể có lý do nghiệp vụ** (FM/BOM cùng đọc, BOM tạo notification…) → permission.
+- Phụ thuộc vào **instance dữ liệu** → ownership.
 
-| Role | Phạm vi được phép |
-|---|---|
-| `ADMIN`, `BOM` | Mọi facility |
-| `FM` | Facility có `fm_account_id` là account hiện tại |
-| `FS` | Facility có assignment của account hiện tại trong `account_facility_assignments` |
-| Role khác | Bị từ chối (`403`) |
+`can()` có hai dạng gọi — không có ngữ nghĩa “null = bỏ scope”:
+
+- `can(permission)` — hành động global.
+- `can(permission, facilityId)` — hành động theo cơ sở; `facilityId` bắt buộc (từ chối null).
+  ADMIN/BOM bỏ qua scope; FM/FS kiểm `fm_account_id` / `account_facility_assignments`.
+
+Catalog và quy ước đặt code: [permission-catalog.md](permission-catalog.md).
 
 ## 401 vs 403
 
@@ -51,8 +51,8 @@ tả lỗi token từ Spring. 403 có các message sau:
 |---|---|
 | Sai role cho route (SecurityConfig) | `"Bạn không có quyền truy cập"` |
 | Account `BANNED` | `"Tài khoản đã bị chặn"` |
-| Guard `Access.can()` sai role | `"Bạn không có quyền thực hiện thao tác này"` |
-| Guard `Access.canAccessFacility()` ngoài phạm vi cơ sở | `"Bạn không được gán vào cơ sở này"` |
+| `Access.can()` — role thiếu permission | `"Bạn không có quyền thực hiện thao tác này"` |
+| `Access.can(permission, facilityId)` — ngoài phạm vi cơ sở | `"Bạn không được gán vào cơ sở này"` |
 
 Chi tiết: [error-handling.md](error-handling.md).
 
@@ -67,4 +67,5 @@ Chi tiết: [error-handling.md](error-handling.md).
 
 ## Chưa có
 
-- Permission-based (role → permissions): mới có schema, chưa code nào đọc.
+- UI quản trị gán permission cho role (Flow 5): mapping hiện sửa qua seed/SQL.
+- Phần lớn namespace role-bound (`/api/fm/**`, `/api/bom/**`…) chưa có endpoint nghiệp vụ nào.

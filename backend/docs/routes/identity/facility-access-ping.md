@@ -1,15 +1,21 @@
+---
+auth-model: permission-bound
+purpose: Endpoint demo kiểm tra RBAC + facility scope qua Access.can().
+---
 # GET /api/facility-access/ping/{facilityId}
 
 Endpoint demo để kiểm tra RBAC và facility scope; không thực hiện nghiệp vụ lưu trữ.
 
-- **Actor / quyền:** bearer token + authority `ACCOUNT_ACTIVE`; `Access` chỉ cho phép ADMIN, BOM, FM hoặc FS và kiểm tra facility scope tương ứng.
+- **Actor / quyền:** bearer token + authority `ACCOUNT_ACTIVE`; `Access.can("facility.access", facilityId)`
+  kiểm tra permission + facility scope ([catalog](../../permission-catalog.md)).
 - **Contract chi tiết:** annotation tại `identity/controller/PingFacilityController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html` (bấm **Authorize** và dán JWT).
 
 ## Luồng / hành vi
 
 - Security yêu cầu request đã xác thực và account đang hoạt động.
-- `Access.can()` kiểm tra role; `Access.canAccessFacility()` kiểm tra quyền với `facilityId`.
+- `Access.can(permission, facilityId)` kiểm tra role có `facility.access` không, rồi mới kiểm
+  facility scope (ADMIN/BOM toàn cục; FM theo `fm_account_id`; FS theo assignment).
 - Request hợp lệ trả success envelope `{message, data}`, trong đó `message` là `pong` và
   `data.facilityId` là ID cơ sở đã kiểm tra; role không được phép hoặc truy cập chéo cơ sở bị từ chối.
 

@@ -1,8 +1,13 @@
+---
+auth-model: permission-bound
+purpose: Tạo thông báo OTHER thủ công cho một account (ADMIN/BOM).
+---
 # POST /api/notifications
 
 Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account.
 
-- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE`; `Access.can(RoleName.ADMIN, RoleName.BOM)` kiểm tra role tại method.
+- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE`; `Access.can("notification.create_other")` kiểm
+  tra permission qua `role_permissions` (ADMIN, BOM) — [catalog](../../permission-catalog.md).
 - **Contract chi tiết:** annotation tại `notification/controller/NotificationController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 

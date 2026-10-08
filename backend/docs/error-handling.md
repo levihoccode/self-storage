@@ -1,3 +1,6 @@
+---
+purpose: Cách backend xử lý lỗi và format response lỗi — envelope, các tầng bắt lỗi, bảng status nền.
+---
 # Error Handling
 
 Cách backend xử lý lỗi và format response lỗi — trạng thái hiện tại (as-built).

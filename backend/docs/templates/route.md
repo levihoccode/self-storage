@@ -1,11 +1,18 @@
 <!--
 Template tài liệu route. Cách dùng:
 1. Copy file này thành routes/<nhóm>/<tên>.md — ví dụ routes/auth/login.md.
-2. Điền các mục bên dưới, xoá các comment hướng dẫn.
+2. Điền frontmatter + các mục bên dưới, xoá các comment hướng dẫn.
+   - `purpose` (bắt buộc): 1 câu, đọc file này để biết gì.
+   - `auth-model` (bỏ trống nếu route public hoặc chỉ cần đăng nhập): role-bound | permission-bound | ownership.
 3. Thêm một dòng vào routes.md: method, path, quyền, mô tả, link.
 4. Contract chi tiết (field, status code, message, ví dụ body) nằm ở annotation Swagger trong code —
    KHÔNG chép lại vào đây. Ví dụ curl trong tài liệu phải là output THẬT, không chế.
 -->
+
+---
+auth-model: <role-bound | permission-bound | ownership>
+purpose: <một câu mô tả route làm gì, dùng trong tình huống nào.>
+---
 
 # <METHOD> /<path>
 

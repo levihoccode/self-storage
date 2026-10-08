@@ -1,3 +1,7 @@
+---
+auth-model: ownership
+purpose: Đánh dấu tất cả thông báo của account hiện tại là đã đọc.
+---
 # PATCH /api/notifications/read-all
 
 Đánh dấu tất cả thông báo chưa đọc của account hiện tại là đã đọc — nút [Đánh dấu đã đọc tất cả].

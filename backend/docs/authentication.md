@@ -1,3 +1,6 @@
+---
+purpose: Mô hình xác thực — JWT, vòng đời token, resolve account mỗi request.
+---
 # Authentication Model
 
 Mô hình xác thực của backend: stateless JWT + đọc DB mỗi request.

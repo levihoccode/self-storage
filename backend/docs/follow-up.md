@@ -1,3 +1,6 @@
+---
+purpose: Việc còn lại đã biết nhưng chưa có issue riêng — ghi để không quên.
+---
 # Follow-up
 
 Việc còn lại đã biết, chưa có issue riêng — ghi để không quên. Việc nào thành task chính thức
