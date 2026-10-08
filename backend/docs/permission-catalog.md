@@ -23,9 +23,10 @@ Mô hình guard: [authorization.md › Models](authorization.md#models).
 
 ## Cách đọc bảng
 
-- `G` — role dùng permission ở phạm vi toàn cục; call site gọi `can(permission)`.
-- `F` — role dùng ở phạm vi cơ sở; call site gọi `can(permission, facilityId)` với `facilityId`
-  bắt buộc. ADMIN/BOM luôn bỏ qua scope; FM/FS kiểm `fm_account_id` / `account_facility_assignments`.
+- `G`/`F` là `scope` lưu ở `role_permissions.scope` — `G` = `GLOBAL`, `F` = `FACILITY`.
+- `G` — call site gọi `can(permission)`.
+- `F` — call site gọi `can(permission, facilityId)` với `facilityId` bắt buộc. ADMIN/BOM luôn bỏ qua scope; FM/FS kiểm `fm_account_id` / `account_facility_assignments`.
+- Gọi sai dạng (1 tham số cho mapping `F`, 2 tham số cho mapping `G`) là **lỗi lập trình** — `Access` ném `IllegalStateException`, không âm thầm bỏ scope.
 - `own` — ownership, **không seed** vào `role_permissions`; service kiểm chủ tài nguyên.
 - Ô trống — role không có quyền (403).
 - Mỗi ô `G`/`F` = một dòng `role_permissions` khi seed.

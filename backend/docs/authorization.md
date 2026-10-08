@@ -34,11 +34,12 @@ Quy tắc chọn:
 - Gán cho role khác **có thể có lý do nghiệp vụ** (FM/BOM cùng đọc, BOM tạo notification…) → permission.
 - Phụ thuộc vào **instance dữ liệu** → ownership.
 
-`can()` có hai dạng gọi — không có ngữ nghĩa “null = bỏ scope”:
+`can()` có hai dạng gọi — dạng gọi phải khớp `role_permissions.scope`, không có ngữ nghĩa “null = bỏ scope”:
 
-- `can(permission)` — hành động global.
-- `can(permission, facilityId)` — hành động theo cơ sở; `facilityId` bắt buộc (từ chối null).
+- `can(permission)` — chỉ cho mapping scope `GLOBAL`.
+- `can(permission, facilityId)` — chỉ cho mapping scope `FACILITY`; `facilityId` bắt buộc.
   ADMIN/BOM bỏ qua scope; FM/FS kiểm `fm_account_id` / `account_facility_assignments`.
+- Gọi sai dạng là lỗi lập trình (`IllegalStateException`), không âm thầm bỏ scope.
 
 Catalog và quy ước đặt code: [permission-catalog.md](permission-catalog.md).
 
