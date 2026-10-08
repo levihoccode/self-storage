@@ -39,12 +39,19 @@ Quy tắc chọn:
 Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard nằm **một chỗ duy nhất** ở
 `SecurityConfig`; controller/service không tự check role.
 
-```java
-// SecurityConfig.java — ví dụ namespace quản trị hệ thống
-.requestMatchers("/api/admin/**").hasRole("ADMIN")
-```
+| Route | Guard | Dùng cho |
+|---|---|---|
+| `/api/customer/**` | `hasRole("CUSTOMER")` | API của khách |
+| `/api/staff/**` | `hasRole("FS")` | API của FS |
+| `/api/fm/**` | `hasRole("FM")` | API của FM |
+| `/api/bom/**` | `hasRole("BOM")` | API của BOM |
+| `/api/admin/**` | `hasRole("ADMIN")` | Quản trị hệ thống |
+| `/api/**` (còn lại) | `ACCOUNT_ACTIVE` | Route permission-bound / ownership — guard ở method/service |
+| `/api/health`, `/api/auth/**`, `/swagger-ui/**`, `/v3/api-docs/**` | `permitAll` | Public (`/api/auth/me` khớp rule riêng trước, vẫn cần token) |
 
-Thêm chức năng role-bound → đặt controller dưới namespace tương ứng; không tạo permission.
+Quy tắc đặt route: dùng role-bound → đặt controller dưới prefix của role; không dùng role-bound
+(permission-bound / ownership) → để trong `/api/**` chung, guard ở method/service — **không** tự
+thêm `hasRole` cho route mới.
 
 ### Permission-bound — guard ở method bằng `Access.can(...)`
 
