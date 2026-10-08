@@ -32,7 +32,8 @@
 - Unique `(role_id, permission_id)`.
 
 **NOTES:**
-- Catalog permission cụ thể và mapping mặc định cho 5 role chưa chốt (thuộc Flow 5.0); không hard-code trong source code. Khi chốt thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+- Catalog khởi điểm + mapping mặc định cho 5 role đã chốt tại spec-gap #57 (2026-10-08) — nguồn: `backend/docs/permission-catalog.md`; seed `V3__rbac_permissions_seed.sql`. Mở rộng dần khi Flow 3–7 chốt; không hard-code mapping trong source code, thêm quyền mới thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+- Quản trị hệ thống (`account`/`role`/`permission`) là role-bound qua namespace route, không tạo permission — tránh tự nâng quyền qua dữ liệu mapping.
 # Facility
 - id
 - code (unique)
