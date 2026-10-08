@@ -10,9 +10,10 @@ import {
   notificationPath,
   useUnreadNotificationCount,
   type NotificationGroup,
-  type NotificationItem,
+  type NotificationSummary,
 } from "../app/notifications";
 import type { Navigate } from "../app/types";
+import { NotificationDetailDialog } from "../components/domain/NotificationDetailDialog";
 import { Button } from "../components/ui/Button";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
@@ -35,10 +36,11 @@ const GROUP_ICON_CLASS: Record<NotificationGroup, string> = {
 };
 
 export function NotificationsPage({ navigate }: { navigate: Navigate }) {
-  const [items, setItems] = useState<NotificationItem[] | null>(null);
+  const [items, setItems] = useState<NotificationSummary[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<NotificationSummary | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -129,7 +131,7 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
   const list = items ?? [];
   const unreadOnly = readFilter === "unread";
 
-  async function openNotification(notification: NotificationItem) {
+  async function openNotification(notification: NotificationSummary) {
     setActionError(null);
     try {
       await markNotificationRead(notification.id);
@@ -144,8 +146,7 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
     } catch {
       setActionError("Không đánh dấu đã đọc được — thử lại sau.");
     }
-    const path = notificationPath(notification, role);
-    if (path) navigate(path);
+    setDetail(notification);
   }
 
   async function markAllRead() {
@@ -262,9 +263,6 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
                       </p>
                       {!isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />}
                     </div>
-                    <p className="mb-0 mt-1.5 text-[13px] leading-[1.5] text-muted">
-                      {notification.body}
-                    </p>
                     <p className="mb-0 mt-2 font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
                       {formatNotificationTime(notification.createdAt)}
                     </p>
@@ -281,6 +279,18 @@ export function NotificationsPage({ navigate }: { navigate: Navigate }) {
             </div>
           )}
         </>
+      )}
+
+      {detail && (
+        <NotificationDetailDialog
+          notification={detail}
+          path={notificationPath(detail, role)}
+          onClose={() => setDetail(null)}
+          onNavigate={(path) => {
+            setDetail(null);
+            navigate(path);
+          }}
+        />
       )}
     </main>
   );

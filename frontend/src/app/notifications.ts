@@ -14,8 +14,8 @@ export type NotificationItem = {
   orderId: number | null;
 };
 
-/** Summary từ BE cố ý không có `body`; FE lấy detail để đủ dữ liệu hiển thị. */
-type NotificationSummary = Omit<NotificationItem, "body">;
+/** Summary từ BE không có `body`; dialog chi tiết lấy `body` qua `fetchNotificationDetail`. */
+export type NotificationSummary = Omit<NotificationItem, "body">;
 
 const GROUP_BY_TYPE: Record<string, NotificationGroup> = {
   PROPOSAL_REJECTED: "approval",
@@ -94,43 +94,33 @@ function accessToken(): string | undefined {
 /**
  * Summary cho dropdown chuông — 1 request, chỉ title/thời gian (không cần body).
  */
-export async function fetchNotificationSummaries(size: number): Promise<NotificationItem[]> {
-  const summaries = await apiRequest<NotificationSummary[]>(
-    `/api/notifications?page=0&size=${size}`,
-    {
-      accessToken: accessToken(),
-    },
-  );
-  return summaries.map((summary) => ({ ...summary, body: "" }));
+export async function fetchNotificationSummaries(size: number): Promise<NotificationSummary[]> {
+  return apiRequest<NotificationSummary[]>(`/api/notifications?page=0&size=${size}`, {
+    accessToken: accessToken(),
+  });
 }
 
 /**
- * Một trang danh sách cho trang đầy đủ: lấy summary rồi bù `body` bằng detail
- * từng item. BE cố ý bỏ `body` khỏi summary; FE spec (`fe-pages/shared/03`) yêu
- * cầu item hiển thị nội dung — N+1 trong phạm vi 1 trang, đề xuất BE thêm `body`
- * vào summary hoặc endpoint bulk.
+ * Một trang danh sách: chỉ summary (title/thời gian). `body` chỉ lấy khi mở dialog
+ * chi tiết — không fetch detail từng item (hết N+1).
  */
 export async function fetchNotificationPage(
   page: number,
   size: number,
   isRead?: boolean,
-): Promise<NotificationItem[]> {
+): Promise<NotificationSummary[]> {
   const readParam = isRead === undefined ? "" : `&is_read=${isRead}`;
-  const summaries = await apiRequest<NotificationSummary[]>(
+  return apiRequest<NotificationSummary[]>(
     `/api/notifications?page=${page}&size=${size}${readParam}`,
     { accessToken: accessToken() },
   );
-  return Promise.all(
-    summaries.map(async (summary) => {
-      try {
-        return await apiRequest<NotificationItem>(`/api/notifications/${summary.id}`, {
-          accessToken: accessToken(),
-        });
-      } catch {
-        return { ...summary, body: "" };
-      }
-    }),
-  );
+}
+
+/** Chi tiết 1 thông báo (đủ `body`) — gọi khi mở dialog chi tiết. */
+export async function fetchNotificationDetail(id: number): Promise<NotificationItem> {
+  return apiRequest<NotificationItem>(`/api/notifications/${id}`, {
+    accessToken: accessToken(),
+  });
 }
 
 export async function markNotificationRead(id: number): Promise<void> {

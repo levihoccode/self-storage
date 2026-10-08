@@ -7,8 +7,9 @@ import {
   markNotificationRead,
   notificationPath,
   useUnreadNotificationCount,
-  type NotificationItem,
+  type NotificationSummary,
 } from "../../app/notifications";
+import { NotificationDetailDialog } from "./NotificationDetailDialog";
 
 const DROPDOWN_ITEM_LIMIT = 6;
 
@@ -18,11 +19,13 @@ const DROPDOWN_ITEM_LIMIT = 6;
  *
  * Panel neo vào mép phải nội dung header (không dính theo vị trí chuông) để
  * không tràn viewport ở width hẹp; animation chảy ra từ đúng vị trí chuông.
+ * Bấm item → mark read + mở dialog chi tiết (body lấy khi mở).
  */
 export function NotificationBell({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ x: number; inset: number } | null>(null);
-  const [items, setItems] = useState<NotificationItem[] | null>(null);
+  const [items, setItems] = useState<NotificationSummary[] | null>(null);
+  const [detail, setDetail] = useState<NotificationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,12 +85,12 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
     void loadItems();
   }
 
-  async function openNotification(notification: NotificationItem) {
+  async function openNotification(notification: NotificationSummary) {
     setOpen(false);
     try {
       await markNotificationRead(notification.id);
     } catch {
-      // Không chặn điều hướng; badge sẽ được làm mới ở lần mở sau.
+      // Không chặn mở chi tiết; badge sẽ được làm mới ở lần mở sau.
     }
     setItems(
       (current) =>
@@ -95,8 +98,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
           item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item,
         ) ?? current,
     );
-    const path = notificationPath(notification, role);
-    if (path) onNavigate(path);
+    setDetail(notification);
   }
 
   const latest = (items ?? []).slice(0, DROPDOWN_ITEM_LIMIT);
@@ -157,11 +159,6 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
                     <span className="block text-[12px] font-bold text-ink">
                       {notification.title}
                     </span>
-                    {notification.body && (
-                      <span className="mt-0.5 block text-[11px] leading-normal text-muted">
-                        {notification.body}
-                      </span>
-                    )}
                     <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
                       {formatNotificationTime(notification.createdAt)}
                     </span>
@@ -181,6 +178,17 @@ export function NotificationBell({ onNavigate }: { onNavigate: (path: string) =>
             Xem tất cả
           </button>
         </div>
+      )}
+      {detail && (
+        <NotificationDetailDialog
+          notification={detail}
+          path={notificationPath(detail, role)}
+          onClose={() => setDetail(null)}
+          onNavigate={(path) => {
+            setDetail(null);
+            onNavigate(path);
+          }}
+        />
       )}
     </div>
   );

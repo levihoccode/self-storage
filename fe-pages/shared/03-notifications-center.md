@@ -10,21 +10,22 @@ Hiển thị thông báo web cho user — duyệt/từ chối yêu cầu, hóa �
 ## Navigation
 
 - **Vào từ:** notification bell trong shell hoặc deep link `/notifications`.
-- **Đi tới:** theo `orderId` khi có (mở trang đơn tương ứng theo role), còn lại theo `type`; giữ filter khi mark read nếu có thể.
+- **Đi tới:** từ **dialog chi tiết** theo `orderId` khi có (mở trang đơn tương ứng theo role), còn lại theo `type`; giữ filter khi mark read nếu có thể.
 
 ## Dữ liệu hiển thị
 - Danh sách `Notification WHERE account_id = current_user`, sort `created_at desc` — mọi bản ghi đều là thông báo web (email chỉ gửi đi, không lưu)
-- Mỗi item: `type`, `title`, `readAt`, `createdAt`, `orderId` (nullable — có khi thông báo gắn đơn hàng); `body` chỉ có ở API chi tiết
+- Mỗi item trong danh sách: `type`, `title`, `readAt`, `createdAt`, `orderId` (nullable — có khi thông báo gắn đơn hàng) — **không hiển thị `body`**; `body` đầy đủ chỉ có ở dialog chi tiết (`GET /api/notifications/{id}`, gọi khi mở)
 - Badge số lượng chưa đọc trên icon chuông (`GET /api/notifications/unread-count`)
 
 ## Actions
-- Bấm vào 1 thông báo → `PATCH /api/notifications/{id}/read`, điều hướng theo `orderId` khi có (mở trang đơn), còn lại dựa vào `type`/role
+- Bấm vào 1 thông báo → `PATCH /api/notifications/{id}/read` + mở **dialog chi tiết** (gọi `GET /api/notifications/{id}` để lấy `body`). Dialog có nút điều hướng theo `orderId` khi có (mở trang đơn), còn lại dựa vào `type`/role; item không map được thì chỉ mark read + xem nội dung.
 - [Đánh dấu đã đọc tất cả]
 
 ## States / UI trạng thái
 - Dropdown rút gọn (5-10 item gần nhất) trên header + trang đầy đủ có phân trang
 - Phân trang bằng `page`/`size` (mặc định 20, tối đa 100); API trả mảng không kèm `total` — FE tải thêm tới khi trang rỗng
 - Empty state: chưa có thông báo nào
+- Dialog chi tiết: loading khi tải `body`, lỗi có nút thử lại; nút điều hướng chỉ hiện khi map được path
 - Realtime: MVP dùng polling `GET /api/notifications/unread-count` cho badge (chưa có WebSocket)
 
 ## API liên quan
