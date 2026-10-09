@@ -13,8 +13,8 @@ export function VerifyPanel({ navigate }: { navigate: Navigate }) {
         <span>của bạn nhé.</span>
       </h1>
       <p>
-        Mở liên kết trong email để hoàn tất đăng ký. Sau khi xác minh, khách hàng có thể đăng nhập và tiếp tục
-        vào kho của mình.
+        Mở liên kết trong email để hoàn tất đăng ký. Sau khi xác minh, khách hàng có thể đăng nhập
+        và tiếp tục vào kho của mình.
       </p>
       <div className="verify-actions">
         <button className="button button-primary" onClick={() => navigate("/login")}>

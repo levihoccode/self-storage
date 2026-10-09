@@ -11,7 +11,11 @@ export function PublicFooter({ navigate }: { navigate: Navigate }) {
             <p>Gửi nhu cầu lưu trữ khi bạn đã sẵn sàng.</p>
           </div>
 
-          <button type="button" className="footer-cta-button" onClick={() => navigate("/rental-requests/new")}>
+          <button
+            type="button"
+            className="footer-cta-button"
+            onClick={() => navigate("/rental-requests/new")}
+          >
             Gửi nhu cầu lưu trữ <span aria-hidden="true">→</span>
           </button>
         </div>
@@ -31,9 +35,13 @@ export function PublicFooter({ navigate }: { navigate: Navigate }) {
           <div className="footer-link-groups">
             <div className="footer-link-group">
               <strong>Khám phá</strong>
-              <button type="button" onClick={() => navigate("/units")}>Phương án kho</button>
+              <button type="button" onClick={() => navigate("/units")}>
+                Phương án kho
+              </button>
               <a href="/#how-it-works">Quy trình</a>
-              <button type="button" onClick={() => navigate("/rental-requests/new")}>Gửi nhu cầu</button>
+              <button type="button" onClick={() => navigate("/rental-requests/new")}>
+                Gửi nhu cầu
+              </button>
             </div>
 
             <div className="footer-link-group">

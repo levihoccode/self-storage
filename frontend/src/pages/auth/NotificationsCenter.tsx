@@ -30,7 +30,8 @@ const initialNotifications: NotificationItem[] = [
     id: "nt-101",
     type: "RentalRequest.Approved",
     title: "Yêu cầu lưu trữ đã được duyệt",
-    content: "Yêu cầu kho Q7 của bạn đã được FM phê duyệt. Bạn có thể xem chi tiết và tiếp tục quy trình thanh toán.",
+    content:
+      "Yêu cầu kho Q7 của bạn đã được FM phê duyệt. Bạn có thể xem chi tiết và tiếp tục quy trình thanh toán.",
     isRead: false,
     time: "5 phút trước",
     group: "approval",
@@ -40,7 +41,8 @@ const initialNotifications: NotificationItem[] = [
     id: "nt-102",
     type: "Invoice.DueSoon",
     title: "Hóa đơn cần thanh toán",
-    content: "Hóa đơn cọc số INV-2048 sắp đến hạn thanh toán trong 48 giờ. Vui lòng kiểm tra để tránh giãn tiến độ.",
+    content:
+      "Hóa đơn cọc số INV-2048 sắp đến hạn thanh toán trong 48 giờ. Vui lòng kiểm tra để tránh giãn tiến độ.",
     isRead: false,
     time: "2 giờ trước",
     group: "invoice",
@@ -50,7 +52,8 @@ const initialNotifications: NotificationItem[] = [
     id: "nt-103",
     type: "Schedule.Assigned",
     title: "Bạn được phân công hỗ trợ kiểm tra kho",
-    content: "FS đã được giao lịch kiểm tra kho tại Q9 vào ngày mai 08:30. Vui lòng xác nhận tham gia.",
+    content:
+      "FS đã được giao lịch kiểm tra kho tại Q9 vào ngày mai 08:30. Vui lòng xác nhận tham gia.",
     isRead: true,
     time: "Hôm qua",
     group: "schedule",
@@ -60,7 +63,8 @@ const initialNotifications: NotificationItem[] = [
     id: "nt-104",
     type: "Contract.Expiring",
     title: "Hợp đồng sắp hết hạn",
-    content: "Hợp đồng lưu trữ của bạn sẽ hết hiệu lực trong 7 ngày. Hãy xem lại thời gian gia hạn phù hợp.",
+    content:
+      "Hợp đồng lưu trữ của bạn sẽ hết hiệu lực trong 7 ngày. Hãy xem lại thời gian gia hạn phù hợp.",
     isRead: true,
     time: "2 ngày trước",
     group: "warning",
@@ -80,9 +84,7 @@ export function NotificationsCenter({ navigate }: { navigate: Navigate }) {
   const [filter, setFilter] = useState<NotificationGroup>("all");
 
   const filteredNotifications = useMemo(() => {
-    return filter === "all"
-      ? notifications
-      : notifications.filter((item) => item.group === filter);
+    return filter === "all" ? notifications : notifications.filter((item) => item.group === filter);
   }, [filter, notifications]);
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
@@ -112,7 +114,8 @@ export function NotificationsCenter({ navigate }: { navigate: Navigate }) {
               Notifications <span>center.</span>
             </h1>
             <p>
-              Theo dõi thông báo về yêu cầu, hóa đơn, lịch làm việc và các cảnh báo quan trọng của hệ thống.
+              Theo dõi thông báo về yêu cầu, hóa đơn, lịch làm việc và các cảnh báo quan trọng của
+              hệ thống.
             </p>
           </div>
           <div className="notifications-badge-wrap">
@@ -127,16 +130,18 @@ export function NotificationsCenter({ navigate }: { navigate: Navigate }) {
       <section className="container notifications-content">
         <div className="notifications-toolbar">
           <div className="notifications-filters" aria-label="Bộ lọc thông báo">
-            {(["all", "approval", "invoice", "schedule", "warning"] as NotificationGroup[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`filter-chip ${filter === option ? "is-active" : ""}`}
-                onClick={() => setFilter(option)}
-              >
-                {option === "all" ? "Tất cả" : groupMeta[option].label}
-              </button>
-            ))}
+            {(["all", "approval", "invoice", "schedule", "warning"] as NotificationGroup[]).map(
+              (option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`filter-chip ${filter === option ? "is-active" : ""}`}
+                  onClick={() => setFilter(option)}
+                >
+                  {option === "all" ? "Tất cả" : groupMeta[option].label}
+                </button>
+              ),
+            )}
           </div>
 
           <button type="button" className="button button-secondary" onClick={markAllRead}>
