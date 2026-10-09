@@ -1,3 +1,6 @@
+---
+purpose: Trả email + role của account đang đăng nhập (xác minh session).
+---
 # GET /api/auth/me
 
 Xác minh session hiện tại là ai — FE dùng sau login để biết email + role.

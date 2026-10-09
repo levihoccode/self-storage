@@ -1,3 +1,7 @@
+---
+auth-model: ownership
+purpose: Chi tiết một thông báo của chủ tài nguyên (gồm body).
+---
 # GET /api/notifications/{notificationId}
 
 Chi tiết một thông báo của account đang đăng nhập — gồm đầy đủ `body`.

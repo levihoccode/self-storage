@@ -1,3 +1,7 @@
+---
+auth-model: ownership
+purpose: Số thông báo chưa đọc của account đang đăng nhập (badge chuông).
+---
 # GET /api/notifications/unread-count
 
 Số thông báo chưa đọc của account đang đăng nhập — cho badge trên chuông.

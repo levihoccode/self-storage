@@ -1,3 +1,7 @@
+---
+auth-model: ownership
+purpose: Đánh dấu một thông báo của chủ tài nguyên là đã đọc.
+---
 # PATCH /api/notifications/{notificationId}/read
 
 Đánh dấu một thông báo là đã đọc — FE gọi khi user bấm vào item.
