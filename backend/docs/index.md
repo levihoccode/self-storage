@@ -64,10 +64,18 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `JWT_SECRET` | Khóa ký JWT, Base64, ≥ 32 byte sau decode | — (bắt buộc) |
 | `JWT_ACCESS_TOKEN_TTL` | TTL access token (ISO-8601 duration) | `PT15M` |
 | `BCRYPT_STRENGTH` | Bcrypt cost (log2 rounds), OWASP khuyến nghị ≥ 10 | `10` |
+| `VNPAY_TMN_CODE` | Mã website đăng ký trên VNPay | — (bắt buộc) |
+| `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
+| `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
+| `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
 
 Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
 Đường dẫn `../.env` tính theo working directory (đúng khi chạy từ `backend/`).
+
+Bốn biến `VNPAY_*` để `@NotBlank`: thiếu là **app chết ngay lúc khởi động**, có chủ đích — thà
+chết lúc boot còn hơn NPE giữa luồng thu tiền. Credential sandbox mỗi người tự đăng ký riêng,
+hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 

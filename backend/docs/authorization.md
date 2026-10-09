@@ -48,10 +48,19 @@ Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard n�
 | `/api/admin/**` | `hasRole("ADMIN")` | Quản trị hệ thống |
 | `/api/**` (còn lại) | `ACCOUNT_ACTIVE` | Route permission-bound / ownership — guard ở method/service |
 | `/api/health`, `/api/auth/**`, `/swagger-ui/**`, `/v3/api-docs/**` | `permitAll` | Public (`/api/auth/me` khớp rule riêng trước, vẫn cần token) |
+| `/api/payments/vnpay/**` | `permitAll` | Callback của VNPay — xem ghi chú bên dưới |
 
 Quy tắc đặt route: dùng role-bound → đặt controller dưới prefix của role; không dùng role-bound
 (permission-bound / ownership) → để trong `/api/**` chung, guard ở method/service — **không** tự
 thêm `hasRole` cho route mới.
+
+`/api/payments/vnpay/**` buộc phải public: server VNPay gọi IPN và **không có JWT**, còn Return URL
+là redirect trình duyệt nên cũng không mang `Authorization`. Hai route này không dùng token mà xác
+thực bằng **chữ ký HMAC-SHA512** trong `vnp_SecureHash`; sai chữ ký thì IPN trả `97` và không ghi
+gì. Return URL thì không ghi dữ liệu trong mọi trường hợp.
+
+Matcher phải đứng **trước** dòng vét `/api/**`, nếu không VNPay nhận 401 và toàn bộ luồng thu tiền
+chết. `SecurityConfigTest` có hai case chốt chặn điều này.
 
 ### Permission-bound — guard ở method bằng `Access.can(...)`
 
