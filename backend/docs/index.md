@@ -100,7 +100,8 @@ Chi tiết: `backend/sql/README.md`.
     email mất, không dấu vết. Gửi lỗi trả `false` và không thử lại.
   - Gửi đồng bộ trên thread caller, kể cả nhánh afterCommit — SMTP chậm làm chậm response.
     Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker, cần đổi spec trước.
-  - Layout HTML là mẫu cố định dùng chung, chưa có template theo `type` của notification.
+  - Layout HTML là mẫu cố định dùng chung; nội dung theo `(type, recipient)` do
+    `NotificationTemplateCatalog` render (placeholder `{{key}}`).
 - Việc còn lại của module (caller nghiệp vụ, cron dedup, pagination): [follow-up.md](follow-up.md).
 
 ## Chạy & kiểm thử

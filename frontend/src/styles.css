@@ -195,6 +195,19 @@ select option:checked {
     transform: rotate(0) scale(1);
   }
 }
+/* Panel thông báo "chảy" ra từ vị trí chuông thay vì hiện rời rạc.
+   --notif-origin-x = khoảng cách từ cạnh phải panel tới tâm chuông, do
+   NotificationBell đo lúc mở; fallback 24px nếu chưa có. */
+@keyframes notification-panel-in {
+  from {
+    opacity: 0;
+    clip-path: circle(10px at calc(100% - var(--notif-origin-x, 24px)) 0px);
+  }
+  to {
+    opacity: 1;
+    clip-path: circle(150% at calc(100% - var(--notif-origin-x, 24px)) 0px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

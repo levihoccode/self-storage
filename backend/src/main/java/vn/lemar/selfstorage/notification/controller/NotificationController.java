@@ -114,7 +114,8 @@ public class NotificationController {
     }
 
     @Operation(summary = "Tạo thông báo OTHER",
-            description = "Thông báo khẩn cấp thủ công; chỉ ADMIN/BOM. `recipientAccountId` phải tồn tại.")
+            description = "Thông báo khẩn cấp thủ công; chỉ ADMIN/BOM. `recipientEmail` phải thuộc "
+                    + "một account đang tồn tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Tạo thành công"),
             @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ"),
@@ -126,9 +127,10 @@ public class NotificationController {
     public ResponseEntity<ApiEnvelope<NotificationDetailResponse>> createOther(
             @Valid @RequestBody CreateOtherRequest request) {
         access.can("notification.create_other");
-        String recipientEmail = accountQueryService.requireEmailById(request.recipientAccountId());
+        Long recipientAccountId = accountQueryService.requireIdByEmail(request.recipientEmail());
+        String recipientEmail = accountQueryService.requireEmailById(recipientAccountId);
         Notification notification = notificationService.createOther(
-                request.recipientAccountId(), recipientEmail, request.title(), request.body());
+                recipientAccountId, recipientEmail, request.title(), request.body());
         return ResponseEntity.ok(ApiEnvelope.ok(CREATE_MESSAGE, NotificationDetailResponse.from(notification, null)));
     }
 

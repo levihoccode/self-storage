@@ -1,6 +1,7 @@
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { NotificationBell } from "../domain/NotificationBell";
 import { Brand } from "../ui/Brand";
 import type { Theme } from "../ui/ThemeToggle";
 import { ThemeToggle } from "../ui/ThemeToggle";
@@ -154,6 +155,7 @@ export function WorkspaceShell({
               <Menu size={20} />
             </button>
             <div className="ml-auto flex items-center gap-6 max-[760px]:gap-3">
+              <NotificationBell onNavigate={onNavigate} />
               {theme && onThemeToggle && <ThemeToggle theme={theme} onToggle={onThemeToggle} />}
               <div className="relative" ref={profileRef}>
                 <button

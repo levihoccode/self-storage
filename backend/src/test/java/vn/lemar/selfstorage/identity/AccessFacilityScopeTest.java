@@ -65,10 +65,6 @@ class AccessFacilityScopeTest {
         return jdbc.queryForObject("select id from facilities where code = ?", Long.class, code);
     }
 
-    private long accountId(String email) {
-        return jdbc.queryForObject("select id from accounts where email = ?", Long.class, email);
-    }
-
     private String bearerOf(String email) {
         Account account = accountRepository.findByEmail(email).orElseThrow();
         return "Bearer " + jwtService.issueAccessToken(account);
@@ -148,7 +144,6 @@ class AccessFacilityScopeTest {
     }
 
     private String otherBody() {
-        return "{\"recipientAccountId\":%d,\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}"
-                .formatted(accountId("customer1@lemar.vn"));
+        return "{\"recipientEmail\":\"customer1@lemar.vn\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
     }
 }
