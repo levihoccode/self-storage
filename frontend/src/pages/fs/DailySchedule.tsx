@@ -90,7 +90,9 @@ export function DailySchedule({ navigate }: { navigate: Navigate }) {
             <h1>
               Lịch làm <span>việc.</span>
             </h1>
-            <p>Theo dõi các cuộc hẹn check-in / return của bạn trong ngày và tiến hành xử lý ngay.</p>
+            <p>
+              Theo dõi các cuộc hẹn check-in / return của bạn trong ngày và tiến hành xử lý ngay.
+            </p>
           </div>
         </div>
       </section>
@@ -104,9 +106,17 @@ export function DailySchedule({ navigate }: { navigate: Navigate }) {
           <div className="fs-toolbar-actions">
             <label className="fs-search-field">
               <Search size={14} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm khách, khoang, chi nhánh" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tìm khách, khoang, chi nhánh"
+              />
             </label>
-            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
           </div>
         </div>
 
@@ -118,7 +128,9 @@ export function DailySchedule({ navigate }: { navigate: Navigate }) {
                   <p className="eyebrow">{item.type}</p>
                   <h3>{item.customer}</h3>
                 </div>
-                <span className={`fs-badge fs-badge--${item.status.toLowerCase()}`}>{item.status}</span>
+                <span className={`fs-badge fs-badge--${item.status.toLowerCase()}`}>
+                  {item.status}
+                </span>
               </div>
 
               <div className="fs-meta-list">
@@ -146,7 +158,11 @@ export function DailySchedule({ navigate }: { navigate: Navigate }) {
                   className="button button-primary"
                   type="button"
                   onClick={() =>
-                    navigate(item.type === "CHECKIN" ? `/fs/appointments/${item.id}/handover` : `/fs/appointments/${item.id}/return`)
+                    navigate(
+                      item.type === "CHECKIN"
+                        ? `/fs/appointments/${item.id}/handover`
+                        : `/fs/appointments/${item.id}/return`,
+                    )
                   }
                 >
                   {item.type === "CHECKIN" ? "Bàn giao khoang" : "Kiểm tra trả kho"}

@@ -14,9 +14,30 @@ type SupportItem = {
 };
 
 const initialRequests: SupportItem[] = [
-  { id: "sr-201", customer: "Nguyễn Hoàng Long", unit: "B-05", issue: "Ổ khóa kẹt khi vào kho", priority: "High", status: "Assigned" },
-  { id: "sr-202", customer: "Lê An Nhiên", unit: "A-09", issue: "Không thể mở cửa sau giờ 18h", priority: "Normal", status: "InProgress" },
-  { id: "sr-203", customer: "Trần Tấn Đạt", unit: "C-02", issue: "Sàn kho bị ẩm, cần kiểm tra nhanh", priority: "High", status: "Resolved" },
+  {
+    id: "sr-201",
+    customer: "Nguyễn Hoàng Long",
+    unit: "B-05",
+    issue: "Ổ khóa kẹt khi vào kho",
+    priority: "High",
+    status: "Assigned",
+  },
+  {
+    id: "sr-202",
+    customer: "Lê An Nhiên",
+    unit: "A-09",
+    issue: "Không thể mở cửa sau giờ 18h",
+    priority: "Normal",
+    status: "InProgress",
+  },
+  {
+    id: "sr-203",
+    customer: "Trần Tấn Đạt",
+    unit: "C-02",
+    issue: "Sàn kho bị ẩm, cần kiểm tra nhanh",
+    priority: "High",
+    status: "Resolved",
+  },
 ];
 
 export function SupportRequestHandling({ navigate }: { navigate: Navigate }) {
@@ -59,9 +80,16 @@ export function SupportRequestHandling({ navigate }: { navigate: Navigate }) {
           <div className="fs-toolbar-actions">
             <label className="fs-search-field">
               <Search size={14} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm đơn, khoang, khách" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tìm đơn, khoang, khách"
+              />
             </label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            >
               <option value="all">Tất cả</option>
               <option value="Assigned">Assigned</option>
               <option value="InProgress">InProgress</option>
@@ -88,10 +116,16 @@ export function SupportRequestHandling({ navigate }: { navigate: Navigate }) {
                   <td>{item.unit}</td>
                   <td>{item.issue}</td>
                   <td>
-                    <span className={`fs-tag ${item.priority === "High" ? "tag-warning" : "tag-neutral"}`}>{item.priority}</span>
+                    <span
+                      className={`fs-tag ${item.priority === "High" ? "tag-warning" : "tag-neutral"}`}
+                    >
+                      {item.priority}
+                    </span>
                   </td>
                   <td>
-                    <span className={`fs-tag ${item.status === "Resolved" ? "tag-success" : item.status === "InProgress" ? "tag-info" : "tag-neutral"}`}>
+                    <span
+                      className={`fs-tag ${item.status === "Resolved" ? "tag-success" : item.status === "InProgress" ? "tag-info" : "tag-neutral"}`}
+                    >
                       {item.status}
                     </span>
                   </td>
@@ -102,14 +136,24 @@ export function SupportRequestHandling({ navigate }: { navigate: Navigate }) {
         </div>
 
         {!filteredRequests.length && (
-          <div className="empty-state">Không có đơn hỗ trợ nào phù hợp với điều kiện lọc hiện tại.</div>
+          <div className="empty-state">
+            Không có đơn hỗ trợ nào phù hợp với điều kiện lọc hiện tại.
+          </div>
         )}
 
         <div className="fs-actions-row">
-          <button className="button button-primary" type="button" onClick={() => navigate("/fs/incidents/new")}>
+          <button
+            className="button button-primary"
+            type="button"
+            onClick={() => navigate("/fs/incidents/new")}
+          >
             <CircleDashed size={16} /> Ghi nhận sự cố mới
           </button>
-          <button className="button button-secondary" type="button" onClick={() => navigate("/fs/schedule")}>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => navigate("/fs/schedule")}
+          >
             <CheckCircle2 size={16} /> Về lịch làm việc
           </button>
         </div>

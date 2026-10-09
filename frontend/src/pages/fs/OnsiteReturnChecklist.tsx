@@ -1,4 +1,11 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, DollarSign, KeyRound } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  DollarSign,
+  KeyRound,
+} from "lucide-react";
 import type { Navigate } from "../../app/types";
 
 const inspections = [
@@ -25,7 +32,9 @@ export function OnsiteReturnChecklist({ navigate }: { navigate: Navigate }) {
             <h1>
               Trả kho <span>on-site.</span>
             </h1>
-            <p>Kiểm tra hiện trạng khoang, tính toán phí phát sinh và chốt biên bản bàn giao trả kho.</p>
+            <p>
+              Kiểm tra hiện trạng khoang, tính toán phí phát sinh và chốt biên bản bàn giao trả kho.
+            </p>
           </div>
         </div>
       </section>
@@ -59,7 +68,11 @@ export function OnsiteReturnChecklist({ navigate }: { navigate: Navigate }) {
               <button className="button button-primary" type="button">
                 <KeyRound size={16} /> Chốt biên bản trả kho
               </button>
-              <button className="button button-secondary" type="button" onClick={() => navigate("/fs/schedule")}>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => navigate("/fs/schedule")}
+              >
                 <ArrowRight size={16} /> Quay lại lịch
               </button>
             </div>
@@ -84,7 +97,10 @@ export function OnsiteReturnChecklist({ navigate }: { navigate: Navigate }) {
 
             <div className="fs-note-box">
               <strong>Ghi chú</strong>
-              <p>Đối trừ cọc dư sẽ được FM xử lý hoàn trả theo quy trình thủ công sau khi chốt biên bản.</p>
+              <p>
+                Đối trừ cọc dư sẽ được FM xử lý hoàn trả theo quy trình thủ công sau khi chốt biên
+                bản.
+              </p>
             </div>
           </aside>
         </div>

@@ -11,7 +11,10 @@ export function IncidentReportForm({ navigate }: { navigate: Navigate }) {
             <h1>
               Ghi nhận <span>sự cố.</span>
             </h1>
-            <p>FS có thể chủ động báo cáo sự cố phát sinh tại khoang hoặc khu vực làm việc ngay trong buổi.</p>
+            <p>
+              FS có thể chủ động báo cáo sự cố phát sinh tại khoang hoặc khu vực làm việc ngay trong
+              buổi.
+            </p>
           </div>
         </div>
       </section>
@@ -48,7 +51,10 @@ export function IncidentReportForm({ navigate }: { navigate: Navigate }) {
 
             <label className="fs-field fs-field--full">
               <span>Mô tả</span>
-              <textarea rows={6} defaultValue="Khóa cửa khoang bị kẹt khi khách đang kiểm tra. Hệ thống cần hỗ trợ ngay trước khi bàn giao tiếp tục." />
+              <textarea
+                rows={6}
+                defaultValue="Khóa cửa khoang bị kẹt khi khách đang kiểm tra. Hệ thống cần hỗ trợ ngay trước khi bàn giao tiếp tục."
+              />
             </label>
 
             <label className="fs-field fs-field--full">
@@ -64,7 +70,11 @@ export function IncidentReportForm({ navigate }: { navigate: Navigate }) {
             <button className="button button-primary" type="button">
               <Send size={16} /> Gửi ghi nhận sự cố
             </button>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/fs/support-requests")}>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => navigate("/fs/support-requests")}
+            >
               <AlertTriangle size={16} /> Xem queue hỗ trợ
             </button>
           </div>
