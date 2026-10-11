@@ -22,7 +22,7 @@ class PaymentConfigTest {
             .withBean(VnPayGateway.class);
 
     @Test
-    void napDuocCauHinhVnpayTuProperties() {
+    void loadsVnpayConfigFromProperties() {
         runner.withPropertyValues(
                         "vnpay.tmn-code=TESTTMN1",
                         "vnpay.hash-secret=TESTSECRET0123456789TESTSECRET01",

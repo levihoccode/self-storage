@@ -68,7 +68,7 @@ class PaymentIpnConcurrencyTest {
     private JdbcTemplate jdbc;
 
     @Test
-    void haiIpnSongSongChiDuocGhiNhanMotLan() throws Exception {
+    void twoConcurrentIpnsRecordExactlyOnce() throws Exception {
         when(gateway.verifySignature(anyMap())).thenReturn(true);
 
         long invoiceId = seedInvoice();
