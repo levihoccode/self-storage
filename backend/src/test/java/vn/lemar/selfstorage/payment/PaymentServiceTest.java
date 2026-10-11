@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -97,6 +98,33 @@ class PaymentServiceTest {
         assertThat(response.rspCode()).isEqualTo("00");
         assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(transaction.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    void missingPayDateFallsBackToIpnArrivalTime() {
+        Map<String, String> params = ipn();
+        params.remove("vnp_PayDate");
+
+        var response = service.handleIpn(params);
+
+        assertThat(response.rspCode()).isEqualTo("00");
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    void fallsBackToToStringWhenJsonSerializationFails() throws Exception {
+        ObjectMapper failingMapper = mock(ObjectMapper.class);
+        when(failingMapper.writeValueAsString(any())).thenThrow(new JsonGenerationException("boom"));
+        PaymentService failingService = new PaymentService(gateway, repository,
+                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
+                failingMapper);
+        Map<String, String> params = ipn();
+
+        var response = failingService.handleIpn(params);
+
+        assertThat(response.rspCode()).isEqualTo("00");
+        assertThat(transaction.getResponsePayload()).isEqualTo(params.toString());
     }
 
     /** Tiêu chí bắt buộc của A6: VNPay retry tới 10 lần, lần hai không được sinh giao dịch mới. */
