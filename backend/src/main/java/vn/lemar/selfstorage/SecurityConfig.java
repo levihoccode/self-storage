@@ -36,7 +36,7 @@ public class SecurityConfig {
                         // phải đứng trước dòng vét `/api/**` bên dưới. Thay vì token, hai route này
                         // tự xác thực bằng chữ ký HMAC-SHA512 trong `vnp_SecureHash`, và `/return`
                         // không ghi dữ liệu.
-                        .requestMatchers("/api/payments/vnpay/**").permitAll()
+                        .requestMatchers("/api/payments/vnpay/ipn", "/api/payments/vnpay/return").permitAll()
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/staff/**").hasRole("FS")
                         .requestMatchers("/api/fm/**").hasRole("FM")
