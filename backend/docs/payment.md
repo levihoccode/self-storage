@@ -1,6 +1,3 @@
----
-purpose: Module payment — luồng thanh toán VNPay: tạo giao dịch, IPN/return, đối soát phiên và xử lý hết hạn.
----
 # Payment — luồng thanh toán VNPay
 
 Module `payment` (`backend/src/main/java/vn/lemar/selfstorage/payment/`): cổng thanh toán VNPay
@@ -20,7 +17,7 @@ VnPayGateway.buildPaymentUrl()
    ▼
 Khách trả tiền trên cổng VNPay
    │
-   ├─► GET /api/payments/vnpay/ipn        (server VNPay gọi; NGUỒN XÁC NHẬN CHÍNH)
+   ├─► GET /api/payments/vnpay/ipn        (server VNPay gọi; NGUỒN XÁC NHẬN DUY NHẤT)
    │     verify chữ ký → tìm giao dịch theo vnp_TxnRef → check vnp_TmnCode
    │     → check vnp_Amount → guard còn Pending → ghi Success/Failed
    │     → bắn PaymentSucceeded / PaymentFailed → trả {"RspCode":"00"}
@@ -32,27 +29,10 @@ Module sở hữu Invoice nghe PaymentSucceeded → chuyển Invoice sang Paid
    (chưa nối — chờ flow B2/B3/B4)
 ```
 
-## Hành vi
-
-- **Đồng hồ của hóa đơn: `Invoice.due_date`.** Quá hạn là mốc duy nhất của "quá hạn thanh toán" —
-  Flow 6 xử lý (`Expired` + cascade hủy đơn).
-  - **LƯU Ý:** đừng nhầm với cửa sổ phiên VNPay (`vnp_ExpireDate` = lúc tạo URL + `PAYMENT_WINDOW`,
-    hiện 15') — cửa sổ chỉ là giới hạn kỹ thuật (hết cửa sổ là cổng không cho trả tiếp); khách bấm
-    trả sát `due_date` vẫn có đủ 15'.
-- **Đối soát phiên im lặng.** Khách bỏ ngang (đóng browser, IPN không về) để lại giao dịch `Pending`.
-  Job định kỳ quét `Pending` quá ngưỡng và gọi `querydr`: cổng có giao dịch → chốt theo trạng thái
-  thật; không có → đóng `Failed` + `failure_reason` ghi rõ phiên hết hạn.
-- **Xác nhận muộn (lưới an toàn).** Hi hữu — khách đã trả trong cửa sổ hợp lệ nhưng hệ thống chỉ biết
-  sau khi invoice/đơn đã hủy (chỉ khi job/server lỗi dài): vẫn ghi `Success` + đủ dấu vết, log ERROR
-  để vận hành xử lý thủ công (hoàn tiền hoặc xếp chỗ khác). Không tự mở lại đơn.
-
 ## Quy tắc bất biến
 
-- **IPN là nguồn xác nhận thanh toán chính.** Return URL nằm trên thanh địa chỉ, khách sửa được —
-  không bao giờ dùng để ghi nhận đã trả tiền. Khi IPN không về, chỉ `querydr` (kênh server-to-server
-  cùng chữ ký HMAC) được dùng làm nguồn đối soát dự phòng — không có nguồn nào khác.
-- **Đóng phiên dựa trên kết quả `querydr`, không dựa trên đồng hồ.** Ngưỡng thời gian chỉ để chọn lúc
-  hỏi cổng; `querydr` lỗi thì giữ `Pending`, lần chạy sau đối soát tiếp.
+- **IPN là nguồn xác nhận thanh toán duy nhất.** Return URL nằm trên thanh địa chỉ, khách sửa được —
+  không bao giờ dùng để ghi nhận đã trả tiền.
 - **Idempotent theo `vnp_TxnRef`.** VNPay retry tối đa 10 lần (cách 5 phút) và có thể gọi song song;
   row bị khóa `PESSIMISTIC_WRITE` khi đọc, lần thứ hai trả `02` và không ghi gì. Unique constraint
   không thay được khóa vì cả hai cùng update một row.
@@ -82,5 +62,3 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 - **Endpoint khởi tạo thanh toán `POST /api/invoices/{invoiceId}/pay`: chưa có** — FE nút thanh toán
   đang chạy chế độ demo khi chưa cấu hình `VITE_API_BASE_URL`; endpoint thật thuộc B4 (#114).
 - **Chưa có ai nghe `PaymentSucceeded`/`PaymentFailed`** — invoice/booking chưa có code (B2/B3/B4).
-- **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc B4 (#114).
-- **Chặn hủy đơn khi phiên thanh toán còn mở: chờ duyệt spec-gap #117** — spec + code sẽ vào cùng PR.
