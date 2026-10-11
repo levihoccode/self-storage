@@ -79,9 +79,6 @@ assumption, a fragile spot. No counter-argument means it is not a conclusion yet
   becomes the commit subject: keep PR titles English too; the PR body stays Vietnamese.
 - Branch names follow the pattern already in use: `specs/<topic>`, `be/feat/<topic>`, `fe/feat/<topic>`, `docs/<topic>`, `chore/<topic>`.
 - One commit = one logical change. Do not commit unless asked. Never force-push.
-- **Merging is a human-only action.** Agents never approve or merge PRs (no `--auto`, no `--admin`)
-  and never resolve review threads to unblock a merge — review, push when asked, report; the human
-  approves and merges.
 - Never commit `.env`, credentials, or tokens — sandbox keys only.
 
 ## Per layer
