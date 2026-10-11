@@ -32,9 +32,6 @@ Lỗi ngoài dự kiến trả `99` thay vì HTTP 500, bắt ở controller nên
   được, coi như merchant chưa xác nhận và retry đủ 10 lần. Đây là contract của bên thứ ba.
 - **VNPay retry tối đa 10 lần, cách nhau 5 phút** khi nhận `01`, `04`, `97`, `99` hoặc khi timeout.
   `00` và `02` là chốt.
-- **`PaymentSucceeded`/`PaymentFailed` bắn trong transaction IPN.** Module nghe phải dùng
-  `@TransactionalEventListener(phase = AFTER_COMMIT)` (hoặc `REQUIRES_NEW`) — listener đồng bộ mặc
-  định thấy state chưa commit, và exception từ listener sẽ rollback IPN khiến VNPay retry 10 lần.
 - IPN URL khai trong **cấu hình tài khoản merchant** trên portal VNPay, không gửi kèm lúc tạo URL
   thanh toán. Dev local cần tunnel HTTPS — xem [docs/vnpay-sandbox.md](../../../../docs/vnpay-sandbox.md).
 - `vnp_Amount` hiện đối chiếu với `PaymentTransaction.amount`, mà giá trị đó do caller truyền vào

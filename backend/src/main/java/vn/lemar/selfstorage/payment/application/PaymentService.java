@@ -99,8 +99,6 @@ public class PaymentService {
         }
 
         String responsePayload = params.toString();
-        // Hai event dưới đây publish TRƯỚC khi transaction này commit — listener phải đăng ký
-        // @TransactionalEventListener(AFTER_COMMIT); xem javadoc PaymentSucceeded/PaymentFailed.
         if (gatewayReportedSuccess(params)) {
             transaction.markSucceeded(
                     params.get("vnp_TransactionNo"), parsePayDate(params.get("vnp_PayDate")), responsePayload);
