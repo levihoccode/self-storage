@@ -167,7 +167,7 @@ class SecurityConfigTest {
      * Test này là chốt chặn để lần sau có ai siết security thì CI đỏ chứ không phải tiền đi lạc.
      */
     @Test
-    void vnpayIpnPhaiGoiDuocKhiKhongCoToken() throws Exception {
+    void vnpayIpnIsReachableWithoutToken() throws Exception {
         when(paymentService.handleIpn(anyMap())).thenReturn(IpnResponse.success());
 
         mockMvc.perform(get("/api/payments/vnpay/ipn")
@@ -181,7 +181,7 @@ class SecurityConfigTest {
 
     /** Return URL là redirect trình duyệt từ VNPay nên cũng không mang Authorization. */
     @Test
-    void vnpayReturnPhaiGoiDuocKhiKhongCoToken() throws Exception {
+    void vnpayReturnIsReachableWithoutToken() throws Exception {
         when(paymentGateway.verifySignature(anyMap())).thenReturn(true);
 
         mockMvc.perform(get("/api/payments/vnpay/return")

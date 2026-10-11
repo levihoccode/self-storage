@@ -69,7 +69,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void ghiNhanThanhCongVaBanEventOLuotDauTien() {
+    void recordsSuccessAndEmitsEventOnFirstIpn() {
         var response = service.handleIpn(ipn());
 
         assertThat(response.rspCode()).isEqualTo("00");
@@ -101,7 +101,7 @@ class PaymentServiceTest {
 
     /** Tiêu chí bắt buộc của A6: VNPay retry tới 10 lần, lần hai không được sinh giao dịch mới. */
     @Test
-    void goiIpnLanHaiKhongGhiLaiVaTraVe02() {
+    void secondIpnDoesNotWriteAgainAndReturns02() {
         service.handleIpn(ipn());
         reset(events);
 
@@ -114,7 +114,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void tuChoiKhiSaiChuKy() {
+    void rejectsWhenSignatureInvalid() {
         when(gateway.verifySignature(any())).thenReturn(false);
 
         assertThat(service.handleIpn(ipn()).rspCode()).isEqualTo("97");
@@ -122,14 +122,14 @@ class PaymentServiceTest {
     }
 
     @Test
-    void traVe01KhiKhongTimThayGiaoDich() {
+    void returns01WhenTransactionNotFound() {
         when(repository.findByVnpTxnRef(TXN_REF)).thenReturn(Optional.empty());
 
         assertThat(service.handleIpn(ipn()).rspCode()).isEqualTo("01");
     }
 
     @Test
-    void traVe01KhiTmnCodeKhongPhaiCuaHeThongNay() {
+    void returns01WhenTmnCodeNotOurs() {
         Map<String, String> params = ipn();
         params.put("vnp_TmnCode", "KHACTMN");
 
@@ -138,7 +138,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void traVe04KhiSoTienLechVoiGiaoDichDaGhi() {
+    void returns04WhenAmountMismatchesRecordedTransaction() {
         Map<String, String> params = ipn();
         params.put("vnp_Amount", "9900000");
 
@@ -147,7 +147,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void ghiNhanThatBaiKhiCongBaoMaKhac00() {
+    void recordsFailureWhenGatewayReportsNon00() {
         Map<String, String> params = ipn();
         params.put("vnp_ResponseCode", "24"); // khach huy giao dich
 
@@ -157,7 +157,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void luuGiaoDichPendingTruocKhiRedirect() {
+    void savesPendingTransactionBeforeRedirect() {
         when(gateway.buildPaymentUrl(any())).thenReturn("https://pay?x=1");
 
         String url = service.startPayment(7L,
