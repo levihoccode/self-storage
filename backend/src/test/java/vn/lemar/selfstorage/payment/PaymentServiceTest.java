@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,7 +47,8 @@ class PaymentServiceTest {
         repository = mock(PaymentTransactionRepository.class);
         events = mock(ApplicationEventPublisher.class);
         service = new PaymentService(gateway, repository,
-                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events);
+                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
+                new ObjectMapper());
 
         transaction = new PaymentTransaction(7L, TXN_REF, new BigDecimal("10000"), "Thanh toan");
         when(gateway.verifySignature(any())).thenReturn(true);
@@ -73,6 +76,27 @@ class PaymentServiceTest {
         assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(transaction.getGatewayTransactionNo()).isEqualTo("15690354");
         verify(events).publishEvent(any(PaymentSucceeded.class));
+    }
+
+    @Test
+    void storesIpnPayloadAsJson() {
+        service.handleIpn(ipn());
+
+        assertThat(transaction.getResponsePayload())
+                .startsWith("{")
+                .contains("\"vnp_TxnRef\":\"160932558\"");
+    }
+
+    @Test
+    void invalidPayDateFallsBackToIpnArrivalTime() {
+        Map<String, String> params = ipn();
+        params.put("vnp_PayDate", "khong-phai-ngay");
+
+        var response = service.handleIpn(params);
+
+        assertThat(response.rspCode()).isEqualTo("00");
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getPaidAt()).isNotNull();
     }
 
     /** Tiêu chí bắt buộc của A6: VNPay retry tới 10 lần, lần hai không được sinh giao dịch mới. */
@@ -142,5 +166,15 @@ class PaymentServiceTest {
         assertThat(url).isEqualTo("https://pay?x=1");
         verify(repository).save(argThat(saved ->
                 saved.isPending() && saved.getVnpTxnRef().equals("TXN999")));
+    }
+
+    @Test
+    void startPaymentRejectsNullInvoiceId() {
+        PaymentRequest request =
+                new PaymentRequest("TXN1", new BigDecimal("10000"), "Thanh toan", "127.0.0.1");
+
+        assertThatThrownBy(() -> service.startPayment(null, request))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("invoiceId");
     }
 }

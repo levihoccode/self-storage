@@ -131,4 +131,9 @@ public class PaymentTransaction {
     public String getFailureReason() {
         return failureReason;
     }
+
+    /** Raw payload của cổng — dùng để đối soát. */
+    public String getResponsePayload() {
+        return responsePayload;
+    }
 }
