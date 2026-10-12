@@ -1,11 +1,14 @@
 package vn.lemar.selfstorage.payment.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -39,13 +42,16 @@ public class PaymentService {
     private final PaymentTransactionRepository repository;
     private final VnPayProperties properties;
     private final ApplicationEventPublisher events;
+    private final ObjectMapper objectMapper;
 
     public PaymentService(PaymentGateway gateway, PaymentTransactionRepository repository,
-                          VnPayProperties properties, ApplicationEventPublisher events) {
+                          VnPayProperties properties, ApplicationEventPublisher events,
+                          ObjectMapper objectMapper) {
         this.gateway = gateway;
         this.repository = repository;
         this.properties = properties;
         this.events = events;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -56,6 +62,7 @@ public class PaymentService {
      */
     @Transactional
     public String startPayment(Long invoiceId, PaymentRequest request) {
+        Objects.requireNonNull(invoiceId, "invoiceId bắt buộc");
         PaymentTransaction transaction = new PaymentTransaction(
                 invoiceId, request.txnRef(), request.amount(), request.orderInfo());
         repository.save(transaction);
@@ -98,7 +105,9 @@ public class PaymentService {
             return IpnResponse.alreadyConfirmed();
         }
 
-        String responsePayload = params.toString();
+        String responsePayload = toJson(params);
+        // Hai event dưới đây publish TRƯỚC khi transaction này commit — listener phải đăng ký
+        // @TransactionalEventListener(AFTER_COMMIT); xem javadoc PaymentSucceeded/PaymentFailed.
         if (gatewayReportedSuccess(params)) {
             transaction.markSucceeded(
                     params.get("vnp_TransactionNo"), parsePayDate(params.get("vnp_PayDate")), responsePayload);
@@ -133,14 +142,32 @@ public class PaymentService {
         }
     }
 
+    /** Raw payload để đối soát — JSON nếu serialize được, fallback {@code toString} để không mất dữ liệu. */
+    private String toJson(Map<String, String> params) {
+        try {
+            return objectMapper.writeValueAsString(params);
+        } catch (JsonProcessingException e) {
+            LOG.warn("Không serialize được payload IPN sang JSON, lưu dạng toString", e);
+            return params.toString();
+        }
+    }
+
+    /**
+     * VNPay gửi PayDate dạng {@code yyyyMMddHHmmss} (GMT+7). Parse fail ở nhánh Success là anomaly
+     * hiếm (chữ ký đã hợp lệ nên payload là thật từ VNPay) — log ERROR và fallback về **thời điểm
+     * nhận IPN**. Lưu ý: đây là thời điểm nhận, không phải thời điểm trả tiền thật; {@code paid_at}
+     * chỉ để hiển thị/đối chiếu, **không dùng để phán kịp/trễ deadline**.
+     */
     private Instant parsePayDate(String rawPayDate) {
         if (rawPayDate == null) {
+            LOG.error("IPN Success thiếu vnp_PayDate, fallback về thời điểm nhận IPN");
             return Instant.now();
         }
         try {
             return LocalDateTime.parse(rawPayDate, PAY_DATE).atZone(VNPAY_ZONE).toInstant();
         } catch (java.time.format.DateTimeParseException e) {
-            LOG.warn("IPN mang vnp_PayDate không đọc được: {}", rawPayDate);
+            LOG.error("IPN mang vnp_PayDate không đọc được (raw='{}'), fallback về thời điểm nhận IPN",
+                    rawPayDate);
             return Instant.now();
         }
     }

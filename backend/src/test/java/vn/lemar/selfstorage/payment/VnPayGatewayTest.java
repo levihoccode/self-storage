@@ -50,12 +50,12 @@ class VnPayGatewayTest {
     }
 
     @Test
-    void chapNhanChuKyDungCuaCong() {
+    void acceptsValidGatewaySignature() {
         assertThat(gateway.verifySignature(callbackParams())).isTrue();
     }
 
     @Test
-    void tuChoiKhiDuLieuBiSuaDuGiuNguyenChuKy() {
+    void rejectsTamperedDataWithOriginalSignature() {
         Map<String, String> tampered = callbackParams();
         tampered.put("vnp_Amount", "9900000");
 
@@ -63,7 +63,7 @@ class VnPayGatewayTest {
     }
 
     @Test
-    void tuChoiKhiKhongCoChuKy() {
+    void rejectsWhenSignatureMissing() {
         Map<String, String> params = callbackParams();
         params.remove("vnp_SecureHash");
 
@@ -71,7 +71,7 @@ class VnPayGatewayTest {
     }
 
     @Test
-    void boQuaSecureHashTypeKhiTinhLaiChuKy() {
+    void ignoresSecureHashTypeWhenRecomputingSignature() {
         Map<String, String> params = callbackParams();
         params.put("vnp_SecureHashType", "HmacSHA512");
 
@@ -79,7 +79,7 @@ class VnPayGatewayTest {
     }
 
     @Test
-    void urlThanhToanNhanSoTienLen100() {
+    void paymentUrlMultipliesAmountBy100() {
         String url = gateway.buildPaymentUrl(
                 new PaymentRequest("TXN001", new BigDecimal("10000"), "Thanh toan don TXN001", "127.0.0.1"));
 
@@ -87,7 +87,7 @@ class VnPayGatewayTest {
     }
 
     @Test
-    void urlThanhToanTuKyDuocChinhNoVerifyLai() {
+    void paymentUrlSelfSignedVerifiesBack() {
         String url = gateway.buildPaymentUrl(
                 new PaymentRequest("TXN002", new BigDecimal("250000"), "Thanh toan don TXN002", "127.0.0.1"));
 

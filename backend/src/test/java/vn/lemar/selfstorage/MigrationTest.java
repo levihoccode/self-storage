@@ -30,7 +30,8 @@ class MigrationTest {
             "unit_types", "policies", "storage_units",
             "rental_requests", "rental_orders", "rental_contracts", "invoices",
             "proposal_feedbacks", "appointments", "rental_appointments",
-            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs");
+            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs",
+            "notifications", "order_notifications");
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -49,6 +50,14 @@ class MigrationTest {
         }
     }
 
+    private static int countWhere(Connection connection, String table, String where) throws Exception {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("SELECT count(*) FROM " + table + " WHERE " + where)) {
+            rs.next();
+            return rs.getInt(1);
+        }
+    }
+
     private static boolean tableExists(Connection connection, String table) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement("SELECT to_regclass(?) IS NOT NULL")) {
             statement.setString(1, "public." + table);
@@ -60,7 +69,7 @@ class MigrationTest {
     }
 
     @Test
-    void migrateTaoDuBangVaSeedDev() throws Exception {
+    void migrateCreatesAllTablesAndDevSeed() throws Exception {
         MigrateResult result = flyway().migrate();
         assertThat(result.migrationsExecuted).isPositive();
 
@@ -71,6 +80,7 @@ class MigrationTest {
                 assertThat(tableExists(connection, table)).as(table).isTrue();
             }
 
+            assertThat(count(connection, "notifications")).isZero();
             assertThat(count(connection, "roles")).isEqualTo(5);
             assertThat(count(connection, "accounts")).isEqualTo(8);
             assertThat(count(connection, "facilities")).isEqualTo(2);
@@ -78,6 +88,11 @@ class MigrationTest {
             assertThat(count(connection, "storage_units")).isEqualTo(8);
             assertThat(count(connection, "policies")).isEqualTo(6);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
+            // V3: permission catalog + mapping mặc định (A3b, #57).
+            assertThat(count(connection, "permissions")).isEqualTo(24);
+            assertThat(count(connection, "role_permissions")).isEqualTo(31);
+            assertThat(countWhere(connection, "role_permissions", "scope = 'FACILITY'")).isEqualTo(23);
+            assertThat(countWhere(connection, "role_permissions", "scope = 'GLOBAL'")).isEqualTo(8);
 
             // #57: quan hệ FM–Facility 1–1 trên facilities.
             try (Statement statement = connection.createStatement();

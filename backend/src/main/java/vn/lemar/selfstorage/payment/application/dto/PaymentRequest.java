@@ -10,4 +10,15 @@ import java.math.BigDecimal;
  * @param orderInfo  mô tả hiển thị trên cổng thanh toán
  * @param ipAddr     IP của khách, VNPay bắt buộc
  */
-public record PaymentRequest(String txnRef, BigDecimal amount, String orderInfo, String ipAddr) {}
+public record PaymentRequest(String txnRef, BigDecimal amount, String orderInfo, String ipAddr) {
+
+    /** Chặn dữ liệu sai ngay tại ranh giới caller — DB cũng chặn, nhưng lỗi ở đây dễ hiểu hơn. */
+    public PaymentRequest {
+        if (txnRef == null || txnRef.isBlank()) {
+            throw new IllegalArgumentException("txnRef bắt buộc");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("amount phải là số dương");
+        }
+    }
+}

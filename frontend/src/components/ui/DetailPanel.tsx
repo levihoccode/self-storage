@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { useModalA11y } from "./useModalA11y";
 
 /**
  * Shared slide-over panel for record detail (Proposal, Invoice, Extend
@@ -21,6 +22,9 @@ export function DetailPanel({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const titleId = useId();
+  const containerRef = useModalA11y<HTMLElement>(onClose);
+
   return (
     <div
       className="fixed inset-0 z-[70] flex justify-end bg-[rgba(7,16,19,0.6)]"
@@ -28,10 +32,12 @@ export function DetailPanel({
       onClick={onClose}
     >
       <aside
-        className="flex h-full w-[min(480px,100%)] flex-col border-l border-border bg-surface shadow-soft-token max-[760px]:w-full"
+        ref={containerRef}
+        tabIndex={-1}
+        className="flex h-full w-[min(480px,100%)] flex-col border-l border-border bg-surface shadow-soft-token max-[760px]:w-full focus:outline-none"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="detail-panel-title"
+        aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 pb-4 pt-6">
@@ -41,7 +47,7 @@ export function DetailPanel({
                 {eyebrow}
               </p>
             )}
-            <h2 id="detail-panel-title" className="mt-1 text-[19px] tracking-[-0.03em]">
+            <h2 id={titleId} className="mt-1 text-[19px] tracking-[-0.03em]">
               {title}
             </h2>
           </div>

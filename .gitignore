@@ -25,6 +25,10 @@ frontend/coverage/
 .idea/
 *.iml
 .vscode/
+.classpath
+.project
+.settings/
+.factorypath
 .DS_Store
 Thumbs.db
 *.log

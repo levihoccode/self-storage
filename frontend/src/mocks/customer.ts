@@ -8,7 +8,7 @@ export type RentedStorage = {
   size: string;
   startDate: string;
   endDate: string;
-  monthlyPrice: string;
+  monthlyPrice: number;
   paymentLabel: string;
   status: StorageStatus;
   /** Có giá trị khi khoang còn hóa đơn Unpaid — FE chỉ hiện nút thanh toán theo dữ liệu này. */
@@ -24,7 +24,7 @@ export const rentedStorage: RentedStorage[] = [
     size: "6 m²",
     startDate: "12/03/2025",
     endDate: "12/03/2026",
-    monthlyPrice: "1.450.000đ / tháng",
+    monthlyPrice: 1450000,
     paymentLabel: "Đã thanh toán đến 12/03/2026",
     status: "active",
   },
@@ -36,7 +36,7 @@ export const rentedStorage: RentedStorage[] = [
     size: "3 m²",
     startDate: "28/09/2025",
     endDate: "28/12/2025",
-    monthlyPrice: "820.000đ / tháng",
+    monthlyPrice: 820000,
     paymentLabel: "Còn 18 ngày thanh toán",
     status: "expiring",
     unpaidInvoiceId: "INV-0002",

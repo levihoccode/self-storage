@@ -13,9 +13,7 @@ public class AccountNotAllowedException extends RuntimeException {
 
     private static String buildMessage(AccountStatus status) {
         return switch (status) {
-            case UNVERIFIED -> "Tài khoản chưa xác thực email";
-            case LOCKED -> "Tài khoản đang bị khóa";
-            case BANNED -> "Tài khoản đã bị cấm";
+            case BANNED -> "Tài khoản đã bị chặn";
             default -> "Tài khoản không thể đăng nhập";
         };
     }

@@ -15,14 +15,14 @@ class IpnResponseTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void serializeDungTenKeyVnpayDoiHoi() throws Exception {
+    void serializesExactVnpayKeyNames() throws Exception {
         String json = mapper.writeValueAsString(IpnResponse.success());
 
         assertThat(json).isEqualTo("{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}");
     }
 
     @Test
-    void nhanhChanIpnLapCungDungTenKeyDo() throws Exception {
+    void alreadyConfirmedResponseUsesExactKeyNames() throws Exception {
         String json = mapper.writeValueAsString(IpnResponse.alreadyConfirmed());
 
         assertThat(json).contains("\"RspCode\":\"02\"").doesNotContain("rspCode");

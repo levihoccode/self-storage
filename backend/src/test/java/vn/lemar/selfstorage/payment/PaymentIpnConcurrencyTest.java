@@ -40,12 +40,9 @@ import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
  * <p>Chữ ký không phải thứ đang kiểm ở đây nên {@code PaymentGateway} được mock —
  * {@link VnPayGatewayTest} lo phần đó.
  */
-@SpringBootTest(properties = {
-        "vnpay.tmn-code=" + PaymentIpnConcurrencyTest.TMN_CODE,
-        "vnpay.hash-secret=0123456789abcdef0123456789abcdef",
-        "vnpay.pay-url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-        "vnpay.return-url=http://localhost:8080/api/payments/vnpay/return"
-})
+// Secret chung cho test nằm ở `src/test/resources/application.properties`; ở đây chỉ ghim
+// `vnpay.tmn-code` vì test đối chiếu trực tiếp giá trị này trong payload IPN.
+@SpringBootTest(properties = "vnpay.tmn-code=" + PaymentIpnConcurrencyTest.TMN_CODE)
 @Testcontainers(disabledWithoutDocker = true)
 class PaymentIpnConcurrencyTest {
 
@@ -71,7 +68,7 @@ class PaymentIpnConcurrencyTest {
     private JdbcTemplate jdbc;
 
     @Test
-    void haiIpnSongSongChiDuocGhiNhanMotLan() throws Exception {
+    void twoConcurrentIpnsRecordExactlyOnce() throws Exception {
         when(gateway.verifySignature(anyMap())).thenReturn(true);
 
         long invoiceId = seedInvoice();

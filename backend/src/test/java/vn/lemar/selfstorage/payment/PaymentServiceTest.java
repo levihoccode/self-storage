@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -10,6 +11,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,7 +48,8 @@ class PaymentServiceTest {
         repository = mock(PaymentTransactionRepository.class);
         events = mock(ApplicationEventPublisher.class);
         service = new PaymentService(gateway, repository,
-                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events);
+                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
+                new ObjectMapper());
 
         transaction = new PaymentTransaction(7L, TXN_REF, new BigDecimal("10000"), "Thanh toan");
         when(gateway.verifySignature(any())).thenReturn(true);
@@ -66,7 +70,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void ghiNhanThanhCongVaBanEventOLuotDauTien() {
+    void recordsSuccessAndEmitsEventOnFirstIpn() {
         var response = service.handleIpn(ipn());
 
         assertThat(response.rspCode()).isEqualTo("00");
@@ -75,9 +79,57 @@ class PaymentServiceTest {
         verify(events).publishEvent(any(PaymentSucceeded.class));
     }
 
+    @Test
+    void storesIpnPayloadAsJson() {
+        service.handleIpn(ipn());
+
+        assertThat(transaction.getResponsePayload())
+                .startsWith("{")
+                .contains("\"vnp_TxnRef\":\"160932558\"");
+    }
+
+    @Test
+    void invalidPayDateFallsBackToIpnArrivalTime() {
+        Map<String, String> params = ipn();
+        params.put("vnp_PayDate", "khong-phai-ngay");
+
+        var response = service.handleIpn(params);
+
+        assertThat(response.rspCode()).isEqualTo("00");
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    void missingPayDateFallsBackToIpnArrivalTime() {
+        Map<String, String> params = ipn();
+        params.remove("vnp_PayDate");
+
+        var response = service.handleIpn(params);
+
+        assertThat(response.rspCode()).isEqualTo("00");
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    void fallsBackToToStringWhenJsonSerializationFails() throws Exception {
+        ObjectMapper failingMapper = mock(ObjectMapper.class);
+        when(failingMapper.writeValueAsString(any())).thenThrow(new JsonGenerationException("boom"));
+        PaymentService failingService = new PaymentService(gateway, repository,
+                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
+                failingMapper);
+        Map<String, String> params = ipn();
+
+        var response = failingService.handleIpn(params);
+
+        assertThat(response.rspCode()).isEqualTo("00");
+        assertThat(transaction.getResponsePayload()).isEqualTo(params.toString());
+    }
+
     /** Tiêu chí bắt buộc của A6: VNPay retry tới 10 lần, lần hai không được sinh giao dịch mới. */
     @Test
-    void goiIpnLanHaiKhongGhiLaiVaTraVe02() {
+    void secondIpnDoesNotWriteAgainAndReturns02() {
         service.handleIpn(ipn());
         reset(events);
 
@@ -90,7 +142,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void tuChoiKhiSaiChuKy() {
+    void rejectsWhenSignatureInvalid() {
         when(gateway.verifySignature(any())).thenReturn(false);
 
         assertThat(service.handleIpn(ipn()).rspCode()).isEqualTo("97");
@@ -98,14 +150,14 @@ class PaymentServiceTest {
     }
 
     @Test
-    void traVe01KhiKhongTimThayGiaoDich() {
+    void returns01WhenTransactionNotFound() {
         when(repository.findByVnpTxnRef(TXN_REF)).thenReturn(Optional.empty());
 
         assertThat(service.handleIpn(ipn()).rspCode()).isEqualTo("01");
     }
 
     @Test
-    void traVe01KhiTmnCodeKhongPhaiCuaHeThongNay() {
+    void returns01WhenTmnCodeNotOurs() {
         Map<String, String> params = ipn();
         params.put("vnp_TmnCode", "KHACTMN");
 
@@ -114,7 +166,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void traVe04KhiSoTienLechVoiGiaoDichDaGhi() {
+    void returns04WhenAmountMismatchesRecordedTransaction() {
         Map<String, String> params = ipn();
         params.put("vnp_Amount", "9900000");
 
@@ -123,7 +175,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void ghiNhanThatBaiKhiCongBaoMaKhac00() {
+    void recordsFailureWhenGatewayReportsNon00() {
         Map<String, String> params = ipn();
         params.put("vnp_ResponseCode", "24"); // khach huy giao dich
 
@@ -133,7 +185,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void luuGiaoDichPendingTruocKhiRedirect() {
+    void savesPendingTransactionBeforeRedirect() {
         when(gateway.buildPaymentUrl(any())).thenReturn("https://pay?x=1");
 
         String url = service.startPayment(7L,
@@ -142,5 +194,15 @@ class PaymentServiceTest {
         assertThat(url).isEqualTo("https://pay?x=1");
         verify(repository).save(argThat(saved ->
                 saved.isPending() && saved.getVnpTxnRef().equals("TXN999")));
+    }
+
+    @Test
+    void startPaymentRejectsNullInvoiceId() {
+        PaymentRequest request =
+                new PaymentRequest("TXN1", new BigDecimal("10000"), "Thanh toan", "127.0.0.1");
+
+        assertThatThrownBy(() -> service.startPayment(null, request))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("invoiceId");
     }
 }

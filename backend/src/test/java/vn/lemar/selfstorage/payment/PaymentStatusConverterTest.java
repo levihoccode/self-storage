@@ -15,14 +15,14 @@ class PaymentStatusConverterTest {
     private final PaymentStatusConverter converter = new PaymentStatusConverter();
 
     @Test
-    void ghiXuongDbDungChuNhuCheckConstraint() {
+    void writesDbValuesMatchingCheckConstraint() {
         assertThat(converter.convertToDatabaseColumn(PaymentStatus.PENDING)).isEqualTo("Pending");
         assertThat(converter.convertToDatabaseColumn(PaymentStatus.FAILED)).isEqualTo("Failed");
         assertThat(converter.convertToDatabaseColumn(PaymentStatus.SUCCESS)).isEqualTo("Success");
     }
 
     @Test
-    void docNguocLaiTuDb() {
+    void readsValuesBackFromDb() {
         assertThat(converter.convertToEntityAttribute("Pending")).isEqualTo(PaymentStatus.PENDING);
         assertThat(converter.convertToEntityAttribute("Success")).isEqualTo(PaymentStatus.SUCCESS);
     }
