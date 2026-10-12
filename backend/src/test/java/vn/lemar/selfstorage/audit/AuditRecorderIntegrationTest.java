@@ -3,6 +3,7 @@ package vn.lemar.selfstorage.audit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -100,5 +101,28 @@ class AuditRecorderIntegrationTest {
                     assertThat(log.getReason()).isEqualTo("quá hạn thanh toán");
                     assertThat(log.getOldValue().get("status").asText()).isEqualTo("Pending");
                 });
+    }
+
+    /**
+     * Mọi action trong catalog phải được CHECK constraint của V1 nhận — enum ↔ DB luôn khớp,
+     * không để tái diễn drift kiểu {@code APPOINTMENT_CANCELED} từng thiếu trong CHECK.
+     */
+    @Test
+    void everyCatalogActionIsAcceptedByCheckConstraint() {
+        for (AuditAction action : AuditAction.values()) {
+            recorder.record(AuditEntry.of(action, firstAllowedEntity(action), "1"));
+        }
+
+        assertThat(repository.findAll())
+                .hasSize(AuditAction.values().length)
+                .extracting(AuditLog::getAction)
+                .containsExactlyInAnyOrder(AuditAction.values());
+    }
+
+    private static AuditEntityType firstAllowedEntity(AuditAction action) {
+        return Arrays.stream(AuditEntityType.values())
+                .filter(action::allowedFor)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Catalog không có entity cho " + action));
     }
 }

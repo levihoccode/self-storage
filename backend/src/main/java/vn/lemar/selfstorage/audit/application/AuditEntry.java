@@ -10,7 +10,7 @@ import vn.lemar.selfstorage.audit.domain.AuditEntityType;
  *
  * @param action         action theo catalog; phải khớp {@code entityType} (validate lúc ghi)
  * @param entityType     loại entity bị tác động
- * @param entityId       id entity, luôn lưu dạng chuỗi
+ * @param entityId       id entity dạng chuỗi, không rỗng
  * @param oldValue       giá trị trước (nullable) — serialize thành JSONB
  * @param newValue       giá trị sau (nullable)
  * @param reason         lý do (nullable) — bắt buộc với thao tác override theo spec flow
@@ -23,6 +23,9 @@ public record AuditEntry(AuditAction action, AuditEntityType entityType, String 
         Objects.requireNonNull(action, "action");
         Objects.requireNonNull(entityType, "entityType");
         Objects.requireNonNull(entityId, "entityId");
+        if (entityId.isBlank()) {
+            throw new IllegalArgumentException("entityId không được để trống");
+        }
     }
 
     /** Thao tác tối giản: chỉ action + entity, chưa có giá trị cũ/mới/lý do/actor. */

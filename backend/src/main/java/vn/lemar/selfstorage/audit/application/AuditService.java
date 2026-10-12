@@ -3,11 +3,16 @@ package vn.lemar.selfstorage.audit.application;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.audit.domain.AuditLog;
 import vn.lemar.selfstorage.audit.repository.AuditLogRepository;
 
-/** Ghi audit — append-only, chạy trong transaction của caller (propagation REQUIRED). */
+/**
+ * Ghi audit — append-only, chạy trong transaction của caller (propagation {@code MANDATORY}:
+ * gọi ngoài transaction là lỗi wiring, fail-fast thay vì tự commit một bản ghi tách rời
+ * nghiệp vụ).
+ */
 @Service
 public class AuditService implements AuditRecorder {
 
@@ -20,7 +25,7 @@ public class AuditService implements AuditRecorder {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void record(AuditEntry entry) {
         if (!entry.action().allowedFor(entry.entityType())) {
             throw new IllegalStateException("Action " + entry.action() + " không áp dụng cho entity "

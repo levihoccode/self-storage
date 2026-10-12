@@ -14,6 +14,8 @@ public interface AuditRecorder {
      *
      * @throws IllegalStateException action không khớp entity_type theo catalog — lỗi lập trình,
      *                               không phải lỗi dữ liệu đầu vào
+     * @throws org.springframework.transaction.IllegalTransactionStateException gọi ngoài
+     *                               transaction (propagation {@code MANDATORY}) — lỗi wiring
      */
     void record(AuditEntry entry);
 }

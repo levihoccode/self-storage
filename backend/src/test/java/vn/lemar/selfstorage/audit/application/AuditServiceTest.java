@@ -78,4 +78,12 @@ class AuditServiceTest {
         assertThatThrownBy(() -> AuditEntry.of(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT, null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void entryRejectsBlankEntityId() {
+        assertThatThrownBy(() -> AuditEntry.of(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT, ""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AuditEntry.of(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT, "  "))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

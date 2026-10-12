@@ -115,8 +115,9 @@ Chi tiết: `backend/sql/README.md`.
 ## Ghi audit (module audit)
 
 - Module khác inject `vn.lemar.selfstorage.audit.application.AuditRecorder` (named interface
-  `audit::application`) và gọi `record(entry)` **trong cùng transaction nghiệp vụ** — rollback
-  nghiệp vụ thì bản ghi audit rollback theo.
+  `audit::application`) và gọi `record(entry)` **trong cùng transaction nghiệp vụ** (propagation
+  `MANDATORY` — gọi ngoài transaction là lỗi wiring); rollback nghiệp vụ thì bản ghi audit
+  rollback theo.
 - Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
   hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
 - `AuditAction` (41 action) / `AuditEntityType` (12 loại) khớp Audit action catalog

@@ -13,12 +13,13 @@ flow. Catalog action/entity là nguồn sự thật ở spec — **không chép 
 1. Khai `allowedDependencies = {"audit::application"}` trong `package-info` của module mình.
 2. Inject `vn.lemar.selfstorage.audit.application.AuditRecorder` vào service.
 3. Gọi **trong cùng transaction** với thay đổi nghiệp vụ, tại service — không ở controller.
-   Rollback nghiệp vụ thì bản ghi audit rollback theo.
+   Propagation `MANDATORY`: gọi ngoài transaction là lỗi wiring (`IllegalTransactionStateException`,
+   fail-fast). Rollback nghiệp vụ thì bản ghi audit rollback theo.
 4. Một entity bị thay đổi = một lần gọi `record(...)`. Thao tác đổi N entity → N lần gọi
    trong cùng transaction (ví dụ `RENTAL_ORDER_CANCELED` ghi 4 entity).
 5. Chọn `AuditAction` đúng catalog và `AuditEntityType` khớp action — sai cặp là
    `IllegalStateException` (lỗi lập trình, 500), đã có unit test.
-6. `entityId`: truyền id dạng chuỗi — `String.valueOf(id)`.
+6. `entityId`: truyền id dạng chuỗi, không rỗng — `String.valueOf(id)`.
 7. `actorAccountId`: account thực hiện; `null` khi do hệ thống/cron/IPN.
 8. `reason`: bắt buộc với thao tác override theo spec (nhập lý do); các case khác để null.
 9. `oldValue`/`newValue`: Map/POJO trạng thái trước–sau (serialize thành JSONB); null khi
