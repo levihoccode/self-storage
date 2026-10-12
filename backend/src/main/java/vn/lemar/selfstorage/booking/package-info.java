@@ -6,5 +6,6 @@
  */
 @org.springframework.modulith.ApplicationModule(
         displayName = "Booking (F1)",
-        allowedDependencies = {"facility", "pricing", "identity", "payment", "notification"})
+        allowedDependencies = {"facility", "facility::application", "pricing", "identity", "identity::application",
+            "payment", "notification", "notification::application", "audit", "audit::application"})
 package vn.lemar.selfstorage.booking;
