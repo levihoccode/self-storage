@@ -124,6 +124,8 @@ Chi tiết: `backend/sql/README.md`.
   (lỗi lập trình, 500).
 - Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =
   hệ thống/cron/IPN. Bảng `audit_logs` append-only.
+- Hợp đồng tích hợp đầy đủ cho module gọi (checklist, ví dụ, call site hiện có):
+  [audit-log.md](audit-log.md).
 - **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
   [follow-up.md](follow-up.md).
 
@@ -180,6 +182,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [authorization.md](authorization.md) | Mô hình phân quyền: authorities, ba kiểu ràng buộc, điều kiện xác minh |
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
+| [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |
