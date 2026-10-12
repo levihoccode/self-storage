@@ -24,3 +24,10 @@ thì mở issue theo workflow; file này không thay thế issue.
   `OrderNotification` (repository hiện chỉ có `findByOrderId`, chưa có query theo order + type).
 - Phân trang list trả mảng không kèm `total` — FE tải thêm tới khi trang rỗng; nếu cần
   `total`/`hasMore` phải mở issue đổi contract.
+
+## Audit
+
+- AuditLog (A8) đi theo hướng service ghi audit gọi tường minh từ call site. Hướng AOP interceptor
+  nêu ở #15 §7 tạm để sau: interceptor không tự biết `entity_id` / `old_value` / `new_value` khi
+  một thao tác đổi nhiều entity — caller vẫn phải truyền đủ dữ liệu, thêm annotation lúc này chỉ
+  che luồng chạy thật. Xem lại khi số call site đủ nhiều và pattern đã ổn định.

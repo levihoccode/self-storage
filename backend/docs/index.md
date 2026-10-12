@@ -19,7 +19,7 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
-và FM phụ trách facility.
+và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm.
 
 Layout trong một module:
 
@@ -111,6 +111,21 @@ Chi tiết: `backend/sql/README.md`.
   - Layout HTML là mẫu cố định dùng chung; nội dung theo `(type, recipient)` do
     `NotificationTemplateCatalog` render (placeholder `{{key}}`).
 - Việc còn lại của module (caller nghiệp vụ, cron dedup, pagination): [follow-up.md](follow-up.md).
+
+## Ghi audit (module audit)
+
+- Module khác inject `vn.lemar.selfstorage.audit.application.AuditRecorder` (named interface
+  `audit::application`) và gọi `record(entry)` **trong cùng transaction nghiệp vụ** — rollback
+  nghiệp vụ thì bản ghi audit rollback theo.
+- Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
+  hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
+- `AuditAction` (41 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
+  (`specs/db-table-draft.md` › AuditLog); action không khớp entity → `IllegalStateException`
+  (lỗi lập trình, 500).
+- Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =
+  hệ thống/cron/IPN. Bảng `audit_logs` append-only.
+- **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
+  [follow-up.md](follow-up.md).
 
 ## Chạy & kiểm thử
 

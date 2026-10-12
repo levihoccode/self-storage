@@ -343,7 +343,7 @@ CREATE TABLE audit_logs (
                          'PAYMENT_SUCCEEDED', 'PAYMENT_FAILED', 'MANUAL_REFUND_RECORDED',
                          'RENTAL_ORDER_DEPOSITED', 'STORAGE_UNIT_RESERVED',
                          'APPOINTMENT_CREATED', 'FS_ASSIGNED', 'APPOINTMENT_RESCHEDULED',
-                         'APPOINTMENT_CANCELED_NO_SHOW',
+                         'APPOINTMENT_CANCELED_NO_SHOW', 'APPOINTMENT_CANCELED',
                          'IDENTITY_VERIFIED', 'UNIT_INSPECTED', 'HANDOVER_REJECTED',
                          'RENTAL_ORDER_CANCELED', 'HANDOVER_COMPLETED',
                          'START_DATE_OVERRIDE_REQUESTED', 'START_DATE_OVERRIDE_APPROVED',
@@ -352,13 +352,14 @@ CREATE TABLE audit_logs (
                          'HANDOVER_CANCELED', 'ACCESS_KEY_ISSUED', 'ACCESS_KEY_REVOKED',
                          'STORAGE_UNIT_RENTED', 'STORAGE_UNIT_MAINTENANCE', 'STORAGE_UNIT_AVAILABLE',
                          'RENTAL_ORDER_DONE', 'HANDOVER_RECORD_CREATED',
-                         'CHECKOUT_INSPECTED', 'CHECKOUT_COMPLETED'
+                         'CHECKOUT_INSPECTED', 'CHECKOUT_COMPLETED',
+                         'ACCOUNT_REGISTERED'
                      )),
     entity_type      VARCHAR(60) NOT NULL
                      CHECK (entity_type IN (
                          'RentalRequest', 'ProposalFeedback', 'Invoice', 'PaymentTransaction',
                          'RentalOrder', 'StorageUnit', 'Appointment', 'HandoverRecord',
-                         'RentalContract', 'UnitAccessKey', 'CheckoutRecord'
+                         'RentalContract', 'UnitAccessKey', 'CheckoutRecord', 'Account'
                      )),
     entity_id        TEXT NOT NULL,                        -- luôn lưu dạng chuỗi
     old_value        JSONB,
