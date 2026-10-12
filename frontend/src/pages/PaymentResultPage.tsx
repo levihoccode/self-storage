@@ -43,12 +43,15 @@ export function PaymentResultPage({ navigate }: { navigate: Navigate }) {
 
   return (
     <>
-      <SurfaceState
-        variant={isSuccess ? "empty" : "error"}
-        title={title}
-        description={description}
-        action={{ label: "Về kho của tôi", onClick: () => navigate("/my-storage") }}
-      />
+      {/* Popup là lớp hiển thị chính; đóng popup xong mới hiện khối trạng thái để khách điều hướng tiếp. */}
+      {!open && (
+        <SurfaceState
+          variant={isSuccess ? "empty" : "error"}
+          title={title}
+          description={description}
+          action={{ label: "Về kho của tôi", onClick: () => navigate("/my-storage") }}
+        />
+      )}
       {open && (
         <div
           className="fixed inset-0 z-[90] grid place-items-center bg-[rgba(7,16,19,0.68)] p-5"
@@ -76,7 +79,7 @@ export function PaymentResultPage({ navigate }: { navigate: Navigate }) {
             <p className="mb-2 mt-0 text-[13px] leading-normal text-muted">{description}</p>
             {txnRef && (
               <p className="mb-[22px] mt-0 font-mono text-[11px] text-muted">
-                Mã giao dịch: {txnRef}
+                Mã tham chiếu: {txnRef}
               </p>
             )}
             <button

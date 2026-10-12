@@ -1,3 +1,6 @@
+import { ApiError, apiRequest } from "./api";
+import { authGateway } from "./auth";
+
 export type StartPaymentResult = { ok: true; paymentUrl: string } | { ok: false; message: string };
 
 export interface PaymentGateway {
@@ -7,28 +10,27 @@ export interface PaymentGateway {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 /**
- * Gọi POST /api/invoices/{id}/pay (specs: fe-pages/customer/04-invoices-payment.md).
- * FE chỉ gửi invoiceId — số tiền do BE đọc từ hóa đơn, FE không bao giờ truyền số tiền.
+ * Gọi POST /api/invoices/{id}/pay (specs: fe-pages/customer/04-invoices-payment.md; contract #114:
+ * `{ message, data: { paymentUrl } }`). FE chỉ gửi invoiceId — số tiền do BE đọc từ hóa đơn,
+ * FE không bao giờ truyền số tiền.
  */
 const httpGateway: PaymentGateway = {
   async startPayment(invoiceId) {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/invoices/${encodeURIComponent(invoiceId)}/pay`,
-        {
-          method: "POST",
-          headers: { Accept: "application/json" },
-        },
+      const { paymentUrl } = await apiRequest<{ paymentUrl?: string }>(
+        `/api/invoices/${encodeURIComponent(invoiceId)}/pay`,
+        { method: "POST", accessToken: authGateway.getSession()?.token },
       );
-      if (!response.ok) {
-        return { ok: false, message: "Không thể tạo giao dịch thanh toán. Vui lòng thử lại." };
-      }
-      const body = (await response.json()) as { paymentUrl?: string };
-      if (!body.paymentUrl) {
+      if (!paymentUrl) {
         return { ok: false, message: "Máy chủ chưa trả về đường dẫn thanh toán." };
       }
-      return { ok: true, paymentUrl: body.paymentUrl };
-    } catch {
+      return { ok: true, paymentUrl };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        // 409: BE trả đúng câu thông báo theo spec 1.4 (khoang bị cọc trước / bảo trì / đang xử lý).
+        if (error.status === 409) return { ok: false, message: error.message };
+        return { ok: false, message: "Không thể tạo giao dịch thanh toán. Vui lòng thử lại." };
+      }
       return { ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." };
     }
   },

@@ -39,6 +39,6 @@ export const rentedStorage: RentedStorage[] = [
     monthlyPrice: 820000,
     paymentLabel: "Còn 18 ngày thanh toán",
     status: "expiring",
-    unpaidInvoiceId: "INV-0002",
+    unpaidInvoiceId: "invoice-503",
   },
 ];
