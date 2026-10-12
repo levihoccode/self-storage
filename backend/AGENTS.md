@@ -77,7 +77,7 @@ spec-gap gate above — docs never justify behavior the spec does not define.
 
 ## Module boundaries — CI fails on violations
 
-- Modules: `booking`, `payment`, `facility`, `handover`, `checkout`, `identity`,
+- Modules: `booking`, `payment`, `facility`, `handover`, `checkout`, `identity`, `audit`,
   `notification`, `overdue`, `pricing`, `scheduler`, `support`, `tenancy`.
 - Call another module **only through its public API** (`application/`). Never import another
   module's `domain/` or `repository/`. No dependency cycles.
