@@ -75,10 +75,11 @@ class AuditRecorderIntegrationTest {
 
     @Test
     void multiEntityActionWritesOneRowPerEntity() {
+        // actor 1 = account admin trong seed V2 (FK audit_logs.actor_account_id → accounts.id).
         recorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER, "5",
-                Map.of("status", "Pending"), Map.of("status", "Canceled"), "quá hạn thanh toán", 9L));
+                Map.of("status", "Pending"), Map.of("status", "Canceled"), "quá hạn thanh toán", 1L));
         recorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.STORAGE_UNIT, "3",
-                Map.of("status", "Reserved"), Map.of("status", "Available"), null, 9L));
+                Map.of("status", "Reserved"), Map.of("status", "Available"), null, 1L));
         recorder.record(AuditEntry.of(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.PROPOSAL_FEEDBACK, "8"));
         recorder.record(AuditEntry.of(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_CONTRACT, "1"));
 
@@ -91,6 +92,13 @@ class AuditRecorderIntegrationTest {
                         tuple(AuditEntityType.STORAGE_UNIT, "3"),
                         tuple(AuditEntityType.PROPOSAL_FEEDBACK, "8"),
                         tuple(AuditEntityType.RENTAL_CONTRACT, "1"));
-        assertThat(logs.get(0).getReason()).isEqualTo("quá hạn thanh toán");
+        assertThat(logs)
+                .filteredOn(log -> log.getEntityType() == AuditEntityType.RENTAL_ORDER)
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.getActorAccountId()).isEqualTo(1L);
+                    assertThat(log.getReason()).isEqualTo("quá hạn thanh toán");
+                    assertThat(log.getOldValue().get("status").asText()).isEqualTo("Pending");
+                });
     }
 }
