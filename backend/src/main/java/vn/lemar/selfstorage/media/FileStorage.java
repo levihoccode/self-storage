@@ -11,7 +11,10 @@ public interface FileStorage {
     /**
      * Lưu file lên storage và trả URL đọc lại được.
      *
+     * @param folder thư mục đích (dùng để truy vết theo chủ sở hữu); null/blank thì lưu ở gốc
+     * @throws vn.lemar.selfstorage.media.application.exception.InvalidUploadException
+     *         provider từ chối nội dung file (không đọc được / sai định dạng)
      * @throws vn.lemar.selfstorage.media.application.exception.MediaStorageException lỗi provider
      */
-    StoredFile store(byte[] content, String originalFilename, String contentType);
+    StoredFile store(byte[] content, String originalFilename, String contentType, String folder);
 }

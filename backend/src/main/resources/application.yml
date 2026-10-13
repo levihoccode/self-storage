@@ -3,6 +3,12 @@ spring:
     import: optional:file:../.env[.properties]
   application:
     name: self-storage
+  servlet:
+    multipart:
+      # Module media validate ≤10MB và trả 400 có message; servlet nhận nhỉnh hơn (12MB)
+      # để file 10–12MB tới được validator.
+      max-file-size: 12MB
+      max-request-size: 12MB
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/self_storage}
     username: ${DB_USER:self_storage}

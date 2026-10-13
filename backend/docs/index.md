@@ -140,6 +140,7 @@ Chi tiết: `backend/sql/README.md`.
   URL dùng lại khi submit flow (ảnh hiện trạng, scan hợp đồng, ảnh giấy tờ).
 - Validate JPEG/PNG/WebP/PDF ≤ 10MB (khớp cap free plan Cloudinary); sai → 400 message cụ thể.
 - Storage sau interface `FileStorage` (#15 §6, impl Cloudinary) — đổi provider chỉ thay impl.
+- File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
 - Creds `CLOUDINARY_NAME/KEY/SECRET` để `@NotBlank` — thiếu là app chết lúc boot; test/CI dùng
   giá trị giả, không gọi mạng.
 - Chi tiết route: [routes/media/upload.md](routes/media/upload.md).

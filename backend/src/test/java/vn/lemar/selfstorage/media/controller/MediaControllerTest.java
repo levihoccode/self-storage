@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.media.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -43,6 +44,7 @@ class MediaControllerTest {
 
     private static final String INVALID_TYPE_MESSAGE =
             "Định dạng file không được hỗ trợ (chỉ nhận JPEG, PNG, WebP, PDF)";
+    private static final String EMAIL = "customer@example.com";
 
     @Autowired
     private MockMvc mockMvc;
@@ -67,48 +69,49 @@ class MediaControllerTest {
     }
 
     @Test
-    void uploadReturnsStoredFile() throws Exception {
-        authenticate("customer@example.com", "CUSTOMER");
-        when(mediaService.upload(any(byte[].class), eq("anh.png"), eq("image/png")))
+    void uploadReturnsStoredFileOfCurrentAccount() throws Exception {
+        authenticate();
+        when(mediaService.upload(any(byte[].class), eq("anh.png"), eq("image/png"), eq(1L)))
                 .thenReturn(new FileStorage.StoredFile(
-                        "https://res.cloudinary.com/x/anh.png", "anh", 2, "png"));
+                        "https://res.cloudinary.com/x/uploads/acc-1/anh.png", "uploads/acc-1/anh", 2, "png"));
 
         mockMvc.perform(multipart("/api/media/uploads")
                         .file(new MockMultipartFile("file", "anh.png", "image/png", new byte[]{1, 2}))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(EMAIL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Tải file lên thành công"))
-                .andExpect(jsonPath("$.data.url").value("https://res.cloudinary.com/x/anh.png"))
-                .andExpect(jsonPath("$.data.publicId").value("anh"))
+                .andExpect(jsonPath("$.data.url").value("https://res.cloudinary.com/x/uploads/acc-1/anh.png"))
+                .andExpect(jsonPath("$.data.publicId").value("uploads/acc-1/anh"))
                 .andExpect(jsonPath("$.data.bytes").value(2))
                 .andExpect(jsonPath("$.data.format").value("png"));
     }
 
     @Test
     void uploadReturns400WithSpecificMessageWhenInvalid() throws Exception {
-        authenticate("customer@example.com", "CUSTOMER");
-        when(mediaService.upload(any(byte[].class), any(), any()))
+        authenticate();
+        when(mediaService.upload(any(byte[].class), any(), any(), anyLong()))
                 .thenThrow(new InvalidUploadException(INVALID_TYPE_MESSAGE));
 
         mockMvc.perform(multipart("/api/media/uploads")
                         .file(new MockMultipartFile("file", "a.exe", "application/x-msdownload", new byte[]{1}))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(EMAIL)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(INVALID_TYPE_MESSAGE));
     }
 
     @Test
     void uploadRejectsMissingFilePart() throws Exception {
-        authenticate("customer@example.com", "CUSTOMER");
+        authenticate();
 
         mockMvc.perform(multipart("/api/media/uploads")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(EMAIL)))
                 .andExpect(status().isBadRequest());
     }
 
-    private void authenticate(String email, String roleName) {
-        Account account = account(email, roleName);
-        when(accountRepository.findWithRoleByEmail(email)).thenReturn(Optional.of(account));
+    private void authenticate() {
+        Account account = account(EMAIL, "CUSTOMER");
+        when(accountRepository.findWithRoleByEmail(EMAIL)).thenReturn(Optional.of(account));
+        when(accountQueryService.requireIdByEmail(EMAIL)).thenReturn(1L);
     }
 
     private Account account(String email, String roleName) {
