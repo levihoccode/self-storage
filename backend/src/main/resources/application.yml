@@ -47,6 +47,13 @@ vnpay:
   pay-url: ${VNPAY_PAY_URL:}
   return-url: ${VNPAY_RETURN_URL:}
 
+# Cloudinary — giá trị thật nằm trong .env của từng người (tài khoản free, không cần thẻ).
+# Map tường minh qua placeholder vì key trong .env giữ nguyên dạng CLOUDINARY_NAME.
+cloudinary:
+  name: ${CLOUDINARY_NAME:}
+  key: ${CLOUDINARY_KEY:}
+  secret: ${CLOUDINARY_SECRET:}
+
 server:
   port: ${SERVER_PORT:8080}
 
