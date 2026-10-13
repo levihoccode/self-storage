@@ -2,8 +2,13 @@ package vn.lemar.selfstorage.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import jakarta.persistence.EntityManager;
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -20,8 +25,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.booking.application.AgreeResult;
+import vn.lemar.selfstorage.booking.application.InvoiceView;
 import vn.lemar.selfstorage.booking.application.ProposalService;
 import vn.lemar.selfstorage.booking.application.ProposalView;
+import vn.lemar.selfstorage.booking.application.RejectResult;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
@@ -32,7 +39,8 @@ import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 
 /**
  * Flow 1.3 chạy thật trên Postgres (Testcontainers) với seed V2/V3: khách đồng ý / từ chối, FM đề
- * xuất lại. Đơn + proposal do luồng B2 tạo nên test tự chèn bằng SQL. Máy không có Docker thì skip.
+ * xuất lại, theo các điểm chốt ở #113. Đơn + proposal do luồng B2 tạo nên test tự chèn bằng SQL. Máy không
+ * có Docker thì skip.
  */
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -42,6 +50,9 @@ class ProposalServiceIntegrationTest {
     @Container
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    /** Giá seed V2 của loại khoang Small, {@code invoice.deposit_months} = 1. */
+    private static final BigDecimal SMALL_MONTHLY_PRICE = new BigDecimal("500000.00");
 
     @Autowired
     private ProposalService service;
@@ -82,7 +93,7 @@ class ProposalServiceIntegrationTest {
     // ---------------------------------------------------------------- đồng ý
 
     @Test
-    void agreeMarksAgreedAssignsUnitAndAudits() {
+    void agreeMarksAgreedAssignsUnitAndIssuesDepositInvoice() {
         long proposalId = proposal("A-01", "Pending");
 
         AgreeResult result = service.agree(proposalId, customerId);
@@ -91,20 +102,60 @@ class ProposalServiceIntegrationTest {
         assertThat(result.proposal().status()).isEqualTo("Agreed");
         assertThat(proposalStatus(proposalId)).isEqualTo("Agreed");
         assertThat(orderUnitId()).isEqualTo(unitId("A-01"));
-        assertThat(auditActions(proposalId)).containsExactly("PROPOSAL_AGREED");
-        assertThat(jdbc.queryForObject("select actor_account_id from audit_logs where entity_id = ?", Long.class,
-                String.valueOf(proposalId))).isEqualTo(customerId);
+
+        InvoiceView invoice = result.invoice();
+        assertThat(invoice.code()).matches("INV-DEP-Q7-\\d{6}-[A-Z2-9]{6}");
+        assertThat(invoice.type()).isEqualTo("Deposit");
+        assertThat(invoice.status()).isEqualTo("Unpaid");
+        assertThat(invoice.amount()).isEqualByComparingTo(SMALL_MONTHLY_PRICE);
+        assertThat(invoice.title()).isEqualTo("Đặt cọc khoang chứa A-01");
+        assertThat(invoice.description()).isEqualTo("Thanh toán đặt cọc khoang chứa A-01 để đảm bảo giữ chỗ.");
+        assertThat(invoice.dueDate()).isCloseTo(Instant.now().plus(3, ChronoUnit.DAYS), within(1, ChronoUnit.MINUTES));
+
+        entityManager.flush();
+        Map<String, Object> row = jdbc.queryForMap(
+                "select order_id, customer_id, type, status, amount from invoices where id = ?", invoice.id());
+        assertThat(row).containsEntry("order_id", orderId).containsEntry("customer_id", customerId)
+                .containsEntry("type", "Deposit").containsEntry("status", "Unpaid");
+        assertThat(auditActions("ProposalFeedback", proposalId)).containsExactly("PROPOSAL_AGREED");
+        assertThat(auditActions("Invoice", invoice.id())).containsExactly("INVOICE_CREATED");
+        assertThat(jdbc.queryForObject("select actor_account_id from audit_logs where entity_type = 'Invoice' "
+                + "and entity_id = ?", Long.class, String.valueOf(invoice.id()))).isEqualTo(customerId);
     }
 
     @Test
-    void agreeOnUnavailableUnitExpiresProposalAndAsksFmToRepropose() {
+    void depositUsesUnitPriceOverrideTimesDepositMonths() {
+        long proposalId = proposal("A-01", "Pending");
+        jdbc.update("update storage_units set monthly_price = 650000 where code = 'A-01'");
+        jdbc.update("update policies set value = '2' where key = 'invoice.deposit_months'");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice().amount()).isEqualByComparingTo("1300000");
+    }
+
+    @Test
+    void depositDueDateNeverExceedsOrderExpiry() {
+        Instant orderExpiry = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+        jdbc.update("update rental_orders set expires_at = ? where id = ?", Timestamp.from(orderExpiry), orderId);
+        long proposalId = proposal("A-01", "Pending");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice().dueDate()).isEqualTo(orderExpiry);
+    }
+
+    @Test
+    void agreeOnUnavailableUnitCancelsProposalAndAsksFmToRepropose() {
         long proposalId = proposal("C-01", "Pending"); // C-01 đang Maintenance trong seed
 
         AgreeResult result = service.agree(proposalId, customerId);
 
         assertThat(result.outcome()).isEqualTo(AgreeResult.Outcome.UNIT_UNAVAILABLE);
-        assertThat(proposalStatus(proposalId)).isEqualTo("Expired");
+        assertThat(result.invoice()).isNull();
+        assertThat(proposalStatus(proposalId)).isEqualTo("Canceled");
         assertThat(orderUnitId()).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from invoices", Long.class)).isZero();
         assertThat(notificationsOf(fmId)).singleElement().satisfies(row -> {
             assertThat(row.get("type")).isEqualTo("PROPOSAL_REPROPOSAL_REQUIRED");
             assertThat((String) row.get("body")).contains("Đơn " + orderId).contains("C-01");
@@ -140,15 +191,74 @@ class ProposalServiceIntegrationTest {
     void rejectStoresNoteAuditsAndNotifiesFm() {
         long proposalId = proposal("A-01", "Pending");
 
-        ProposalView view = service.reject(proposalId, customerId, "  Khoang xa cửa ra vào  ");
+        RejectResult result = service.reject(proposalId, customerId, "  Khoang xa cửa ra vào  ");
 
-        assertThat(view.status()).isEqualTo("Rejected");
-        assertThat(view.note()).isEqualTo("Khoang xa cửa ra vào");
-        assertThat(auditActions(proposalId)).containsExactly("PROPOSAL_REJECTED");
+        assertThat(result.orderCanceled()).isFalse();
+        assertThat(result.proposal().status()).isEqualTo("Rejected");
+        assertThat(result.proposal().note()).isEqualTo("Khoang xa cửa ra vào");
+        assertThat(auditActions("ProposalFeedback", proposalId)).containsExactly("PROPOSAL_REJECTED");
         assertThat(notificationsOf(fmId)).singleElement().satisfies(row -> {
             assertThat(row.get("type")).isEqualTo("PROPOSAL_REJECTED");
             assertThat((String) row.get("body")).contains("A-01").contains("Khoang xa cửa ra vào");
         });
+    }
+
+    @Test
+    void secondRejectionDoesNotCancelTheOrder() {
+        proposal("A-03", "Rejected");
+        long proposalId = proposal("A-01", "Pending");
+
+        RejectResult result = service.reject(proposalId, customerId, "Vẫn chưa hợp");
+
+        assertThat(result.orderCanceled()).isFalse();
+        assertThat(orderStatus()).isEqualTo("Pending");
+    }
+
+    @Test
+    void thirdRejectionCancelsTheOrderAndNotifiesBothSides() {
+        proposal("A-03", "Rejected");
+        proposal("A-04", "Rejected");
+        long proposalId = proposal("A-01", "Pending");
+
+        RejectResult result = service.reject(proposalId, customerId, "Lần thứ ba vẫn không hợp");
+
+        assertThat(result.orderCanceled()).isTrue();
+        assertThat(proposalStatus(proposalId)).isEqualTo("Rejected");
+        assertThat(orderStatus()).isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select cancel_reason from rental_orders where id = ?", String.class,
+                orderId)).isEqualTo("Từ chối quá số khoang cho phép");
+        assertThat(auditActions("RentalOrder", orderId)).containsExactly("RENTAL_ORDER_CANCELED");
+        assertThat(notificationsOf(customerId)).singleElement().satisfies(row -> {
+            assertThat(row.get("type")).isEqualTo("RENTAL_ORDER_CANCELED");
+            assertThat((String) row.get("body")).contains("Từ chối quá số khoang cho phép");
+        });
+        assertThat(notificationsOf(fmId)).extracting(row -> row.get("type"))
+                .containsExactly("RENTAL_ORDER_CANCELED");
+    }
+
+    @Test
+    void cancellationCascadeCancelsLiveProposalsUnpaidInvoicesAndReleasesReservedUnit() {
+        proposal("A-03", "Rejected");
+        proposal("A-04", "Rejected");
+        long agreedEarlier = proposal("B-01", "Agreed");
+        long pendingId = proposal("A-01", "Pending");
+        jdbc.update("update storage_units set status = 'Reserved' where code = 'B-01'");
+        jdbc.update("update rental_orders set unit_id = ? where id = ?", unitId("B-01"), orderId);
+        long invoiceId = jdbc.queryForObject("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, 'INV-DEP-Q7-TEST-000001', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Unpaid', 900000,
+                        now() + interval '3 days') returning id""", Long.class, orderId, customerId);
+
+        service.reject(pendingId, customerId, "Không cần nữa");
+
+        assertThat(proposalStatus(agreedEarlier)).isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select status from storage_units where code = 'B-01'", String.class))
+                .isEqualTo("Available");
+        assertThat(auditActions("ProposalFeedback", agreedEarlier)).containsExactly("RENTAL_ORDER_CANCELED");
+        assertThat(auditActions("Invoice", invoiceId)).containsExactly("INVOICE_CANCELED");
+        assertThat(auditActions("StorageUnit", unitId("B-01"))).containsExactly("RENTAL_ORDER_CANCELED");
     }
 
     @Test
@@ -170,8 +280,7 @@ class ProposalServiceIntegrationTest {
         service.reject(proposalId, customerId, "Đổi ý");
 
         assertThat(proposalStatus(proposalId)).isEqualTo("Rejected");
-        entityManager.flush();
-        assertThat(jdbc.queryForObject("select count(*) from notifications", Long.class)).isZero();
+        assertThat(notificationCount()).isZero();
     }
 
     // ---------------------------------------------------------------- đề xuất lại (FM)
@@ -186,7 +295,7 @@ class ProposalServiceIntegrationTest {
         assertThat(view.status()).isEqualTo("Pending");
         assertThat(view.unitId()).isEqualTo(unitId("A-02"));
         assertThat(view.customerId()).isEqualTo(customerId);
-        assertThat(auditActions(view.id())).containsExactly("PROPOSAL_REPROPOSED");
+        assertThat(auditActions("ProposalFeedback", view.id())).containsExactly("PROPOSAL_REPROPOSED");
         assertThat(auditReason(view.id())).isNull();
         assertThat(notificationsOf(customerId)).singleElement().satisfies(row -> {
             assertThat(row.get("type")).isEqualTo("PROPOSAL_REPROPOSED");
@@ -272,6 +381,24 @@ class ProposalServiceIntegrationTest {
                 .isInstanceOf(RentalOrderNotFoundException.class);
     }
 
+    // ---------------------------------------------------------------- schema (#87 + chốt #113)
+
+    // Mỗi test chỉ một câu bị CHECK chặn, đặt cuối: Postgres huỷ cả transaction sau câu lỗi đầu tiên.
+
+    @Test
+    void schemaRejectsExpiredOrderStatus() {
+        assertThatThrownBy(() -> jdbc.update("update rental_orders set status = 'Expired' where id = ?", orderId))
+                .hasMessageContaining("rental_orders_status_check");
+    }
+
+    @Test
+    void schemaRejectsExpiredProposalStatus() {
+        long proposalId = proposal("A-01", "Canceled");
+
+        assertThatThrownBy(() -> jdbc.update("update proposal_feedbacks set status = 'Expired' where id = ?",
+                proposalId)).hasMessageContaining("proposal_feedbacks_status_check");
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private long proposal(String unitCode, String status) {
@@ -294,16 +421,26 @@ class ProposalServiceIntegrationTest {
         return jdbc.queryForObject("select status from proposal_feedbacks where id = ?", String.class, proposalId);
     }
 
-    private List<String> auditActions(long proposalId) {
+    private String orderStatus() {
         entityManager.flush();
-        return jdbc.queryForList("select action from audit_logs where entity_type = 'ProposalFeedback' "
-                + "and entity_id = ? order by id", String.class, String.valueOf(proposalId));
+        return jdbc.queryForObject("select status from rental_orders where id = ?", String.class, orderId);
+    }
+
+    private Long orderUnitId() {
+        entityManager.flush();
+        return jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
+    }
+
+    private List<String> auditActions(String entityType, long entityId) {
+        entityManager.flush();
+        return jdbc.queryForList("select action from audit_logs where entity_type = ? and entity_id = ? order by id",
+                String.class, entityType, String.valueOf(entityId));
     }
 
     private String auditReason(long proposalId) {
         entityManager.flush();
-        return jdbc.queryForObject("select reason from audit_logs where entity_id = ?", String.class,
-                String.valueOf(proposalId));
+        return jdbc.queryForObject("select reason from audit_logs where entity_type = 'ProposalFeedback' "
+                + "and entity_id = ?", String.class, String.valueOf(proposalId));
     }
 
     private List<Map<String, Object>> notificationsOf(long accountId) {
@@ -311,9 +448,9 @@ class ProposalServiceIntegrationTest {
         return jdbc.queryForList("select type, body from notifications where account_id = ?", accountId);
     }
 
-    private Long orderUnitId() {
+    private long notificationCount() {
         entityManager.flush();
-        return jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
+        return jdbc.queryForObject("select count(*) from notifications", Long.class);
     }
 
     private long orderNotificationCount() {

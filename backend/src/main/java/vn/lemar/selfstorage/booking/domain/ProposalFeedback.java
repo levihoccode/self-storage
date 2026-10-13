@@ -15,8 +15,8 @@ import lombok.NoArgsConstructor;
 /**
  * Đề xuất khoang và phản hồi của khách ({@code specs/db-table-draft.md} › ProposalFeedback).
  *
- * <p>Mỗi lần đề xuất lại tạo bản ghi mới, bản ghi cũ giữ nguyên làm lịch sử. Chỉ proposal
- * {@code Pending} mới chuyển trạng thái được — caller kiểm {@link #isPending()} trước khi gọi.
+ * <p>Mỗi lần đề xuất lại tạo bản ghi mới, bản ghi cũ giữ nguyên làm lịch sử. Khách chỉ đồng ý/từ chối
+ * được proposal {@code Pending} — caller kiểm {@link #isPending()} trước khi gọi.
  * Cột {@code expires_at} không map: spec NOTES 1.3 nói ProposalFeedback không đặt TTL.
  */
 @Entity
@@ -76,10 +76,20 @@ public class ProposalFeedback {
         this.note = rejectNote;
     }
 
-    /** Spec 1.3: khách bấm đồng ý nhưng khoang không còn {@code Available}. */
-    public void expire() {
-        requirePending();
-        this.status = ProposalStatus.EXPIRED;
+    /** Huỷ được khi còn hiệu lực: {@code Pending} hoặc {@code Agreed} (Cancellation Cascade). */
+    public boolean isCancelable() {
+        return status == ProposalStatus.PENDING || status == ProposalStatus.AGREED;
+    }
+
+    /**
+     * Chốt #113: {@code Canceled} (thay {@code Expired} của spec) khi khoang hết {@code Available} lúc
+     * khách đồng ý, hoặc khi đơn chạy Cancellation Cascade.
+     */
+    public void cancel() {
+        if (!isCancelable()) {
+            throw new IllegalStateException("Proposal " + id + " không huỷ được ở trạng thái " + status);
+        }
+        this.status = ProposalStatus.CANCELED;
     }
 
     private void requirePending() {

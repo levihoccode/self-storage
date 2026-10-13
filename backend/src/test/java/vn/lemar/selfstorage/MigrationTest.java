@@ -86,7 +86,8 @@ class MigrationTest {
             assertThat(count(connection, "facilities")).isEqualTo(2);
             assertThat(count(connection, "unit_types")).isEqualTo(3);
             assertThat(count(connection, "storage_units")).isEqualTo(8);
-            assertThat(count(connection, "policies")).isEqualTo(6);
+            // 7 = 6 key baseline + invoice.deposit_months (chốt #113).
+            assertThat(count(connection, "policies")).isEqualTo(7);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
             // V3: permission catalog + mapping mặc định (A3b, #57).
             assertThat(count(connection, "permissions")).isEqualTo(24);

@@ -3,8 +3,9 @@ package vn.lemar.selfstorage.booking.domain;
 /**
  * Trạng thái đơn thuê ({@code specs/db-table-draft.md} › RentalOrder).
  *
- * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code rental_orders} (V1), gồm cả
- * {@code Expired}; quy đổi qua {@link RentalOrderStatusConverter}.
+ * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code rental_orders} (V1); quy đổi qua
+ * {@link RentalOrderStatusConverter}. Không có {@code Expired}: quá hạn cũng là {@code Canceled} kèm
+ * {@code cancel_reason} (#87, chốt #113).
  */
 public enum RentalOrderStatus {
     PENDING("Pending"),
@@ -12,8 +13,7 @@ public enum RentalOrderStatus {
     SCHEDULED("Scheduled"),
     IN_PROGRESS("InProgress"),
     CANCELED("Canceled"),
-    DONE("Done"),
-    EXPIRED("Expired");
+    DONE("Done");
 
     private final String dbValue;
 
@@ -25,9 +25,9 @@ public enum RentalOrderStatus {
         return dbValue;
     }
 
-    /** Đơn đã đóng (huỷ, hoàn tất, hết hạn) — không còn đề xuất khoang được nữa. */
+    /** Đơn đã đóng (huỷ hoặc hoàn tất) — không còn đề xuất khoang được nữa. */
     public boolean isClosed() {
-        return this == CANCELED || this == DONE || this == EXPIRED;
+        return this == CANCELED || this == DONE;
     }
 
     public static RentalOrderStatus fromDbValue(String value) {

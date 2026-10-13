@@ -25,6 +25,12 @@ public class FacilityAccess {
         return facilityAccessRepository.exists(facilityId);
     }
 
+    /** Mã cơ sở ({@code facilities.code}, vd {@code Q7}) — dùng trong mã hoá đơn. */
+    @Transactional(readOnly = true)
+    public Optional<String> code(Long facilityId) {
+        return facilityAccessRepository.findCode(facilityId);
+    }
+
     /** FM phụ trách cơ sở ({@code facilities.fm_account_id}); rỗng nếu chưa gán FM. */
     @Transactional(readOnly = true)
     public Optional<Long> managerAccountId(Long facilityId) {

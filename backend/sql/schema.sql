@@ -150,7 +150,7 @@ CREATE TABLE rental_orders (
     unit_id       BIGINT REFERENCES storage_units (id),
     cancel_reason TEXT,
     status        VARCHAR(20) NOT NULL DEFAULT 'Pending'
-                  CHECK (status IN ('Pending', 'Deposited', 'Scheduled', 'InProgress', 'Canceled', 'Done', 'Expired')),
+                  CHECK (status IN ('Pending', 'Deposited', 'Scheduled', 'InProgress', 'Canceled', 'Done')),
     expires_at    TIMESTAMPTZ                          -- hạn giữ kho sau khi đặt cọc
 );
 
@@ -220,7 +220,7 @@ CREATE TABLE proposal_feedbacks (
     customer_id BIGINT NOT NULL REFERENCES accounts (id),
     unit_id     BIGINT NOT NULL REFERENCES storage_units (id),
     status      VARCHAR(20) NOT NULL DEFAULT 'Pending'
-                CHECK (status IN ('Pending', 'Agreed', 'Rejected', 'Expired')),
+                CHECK (status IN ('Pending', 'Agreed', 'Rejected', 'Canceled')),
     note        TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at  TIMESTAMPTZ

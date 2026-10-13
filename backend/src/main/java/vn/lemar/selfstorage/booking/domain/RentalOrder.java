@@ -52,4 +52,13 @@ public class RentalOrder {
     public void assignUnit(Long agreedUnitId) {
         this.unitId = agreedUnitId;
     }
+
+    /** Cancellation Cascade bước 1: {@code status -> Canceled}, ghi {@code cancel_reason}. */
+    public void cancel(String reason) {
+        if (status.isClosed()) {
+            throw new IllegalStateException("Đơn " + id + " đã đóng: " + status);
+        }
+        this.status = RentalOrderStatus.CANCELED;
+        this.cancelReason = reason;
+    }
 }

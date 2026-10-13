@@ -26,6 +26,11 @@ public class FacilityAccessRepository {
                 Boolean.class, facilityId));
     }
 
+    public Optional<String> findCode(Long facilityId) {
+        return jdbc.query("select code from facilities where id = ?", (rs, rowNum) -> rs.getString(1), facilityId)
+                .stream().findFirst();
+    }
+
     public Optional<Long> findManagerAccountId(Long facilityId) {
         return jdbc.query("select fm_account_id from facilities where id = ? and fm_account_id is not null",
                 (rs, rowNum) -> rs.getLong(1), facilityId).stream().findFirst();

@@ -88,6 +88,16 @@ Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 
 (chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
+Chốt #113 (spec sẽ cập nhật sau review, tạm lệch có chủ đích):
+
+- CHECK `rental_orders.status` **không còn `Expired`** (#87) — quá hạn cũng là `Canceled` + `cancel_reason`.
+- CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
+  hoặc đơn bị huỷ theo Cancellation Cascade).
+- Seed thêm policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
+  (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
+
+Hai thay đổi CHECK sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
+
 Seed V2 chưa có đơn thuê/proposal (do luồng convert B2 tạo). Muốn thử Flow 1.3 trên DB local thì
 chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.
 
