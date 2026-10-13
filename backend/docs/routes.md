@@ -17,6 +17,11 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | POST | `/api/notifications` | Bearer + `ACCOUNT_ACTIVE`; `notification.create_other` (ADMIN/BOM) | Tạo thông báo `OTHER` thủ công | [routes/notification/create-other.md](routes/notification/create-other.md) |
 | PATCH | `/api/notifications/{notificationId}/read` | Chủ tài nguyên | Đánh dấu một thông báo đã đọc | [routes/notification/mark-read.md](routes/notification/mark-read.md) |
 | PATCH | `/api/notifications/read-all` | Bearer + `ACCOUNT_ACTIVE` | Đánh dấu tất cả đã đọc | [routes/notification/read-all.md](routes/notification/read-all.md) |
+| GET | `/api/customer/proposals` | `CUSTOMER`; chủ tài nguyên | Đề xuất khoang của tôi (lọc `status`) | [routes/booking/customer-proposals-list.md](routes/booking/customer-proposals-list.md) |
+| POST | `/api/customer/proposals/{proposalId}/agree` | `CUSTOMER`; chủ tài nguyên | Đồng ý đề xuất, tạo hoá đơn đặt cọc | [routes/booking/customer-proposal-agree.md](routes/booking/customer-proposal-agree.md) |
+| POST | `/api/customer/proposals/{proposalId}/reject` | `CUSTOMER`; chủ tài nguyên | Từ chối đề xuất; lần thứ `max_rejection_count` huỷ đơn | [routes/booking/customer-proposal-reject.md](routes/booking/customer-proposal-reject.md) |
+| GET | `/api/fm/rental-orders/{orderId}` | `FM`; `rental_order.read` + facility scope | Chi tiết đơn để đề xuất lại | [routes/booking/fm-rental-order-detail.md](routes/booking/fm-rental-order-detail.md) |
+| POST | `/api/fm/rental-orders/{orderId}/re-propose` | `FM`; `proposal_feedback.repropose` (+ `.override`) + facility scope | Đề xuất lại khoang cho đơn | [routes/booking/fm-rental-order-repropose.md](routes/booking/fm-rental-order-repropose.md) |
 | GET | `/api/payments/vnpay/ipn` | Public (chữ ký VNPay) | VNPay xác nhận thanh toán — nguồn xác nhận duy nhất | [routes/payment/vnpay-ipn.md](routes/payment/vnpay-ipn.md) |
 | GET | `/api/payments/vnpay/return` | Public (redirect VNPay) | Trang kết quả cho khách — không ghi dữ liệu | [routes/payment/vnpay-return.md](routes/payment/vnpay-return.md) |
 

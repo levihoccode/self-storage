@@ -26,9 +26,12 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.booking.application.AgreeResult;
 import vn.lemar.selfstorage.booking.application.InvoiceView;
+import vn.lemar.selfstorage.booking.application.ProposalQueryService;
 import vn.lemar.selfstorage.booking.application.ProposalService;
 import vn.lemar.selfstorage.booking.application.ProposalView;
 import vn.lemar.selfstorage.booking.application.RejectResult;
+import vn.lemar.selfstorage.booking.application.dto.CustomerProposalResponse;
+import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderResponse;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
@@ -56,6 +59,8 @@ class ProposalServiceIntegrationTest {
 
     @Autowired
     private ProposalService service;
+    @Autowired
+    private ProposalQueryService queryService;
     @Autowired
     private JdbcTemplate jdbc;
     @Autowired
@@ -378,6 +383,58 @@ class ProposalServiceIntegrationTest {
         loginAs("fm1@lemar.vn");
 
         assertThatThrownBy(() -> service.repropose(-1L, unitId("A-02"), null, fmId))
+                .isInstanceOf(RentalOrderNotFoundException.class);
+    }
+
+    // ---------------------------------------------------------------- đọc dữ liệu màn hình
+
+    @Test
+    void customerListShowsOwnProposalsWithPriceAndRejectionCount() {
+        proposal("A-03", "Rejected");
+        long pendingId = proposal("A-01", "Pending");
+        jdbc.update("update storage_units set monthly_price = 650000 where code = 'A-01'");
+
+        List<CustomerProposalResponse> pending = queryService.listForCustomer(customerId, "Pending");
+
+        assertThat(pending).singleElement().satisfies(row -> {
+            assertThat(row.id()).isEqualTo(pendingId);
+            assertThat(row.unitCode()).isEqualTo("A-01");
+            assertThat(row.unitTypeName()).isEqualTo("Small");
+            assertThat(row.facilityName()).isEqualTo("Self Storage Quận 7");
+            assertThat(row.monthlyPrice()).isEqualByComparingTo("650000");
+            assertThat(row.rejectionCount()).isEqualTo(1);
+            assertThat(row.maxRejectionCount()).isEqualTo(3);
+        });
+        assertThat(queryService.listForCustomer(customerId, " ")).hasSize(2);
+        assertThat(queryService.listForCustomer(otherCustomerId, null)).isEmpty();
+        assertThatThrownBy(() -> queryService.listForCustomer(customerId, "Expired"))
+                .isInstanceOf(ProposalValidationException.class);
+    }
+
+    @Test
+    void fmOrderDetailListsHistoryAndAvailableUnitsOfRequestedType() {
+        proposal("A-01", "Rejected");
+        loginAs("fm1@lemar.vn");
+
+        FmRentalOrderResponse order = queryService.orderForFacilityManager(orderId);
+
+        assertThat(order.status()).isEqualTo("Pending");
+        assertThat(order.customer().email()).isEqualTo("customer1@lemar.vn");
+        assertThat(order.requested().unitTypeName()).isEqualTo("Small");
+        assertThat(order.rejectionCount()).isEqualTo(1);
+        assertThat(order.proposals()).singleElement().satisfies(row -> assertThat(row.note()).isEqualTo("Không hợp"));
+        assertThat(order.availableUnits()).extracting(FmRentalOrderResponse.AvailableUnit::code)
+                .containsExactly("A-01", "A-02", "A-03", "A-04");
+        assertThat(order.availableUnits()).filteredOn(FmRentalOrderResponse.AvailableUnit::previouslyRejected)
+                .extracting(FmRentalOrderResponse.AvailableUnit::code).containsExactly("A-01");
+    }
+
+    @Test
+    void fmOrderDetailIsScopedToTheFacility() {
+        loginAs("fm2@lemar.vn");
+
+        assertThatThrownBy(() -> queryService.orderForFacilityManager(orderId)).isInstanceOf(ForbiddenException.class);
+        assertThatThrownBy(() -> queryService.orderForFacilityManager(-1L))
                 .isInstanceOf(RentalOrderNotFoundException.class);
     }
 
