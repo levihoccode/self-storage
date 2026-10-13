@@ -19,7 +19,9 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
-và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm.
+và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `booking` có luồng nội bộ
+convert request đã duyệt thành đơn + proposal (B2, [booking-conversion.md](booking-conversion.md));
+`scheduler` chạy cron (`@EnableScheduling`).
 
 Layout trong một module:
 
@@ -68,6 +70,7 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
+| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 
 Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
@@ -86,6 +89,9 @@ Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__bas
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
 (chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
+
+Seed V2 chưa có policy `order.expiry_days` mà B2 cần (bug #130) — câu SQL thêm tay khi chạy local
+ở [booking-conversion.md](booking-conversion.md).
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
@@ -127,8 +133,8 @@ Chi tiết: `backend/sql/README.md`.
   hệ thống/cron/IPN. Bảng `audit_logs` append-only.
 - Hợp đồng tích hợp đầy đủ cho module gọi (checklist, ví dụ, call site hiện có):
   [audit-log.md](audit-log.md).
-- **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
-  [follow-up.md](follow-up.md).
+- Caller nghiệp vụ hiện có: booking B2 (`RENTAL_REQUEST_CLAIMED`); B1, B3, B4 và A3a nối ở PR của
+  flow tương ứng — bảng call site ở [audit-log.md](audit-log.md#call-site-hiện-có).
 
 ## Chạy & kiểm thử
 
@@ -184,6 +190,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
+| [booking-conversion.md](booking-conversion.md) | B2: convert request → đơn + proposal, claim sau xác minh, cron hết hạn request |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |

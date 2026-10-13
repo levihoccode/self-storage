@@ -53,7 +53,7 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 
 | Module | Action | Entity | Nối ở |
 |---|---|---|---|
-| — | — | — | Chưa có caller nào — nối ở PR của flow thì thêm một dòng vào bảng này |
+| booking | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `RentalRequestConversionService.claimForVerifiedAccount` (B2) — actor = customer vừa xác minh; trigger duyệt / tạo đơn / proposal chờ spec-gap #132 |
 
 ## Xem thêm
 

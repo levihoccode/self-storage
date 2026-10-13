@@ -1,5 +1,7 @@
 package vn.lemar.selfstorage.identity.application;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,5 +33,21 @@ public class AccountQueryService {
         return accountRepository.findById(accountId)
                 .orElseThrow(AccountNotFoundException::new)
                 .getEmail();
+    }
+
+    /** Account của email nếu đã xác minh; chưa có account hoặc chưa xác minh → rỗng. */
+    @Transactional(readOnly = true)
+    public Optional<VerifiedAccount> findVerifiedByEmail(String email) {
+        return accountRepository.findByEmail(Account.normalize(email))
+                .filter(Account::isVerified)
+                .map(account -> new VerifiedAccount(account.getId(), account.getEmail()));
+    }
+
+    /** Account theo id nếu đã xác minh; không tồn tại hoặc chưa xác minh → rỗng. */
+    @Transactional(readOnly = true)
+    public Optional<VerifiedAccount> findVerifiedById(Long accountId) {
+        return accountRepository.findById(accountId)
+                .filter(Account::isVerified)
+                .map(account -> new VerifiedAccount(account.getId(), account.getEmail()));
     }
 }
