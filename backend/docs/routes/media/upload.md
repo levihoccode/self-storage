@@ -12,8 +12,10 @@ FE upload ảnh hiện trạng / scan hợp đồng / ảnh giấy tờ trước
 
 ## Luồng / hành vi
 
-- Nhận `multipart/form-data` field `file`; validate loại (JPEG/PNG/WebP/PDF — header kèm tham số
-  như `; charset=binary` vẫn nhận) và kích thước ≤ 10MB — sai trả 400 với message cụ thể.
+- Nhận `multipart/form-data` field `file`; kiểm loại **hai lớp**: content-type client khai phải nằm
+  trong allowlist (JPEG/PNG/WebP/PDF — header kèm tham số như `; charset=binary` vẫn nhận,
+  `image/jpg` map về JPEG), và **nội dung phải khớp loại khai báo** theo chữ ký (magic bytes) —
+  khai PDF mà nội dung là ảnh → 400. Kích thước ≤ 10MB — sai trả 400 với message cụ thể.
 - Lưu lên Cloudinary với `resource_type=image` → Cloudinary kiểm nội dung thật; file giả mạo
   content-type bị từ chối **400** ("File không đọc được hoặc không đúng định dạng ảnh/PDF"),
   không lọt thành asset `raw`.
