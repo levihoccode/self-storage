@@ -27,4 +27,17 @@ public class CurrentAccountProvider {
         return accountRepository.findWithRoleByEmail(Account.normalize(authentication.getName()))
                 .orElseThrow(UnauthenticatedException::new);
     }
+
+    /**
+     * Id account hiện tại. Module nghiệp vụ dùng cái này thay vì {@link #getCurrentAccount()} để
+     * không phải tham chiếu entity {@code Account} — entity là nội bộ của identity.
+     */
+    public Long currentAccountId() {
+        return getCurrentAccount().getId();
+    }
+
+    /** Khách đã xác minh email chưa — điều kiện chặn thao tác nghiệp vụ theo spec Flow 1 §1.2. */
+    public boolean isCurrentAccountVerified() {
+        return getCurrentAccount().isVerified();
+    }
 }

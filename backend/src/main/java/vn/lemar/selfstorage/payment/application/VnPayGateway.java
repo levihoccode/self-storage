@@ -38,7 +38,7 @@ public class VnPayGateway implements PaymentGateway {
 
     private static final ZoneId VNPAY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-    private static final Duration PAYMENT_WINDOW = Duration.ofMinutes(15);
+    private static final Duration PAYMENT_WINDOW = PaymentSession.WINDOW;
 
     private final VnPayProperties properties;
 
