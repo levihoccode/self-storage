@@ -4,15 +4,8 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.lemar.selfstorage.audit.application.AuditEntry;
-import vn.lemar.selfstorage.audit.application.AuditRecorder;
-import vn.lemar.selfstorage.audit.domain.AuditAction;
-import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
 import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
@@ -22,11 +15,7 @@ import vn.lemar.selfstorage.booking.domain.StorageUnit;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
 import vn.lemar.selfstorage.booking.repository.StorageUnitRepository;
-import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
-import vn.lemar.selfstorage.notification.application.NotificationService;
-import vn.lemar.selfstorage.notification.application.NotificationRecipient;
-import vn.lemar.selfstorage.notification.application.NotificationType;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentSessionQuery;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
@@ -43,8 +32,6 @@ import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
  */
 @Service
 public class DepositPaymentService {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DepositPaymentService.class);
 
     private static final String DEPOSIT_TYPE = "Deposit";
 
@@ -68,25 +55,19 @@ public class DepositPaymentService {
     private final StorageUnitRepository units;
     private final PaymentService payments;
     private final PaymentSessionQuery sessions;
-    private final NotificationService notifications;
-    private final FacilityAccess facilities;
     private final CurrentAccountProvider currentAccount;
-    private final AuditRecorder audit;
+    private final InvoiceVoidingService invoiceVoiding;
 
-    @SuppressWarnings("checkstyle:ParameterNumber")
     public DepositPaymentService(InvoiceRepository invoices, RentalOrderRepository orders,
             StorageUnitRepository units, PaymentService payments, PaymentSessionQuery sessions,
-            NotificationService notifications, FacilityAccess facilities,
-            CurrentAccountProvider currentAccount, AuditRecorder audit) {
+            CurrentAccountProvider currentAccount, InvoiceVoidingService invoiceVoiding) {
         this.invoices = invoices;
         this.orders = orders;
         this.units = units;
         this.payments = payments;
         this.sessions = sessions;
-        this.notifications = notifications;
-        this.facilities = facilities;
         this.currentAccount = currentAccount;
-        this.audit = audit;
+        this.invoiceVoiding = invoiceVoiding;
     }
 
     /**
@@ -150,28 +131,10 @@ public class DepositPaymentService {
         return payments.startPayment(invoice.getId(), request);
     }
 
-    /** Hóa đơn mất hiệu lực vì khoang không còn dùng được; FM nhận thông báo để đề xuất lại. */
+    /** Uỷ cho bean riêng để bản ghi `Canceled` commit độc lập với việc ném 409. */
     private void voidInvoice(Invoice invoice, StorageUnit unit, Long actorId) {
-        invoice.cancel();
-        audit.record(new AuditEntry(AuditAction.INVOICE_CANCELED, AuditEntityType.INVOICE,
-                String.valueOf(invoice.getId()), null, null,
-                "Khoang " + unit.getCode() + " không còn khả dụng", actorId));
-        notifyManager(unit, invoice);
-    }
-
-    private void notifyManager(StorageUnit unit, Invoice invoice) {
-        Optional<Long> manager = facilities.findManagerAccountId(unit.getFacilityId());
-        if (manager.isEmpty()) {
-            // Không có FM thì vẫn phải hủy hóa đơn — thiếu người nhận không được chặn nghiệp vụ.
-            LOG.warn("Cơ sở {} chưa gán FM, bỏ qua thông báo re-propose cho hóa đơn {}",
-                    unit.getFacilityId(), invoice.getId());
-            return;
-        }
-        notifications.notify(manager.get(), null, NotificationRecipient.FM,
-                NotificationType.PROPOSAL_REPROPOSAL_REQUIRED,
-                java.util.Map.of("orderCode", String.valueOf(invoice.getOrderId()),
-                        "unitCode", unit.getCode()),
-                invoice.getOrderId());
+        invoiceVoiding.voidForUnavailableUnit(
+                invoice.getId(), unit.getCode(), unit.getFacilityId(), actorId);
     }
 
     private List<Long> invoiceIdsOnUnit(Long unitId) {

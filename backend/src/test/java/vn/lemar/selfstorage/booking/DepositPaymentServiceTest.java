@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -19,8 +18,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.booking.application.DepositPaymentService;
+import vn.lemar.selfstorage.booking.application.InvoiceVoidingService;
 import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
 import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
@@ -31,10 +30,7 @@ import vn.lemar.selfstorage.booking.domain.StorageUnitStatus;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
 import vn.lemar.selfstorage.booking.repository.StorageUnitRepository;
-import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
-import vn.lemar.selfstorage.notification.application.NotificationService;
-import vn.lemar.selfstorage.notification.application.NotificationType;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentSessionQuery;
 
@@ -51,7 +47,6 @@ class DepositPaymentServiceTest {
     private static final Long ORDER_ID = 200L;
     private static final Long UNIT_ID = 300L;
     private static final Long FACILITY_ID = 400L;
-    private static final Long FM_ID = 9L;
     private static final String PAY_URL = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?x=1";
 
     private final InvoiceRepository invoices = mock(InvoiceRepository.class);
@@ -59,10 +54,8 @@ class DepositPaymentServiceTest {
     private final StorageUnitRepository units = mock(StorageUnitRepository.class);
     private final PaymentService payments = mock(PaymentService.class);
     private final PaymentSessionQuery sessions = mock(PaymentSessionQuery.class);
-    private final NotificationService notifications = mock(NotificationService.class);
-    private final FacilityAccess facilities = mock(FacilityAccess.class);
     private final CurrentAccountProvider currentAccount = mock(CurrentAccountProvider.class);
-    private final AuditRecorder audit = mock(AuditRecorder.class);
+    private final InvoiceVoidingService invoiceVoiding = mock(InvoiceVoidingService.class);
 
     private DepositPaymentService service;
     private Invoice invoice;
@@ -72,7 +65,7 @@ class DepositPaymentServiceTest {
     @BeforeEach
     void setUp() {
         service = new DepositPaymentService(invoices, orders, units, payments, sessions,
-                notifications, facilities, currentAccount, audit);
+                currentAccount, invoiceVoiding);
 
         when(currentAccount.isCurrentAccountVerified()).thenReturn(true);
         when(currentAccount.currentAccountId()).thenReturn(CUSTOMER_ID);
@@ -146,51 +139,31 @@ class DepositPaymentServiceTest {
                 .isInstanceOf(DepositNotAllowedException.class)
                 .hasMessageContaining("Đơn thuê kho đã hết hạn");
         // Chưa đụng tới khoang nên hóa đơn phải còn nguyên hiệu lực.
-        verify(invoice, never()).cancel();
+        verifyNoInteractions(invoiceVoiding);
         verifyNoInteractions(units);
     }
 
     @Test
     void branch2ReservedUnitVoidsInvoiceAndNotifiesManager() {
         when(unit.getStatus()).thenReturn(StorageUnitStatus.RESERVED);
-        when(facilities.findManagerAccountId(FACILITY_ID)).thenReturn(Optional.of(FM_ID));
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
                 .hasMessageContaining("đã được đặt cọc bởi khách hàng khác");
 
-        verify(invoice).cancel();
-        verify(audit).record(any());
-        verify(notifications).notify(eq(FM_ID), any(), any(),
-                eq(NotificationType.PROPOSAL_REPROPOSAL_REQUIRED), any(), eq(ORDER_ID));
+        verify(invoiceVoiding).voidForUnavailableUnit(INVOICE_ID, "A-01", FACILITY_ID, CUSTOMER_ID);
         verifyNoInteractions(payments);
     }
 
     @Test
     void branch3MaintenanceUnitVoidsInvoiceAndNotifiesManager() {
         when(unit.getStatus()).thenReturn(StorageUnitStatus.MAINTENANCE);
-        when(facilities.findManagerAccountId(FACILITY_ID)).thenReturn(Optional.of(FM_ID));
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
                 .hasMessageContaining("hiện không khả dụng");
 
-        verify(invoice).cancel();
-        verify(notifications).notify(eq(FM_ID), any(), any(),
-                eq(NotificationType.PROPOSAL_REPROPOSAL_REQUIRED), any(), eq(ORDER_ID));
-    }
-
-    @Test
-    void invoiceIsStillVoidedWhenFacilityHasNoManager() {
-        when(unit.getStatus()).thenReturn(StorageUnitStatus.MAINTENANCE);
-        when(facilities.findManagerAccountId(FACILITY_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
-                .isInstanceOf(DepositNotAllowedException.class);
-
-        // Thiếu người nhận thông báo không được chặn việc vô hiệu hóa đơn.
-        verify(invoice).cancel();
-        verifyNoInteractions(notifications);
+        verify(invoiceVoiding).voidForUnavailableUnit(INVOICE_ID, "A-01", FACILITY_ID, CUSTOMER_ID);
     }
 
     @Test
@@ -201,7 +174,7 @@ class DepositPaymentServiceTest {
                 .isInstanceOf(DepositNotAllowedException.class)
                 .hasMessageContaining("đang trong quá trình xử lý thanh toán");
 
-        verify(invoice, never()).cancel();
+        verifyNoInteractions(invoiceVoiding);
         verifyNoInteractions(payments);
     }
 

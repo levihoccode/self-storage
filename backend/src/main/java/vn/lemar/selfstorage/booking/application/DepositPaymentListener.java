@@ -101,7 +101,7 @@ public class DepositPaymentListener {
 
         notifications.notify(invoice.getCustomerId(), null, NotificationRecipient.CUSTOMER,
                 NotificationType.DEPOSIT_PAYMENT_SUCCEEDED,
-                Map.of("unitCode", unit.getCode(), "amount", event.amount().toPlainString()),
+                Map.of("orderCode", String.valueOf(order.getId())),
                 order.getId());
     }
 
