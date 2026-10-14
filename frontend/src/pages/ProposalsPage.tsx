@@ -1,63 +1,125 @@
 import { AlertTriangle, ArrowRight, Check, MapPin, X } from "lucide-react";
-import { useState } from "react";
-import type { Navigate } from "../app/types";
+import { useCallback, useEffect, useState } from "react";
+import { ApiError } from "../app/api";
+import {
+  agreeProposal,
+  fetchMyProposals,
+  formatDate,
+  formatMoney,
+  rejectProposal,
+} from "../app/proposals";
+import type { CustomerProposal, DepositInvoice, Navigate } from "../app/types";
 import { rentedStorage } from "../mocks/customer";
-import { MAX_REJECTIONS, proposals as initialProposals, type Proposal } from "../mocks/proposals";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
 type Tab = "active" | "pending";
+type LoadState = "loading" | "ready" | "error";
+
+/** Kết quả thao tác trên một thẻ, giữ lại để hiển thị sau khi proposal rời khỏi danh sách Pending. */
+type CardOutcome =
+  | { kind: "agreed"; invoice: DepositInvoice }
+  | { kind: "unavailable"; message: string }
+  | { kind: "rejected" };
+
+type LoadResult = { ok: true; data: CustomerProposal[] } | { ok: false; message: string };
+
+async function loadPendingProposals(): Promise<LoadResult> {
+  try {
+    return { ok: true, data: await fetchMyProposals("Pending") };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Không tải được danh sách đề xuất.",
+    };
+  }
+}
 
 const TAB_BUTTON =
   "border-0 bg-transparent px-1 pb-3 text-[13px] font-bold text-muted hover:text-ink";
 
 export function ProposalsPage({ navigate }: { navigate: Navigate }) {
   const [tab, setTab] = useState<Tab>("pending");
-  const [items, setItems] = useState<Proposal[]>(initialProposals);
-  const [agreedIds, setAgreedIds] = useState<Set<string>>(new Set());
-  const [canceledIds, setCanceledIds] = useState<Set<string>>(new Set());
-  const [conflictId, setConflictId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [items, setItems] = useState<CustomerProposal[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState("");
+  const [outcomes, setOutcomes] = useState<Record<number, CardOutcome>>({});
+  const [actionError, setActionError] = useState<{ id: number; message: string } | null>(null);
+  const [orderCanceled, setOrderCanceled] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
 
-  // Agreed proposals stay visible with their confirmation; only canceled ones
-  // move into the separate "cancelled" notice below the list.
-  const visibleProposals = items.filter((proposal) => !canceledIds.has(proposal.id));
-  const awaitingCount = items.filter(
-    (proposal) => !agreedIds.has(proposal.id) && !canceledIds.has(proposal.id),
-  ).length;
+  const applyLoad = useCallback((result: LoadResult) => {
+    if (result.ok) {
+      setItems(result.data);
+      setLoadState("ready");
+    } else {
+      setLoadError(result.message);
+      setLoadState("error");
+    }
+  }, []);
 
-  function agree(proposal: Proposal) {
-    setBusyId(proposal.id);
-    setConflictId(null);
-    window.setTimeout(() => {
-      setBusyId(null);
-      if (proposal.simulateConflict) {
-        setConflictId(proposal.id);
-        setItems((current) =>
-          current.map((item) => (item.id === proposal.id ? { ...item, status: "expired" } : item)),
-        );
-        return;
-      }
-      setAgreedIds((current) => new Set(current).add(proposal.id));
-    }, 700);
+  // setState chỉ chạy sau await; `active` chặn cập nhật khi đã rời trang.
+  useEffect(() => {
+    let active = true;
+    async function loadInitial() {
+      const result = await loadPendingProposals();
+      if (active) applyLoad(result);
+    }
+    void loadInitial();
+    return () => {
+      active = false;
+    };
+  }, [applyLoad]);
+
+  // Nút "Thử lại" — setState nằm ở event handler, không phải effect.
+  async function reload() {
+    setLoadState("loading");
+    applyLoad(await loadPendingProposals());
   }
 
-  function confirmReject(proposal: Proposal) {
-    const nextCount = proposal.rejectionCount + 1;
-    if (nextCount >= MAX_REJECTIONS) {
-      setCanceledIds((current) => new Set(current).add(proposal.id));
-    } else {
-      setItems((current) =>
-        current.map((item) =>
-          item.id === proposal.id ? { ...item, rejectionCount: nextCount } : item,
-        ),
-      );
+  // Proposal đã thao tác vẫn giữ trên màn để khách thấy kết quả; chỉ proposal còn chờ mới được đếm.
+  const awaitingCount = items.filter((proposal) => !outcomes[proposal.id]).length;
+
+  async function agree(proposal: CustomerProposal) {
+    setBusyId(proposal.id);
+    setActionError(null);
+    try {
+      const result = await agreeProposal(proposal.id);
+      setOutcomes((current) => ({
+        ...current,
+        [proposal.id]: { kind: "agreed", invoice: result.invoice },
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể đồng ý đề xuất.";
+      // 409: khoang vừa bị đặt cọc / bảo trì — BE đã huỷ proposal này và báo FM đề xuất khoang khác.
+      if (error instanceof ApiError && error.status === 409) {
+        setOutcomes((current) => ({ ...current, [proposal.id]: { kind: "unavailable", message } }));
+      } else {
+        setActionError({ id: proposal.id, message });
+      }
+    } finally {
+      setBusyId(null);
     }
-    setRejectingId(null);
-    setRejectNote("");
+  }
+
+  async function confirmReject(proposal: CustomerProposal) {
+    setBusyId(proposal.id);
+    setActionError(null);
+    try {
+      const result = await rejectProposal(proposal.id, rejectNote.trim());
+      setOutcomes((current) => ({ ...current, [proposal.id]: { kind: "rejected" } }));
+      if (result.orderCanceled) setOrderCanceled(true);
+      setRejectingId(null);
+      setRejectNote("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể từ chối đề xuất.";
+      setActionError({ id: proposal.id, message });
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -110,8 +172,22 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           </div>
         ))}
 
+      {tab === "pending" && loadState === "loading" && (
+        <SurfaceState variant="loading" title="Đang tải đề xuất khoang…" />
+      )}
+
+      {tab === "pending" && loadState === "error" && (
+        <SurfaceState
+          variant="error"
+          title="Không tải được đề xuất khoang"
+          description={loadError}
+          action={{ label: "Thử lại", onClick: () => void reload() }}
+        />
+      )}
+
       {tab === "pending" &&
-        (visibleProposals.length === 0 ? (
+        loadState === "ready" &&
+        (items.length === 0 ? (
           <SurfaceState
             variant="empty"
             title="Chưa có đề xuất nào đang chờ"
@@ -119,66 +195,61 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           />
         ) : (
           <div className="grid gap-4">
-            {visibleProposals.map((proposal) => {
-              const isExpired = proposal.status === "expired";
-              const isAgreed = agreedIds.has(proposal.id);
+            {items.map((proposal) => {
+              const outcome = outcomes[proposal.id];
               const isBusy = busyId === proposal.id;
-              const nearLimit = proposal.rejectionCount >= MAX_REJECTIONS - 1;
+              // Ngưỡng và số lần đã từ chối lấy từ API (proposal.max_rejection_count), FE không tự đặt.
+              const remaining = proposal.maxRejectionCount - proposal.rejectionCount;
+              const nearLimit = remaining <= 1;
               return (
                 <article key={proposal.id} className="border border-border bg-surface p-6">
                   <div className="flex items-start justify-between gap-5 max-[760px]:flex-col">
                     <div>
                       <p className="m-0 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-brand">
-                        Khoang {proposal.unitCode} · {proposal.unitType}
+                        Khoang {proposal.unitCode} · {proposal.unitTypeName}
                       </p>
                       <h3 className="mb-0 mt-1 text-[18px] tracking-[-0.02em]">
-                        {proposal.facility}
+                        {proposal.facilityName}
                       </h3>
-                      <p className="mb-0 mt-1.5 flex items-center gap-[6px] text-[13px] text-muted">
-                        <MapPin size={15} /> {proposal.district}
-                      </p>
+                      {proposal.facilityAddress && (
+                        <p className="mb-0 mt-1.5 flex items-center gap-[6px] text-[13px] text-muted">
+                          <MapPin size={15} /> {proposal.facilityAddress}
+                        </p>
+                      )}
                     </div>
                     <div className="grid gap-3.5 text-right max-[760px]:text-left">
                       <div className="grid gap-[3px]">
                         <span className="font-mono text-[10px] font-medium uppercase text-muted">
                           Giá thuê đề xuất
                         </span>
-                        <strong className="text-[15px]">{proposal.monthlyPrice}</strong>
+                        <strong className="text-[15px]">
+                          {formatMoney(proposal.monthlyPrice)} / tháng
+                        </strong>
                       </div>
                       <div className="grid gap-[3px]">
                         <span className="font-mono text-[10px] font-medium uppercase text-muted">
-                          {isExpired ? "Đã hết hạn" : "Hạn phản hồi"}
+                          Ngày đề xuất
                         </span>
-                        <strong className={`text-[13px] ${isExpired ? "text-danger" : ""}`}>
-                          {proposal.expiresAt}
-                        </strong>
+                        <strong className="text-[13px]">{formatDate(proposal.createdAt)}</strong>
                       </div>
                     </div>
                   </div>
 
-                  {conflictId === proposal.id && (
+                  {outcome?.kind === "unavailable" && (
                     <div className="mt-4">
                       <DemoNotice tone="error">
-                        Khoang này vừa có người khác đặt cọc trước. Đề xuất đã hết hiệu lực — đội
-                        ngũ vận hành sẽ gửi đề xuất khoang khác cho bạn.
+                        {outcome.message}. Đề xuất đã hết hiệu lực — đội ngũ vận hành sẽ gửi đề xuất
+                        khoang khác cho bạn.
                       </DemoNotice>
                     </div>
                   )}
 
-                  {isExpired && conflictId !== proposal.id && (
-                    <div className="mt-4">
-                      <SurfaceState
-                        variant="session-expired"
-                        title="Đề xuất đã hết hạn"
-                        description="Bạn chưa phản hồi trước hạn. Đội ngũ vận hành sẽ gửi đề xuất khoang mới."
-                      />
-                    </div>
-                  )}
-
-                  {isAgreed && (
+                  {outcome?.kind === "agreed" && (
                     <div className="mt-4">
                       <DemoNotice tone="success">
-                        Đã đồng ý khoang này. Hoá đơn đặt cọc đang được tạo.
+                        Đã đồng ý khoang này. Hoá đơn đặt cọc {outcome.invoice.code}:{" "}
+                        {formatMoney(outcome.invoice.amount)}, hạn thanh toán{" "}
+                        {formatDate(outcome.invoice.dueDate)}.
                       </DemoNotice>
                       <Button
                         variant="secondary"
@@ -190,19 +261,33 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                     </div>
                   )}
 
-                  {!isExpired && !isAgreed && nearLimit && (
+                  {outcome?.kind === "rejected" && (
                     <div className="mt-4">
                       <DemoNotice tone="pending">
-                        Bạn đã từ chối {proposal.rejectionCount}/{MAX_REJECTIONS} lần cho phép. Từ
-                        chối thêm {MAX_REJECTIONS - proposal.rejectionCount} lần nữa, yêu cầu này sẽ
-                        tự huỷ và bạn cần gửi lại từ đầu.
+                        Đã từ chối khoang này. Đội ngũ vận hành sẽ đề xuất khoang khác cho bạn.
                       </DemoNotice>
                     </div>
                   )}
 
-                  {!isExpired && !isAgreed && (
+                  {!outcome && nearLimit && (
+                    <div className="mt-4">
+                      <DemoNotice tone="pending">
+                        Bạn đã từ chối {proposal.rejectionCount}/{proposal.maxRejectionCount} lần
+                        cho phép. Từ chối thêm {remaining} lần nữa, yêu cầu này sẽ tự huỷ và bạn cần
+                        gửi lại từ đầu.
+                      </DemoNotice>
+                    </div>
+                  )}
+
+                  {actionError?.id === proposal.id && (
+                    <div className="mt-4">
+                      <DemoNotice tone="error">{actionError.message}</DemoNotice>
+                    </div>
+                  )}
+
+                  {!outcome && (
                     <div className="mt-5 flex items-center gap-3">
-                      <Button pending={isBusy} onClick={() => agree(proposal)}>
+                      <Button pending={isBusy} onClick={() => void agree(proposal)}>
                         {!isBusy && <Check size={16} />}
                         Đồng ý
                       </Button>
@@ -216,7 +301,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                     </div>
                   )}
 
-                  {rejectingId === proposal.id && (
+                  {!outcome && rejectingId === proposal.id && (
                     <div className="mt-4 border border-border bg-surface-subtle p-4">
                       <label className="grid gap-1.5 text-[12px] font-bold text-ink">
                         Lý do từ chối
@@ -228,7 +313,13 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                         />
                       </label>
                       <div className="mt-3 flex items-center gap-2.5">
-                        <Button onClick={() => confirmReject(proposal)}>Xác nhận từ chối</Button>
+                        <Button
+                          pending={isBusy}
+                          disabled={!rejectNote.trim()}
+                          onClick={() => void confirmReject(proposal)}
+                        >
+                          Xác nhận từ chối
+                        </Button>
                         <button
                           className="border-0 bg-transparent px-3 py-2 text-[12px] text-muted hover:text-brand"
                           onClick={() => {
@@ -244,14 +335,14 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                 </article>
               );
             })}
-            {[...canceledIds].length > 0 && (
+            {orderCanceled && (
               <div className="border border-danger bg-danger/8 p-5">
                 <p className="m-0 flex items-center gap-2 text-[13px] font-bold text-danger">
                   <AlertTriangle size={16} /> Yêu cầu đã bị huỷ
                 </p>
                 <p className="mb-0 mt-1.5 text-[12px] text-muted">
-                  Bạn đã từ chối đủ {MAX_REJECTIONS} lần nên yêu cầu này tự động huỷ. Vui lòng gửi
-                  yêu cầu mới nếu vẫn cần thuê kho.
+                  Bạn đã từ chối quá số khoang cho phép nên yêu cầu này đã bị huỷ. Vui lòng gửi yêu
+                  cầu mới nếu vẫn cần thuê kho.
                 </p>
                 <Button
                   variant="secondary"
