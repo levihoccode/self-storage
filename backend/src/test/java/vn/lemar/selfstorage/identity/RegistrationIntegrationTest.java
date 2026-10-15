@@ -171,13 +171,15 @@ class RegistrationIntegrationTest {
         String email = uniqueEmail("resend");
         register(email).andExpect(status().isOk());
 
+        // Resend đầu tiên sau register được phép — cooldown chỉ áp giữa hai lần resend.
+        resend(email).andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã gửi lại mã xác minh"));
         resend(email).andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.message").value("Vui lòng chờ trước khi yêu cầu gửi lại mã."));
 
         Thread.sleep(1100);
-        resend(email).andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đã gửi lại mã xác minh"));
-        assertThat(eventsFor(email, VerificationEmailRequested.class)).hasSize(2);
+        resend(email).andExpect(status().isOk());
+        assertThat(eventsFor(email, VerificationEmailRequested.class)).hasSize(3);
 
         verifyEmail(email, lastCodeFor(email)).andExpect(status().isOk());
         resend(email).andExpect(status().isBadRequest())
