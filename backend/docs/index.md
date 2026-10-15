@@ -19,7 +19,8 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
-và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm.
+và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `media` upload file
+(ảnh/PDF) lên Cloudinary.
 
 Layout trong một module:
 
@@ -68,6 +69,9 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
+| `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
+| `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
+| `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
 
 Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
@@ -130,6 +134,17 @@ Chi tiết: `backend/sql/README.md`.
 - **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
   [follow-up.md](follow-up.md).
 
+## Upload file (module media)
+
+- FE upload qua `POST /api/media/uploads` (multipart, field `file`) → `{url, publicId, bytes, format}`;
+  URL dùng lại khi submit flow (ảnh hiện trạng, scan hợp đồng, ảnh giấy tờ).
+- Validate JPEG/PNG/WebP/PDF ≤ 10MB (khớp cap free plan Cloudinary); sai → 400 message cụ thể.
+- Storage sau interface `FileStorage` (#15 §6, impl Cloudinary) — đổi provider chỉ thay impl.
+- File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
+- Creds `CLOUDINARY_NAME/KEY/SECRET` để `@NotBlank` — thiếu là app chết lúc boot; test/CI dùng
+  giá trị giả, không gọi mạng.
+- Chi tiết route: [routes/media/upload.md](routes/media/upload.md).
+
 ## Chạy & kiểm thử
 
 ```bash
@@ -188,3 +203,4 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |
 | [routes/auth/me.md](routes/auth/me.md) | `GET /api/auth/me` |
+| [routes/media/upload.md](routes/media/upload.md) | `POST /api/media/uploads` |
