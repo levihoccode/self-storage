@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
@@ -30,14 +29,4 @@ public interface RentalRequestRepository extends JpaRepository<RentalRequest, Lo
             + "and r.status = vn.lemar.selfstorage.booking.domain.RentalRequestStatus.APPROVED "
             + "and r.expiresAt > :now order by r.id")
     List<RentalRequest> findClaimableForUpdate(@Param("email") String normalizedEmail, @Param("now") Instant now);
-
-    /**
-     * Cron: request {@code Pending}/{@code Approved} đã quá {@code expires_at} → {@code Expired}
-     * ({@code draft.md} › Scheduled Jobs). Conditional update nên chạy lặp/đồng thời vẫn an toàn:
-     * row đang bị claim khoá thì chờ, sau đó điều kiện status được đánh giá lại.
-     */
-    @Modifying
-    @Query(value = "update rental_requests set status = 'Expired' "
-            + "where status in ('Pending', 'Approved') and expires_at < :now", nativeQuery = true)
-    int expireOverdue(@Param("now") Instant now);
 }

@@ -1,5 +1,5 @@
 ---
-purpose: Luồng nội bộ B2 — convert RentalRequest đã duyệt thành RentalOrder + ProposalFeedback, claim sau xác minh email, cron hết hạn request; điểm nối cho B1/A3a.
+purpose: Luồng nội bộ B2 — convert RentalRequest đã duyệt thành RentalOrder + ProposalFeedback, claim sau xác minh email; điểm nối cho B1/A3a.
 ---
 # Convert yêu cầu thuê → đơn + proposal (B2)
 
@@ -43,7 +43,7 @@ Trong một transaction:
    [index.md › Gửi email](index.md#gửi-email-module-notification)). Link trong body:
    `<FRONTEND_URL>/proposals`.
 5. Audit: chỉ trigger claim ghi `RENTAL_REQUEST_CLAIMED` (entity `RentalRequest`, actor = customer).
-   Trigger duyệt, tạo đơn/proposal và cron expire **chưa ghi audit**, chờ spec-gap #132.
+   Trigger duyệt và tạo đơn/proposal **chưa ghi audit**, chờ spec-gap #132.
 
 `order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQuery`. Seed V2 hiện
 **chưa có key này** (bug #130) — thiếu key thì convert ném `IllegalStateException` và rollback.
@@ -64,28 +64,15 @@ insert into policies (key, value) values ('order.expiry_days', '30') on conflict
   nào của r1. Test `claimDuringUncommittedApprovalWaitsAndSkipsSameUnit` tái hiện đúng ca này:
   bỏ khoá thì test fail.
 - Thứ tự khoá ở cả hai trigger: account trước, row request sau.
-- Request trùng giữ nguyên `Approved`, không auto-reject. Cron sẽ chuyển `Expired` khi quá hạn.
-
-## Cron hết hạn request
-
-`scheduler` → `RentalRequestExpiryJob` → `booking::application` `RentalRequestExpiryService`:
-request `Pending`/`Approved` có `expires_at < now` → `Expired` (một câu `UPDATE` có điều kiện).
-
-| Property | Mặc định |
-|---|---|
-| `app.scheduler.rental-request-expiry-cron` | `0 5 0 * * *` (00:05 mỗi ngày) |
-| `app.scheduler.zone` | `Asia/Ho_Chi_Minh` |
-
-Chưa dùng ShedLock. Câu update có điều kiện, nên chạy trùng trên nhiều instance thì lần sau chỉ
-cập nhật 0 row. Nếu request đang bị claim khoá row, update sẽ chờ, rồi Postgres đánh giá lại điều
-kiện `status` trên bản ghi mới.
+- Request trùng giữ nguyên `Approved`, không auto-reject. Khi quá hạn, request được chuyển
+  `Expired` bởi cron Flow 1 (#143) — không thuộc B2. Claim luôn bỏ qua request đã quá
+  `expires_at`, kể cả khi cron chưa chạy.
 
 ## Code map
 
 | Thành phần | File |
 |---|---|
 | Convert + claim | `booking/application/RentalRequestConversionService.java`, `ConversionResult.java` |
-| Cron expire | `booking/application/RentalRequestExpiryService.java`, `scheduler/application/RentalRequestExpiryJob.java`, `scheduler/config/SchedulingConfig.java` |
 | Khoá + kiểm trùng | `booking/repository/ConversionGuardRepository.java` |
 | Request | `booking/domain/RentalRequest.java` (chỉ map cột B2 cần — B1 bổ sung), `booking/repository/RentalRequestRepository.java` |
 | Đọc policy | `pricing/application/PolicyQuery.java` |
@@ -97,4 +84,5 @@ kiện `status` trên bản ghi mới.
 - Nối trigger 1 vào B1 (#126), trigger 2 vào luồng xác minh A3a.
 - Seed `order.expiry_days`: bug #130.
 - Nội dung email/notification thiếu loại + kích thước khoang so với email Flow 1.1: spec-gap #131.
-- Audit cho trigger duyệt / tạo đơn / proposal / cron expire: spec-gap #132.
+- Audit cho trigger duyệt / tạo đơn / proposal: spec-gap #132.
+- Cron `RentalRequest` → `Expired`: #143 (cron Flow 1), không thuộc B2.

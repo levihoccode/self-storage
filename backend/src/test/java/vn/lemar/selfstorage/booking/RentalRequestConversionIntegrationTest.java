@@ -41,8 +41,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.booking.application.ConversionResult;
 import vn.lemar.selfstorage.booking.application.ConversionResult.Outcome;
 import vn.lemar.selfstorage.booking.application.RentalRequestConversionService;
-import vn.lemar.selfstorage.booking.application.RentalRequestExpiryService;
-import vn.lemar.selfstorage.scheduler.application.RentalRequestExpiryJob;
 
 /**
  * B2 chạy thật trên Postgres (Testcontainers) với seed V2: convert khi FM duyệt (trigger 1), claim
@@ -68,10 +66,6 @@ class RentalRequestConversionIntegrationTest {
 
     @Autowired
     private RentalRequestConversionService service;
-    @Autowired
-    private RentalRequestExpiryService expiryService;
-    @Autowired
-    private RentalRequestExpiryJob expiryJob;
     @Autowired
     private JdbcTemplate jdbc;
     @Autowired
@@ -345,28 +339,12 @@ class RentalRequestConversionIntegrationTest {
         assertOneActiveConversion("B-01");
     }
 
-    // ------------------------------------------------------------ cron: request hết hạn
-
-    @Test
-    void expiryJobExpiresOverduePendingAndApprovedRequestsOnly() {
-        long pendingOverdue = request(VERIFIED, "A-01", "Pending", -1);
-        long approvedOverdue = request(UNVERIFIED, "A-02", "Approved", -1);
-        long approvedValid = request(UNVERIFIED, "A-03", "Approved", 3);
-        long convertedOverdue = request(VERIFIED, "A-04", "Converted", -1);
-
-        expiryJob.run();
-
-        assertThat(requestStatus(pendingOverdue)).isEqualTo("Expired");
-        assertThat(requestStatus(approvedOverdue)).isEqualTo("Expired");
-        assertThat(requestStatus(approvedValid)).isEqualTo("Approved");
-        assertThat(requestStatus(convertedOverdue)).isEqualTo("Converted");
-        assertThat(expiryService.expireOverdue()).as("chạy lại không đổi gì thêm").isZero();
-    }
+    // ------------------------------------------------------------ request đã Expired
 
     @Test
     void expiredRequestCannotBeClaimedAfterVerification() {
-        long requestId = approvedRequest(UNVERIFIED, "A-01", -1);
-        expiryService.expireOverdue();
+        // Chuyển Expired thuộc cron Flow 1 (#143) — ở đây đặt trạng thái trực tiếp.
+        long requestId = request(UNVERIFIED, "A-01", "Expired", -1);
         verifyEmail(UNVERIFIED);
 
         assertThat(service.claimForVerifiedAccount(accountId(UNVERIFIED))).isEmpty();

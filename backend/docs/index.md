@@ -20,8 +20,7 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
 và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `booking` có luồng nội bộ
-convert request đã duyệt thành đơn + proposal (B2, [booking-conversion.md](booking-conversion.md));
-`scheduler` chạy cron (`@EnableScheduling`).
+convert request đã duyệt thành đơn + proposal (B2, [booking-conversion.md](booking-conversion.md)).
 
 Layout trong một module:
 
@@ -190,7 +189,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
-| [booking-conversion.md](booking-conversion.md) | B2: convert request → đơn + proposal, claim sau xác minh, cron hết hạn request |
+| [booking-conversion.md](booking-conversion.md) | B2: convert request → đơn + proposal, claim sau xác minh |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |
