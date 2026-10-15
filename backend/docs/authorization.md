@@ -48,6 +48,7 @@ Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard n�
 | `/api/admin/**` | `hasRole("ADMIN")` | Quản trị hệ thống |
 | `/api/**` (còn lại) | `ACCOUNT_ACTIVE` | Route permission-bound / ownership — guard ở method/service |
 | `/api/health`, `/api/auth/**`, `/swagger-ui/**`, `/v3/api-docs/**` | `permitAll` | Public (`/api/auth/me` khớp rule riêng trước, vẫn cần token) |
+| `POST /api/rental-requests`, `GET /api/unit-types` | `permitAll` đúng scope method | Form đặt kho + dropdown loại khoang (B1, #126 — đặt trước rule vét `/api/**`) |
 
 Quy tắc đặt route: dùng role-bound → đặt controller dưới prefix của role; không dùng role-bound
 (permission-bound / ownership) → để trong `/api/**` chung, guard ở method/service — **không** tự
@@ -109,4 +110,5 @@ Chi tiết: [error-handling.md](error-handling.md).
 ## Chưa có
 
 - UI quản trị gán permission cho role (Flow 5): mapping hiện sửa qua seed/SQL.
-- Phần lớn namespace role-bound (`/api/fm/**`, `/api/bom/**`…) chưa có endpoint nghiệp vụ nào.
+- Namespace `/api/fm/**` đã có endpoint nghiệp vụ đầu tiên (B1: hàng đợi + duyệt/từ chối
+  rental-request); `/api/bom/**`… vẫn chưa có.
