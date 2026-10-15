@@ -166,6 +166,8 @@ class ProposalServiceIntegrationTest {
             assertThat((String) row.get("body")).contains("Đơn " + orderId).contains("C-01");
         });
         assertThat(orderNotificationCount()).isEqualTo(1);
+        assertThat(auditActions("ProposalFeedback", proposalId)).containsExactly("PROPOSAL_CANCELED");
+        assertThat(auditReason(proposalId)).contains("C-01");
     }
 
     @Test
@@ -384,6 +386,44 @@ class ProposalServiceIntegrationTest {
 
         assertThatThrownBy(() -> service.repropose(-1L, unitId("A-02"), null, fmId))
                 .isInstanceOf(RentalOrderNotFoundException.class);
+    }
+
+    @Test
+    void reproposeIsBlockedWhenOrderLeftPendingWithoutFlag() {
+        jdbc.update("update rental_orders set status = 'Deposited' where id = ?", orderId);
+        loginAs("fm1@lemar.vn");
+
+        assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, fmId))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("không ở trạng thái cho phép");
+    }
+
+    @Test
+    void reproposeIsAllowedWhenOrderNeedsReproposal() {
+        jdbc.update("update rental_orders set status = 'Deposited', needs_reproposal = true where id = ?", orderId);
+        loginAs("fm1@lemar.vn");
+
+        ProposalView view = service.repropose(orderId, unitId("A-02"), null, fmId);
+
+        assertThat(view.status()).isEqualTo("Pending");
+    }
+
+    @Test
+    void reproposeCancelsUnpaidDepositInvoiceButKeepsAgreedProposal() {
+        long agreed = proposal("A-01", "Agreed");
+        long invoiceId = jdbc.queryForObject("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, 'INV-DEP-Q7-TEST-000002', 'Đặt cọc khoang chứa A-01', 'Deposit', 'Unpaid', 500000,
+                        now() + interval '3 days') returning id""", Long.class, orderId, customerId);
+        loginAs("fm1@lemar.vn");
+
+        service.repropose(orderId, unitId("A-02"), null, fmId);
+
+        entityManager.flush();
+        assertThat(jdbc.queryForObject("select status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("Canceled");
+        assertThat(auditActions("Invoice", invoiceId)).containsExactly("INVOICE_CANCELED");
+        assertThat(proposalStatus(agreed)).isEqualTo("Agreed");
     }
 
     // ---------------------------------------------------------------- đọc dữ liệu màn hình

@@ -28,12 +28,13 @@ import vn.lemar.selfstorage.booking.application.dto.CustomerProposalResponse;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
 
 /**
- * Flow 1.3 phía khách: xem đề xuất khoang, đồng ý, từ chối. Role-bound {@code /api/customer/**} (CUSTOMER) +
- * ownership trong service — khách chỉ thấy và thao tác proposal của chính mình.
+ * Flow 1.3 phía khách: xem đề xuất khoang, đồng ý, từ chối. Route ownership trong {@code /api/**}
+ * ({@code ACCOUNT_ACTIVE}) theo contract #113 và {@code authorization.md} — service lọc / kiểm theo
+ * {@code customer_id}, nên mỗi account chỉ thấy và thao tác proposal của chính mình.
  */
 @RestController
-@RequestMapping("/api/customer/proposals")
-public class CustomerProposalController {
+@RequestMapping("/api/proposals")
+public class ProposalController {
 
     static final String LIST_MESSAGE = "Lấy danh sách đề xuất khoang thành công";
     static final String AGREE_MESSAGE = "Đã đồng ý khoang. Vui lòng thanh toán hoá đơn đặt cọc";
@@ -47,7 +48,7 @@ public class CustomerProposalController {
     private final ProposalQueryService proposalQueryService;
     private final AccountQueryService accountQueryService;
 
-    public CustomerProposalController(ProposalService proposalService, ProposalQueryService proposalQueryService,
+    public ProposalController(ProposalService proposalService, ProposalQueryService proposalQueryService,
                                       AccountQueryService accountQueryService) {
         this.proposalService = proposalService;
         this.proposalQueryService = proposalQueryService;
@@ -62,7 +63,7 @@ public class CustomerProposalController {
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công"),
             @ApiResponse(responseCode = "400", description = "`status` không hợp lệ"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
-            @ApiResponse(responseCode = "403", description = "Không phải role CUSTOMER")
+            @ApiResponse(responseCode = "403", description = "Tài khoản không còn hoạt động")
     })
     @GetMapping
     public ResponseEntity<ApiEnvelope<List<CustomerProposalResponse>>> list(
@@ -83,7 +84,7 @@ public class CustomerProposalController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Đã đồng ý, kèm hoá đơn cọc"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
-            @ApiResponse(responseCode = "403", description = "Không phải role CUSTOMER, hoặc không phải chủ proposal"),
+            @ApiResponse(responseCode = "403", description = "Không phải chủ proposal"),
             @ApiResponse(responseCode = "404", description = "Proposal không tồn tại"),
             @ApiResponse(responseCode = "409", description = "Proposal không còn Pending, hoặc khoang không còn "
                     + "khả dụng (\"Khoang đã có người đặt cọc / không khả dụng\")")
@@ -106,7 +107,7 @@ public class CustomerProposalController {
             @ApiResponse(responseCode = "200", description = "Đã từ chối"),
             @ApiResponse(responseCode = "400", description = "Thiếu lý do từ chối"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
-            @ApiResponse(responseCode = "403", description = "Không phải role CUSTOMER, hoặc không phải chủ proposal"),
+            @ApiResponse(responseCode = "403", description = "Không phải chủ proposal"),
             @ApiResponse(responseCode = "404", description = "Proposal không tồn tại"),
             @ApiResponse(responseCode = "409", description = "Proposal không còn Pending")
     })

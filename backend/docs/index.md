@@ -100,7 +100,13 @@ Chốt #113 (spec sẽ cập nhật sau review, tạm lệch có chủ đích):
 - Seed thêm policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
   (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
 
-Hai thay đổi CHECK sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
+Chốt PR #136 (sửa thẳng V1 tương tự):
+
+- Thêm cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; B3 chỉ đọc:
+  FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
+- Thêm audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
+
+Các thay đổi CHECK/cột sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
 
 Seed V2 chưa có đơn thuê/proposal (do luồng convert B2 tạo). Muốn thử Flow 1.3 trên DB local thì
 chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.

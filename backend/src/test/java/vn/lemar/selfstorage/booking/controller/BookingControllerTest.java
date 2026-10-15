@@ -52,7 +52,8 @@ import vn.lemar.selfstorage.identity.domain.Role;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 /** HTTP contract của 5 route Flow 1.3: guard role theo namespace + đổi exception thành status code. */
-@WebMvcTest(controllers = {CustomerProposalController.class, FmRentalOrderController.class})
+@WebMvcTest(controllers = {ProposalController.class, FmRentalOrderController.class,
+    RentalOrderProposalController.class})
 @Import({SecurityConfig.class, JwtConfiguration.class, AccountJwtAuthenticationConverter.class})
 @TestPropertySource(properties = "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 class BookingControllerTest {
@@ -78,14 +79,19 @@ class BookingControllerTest {
 
     @Test
     void customerRoutesRejectAnonymous() throws Exception {
-        mockMvc.perform(get("/api/customer/proposals")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/proposals")).andExpect(status().isUnauthorized());
     }
 
     @Test
-    void customerRoutesRejectOtherRoles() throws Exception {
+    void proposalRoutesAreOwnershipNotRoleBound() throws Exception {
+        // Contract #113: /api/proposals nằm trong /api/** — không chặn theo role; service lọc theo customer_id.
         authenticate(FM, "FM");
+        when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
+        when(proposalQueryService.listForCustomer(3L, null)).thenReturn(List.of());
 
-        mockMvc.perform(as(get("/api/customer/proposals"), FM)).andExpect(status().isForbidden());
+        mockMvc.perform(as(get("/api/proposals"), FM))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 
     @Test
@@ -96,9 +102,9 @@ class BookingControllerTest {
                 1L, 1L, "Pending", null, Instant.parse("2026-10-13T08:00:00Z"), 1L, "A-01", null, "Small", 1L,
                 "Self Storage Quận 7", "123 Nguyễn Văn Linh", new BigDecimal("500000.00"), 1, 3)));
 
-        mockMvc.perform(as(get("/api/customer/proposals?status=Pending"), CUSTOMER))
+        mockMvc.perform(as(get("/api/proposals?status=Pending"), CUSTOMER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(CustomerProposalController.LIST_MESSAGE))
+                .andExpect(jsonPath("$.message").value(ProposalController.LIST_MESSAGE))
                 .andExpect(jsonPath("$.data[0].unitCode").value("A-01"))
                 .andExpect(jsonPath("$.data[0].rejectionCount").value(1))
                 .andExpect(jsonPath("$.data[0].maxRejectionCount").value(3));
@@ -111,7 +117,7 @@ class BookingControllerTest {
         when(proposalQueryService.listForCustomer(6L, "Expired"))
                 .thenThrow(new ProposalValidationException("Trạng thái không hợp lệ: Expired"));
 
-        mockMvc.perform(as(get("/api/customer/proposals?status=Expired"), CUSTOMER))
+        mockMvc.perform(as(get("/api/proposals?status=Expired"), CUSTOMER))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Trạng thái không hợp lệ: Expired"));
     }
@@ -125,9 +131,9 @@ class BookingControllerTest {
                 "Thanh toán đặt cọc khoang chứa A-01 để đảm bảo giữ chỗ.", "Deposit", "Unpaid",
                 new BigDecimal("500000.00"), Instant.parse("2026-10-16T08:00:00Z"))));
 
-        mockMvc.perform(as(post("/api/customer/proposals/1/agree"), CUSTOMER))
+        mockMvc.perform(as(post("/api/proposals/1/agree"), CUSTOMER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(CustomerProposalController.AGREE_MESSAGE))
+                .andExpect(jsonPath("$.message").value(ProposalController.AGREE_MESSAGE))
                 .andExpect(jsonPath("$.data.proposal.status").value("Agreed"))
                 .andExpect(jsonPath("$.data.invoice.code").value("INV-DEP-Q7-261013-ABCDEF"))
                 .andExpect(jsonPath("$.data.invoice.amount").value(500000.00));
@@ -140,7 +146,7 @@ class BookingControllerTest {
         when(proposalService.agree(1L, 6L))
                 .thenReturn(new AgreeResult(AgreeResult.Outcome.UNIT_UNAVAILABLE, proposal("Canceled"), null));
 
-        mockMvc.perform(as(post("/api/customer/proposals/1/agree"), CUSTOMER))
+        mockMvc.perform(as(post("/api/proposals/1/agree"), CUSTOMER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Khoang đã có người đặt cọc / không khả dụng"))
                 .andExpect(jsonPath("$.timestamp").isNotEmpty());
@@ -154,9 +160,9 @@ class BookingControllerTest {
         when(proposalService.agree(3L, 6L)).thenThrow(new ProposalNotFoundException());
         when(proposalService.agree(4L, 6L)).thenThrow(new ProposalConflictException("Đề xuất này đã được xử lý"));
 
-        mockMvc.perform(as(post("/api/customer/proposals/2/agree"), CUSTOMER)).andExpect(status().isForbidden());
-        mockMvc.perform(as(post("/api/customer/proposals/3/agree"), CUSTOMER)).andExpect(status().isNotFound());
-        mockMvc.perform(as(post("/api/customer/proposals/4/agree"), CUSTOMER))
+        mockMvc.perform(as(post("/api/proposals/2/agree"), CUSTOMER)).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/proposals/3/agree"), CUSTOMER)).andExpect(status().isNotFound());
+        mockMvc.perform(as(post("/api/proposals/4/agree"), CUSTOMER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Đề xuất này đã được xử lý"));
     }
@@ -168,7 +174,7 @@ class BookingControllerTest {
         when(proposalService.reject(1L, 6L, null))
                 .thenThrow(new ProposalValidationException("Vui lòng nhập lý do từ chối"));
 
-        mockMvc.perform(as(post("/api/customer/proposals/1/reject"), CUSTOMER))
+        mockMvc.perform(as(post("/api/proposals/1/reject"), CUSTOMER))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Vui lòng nhập lý do từ chối"));
     }
@@ -180,15 +186,15 @@ class BookingControllerTest {
         when(proposalService.reject(1L, 6L, "Không hợp")).thenReturn(new RejectResult(proposal("Rejected"), true));
         when(proposalService.reject(2L, 6L, "Không hợp")).thenReturn(new RejectResult(proposal("Rejected"), false));
 
-        mockMvc.perform(as(post("/api/customer/proposals/1/reject"), CUSTOMER).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(as(post("/api/proposals/1/reject"), CUSTOMER).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"note\":\"Không hợp\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(CustomerProposalController.REJECT_CANCELED_MESSAGE))
+                .andExpect(jsonPath("$.message").value(ProposalController.REJECT_CANCELED_MESSAGE))
                 .andExpect(jsonPath("$.data.orderCanceled").value(true));
-        mockMvc.perform(as(post("/api/customer/proposals/2/reject"), CUSTOMER).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(as(post("/api/proposals/2/reject"), CUSTOMER).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"note\":\"Không hợp\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(CustomerProposalController.REJECT_MESSAGE));
+                .andExpect(jsonPath("$.message").value(ProposalController.REJECT_MESSAGE));
     }
 
     // ---------------------------------------------------------------- FM
@@ -231,7 +237,7 @@ class BookingControllerTest {
     void reproposeRequiresUnitId() throws Exception {
         authenticate(FM, "FM");
 
-        mockMvc.perform(as(post("/api/fm/rental-orders/1/re-propose"), FM).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(as(post("/api/rental-orders/1/proposals"), FM).contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
     }
@@ -242,10 +248,10 @@ class BookingControllerTest {
         when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
         when(proposalService.repropose(1L, 2L, null, 3L)).thenReturn(proposal("Pending"));
 
-        mockMvc.perform(as(post("/api/fm/rental-orders/1/re-propose"), FM).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(as(post("/api/rental-orders/1/proposals"), FM).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":2}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(FmRentalOrderController.REPROPOSE_MESSAGE))
+                .andExpect(jsonPath("$.message").value(RentalOrderProposalController.REPROPOSE_MESSAGE))
                 .andExpect(jsonPath("$.data.status").value("Pending"));
     }
 
@@ -257,10 +263,10 @@ class BookingControllerTest {
         when(proposalService.repropose(1L, 98L, null, 3L))
                 .thenThrow(new ProposalConflictException("Khoang C-01 không còn trống"));
 
-        mockMvc.perform(as(post("/api/fm/rental-orders/1/re-propose"), FM).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(as(post("/api/rental-orders/1/proposals"), FM).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":99}"))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(as(post("/api/fm/rental-orders/1/re-propose"), FM).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(as(post("/api/rental-orders/1/proposals"), FM).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":98}"))
                 .andExpect(status().isConflict());
     }
