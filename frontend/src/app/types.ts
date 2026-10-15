@@ -29,7 +29,7 @@ export type Notice = { tone: NoticeTone; message: string } | null;
 /** Trạng thái `ProposalFeedback` do BE trả (chốt #113: `Canceled` thay `Expired`). */
 export type ProposalStatus = "Pending" | "Agreed" | "Rejected" | "Canceled";
 
-/** Một đề xuất khoang trên trang "Kiểm tra kho của tôi" — `GET /api/customer/proposals`. */
+/** Một đề xuất khoang trên trang "Kiểm tra kho của tôi" — `GET /api/proposals`. */
 export type CustomerProposal = {
   id: number;
   orderId: number;

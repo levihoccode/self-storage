@@ -19,21 +19,21 @@ function accessToken(): string | undefined {
 
 export function fetchMyProposals(status?: ProposalStatus): Promise<CustomerProposal[]> {
   const query = status ? `?status=${status}` : "";
-  return apiRequest<CustomerProposal[]>(`/api/customer/proposals${query}`, {
+  return apiRequest<CustomerProposal[]>(`/api/proposals${query}`, {
     accessToken: accessToken(),
   });
 }
 
 /** 409 khi khoang không còn khả dụng (proposal đã bị huỷ ở BE) hoặc proposal đã được xử lý. */
 export function agreeProposal(proposalId: number): Promise<AgreeProposalResult> {
-  return apiRequest<AgreeProposalResult>(`/api/customer/proposals/${proposalId}/agree`, {
+  return apiRequest<AgreeProposalResult>(`/api/proposals/${proposalId}/agree`, {
     method: "POST",
     accessToken: accessToken(),
   });
 }
 
 export function rejectProposal(proposalId: number, note: string): Promise<RejectProposalResult> {
-  return apiRequest<RejectProposalResult>(`/api/customer/proposals/${proposalId}/reject`, {
+  return apiRequest<RejectProposalResult>(`/api/proposals/${proposalId}/reject`, {
     method: "POST",
     body: { note },
     accessToken: accessToken(),
@@ -51,7 +51,7 @@ export function reproposeUnit(
   unitId: number,
   overrideReason?: string,
 ): Promise<ProposalSnapshot> {
-  return apiRequest<ProposalSnapshot>(`/api/fm/rental-orders/${orderId}/re-propose`, {
+  return apiRequest<ProposalSnapshot>(`/api/rental-orders/${orderId}/proposals`, {
     method: "POST",
     body: { unitId, overrideReason: overrideReason || undefined },
     accessToken: accessToken(),
