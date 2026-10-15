@@ -66,6 +66,11 @@
   nhưng không được thực hiện các thao tác nghiệp vụ liên quan đến thuê kho (liên kết/claim đơn,
   đặt cọc, ký hợp đồng, nhận kho, trả kho…). Chi tiết field: `db-table-draft.md › Account`;
   mỗi flow bổ sung danh sách thao tác cụ thể khi triển khai.
+- **Xác minh email bằng mã OTP:** khi khách đăng ký (mục 1.2), hệ thống gửi email chứa mã xác minh
+  **6 số**; mã hiệu lực **10 phút**, nhập sai tối đa **5 lần** (vượt → 429), gửi lại mã tối đa mỗi
+  **60 giây**. Đăng ký với email đã tồn tại trả 409. Nhập mã khi account đã xác minh là no-op, không lỗi.
+- **Chống brute-force đăng nhập:** tối đa **5 lần đăng nhập sai / 15 phút theo email** và
+  **20 lần sai / 15 phút theo IP**; vượt ngưỡng trả 429; đăng nhập thành công reset bộ đếm của email.
 
 ### 1. Đặt kho
 **FLOW:**
@@ -204,8 +209,16 @@
 **Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định (`responded_at` -> `expires_at`) và một yêu cầu xác nhận khoang được chỉ định được thêm vào tài khoản.
 
 **Details:**
-- Tạo một bản ghi `Account` với role là `Customer` (chưa verify).
-- Hệ thống gửi email xác minh; **đơn chỉ được liên kết sau khi khách click xác minh** (chống chiếm đơn).
+- Tạo một bản ghi `Account` với role là `Customer` (chưa verify); mật khẩu tối thiểu 8 ký tự;
+  email đã tồn tại → 409.
+- Hệ thống gửi email chứa **mã xác minh 6 số** (cơ chế chung ở `## Business workflow`); **đơn chỉ
+  được liên kết sau khi khách xác minh email** (chống chiếm đơn).
+- Nội dung email xác minh:
+  ```
+  Mã xác minh email của bạn là: [mã]
+
+  Mã có hiệu lực trong 10 phút. Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.
+  ```
 - Sau khi verify, hệ thống tìm các `RentalRequest` có `status = Approved`, chưa quá `expires_at`, khớp `normalized_customer_email` với account.
 - Chỉ hiển thị và xử lý các request còn hạn. Request đã quá `expires_at` không được claim.
 - Khi convert, hệ thống dùng transaction và không tạo hai `RentalOrder`/proposal đang hoạt động cho cùng một account và cùng một `unit_id`. Nếu nhiều request hợp lệ trỏ đến cùng khoang, hệ thống chỉ tạo một conversion; request trùng được giữ lại để FM xử lý re-propose, không tạo đơn trùng khoang.
@@ -930,6 +943,12 @@ NOTE: sau khi trả hợp đồng, status của kho là MAINTENANCE trong vòng 
     - Tiền thuê định kỳ quá hạn → xử lý theo Flow 6. Ngoài scope hiện tại, đánh dấu chờ.
 - `RentalOrder` có `expires_at` đã qua (`expires_at < now`) và chưa `Done`/`Canceled` (catch-all chạy cuối chu kỳ, sau các nhánh ở trên):
   - `Pending` + proposal mới nhất chưa `Agreed` → chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade), lý do "Quá hạn xác nhận đề xuất".
+  - `Pending` + proposal `Agreed` (chưa cọc) → chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade), lý do "Quá hạn thanh toán cọc".
+  - `Deposited` → chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade), lý do "Quá hạn đặt lịch check-in".
+  - `Scheduled`/`InProgress` → `HandoverRecord.arrived_at` null thì "Không đến nhận kho quá hạn giữ", đã có thì "Chưa hoàn tất bàn giao trong hạn"; chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade).
+- `RentalOrder` có `expires_at` trong vòng `order.expiry_reminder_days` (mặc định 3 ngày) tới, chưa `Done`/`Canceled` và chưa được nhắc:
+  - Ghi notification `RENTAL_ORDER_EXPIRING_SOON` cho khách, title “Đơn thuê kho sắp hết hạn”, body có mã đơn, `expires_at` và số ngày còn lại.
+  - Mỗi đơn chỉ nhắc một lần (ki](./db-table-draft.md#cancellation-cascade), lý do "Quá hạn xác nhận đề xuất".
   - `Pending` + proposal `Agreed` (chưa cọc) → chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade), lý do "Quá hạn thanh toán cọc".
   - `Deposited` → chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade), lý do "Quá hạn đặt lịch check-in".
   - `Scheduled`/`InProgress` → `HandoverRecord.arrived_at` null thì "Không đến nhận kho quá hạn giữ", đã có thì "Chưa hoàn tất bàn giao trong hạn"; chạy [RentalOrder Cancellation Cascade](./db-table-draft.md#cancellation-cascade).

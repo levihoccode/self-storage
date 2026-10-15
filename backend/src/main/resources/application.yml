@@ -43,6 +43,14 @@ security:
     access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:PT15M}
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:10}
+  email-verification:
+    ttl: ${EMAIL_VERIFICATION_TTL:PT10M}
+    max-attempts: ${EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+    resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:PT60S}
+  login-rate-limit:
+    email-max-attempts: ${LOGIN_RATE_LIMIT_EMAIL_MAX:5}
+    ip-max-attempts: ${LOGIN_RATE_LIMIT_IP_MAX:20}
+    window: ${LOGIN_RATE_LIMIT_WINDOW:PT15M}
 
 # VNPay — giá trị thật nằm trong .env của từng người, xem docs/vnpay-sandbox.md.
 # Không đặt default: thiếu env thì @NotBlank cho app chết ngay lúc khởi động,
