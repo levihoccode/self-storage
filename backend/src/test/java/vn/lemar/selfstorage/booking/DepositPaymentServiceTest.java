@@ -93,7 +93,7 @@ class DepositPaymentServiceTest {
 
         when(invoices.findById(INVOICE_ID)).thenReturn(Optional.of(invoice));
         when(orders.findById(ORDER_ID)).thenReturn(Optional.of(order));
-        when(units.findById(UNIT_ID)).thenReturn(Optional.of(unit));
+        when(units.findByIdForUpdate(UNIT_ID)).thenReturn(Optional.of(unit));
         when(orders.findByUnitId(UNIT_ID)).thenReturn(List.of(order));
         when(invoices.findByOrderIdIn(List.of(ORDER_ID))).thenReturn(List.of(invoice));
         when(sessions.hasOpenSession(anyCollection())).thenReturn(false);
@@ -216,7 +216,7 @@ class DepositPaymentServiceTest {
     @Test
     void orderWithoutAnExistingUnitIsRejected() {
         when(order.getUnitId()).thenReturn(UNIT_ID);
-        when(units.findById(UNIT_ID)).thenReturn(Optional.empty());
+        when(units.findByIdForUpdate(UNIT_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)

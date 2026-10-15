@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpHeaders;
@@ -62,6 +63,9 @@ class DepositPaymentIntegrationTest {
 
     @Autowired
     private JwtEncoder jwtEncoder;
+
+    @MockBean
+    private vn.lemar.selfstorage.notification.application.NotificationService notifications;
 
     private Long invoiceId;
     private Long orderId;
@@ -172,6 +176,28 @@ class DepositPaymentIntegrationTest {
     void someoneElsesInvoiceIsNotFound() throws Exception {
         mockMvc.perform(payAs("fm1@lemar.vn"))
                 .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Listener chạy trong một transaction riêng (REQUIRES_NEW): hỏng giữa chừng thì cả bốn cập
+     * nhật phải quay lại, không được để hóa đơn `Paid` mà khoang vẫn `Available`.
+     */
+    @Test
+    void aFailureInsideTheListenerRollsBackEveryUpdate() throws Exception {
+        org.mockito.Mockito.doThrow(new IllegalStateException("gửi thông báo hỏng"))
+                .when(notifications).notify(org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyMap(),
+                        org.mockito.ArgumentMatchers.any());
+
+        confirmByIpn(openSessionAndReadTxnRef());
+
+        assertThat(statusOf("invoices", invoiceId)).isEqualTo("Unpaid");
+        assertThat(statusOf("rental_orders", orderId)).isEqualTo("Pending");
+        assertThat(statusOf("storage_units", unitId)).isEqualTo("Available");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action <> 'PAYMENT_SUCCEEDED'",
+                Integer.class))
+                .as("audit của booking phải rollback theo").isZero();
     }
 
     /** Token thật do JwtEncoder của app ký — đi qua đúng đường xác thực mà request thường đi. */

@@ -38,6 +38,10 @@ public class DepositPaymentService {
     private static final DateTimeFormatter TXN_SUFFIX =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
+    private static final String TXN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int TXN_SUFFIX_LENGTH = 5;
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
     // Nguyên văn spec §1.4 — FE hiển thị thẳng cho khách nên không được diễn đạt lại.
     private static final String ORDER_EXPIRED =
             "Đơn thuê kho đã hết hạn. Vui lòng liên hệ cơ sở để được hỗ trợ.";
@@ -101,7 +105,8 @@ public class DepositPaymentService {
             throw new DepositNotAllowedException(ORDER_EXPIRED);
         }
 
-        StorageUnit unit = units.findById(order.getUnitId())
+        // Khoá khoang trước mọi phép kiểm liên quan tới nó — xem javadoc findByIdForUpdate.
+        StorageUnit unit = units.findByIdForUpdate(order.getUnitId())
                 .orElseThrow(() -> new DepositNotAllowedException(UNIT_MAINTENANCE));
 
         // (2)(3) Khoang không còn dùng được — hóa đơn hết hiệu lực, FM phải đề xuất khoang khác.
@@ -146,10 +151,21 @@ public class DepositPaymentService {
     }
 
     /**
-     * VNPay yêu cầu {@code vnp_TxnRef} không trùng trong ngày và chỉ gồm chữ/số. Ghép id hóa đơn
-     * với mốc thời gian GMT+7 nên khách bấm lại sau khi một phiên hết hạn vẫn ra mã mới.
+     * VNPay yêu cầu {@code vnp_TxnRef} không trùng trong ngày và chỉ gồm chữ/số.
+     *
+     * <p>Mốc thời gian chỉ tới giây, nên hai lần bấm trong cùng một giây sẽ ra mã y hệt và vỡ
+     * unique constraint — khách nhận 500 thay vì lỗi nghiệp vụ. Thêm hậu tố ngẫu nhiên để mã
+     * duy nhất kể cả khi trùng giây.
      */
     private String nextTxnRef(Long invoiceId) {
-        return "INV" + invoiceId + "T" + TXN_SUFFIX.format(Instant.now());
+        return "INV" + invoiceId + "T" + TXN_SUFFIX.format(Instant.now()) + randomSuffix();
+    }
+
+    private String randomSuffix() {
+        StringBuilder suffix = new StringBuilder(TXN_SUFFIX_LENGTH);
+        for (int i = 0; i < TXN_SUFFIX_LENGTH; i++) {
+            suffix.append(TXN_ALPHABET.charAt(RANDOM.nextInt(TXN_ALPHABET.length())));
+        }
+        return suffix.toString();
     }
 }
