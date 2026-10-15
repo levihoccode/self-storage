@@ -29,9 +29,9 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/fm/rental-or
 # {"message":"Lấy chi tiết đơn thuê thành công","data":{"id":3,"status":"Pending","cancelReason":null,"expiresAt":"2026-11-12T09:32:41.202069Z","unitId":null,"facilityId":1,"customer":{"accountId":6,"name":"Khách mẫu don-3","email":"customer1@lemar.vn","phone":"0900000000"},"requested":{"unitTypeId":1,"unitTypeName":"Small","startDate":"2026-10-20","period":3},"rejectionCount":1,"maxRejectionCount":3,"proposals":[{"id":3,"unitId":2,"unitCode":"A-02","status":"Rejected","note":"Khoang xa cửa ra vào","createdAt":"2026-10-13T09:32:41.202069Z"}],"availableUnits":[{"id":1,"code":"A-01","size":null,"monthlyPrice":500000.00,"previouslyRejected":false},{"id":2,"code":"A-02","size":null,"monthlyPrice":500000.00,"previouslyRejected":true},{"id":3,"code":"A-03","size":null,"monthlyPrice":500000.00,"previouslyRejected":false},{"id":4,"code":"A-04","size":null,"monthlyPrice":500000.00,"previouslyRejected":false}]}}
 
 # fm2@lemar.vn (cơ sở TD) gọi đơn của Q7
-# {"message":"Bạn không được gán vào cơ sở này","timestamp":"2026-10-13T09:33:02.604999800Z"}
+# {"message":"Bạn không được gán vào cơ sở này","timestamp":"2026-10-15T15:04:26.316557800Z"}
 ```
 
 ## Liên quan
 
-- [fm-rental-order-repropose.md](fm-rental-order-repropose.md) · [routes.md](../../routes.md) · [index.md](../../index.md)
+- [rental-order-proposals-create.md](rental-order-proposals-create.md) · [routes.md](../../routes.md) · [index.md](../../index.md)

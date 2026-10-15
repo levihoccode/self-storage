@@ -48,6 +48,21 @@ public class RentalOrder {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    /**
+     * FM cần đề xuất lại dù đơn đã qua {@code Pending} (vd khách từ chối khoang tại check-in). Flow 2 bật/tắt cờ;
+     * B3 chỉ đọc trong điều kiện đề xuất lại (chốt PR #136).
+     */
+    @Column(name = "needs_reproposal", nullable = false)
+    private boolean needsReproposal;
+
+    /**
+     * Chốt PR #136: FM được đề xuất lại khi đơn chưa đóng và đang {@code Pending} hoặc được đánh dấu
+     * {@code needs_reproposal}. Điều kiện "không có proposal Pending" do service kiểm (cần truy vấn proposal).
+     */
+    public boolean allowsReproposal() {
+        return !status.isClosed() && (status == RentalOrderStatus.PENDING || needsReproposal);
+    }
+
     /** Spec 1.3: {@code RentalOrder.unit_id} = {@code unit_id} của proposal {@code Agreed} mới nhất. */
     public void assignUnit(Long agreedUnitId) {
         this.unitId = agreedUnitId;

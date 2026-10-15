@@ -120,7 +120,8 @@ Chi tiết: [error-handling.md](error-handling.md).
 ## Chưa có
 
 - UI quản trị gán permission cho role (Flow 5): mapping hiện sửa qua seed/SQL.
-- Namespace `/api/bom/**`, `/api/staff/**` chưa có endpoint nghiệp vụ nào. `/api/customer/**` và
-  `/api/fm/**` có endpoint đầu tiên ở Flow 1.3 (B3, #113): role-bound theo namespace **cộng** ownership
-  (khách) hoặc permission theo cơ sở (FM) trong service — theo cách B1 (#126) đã được duyệt, dù quy tắc
-  đặt route ở trên nói route permission-bound nên nằm trong `/api/**` chung.
+- Namespace `/api/bom/**`, `/api/staff/**` chưa có endpoint nghiệp vụ nào. Flow 1.3 (B3, #113) theo quy
+  tắc đặt route ở trên (chốt PR #136): `/api/proposals/**` (ownership) và
+  `/api/rental-orders/{orderId}/proposals` (permission `proposal_feedback.repropose` theo cơ sở) nằm trong
+  `/api/**` chung; chỉ `GET /api/fm/rental-orders/{orderId}` ở namespace `/api/fm/**` (role FM **cộng**
+  facility scope).

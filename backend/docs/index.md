@@ -19,7 +19,8 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
-và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm.
+và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `media` upload file
+(ảnh/PDF) lên Cloudinary.
 
 Layout trong một module:
 
@@ -69,6 +70,9 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
 | `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
+| `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
+| `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
+| `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
 
 Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
@@ -96,7 +100,13 @@ Chốt #113 (spec sẽ cập nhật sau review, tạm lệch có chủ đích):
 - Seed thêm policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
   (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
 
-Hai thay đổi CHECK sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
+Chốt PR #136 (sửa thẳng V1 tương tự):
+
+- Thêm cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; B3 chỉ đọc:
+  FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
+- Thêm audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
+
+Các thay đổi CHECK/cột sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
 
 Seed V2 chưa có đơn thuê/proposal (do luồng convert B2 tạo). Muốn thử Flow 1.3 trên DB local thì
 chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.
@@ -143,6 +153,17 @@ chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration
   [audit-log.md](audit-log.md).
 - **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
   [follow-up.md](follow-up.md).
+
+## Upload file (module media)
+
+- FE upload qua `POST /api/media/uploads` (multipart, field `file`) → `{url, publicId, bytes, format}`;
+  URL dùng lại khi submit flow (ảnh hiện trạng, scan hợp đồng, ảnh giấy tờ).
+- Validate JPEG/PNG/WebP/PDF ≤ 10MB (khớp cap free plan Cloudinary); sai → 400 message cụ thể.
+- Storage sau interface `FileStorage` (#15 §6, impl Cloudinary) — đổi provider chỉ thay impl.
+- File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
+- Creds `CLOUDINARY_NAME/KEY/SECRET` để `@NotBlank` — thiếu là app chết lúc boot; test/CI dùng
+  giá trị giả, không gọi mạng.
+- Chi tiết route: [routes/media/upload.md](routes/media/upload.md).
 
 ## Chạy & kiểm thử
 
@@ -202,3 +223,4 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |
 | [routes/auth/me.md](routes/auth/me.md) | `GET /api/auth/me` |
+| [routes/media/upload.md](routes/media/upload.md) | `POST /api/media/uploads` |

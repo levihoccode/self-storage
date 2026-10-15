@@ -16,9 +16,12 @@ import vn.lemar.selfstorage.booking.application.exception.ProposalValidationExce
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceStatus;
+import vn.lemar.selfstorage.booking.domain.InvoiceType;
 import vn.lemar.selfstorage.booking.domain.ProposalFeedback;
 import vn.lemar.selfstorage.booking.domain.ProposalStatus;
 import vn.lemar.selfstorage.booking.domain.RentalOrder;
+import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.ProposalFeedbackRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
 import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
@@ -53,13 +56,14 @@ public class ProposalService {
     private final OrderNotifier orderNotifier;
     private final DepositInvoiceIssuer depositInvoiceIssuer;
     private final RentalOrderCancellation orderCancellation;
+    private final InvoiceRepository invoiceRepository;
     private final String frontendUrl;
 
     ProposalService(ProposalFeedbackRepository proposalRepository, RentalOrderRepository orderRepository,
                     StorageUnitQuery storageUnitQuery, PricingQuery pricingQuery, Access access,
                     AuditRecorder auditRecorder, OrderNotifier orderNotifier,
                     DepositInvoiceIssuer depositInvoiceIssuer, RentalOrderCancellation orderCancellation,
-                    @Value("${app.frontend-url}") String frontendUrl) {
+                    InvoiceRepository invoiceRepository, @Value("${app.frontend-url}") String frontendUrl) {
         this.proposalRepository = proposalRepository;
         this.orderRepository = orderRepository;
         this.storageUnitQuery = storageUnitQuery;
@@ -69,6 +73,7 @@ public class ProposalService {
         this.orderNotifier = orderNotifier;
         this.depositInvoiceIssuer = depositInvoiceIssuer;
         this.orderCancellation = orderCancellation;
+        this.invoiceRepository = invoiceRepository;
         this.frontendUrl = frontendUrl.replaceAll("/+$", "");
     }
 
@@ -87,6 +92,10 @@ public class ProposalService {
 
         if (!unit.isAvailable()) {
             proposal.cancel();
+            auditRecorder.record(new AuditEntry(AuditAction.PROPOSAL_CANCELED, AuditEntityType.PROPOSAL_FEEDBACK,
+                    String.valueOf(proposal.getId()), Map.of("status", ProposalStatus.PENDING.dbValue()),
+                    Map.of("status", proposal.getStatus().dbValue(), "unitStatus", unit.status()),
+                    "Khoang " + unit.code() + " không còn khả dụng", customerAccountId));
             orderNotifier.notifyFacilityManager(order.getId(), NotificationType.PROPOSAL_REPROPOSAL_REQUIRED,
                     Map.of("orderCode", OrderNotifier.orderCode(order), "unitCode", unit.code()));
             return new AgreeResult(AgreeResult.Outcome.UNIT_UNAVAILABLE, ProposalView.of(proposal), null);
@@ -147,12 +156,15 @@ public class ProposalService {
         access.can(PERMISSION_REPROPOSE, facilityId);
 
         RentalOrder order = orderRepository.findByIdForUpdate(orderId).orElseThrow(RentalOrderNotFoundException::new);
+        // Chốt PR #136: !đóng && !có proposal Pending && (Pending || needs_reproposal).
         if (order.getStatus().isClosed()) {
             throw new ProposalConflictException("Đơn thuê đã đóng, không thể đề xuất khoang");
         }
-        // Spec 1.3 chưa nói proposal Pending cũ xử lý ra sao khi đề xuất lại — chặn tới khi chốt.
         if (proposalRepository.existsByOrderIdAndStatus(orderId, ProposalStatus.PENDING)) {
             throw new ProposalConflictException("Đơn đang có đề xuất chờ khách phản hồi");
+        }
+        if (!order.allowsReproposal()) {
+            throw new ProposalConflictException("Đơn không ở trạng thái cho phép đề xuất lại khoang");
         }
 
         StorageUnitView unit = storageUnitQuery.lock(unitId)
@@ -174,6 +186,7 @@ public class ProposalService {
             reason = overrideReason.strip();
         }
 
+        cancelUnpaidDepositInvoices(order, actorAccountId);
         ProposalFeedback proposal = proposalRepository.save(ProposalFeedback.propose(order, unitId));
         auditRecorder.record(new AuditEntry(AuditAction.PROPOSAL_REPROPOSED, AuditEntityType.PROPOSAL_FEEDBACK,
                 String.valueOf(proposal.getId()), null,
@@ -182,6 +195,22 @@ public class ProposalService {
         orderNotifier.notifyCustomer(order, NotificationType.PROPOSAL_REPROPOSED,
                 Map.of("confirmLink", frontendUrl + "/proposals"));
         return ProposalView.of(proposal);
+    }
+
+    /**
+     * Chốt PR #136: khách đã đồng ý nhưng chưa trả cọc mà FM đổi khoang → hoá đơn Deposit {@code Unpaid} của đơn
+     * chuyển {@code Canceled}, tránh khách thanh toán nhầm cho khoang cũ. Proposal cũ giữ nguyên làm lịch sử.
+     */
+    private void cancelUnpaidDepositInvoices(RentalOrder order, Long actorAccountId) {
+        for (Invoice invoice : invoiceRepository.findByOrderIdAndStatus(order.getId(), InvoiceStatus.UNPAID)) {
+            if (invoice.getType() != InvoiceType.DEPOSIT) {
+                continue;
+            }
+            invoice.cancel();
+            auditRecorder.record(new AuditEntry(AuditAction.INVOICE_CANCELED, AuditEntityType.INVOICE,
+                    String.valueOf(invoice.getId()), Map.of("status", InvoiceStatus.UNPAID.dbValue()),
+                    Map.of("status", invoice.getStatus().dbValue()), "FM đề xuất lại khoang khác", actorAccountId));
+        }
     }
 
     private ProposalFeedback lockPendingProposalOf(Long proposalId, Long customerAccountId) {
