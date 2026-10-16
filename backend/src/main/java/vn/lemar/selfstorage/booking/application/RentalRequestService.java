@@ -25,6 +25,7 @@ import vn.lemar.selfstorage.booking.application.dto.RentalRequestSummaryResponse
 import vn.lemar.selfstorage.booking.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
+import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
@@ -168,6 +169,9 @@ public class RentalRequestService {
         access.can("rental_request.approve", request.getFacilityId());
         if (request.getStatus() != RentalRequestStatus.Pending) {
             throw new RentalRequestAlreadyHandledException();
+        }
+        if (request.getExpiresAt() != null && request.getExpiresAt().isBefore(Instant.now())) {
+            throw new RentalRequestExpiredException();
         }
         StorageUnitQueryService.UnitInfo unit = storageUnitQueryService.findUnitInfo(unitId)
                 .orElseThrow(StorageUnitNotFoundException::new);

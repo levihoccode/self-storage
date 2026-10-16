@@ -140,6 +140,7 @@
       - Thao tác duyệt chạy trong 1 transaction: conditional update `WHERE status = 'Pending'` + re-check khoang `Available`.
         - **Khoang không còn `Available`** (đã `Reserved`/`Maintenance`): chặn duyệt, hiển thị lỗi "Khoang đã không còn khả dụng, vui lòng chọn khoang khác"; request giữ `status = Pending` để FM gán lại.
         - **Request không còn `Pending`** (2 FM duyệt cùng lúc / double-click): chặn thao tác, hiển thị "Yêu cầu đã được xử lý bởi FM khác"; refresh danh sách.
+        - **Request đã quá `expires_at`** (cron chưa chuyển kịp sang `Expired`): chặn duyệt, hiển thị "Yêu cầu đã quá hạn xử lý"; việc chuyển trạng thái `Expired` vẫn thuộc cron (`Policy.request.pending_expiry_days`).
       - Hệ thống cập nhật `RentalRequest.status` sang `Approved`.
       - Hệ thống ghi `RentalRequest.responded_at` = thời điểm duyệt và đặt `expires_at = responded_at + account.claim_ttl_days` (7 ngày).
       - **Trong trường hợp email chưa có tài khoản:**

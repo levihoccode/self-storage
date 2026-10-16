@@ -26,6 +26,7 @@ import vn.lemar.selfstorage.SecurityConfig;
 import vn.lemar.selfstorage.booking.application.RentalRequestService;
 import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
+import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -97,6 +98,20 @@ class FmRentalRequestApproveControllerTest {
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Yêu cầu đã được xử lý bởi FM khác"));
+    }
+
+    @Test
+    void approveExpiredReturns409() throws Exception {
+        authenticate("fm@lemar.vn", "FM");
+        when(rentalRequestService.approve(eq(1L), eq(10L)))
+                .thenThrow(new RentalRequestExpiredException());
+
+        mockMvc.perform(post("/api/fm/rental-requests/1/approve")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"unitId\":10}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Yêu cầu đã quá hạn xử lý"));
     }
 
     @Test

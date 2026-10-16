@@ -41,7 +41,8 @@ public class FmRentalRequestApproveController {
             description = "Gán khoang Available cho request Pending: 404 nếu request không tồn "
                     + "tại; 404 nếu khoang không tồn tại hoặc thuộc cơ sở khác; 409 nếu request "
                     + "không còn Pending (kể cả 2 FM duyệt song song — conditional update, chỉ 1 "
-                    + "thắng); 409 nếu khoang mất Available (request giữ Pending).")
+                    + "thắng); 409 nếu request đã quá hạn xử lý (cron chưa chuyển kịp Expired); "
+                    + "409 nếu khoang mất Available (request giữ Pending).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Duyệt thành công"),
             @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ",
@@ -52,7 +53,7 @@ public class FmRentalRequestApproveController {
             @ApiResponse(responseCode = "404", description = "Không tìm thấy yêu cầu / khoang",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Đã xử lý / khoang không khả dụng",
+            @ApiResponse(responseCode = "409", description = "Đã xử lý / quá hạn / khoang không khả dụng",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class)))
     })

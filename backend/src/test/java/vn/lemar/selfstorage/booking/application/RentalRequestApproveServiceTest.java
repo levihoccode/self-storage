@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
+import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -164,6 +166,19 @@ class RentalRequestApproveServiceTest {
     }
 
     @Test
+    void approveExpiredRequestReturns409() {
+        RentalRequest request = expiredPendingRequest();
+        when(repository.findById(1L)).thenReturn(Optional.of(request));
+        doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
+
+        assertThatThrownBy(() -> service.approve(1L, 10L))
+                .isInstanceOf(RentalRequestExpiredException.class)
+                .hasMessage("Yêu cầu đã quá hạn xử lý");
+        verify(repository, never()).approveIfPending(any(), any(), any(), any(), any(), any());
+        verify(auditRecorder, never()).record(any(AuditEntry.class));
+    }
+
+    @Test
     void approveUnknownUnitReturns404() {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
@@ -251,5 +266,10 @@ class RentalRequestApproveServiceTest {
     private RentalRequest pendingRequest() {
         return new RentalRequest(5L, "Nguyen Van A", "khach@example.com", "0901234567", 2L,
                 LocalDate.now(ZONE).plusDays(1), 6, Instant.now().plusSeconds(7L * 24L * 3600L));
+    }
+
+    private RentalRequest expiredPendingRequest() {
+        return new RentalRequest(5L, "Nguyen Van A", "khach@example.com", "0901234567", 2L,
+                LocalDate.now(ZONE).plusDays(1), 6, Instant.now().minusSeconds(3600L));
     }
 }
