@@ -32,3 +32,10 @@ thì mở issue theo workflow; file này không thay thế issue.
   nêu ở #15 §7 tạm để sau: interceptor không tự biết `entity_id` / `old_value` / `new_value` khi
   một thao tác đổi nhiều entity — caller vẫn phải truyền đủ dữ liệu, thêm annotation lúc này chỉ
   che luồng chạy thật. Xem lại khi số call site đủ nhiều và pattern đã ổn định.
+
+## Media
+
+- **File mồ côi**: FE upload xong nhưng flow không submit (bỏ ngang) → asset không được entity nào
+  trỏ tới. Đã truy vết được theo folder `uploads/acc-{id}`; chưa có job dọn — cân nhắc sweep định kỳ
+  khi A7 (scheduler) xong, hoặc bảng `media_uploads` (pending/attached) nếu cần relink tự động.
+- Không rate limit upload; trùng file tạo nhiều asset (không dedup) — chấp nhận ở MVP.

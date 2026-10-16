@@ -8,7 +8,10 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | Method | Path | Quyền | Mô tả | Chi tiết |
 |---|---|---|---|---|
 | GET | `/api/health` | Public | Kiểm tra ứng dụng còn sống | [routes/health.md](routes/health.md) |
-| POST | `/api/auth/login` | Public | Đăng nhập, nhận access token (JWT) | [routes/auth/login.md](routes/auth/login.md) |
+| POST | `/api/auth/login` | Public | Đăng nhập, nhận access token (JWT); sai quá nhiều lần → 429 | [routes/auth/login.md](routes/auth/login.md) |
+| POST | `/api/auth/register` | Public | Đăng ký tài khoản CUSTOMER + gửi mã xác minh qua email | [routes/auth/register.md](routes/auth/register.md) |
+| POST | `/api/auth/verify-email` | Public | Xác minh email bằng mã 6 số | [routes/auth/verify-email.md](routes/auth/verify-email.md) |
+| POST | `/api/auth/resend-verification` | Public | Gửi lại mã xác minh (cooldown 60 giây) | [routes/auth/resend-verification.md](routes/auth/resend-verification.md) |
 | GET | `/api/auth/me` | Bearer + `ACCOUNT_ACTIVE` | Xác minh session hiện tại | [routes/auth/me.md](routes/auth/me.md) |
 | GET | `/api/facility-access/ping/{facilityId}` | Bearer + `ACCOUNT_ACTIVE`; `facility.access` + facility scope | Endpoint demo kiểm tra RBAC và quyền theo cơ sở | [routes/identity/facility-access-ping.md](routes/identity/facility-access-ping.md) |
 | GET | `/api/notifications` | Bearer + `ACCOUNT_ACTIVE` | Danh sách thông báo của tôi (lọc `is_read`, phân trang) | [routes/notification/list.md](routes/notification/list.md) |
@@ -19,6 +22,7 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | PATCH | `/api/notifications/read-all` | Bearer + `ACCOUNT_ACTIVE` | Đánh dấu tất cả đã đọc | [routes/notification/read-all.md](routes/notification/read-all.md) |
 | GET | `/api/payments/vnpay/ipn` | Public (chữ ký VNPay) | VNPay xác nhận thanh toán — nguồn xác nhận duy nhất | [routes/payment/vnpay-ipn.md](routes/payment/vnpay-ipn.md) |
 | GET | `/api/payments/vnpay/return` | Public (redirect VNPay) | Trang kết quả cho khách — không ghi dữ liệu | [routes/payment/vnpay-return.md](routes/payment/vnpay-return.md) |
+| POST | `/api/media/uploads` | Bearer + `ACCOUNT_ACTIVE` | Upload file (ảnh/PDF ≤ 10MB), trả URL dùng lại trong flow | [routes/media/upload.md](routes/media/upload.md) |
 
 Ghi chú:
 

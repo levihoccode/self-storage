@@ -14,14 +14,21 @@ purpose: Đăng nhập bằng email + mật khẩu, trả access token (JWT).
 `AuthService.login`:
 
 1. Chuẩn hoá email (`trim` + lowercase — `Account.normalize`).
-2. `findByEmail`; không thấy → 401.
-3. `passwordEncoder.matches` (BCrypt); sai → 401 **cùng message** (không lộ tài khoản nào tồn tại).
-4. `account.isLoginAllowed()` (status `ACTIVE`); `BANNED` → 403 "Tài khoản đã bị chặn".
-5. `JwtService.issueAccessToken` → envelope `{message: "Đăng nhập thành công", data: {accountId, email, token}}`.
+2. Kiểm rate limit (Redis — theo email và IP); vượt ngưỡng → 429 trước khi kiểm mật khẩu.
+3. `findByEmail`; không thấy → 401 (ghi nhận 1 lần sai).
+4. `passwordEncoder.matches` (BCrypt); sai → 401 **cùng message** (không lộ tài khoản nào tồn tại)
+   — ghi nhận 1 lần sai.
+5. `account.isLoginAllowed()` (status `ACTIVE`); `BANNED` → 403 "Tài khoản đã bị chặn" (không tính
+   là lần sai).
+6. Xoá bộ đếm sai của email; `JwtService.issueAccessToken` → envelope
+   `{message: "Đăng nhập thành công", data: {accountId, email, token}}`.
 
 ## Ghi chú
 
 - Mật khẩu lưu bằng BCrypt; cost cấu hình qua `BCRYPT_STRENGTH` (mặc định 10).
+- Chống brute-force (spec-gap #140): 5 lần sai/15 phút theo email, 20 lần/15 phút theo IP → 429.
+  Redis lỗi thì fail-open (chỉ log) — xem
+  [authentication.md › Chống brute-force đăng nhập](../../authentication.md#chống-brute-force-đăng-nhập).
 - Token chỉ chứa claim `email`; role/status đọc từ DB ở mỗi request — xem
   [authentication.md › Xác thực mỗi request](../../authentication.md#xác-thực-mỗi-request).
 - FE lấy role qua [GET /api/auth/me](me.md) — role **không** có trong response login.
@@ -45,6 +52,9 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 
 # 403 — account bị chặn (account seed: banned@lemar.vn)
 # {"message":"Tài khoản đã bị chặn","timestamp":"2026-10-04T08:14:28.027349693Z"}
+
+# 429 — sai quá ngưỡng (5 lần/15 phút theo email hoặc 20 lần/15 phút theo IP)
+# {"message":"Quá nhiều lần thử. Vui lòng thử lại sau.","timestamp":"2026-10-15T10:08:49.428678409Z"}
 
 # 400 — email sai định dạng
 # {"message":"Dữ liệu không hợp lệ","timestamp":"2026-10-04T08:14:28.048550698Z"}

@@ -32,9 +32,9 @@ Hạ tầng append-only: không có API sửa/xóa bản ghi; module gọi chỉ
 ## Gọi trông như thế nào
 
 ```java
-// Tối giản — tạo tài khoản (A3a)
-auditRecorder.record(AuditEntry.of(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
-        String.valueOf(accountId)));
+// Tạo tài khoản (A3a) — actor là chính account vừa được tạo
+auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
+        String.valueOf(account.getId()), null, null, null, account.getId()));
 
 // Thao tác nhiều entity, có old/new + lý do + actor (ví dụ hủy đơn — Flow 6)
 auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER,
@@ -53,7 +53,8 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 
 | Module | Action | Entity | Nối ở |
 |---|---|---|---|
-| booking | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `RentalRequestConversionService.claimForVerifiedAccount` (B2) — actor = customer vừa xác minh; trigger duyệt / tạo đơn / proposal chờ spec-gap #132 |
+| `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.register` (A3a) |
+| `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` (B2) — actor = customer vừa xác minh; trigger duyệt / tạo đơn / proposal chờ spec-gap #132 |
 
 ## Xem thêm
 
