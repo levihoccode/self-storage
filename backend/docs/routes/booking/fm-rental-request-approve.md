@@ -46,8 +46,20 @@ expiresAt}}`.
 
 ## Ví dụ
 
-- Chưa chạy thật trên app (Docker/Postgres chưa có ở máy dev) — sẽ bổ sung output curl thật
-  khi chạy E2E.
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"fm1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+
+# 409 — khoang C-01 đang Maintenance
+curl -s -X POST http://localhost:8080/api/fm/rental-requests/12/approve -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"unitId":8}'
+# {"message":"Khoang đã không còn khả dụng, vui lòng chọn khoang khác","timestamp":"2026-10-16T14:51:52.423242314Z"}
+
+# 200 — gán A-03 (Available); request giữ Pending sau lần 409 ở trên
+curl -s -X POST http://localhost:8080/api/fm/rental-requests/12/approve -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"unitId":3}'
+# {"message":"Đã duyệt yêu cầu đặt kho","data":{"id":12,"status":"Approved","unitId":3,"respondedAt":"2026-10-16T14:51:52.445715259Z","expiresAt":"2026-10-23T14:51:52.445715259Z"}}
+```
 
 ## Liên quan
 

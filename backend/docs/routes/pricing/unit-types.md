@@ -25,8 +25,15 @@ Trả các loại khoang một cơ sở cung cấp (bảng `facility_unit_type`,
 
 ## Ví dụ
 
-- Chưa chạy thật trên app (Docker/Postgres chưa có ở máy dev) — sẽ bổ sung output curl thật
-  khi chạy E2E.
+```bash
+# 200 — Q7 cung cấp đủ 3 loại
+curl -s "http://localhost:8080/api/unit-types?facilityId=1"
+# {"message":"Lấy danh sách loại khoang thành công","data":[{"id":1,"name":"Small","width":1.00,"depth":2.00,"height":2.20,"area":2.00,"monthlyPrice":500000.00},{"id":2,"name":"Medium","width":2.00,"depth":2.50,"height":2.20,"area":5.00,"monthlyPrice":900000.00},{"id":3,"name":"Large","width":2.50,"depth":3.00,"height":2.50,"area":7.50,"monthlyPrice":1400000.00}]}
+
+# 200 — TD chỉ Small + Medium (thiếu Large)
+curl -s "http://localhost:8080/api/unit-types?facilityId=2"
+# {"message":"Lấy danh sách loại khoang thành công","data":[{"id":1,"name":"Small","width":1.00,"depth":2.00,"height":2.20,"area":2.00,"monthlyPrice":500000.00},{"id":2,"name":"Medium","width":2.00,"depth":2.50,"height":2.20,"area":5.00,"monthlyPrice":900000.00}]}
+```
 
 ## Liên quan
 

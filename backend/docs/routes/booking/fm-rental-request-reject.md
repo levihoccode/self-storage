@@ -39,8 +39,20 @@ rejectNote?}`. Trả envelope `{message, data: {id, status, rejectReason, respon
 
 ## Ví dụ
 
-- Chưa chạy thật trên app (Docker/Postgres chưa có ở máy dev) — sẽ bổ sung output curl thật
-  khi chạy E2E.
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"fm1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+
+# 400 — OTHER thiếu ghi chú
+curl -s -X POST http://localhost:8080/api/fm/rental-requests/13/reject -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"rejectReason":"OTHER"}'
+# {"message":"Ghi chú bắt buộc khi lý do là Khác","timestamp":"2026-10-16T14:51:52.512907909Z"}
+
+# 200 — từ chối theo yêu cầu khách; request giữ Pending sau lần 400 ở trên
+curl -s -X POST http://localhost:8080/api/fm/rental-requests/13/reject -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"rejectReason":"CUSTOMER_REQUEST"}'
+# {"message":"Đã từ chối yêu cầu đặt kho","data":{"id":13,"status":"Rejected","rejectReason":"CUSTOMER_REQUEST","respondedAt":"2026-10-16T14:51:52.526854955Z"}}
+```
 
 ## Liên quan
 

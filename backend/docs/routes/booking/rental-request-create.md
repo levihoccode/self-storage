@@ -32,8 +32,17 @@ Form public cho khách điền nhu cầu thuê kho mà không cần chỉ địn
 
 ## Ví dụ
 
-- Chưa chạy thật trên app (Docker/Postgres chưa có ở máy dev) — sẽ bổ sung output curl thật
-  khi chạy E2E. Xem contract trong Swagger ở mục trên.
+```bash
+# 201 — gửi yêu cầu (form public)
+curl -s -X POST http://localhost:8080/api/rental-requests -H 'Content-Type: application/json' \
+  -d '{"facilityId":1,"customerName":"Nguyen Van A","customerEmail":"khach.moi@example.com","customerPhone":"0901234567","unitTypeId":1,"startDate":"2026-12-01","period":6}'
+# {"message":"Đã gửi yêu cầu đặt kho","data":{"id":12,"status":"Pending","startDate":"2026-12-01","expiresAt":"2026-10-23T14:51:43.260979171Z"}}
+
+# 400 — unit_type không được cơ sở cung cấp (TD thiếu Large)
+curl -s -X POST http://localhost:8080/api/rental-requests -H 'Content-Type: application/json' \
+  -d '{"facilityId":2,"customerName":"Nguyen Van A","customerEmail":"khach.moi2@example.com","customerPhone":"0901234567","unitTypeId":3,"startDate":"2026-12-01","period":6}'
+# {"message":"Loại khoang không được cung cấp tại cơ sở này","timestamp":"2026-10-16T14:51:43.279826788Z"}
+```
 
 ## Liên quan
 
