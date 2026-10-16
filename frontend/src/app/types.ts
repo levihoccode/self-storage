@@ -9,6 +9,7 @@ export type View =
   | "contract-detail"
   | "proposals"
   | "invoices"
+  | "payment-result"
   | "appointments"
   | "notifications"
   | "fm-rental-requests"
