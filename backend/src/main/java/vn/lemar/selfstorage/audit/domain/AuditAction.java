@@ -18,6 +18,8 @@ public enum AuditAction {
     PROPOSAL_AGREED(AuditEntityType.PROPOSAL_FEEDBACK),
     PROPOSAL_REJECTED(AuditEntityType.PROPOSAL_FEEDBACK),
     PROPOSAL_REPROPOSED(AuditEntityType.PROPOSAL_FEEDBACK),
+    /** Khoang hết Available lúc khách đồng ý → proposal Canceled (chốt PR #136; catalog spec cập nhật sau). */
+    PROPOSAL_CANCELED(AuditEntityType.PROPOSAL_FEEDBACK),
     INVOICE_CREATED(AuditEntityType.INVOICE),
     INVOICE_CANCELED(AuditEntityType.INVOICE),
     PAYMENT_SUCCEEDED(AuditEntityType.PAYMENT_TRANSACTION),

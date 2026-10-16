@@ -75,6 +75,7 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
+| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 | `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
@@ -96,6 +97,25 @@ Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__bas
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
 (chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
+
+Chốt #113 (spec sẽ cập nhật sau review, tạm lệch có chủ đích):
+
+- CHECK `rental_orders.status` **không còn `Expired`** (#87) — quá hạn cũng là `Canceled` + `cancel_reason`.
+- CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
+  hoặc đơn bị huỷ theo Cancellation Cascade).
+- Seed thêm policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
+  (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
+
+Chốt PR #136 (sửa thẳng V1 tương tự):
+
+- Thêm cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; B3 chỉ đọc:
+  FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
+- Thêm audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
+
+Các thay đổi CHECK/cột sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
+
+Seed V2 chưa có đơn thuê/proposal (do luồng convert B2 tạo). Muốn thử Flow 1.3 trên DB local thì
+chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.

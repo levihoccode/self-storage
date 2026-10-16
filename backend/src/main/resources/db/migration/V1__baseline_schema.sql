@@ -150,8 +150,11 @@ CREATE TABLE rental_orders (
     unit_id       BIGINT REFERENCES storage_units (id),
     cancel_reason TEXT,
     status        VARCHAR(20) NOT NULL DEFAULT 'Pending'
-                  CHECK (status IN ('Pending', 'Deposited', 'Scheduled', 'InProgress', 'Canceled', 'Done', 'Expired')),
-    expires_at    TIMESTAMPTZ                          -- hạn giữ kho sau khi đặt cọc
+                  CHECK (status IN ('Pending', 'Deposited', 'Scheduled', 'InProgress', 'Canceled', 'Done')),
+    expires_at    TIMESTAMPTZ,                         -- hạn giữ kho sau khi đặt cọc
+    -- FM cần đề xuất lại khoang dù đơn đã qua Pending (vd khách từ chối khoang tại check-in, Flow 2).
+    -- Flow 2 bật/tắt cờ; B3 chỉ đọc trong điều kiện đề xuất lại (chốt PR #136).
+    needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE rental_contracts (
@@ -220,7 +223,7 @@ CREATE TABLE proposal_feedbacks (
     customer_id BIGINT NOT NULL REFERENCES accounts (id),
     unit_id     BIGINT NOT NULL REFERENCES storage_units (id),
     status      VARCHAR(20) NOT NULL DEFAULT 'Pending'
-                CHECK (status IN ('Pending', 'Agreed', 'Rejected', 'Expired')),
+                CHECK (status IN ('Pending', 'Agreed', 'Rejected', 'Canceled')),
     note        TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at  TIMESTAMPTZ
@@ -338,7 +341,7 @@ CREATE TABLE audit_logs (
     action           VARCHAR(60) NOT NULL
                      CHECK (action IN (
                          'RENTAL_REQUEST_APPROVED', 'RENTAL_REQUEST_REJECTED', 'RENTAL_REQUEST_CLAIMED',
-                         'PROPOSAL_AGREED', 'PROPOSAL_REJECTED', 'PROPOSAL_REPROPOSED',
+                         'PROPOSAL_AGREED', 'PROPOSAL_REJECTED', 'PROPOSAL_REPROPOSED', 'PROPOSAL_CANCELED',
                          'INVOICE_CREATED', 'INVOICE_CANCELED',
                          'PAYMENT_SUCCEEDED', 'PAYMENT_FAILED', 'MANUAL_REFUND_RECORDED',
                          'RENTAL_ORDER_DEPOSITED', 'STORAGE_UNIT_RESERVED',
