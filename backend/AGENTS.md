@@ -77,8 +77,8 @@ spec-gap gate above — docs never justify behavior the spec does not define.
 
 ## Module boundaries — CI fails on violations
 
-- Modules: `booking`, `payment`, `facility`, `handover`, `checkout`, `identity`,
-  `notification`, `overdue`, `pricing`, `scheduler`, `support`, `tenancy`.
+- Modules: `booking`, `payment`, `facility`, `handover`, `checkout`, `identity`, `audit`,
+  `media`, `notification`, `overdue`, `pricing`, `scheduler`, `support`, `tenancy`.
 - Call another module **only through its public API** (`application/`). Never import another
   module's `domain/` or `repository/`. No dependency cycles.
 - `ModuleStructureTest` is the gate → run `./mvnw -B verify` after any structural change.

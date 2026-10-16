@@ -18,6 +18,7 @@ import vn.lemar.selfstorage.SecurityConfig;
 import vn.lemar.selfstorage.booking.controller.BookingExceptionHandler;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AuthService;
+import vn.lemar.selfstorage.identity.application.RegistrationService;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.controller.AuthController;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
@@ -40,6 +41,9 @@ class UnitTypeControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private RegistrationService registrationService;
 
     @Test
     void anonymousListReturnsOptions() throws Exception {

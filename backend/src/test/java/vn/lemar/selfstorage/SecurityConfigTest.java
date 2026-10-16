@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AuthService;
+import vn.lemar.selfstorage.identity.application.RegistrationService;
 import vn.lemar.selfstorage.identity.application.dto.MeResponse;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.controller.AuthController;
@@ -26,7 +27,12 @@ import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.domain.Role;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
+import vn.lemar.selfstorage.payment.application.PaymentGateway;
+import vn.lemar.selfstorage.payment.application.PaymentService;
+import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
+import vn.lemar.selfstorage.payment.controller.VnPayCallbackController;
 
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,7 +40,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {SecurityConfigTest.ProbeController.class, AuthController.class})
+@WebMvcTest(controllers = {
+        SecurityConfigTest.ProbeController.class,
+        AuthController.class,
+        VnPayCallbackController.class
+})
 @Import({
         SecurityConfig.class,
         JwtConfiguration.class,
@@ -57,6 +67,15 @@ class SecurityConfigTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private RegistrationService registrationService;
+
+    @MockBean
+    private PaymentService paymentService;
+
+    @MockBean
+    private PaymentGateway paymentGateway;
 
     @Test
     void protectedRouteRejectsMissingToken() throws Exception {
@@ -144,6 +163,35 @@ class SecurityConfigTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản đã bị chặn"));
+    }
+
+    /**
+     * VNPay gọi IPN từ server của họ, không có JWT và sẽ không bao giờ có. Nếu route này rơi vào
+     * dòng vét `/api/**` thì VNPay nhận 401, coi như merchant không xác nhận, và toàn bộ A6 chết.
+     * Test này là chốt chặn để lần sau có ai siết security thì CI đỏ chứ không phải tiền đi lạc.
+     */
+    @Test
+    void vnpayIpnIsReachableWithoutToken() throws Exception {
+        when(paymentService.handleIpn(anyMap())).thenReturn(IpnResponse.success());
+
+        mockMvc.perform(get("/api/payments/vnpay/ipn")
+                        .param("vnp_TxnRef", "TXN1")
+                        .param("vnp_SecureHash", "deadbeef"))
+                .andExpect(status().isOk())
+                // Tên key phải đúng chữ hoa VNPay đòi — kiểm luôn qua cả tầng MVC.
+                .andExpect(jsonPath("$.RspCode").value("00"))
+                .andExpect(jsonPath("$.Message").value("Confirm Success"));
+    }
+
+    /** Return URL là redirect trình duyệt từ VNPay nên cũng không mang Authorization. */
+    @Test
+    void vnpayReturnIsReachableWithoutToken() throws Exception {
+        when(paymentGateway.verifySignature(anyMap())).thenReturn(true);
+
+        mockMvc.perform(get("/api/payments/vnpay/return")
+                        .param("vnp_TxnRef", "TXN1")
+                        .param("vnp_ResponseCode", "00"))
+                .andExpect(status().isOk());
     }
 
     private Account account(String roleName, AccountStatus status) {

@@ -34,6 +34,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/rental-requests").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/unit-types").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // Callback của VNPay: server VNPay gọi `/ipn` và không có JWT, còn `/return`
+                        // là redirect trình duyệt nên cũng không mang Authorization. Bắt buộc public,
+                        // phải đứng trước dòng vét `/api/**` bên dưới. Thay vì token, hai route này
+                        // tự xác thực bằng chữ ký HMAC-SHA512 trong `vnp_SecureHash`, và `/return`
+                        // không ghi dữ liệu.
+                        .requestMatchers("/api/payments/vnpay/ipn", "/api/payments/vnpay/return").permitAll()
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/staff/**").hasRole("FS")
                         .requestMatchers("/api/fm/**").hasRole("FM")

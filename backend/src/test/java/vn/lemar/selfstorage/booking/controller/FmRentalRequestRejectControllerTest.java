@@ -31,6 +31,7 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidatio
 import vn.lemar.selfstorage.booking.domain.RentalRequestRejectReason;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AuthService;
+import vn.lemar.selfstorage.identity.application.RegistrationService;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.controller.AuthController;
@@ -62,6 +63,9 @@ class FmRentalRequestRejectControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private RegistrationService registrationService;
 
     @Test
     void rejectReturnsRejected() throws Exception {

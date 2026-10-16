@@ -23,6 +23,7 @@ import vn.lemar.selfstorage.booking.application.dto.RentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AuthService;
+import vn.lemar.selfstorage.identity.application.RegistrationService;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
 import vn.lemar.selfstorage.identity.controller.AuthController;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
@@ -44,6 +45,9 @@ class RentalRequestControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private RegistrationService registrationService;
 
     @Test
     void anonymousCreateReturns201Envelope() throws Exception {
