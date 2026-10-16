@@ -2,6 +2,7 @@ package vn.lemar.selfstorage.booking.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,9 +19,14 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import vn.lemar.selfstorage.audit.application.AuditEntry;
+import vn.lemar.selfstorage.audit.application.AuditRecorder;
+import vn.lemar.selfstorage.audit.domain.AuditAction;
+import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.dto.RejectRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
@@ -33,6 +39,7 @@ import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
+import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
@@ -80,6 +87,12 @@ class RentalRequestRejectServiceTest {
     @Mock
     private PolicyQueryService policyQueryService;
 
+    @Mock
+    private AuditRecorder auditRecorder;
+
+    @Mock
+    private CurrentAccountProvider currentAccountProvider;
+
     @InjectMocks
     private RentalRequestService service;
 
@@ -92,6 +105,7 @@ class RentalRequestRejectServiceTest {
                 eq(RentalRequestRejectReason.UNIT_UNAVAILABLE), any(), any(),
                 eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Rejected))).thenReturn(1);
         when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         RejectRentalRequestResponse response = service.reject(1L,
                 RentalRequestRejectReason.UNIT_UNAVAILABLE, null);
@@ -103,6 +117,16 @@ class RentalRequestRejectServiceTest {
                 eq(NotificationRecipient.CUSTOMER),
                 eq(NotificationType.RENTAL_REQUEST_REJECTED), any(Map.class), eq(null));
         verify(emailSender, never()).sendHtml(any(), any(), any());
+
+        ArgumentCaptor<AuditEntry> audit = ArgumentCaptor.forClass(AuditEntry.class);
+        verify(auditRecorder).record(audit.capture());
+        assertThat(audit.getValue().action()).isEqualTo(AuditAction.RENTAL_REQUEST_REJECTED);
+        assertThat(audit.getValue().entityType()).isEqualTo(AuditEntityType.RENTAL_REQUEST);
+        assertThat(audit.getValue().entityId()).isEqualTo("1");
+        assertThat(audit.getValue().actorAccountId()).isEqualTo(77L);
+        assertThat(audit.getValue().newValue()).asInstanceOf(MAP)
+                .containsEntry("status", "Rejected")
+                .containsEntry("rejectReason", "UNIT_UNAVAILABLE");
     }
 
     @Test
@@ -118,6 +142,7 @@ class RentalRequestRejectServiceTest {
         when(templateCatalog.resolve(NotificationType.RENTAL_REQUEST_REJECTED,
                 NotificationRecipient.CUSTOMER)).thenReturn(
                         new NotificationTemplateCatalog.Template("T {{reason}}", "B {{reason}}"));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         RejectRentalRequestResponse response = service.reject(1L,
                 RentalRequestRejectReason.CUSTOMER_REQUEST, null);
@@ -125,6 +150,7 @@ class RentalRequestRejectServiceTest {
         assertThat(response.status()).isEqualTo("Rejected");
         verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
         verify(emailSender).sendHtml(eq("khach@example.com"), any(), any());
+        verify(auditRecorder).record(any(AuditEntry.class));
     }
 
     @Test
@@ -136,6 +162,7 @@ class RentalRequestRejectServiceTest {
                 eq("note"), any(), eq(RentalRequestStatus.Pending),
                 eq(RentalRequestStatus.Rejected))).thenReturn(1, 0); // lần 2: 0 row — đã xử lý
         when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         service.reject(1L, RentalRequestRejectReason.UNIT_MISMATCH, "note");
 
@@ -143,6 +170,7 @@ class RentalRequestRejectServiceTest {
                 () -> service.reject(1L, RentalRequestRejectReason.UNIT_MISMATCH, "note"))
                 .isInstanceOf(RentalRequestAlreadyHandledException.class)
                 .hasMessage("Yêu cầu đã được xử lý bởi FM khác");
+        verify(auditRecorder).record(any(AuditEntry.class)); // chỉ lần từ chối đầu ghi audit
     }
 
     @Test
@@ -188,6 +216,7 @@ class RentalRequestRejectServiceTest {
                 eq("Khach doi y"), any(), eq(RentalRequestStatus.Pending),
                 eq(RentalRequestStatus.Rejected))).thenReturn(1);
         when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         RejectRentalRequestResponse response = service.reject(1L,
                 RentalRequestRejectReason.OTHER, "Khach doi y");
@@ -196,6 +225,12 @@ class RentalRequestRejectServiceTest {
         verify(repository).rejectIfPending(eq(1L), eq(RentalRequestRejectReason.OTHER),
                 eq("Khach doi y"), any(), eq(RentalRequestStatus.Pending),
                 eq(RentalRequestStatus.Rejected));
+
+        ArgumentCaptor<AuditEntry> audit = ArgumentCaptor.forClass(AuditEntry.class);
+        verify(auditRecorder).record(audit.capture());
+        assertThat(audit.getValue().newValue()).asInstanceOf(MAP)
+                .containsEntry("rejectReason", "OTHER")
+                .containsEntry("rejectNote", "Khach doi y");
     }
 
     @Test

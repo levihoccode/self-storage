@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.data.domain.Page;
@@ -11,6 +12,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.lemar.selfstorage.audit.application.AuditEntry;
+import vn.lemar.selfstorage.audit.application.AuditRecorder;
+import vn.lemar.selfstorage.audit.domain.AuditAction;
+import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.dto.CreateRentalRequestRequest;
 import vn.lemar.selfstorage.booking.application.dto.RejectRentalRequestResponse;
@@ -32,6 +37,7 @@ import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
+import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.NotificationEmailLayout;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
@@ -44,8 +50,9 @@ import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 /**
  * Tạo yêu cầu đặt kho từ form public (B1, spec draft.md §1.1).
  *
- * <p>NOTE(B1): chưa ghi AuditLog cho bản ghi mới — A8 (audit) chưa có code,
- * sẽ bổ sung khi A8 xong (chốt #126 mục 5).
+ * <p>Transition trạng thái (approve/reject) ghi AuditLog một bản ghi/entity trong cùng
+ * transaction (A8 — catalog db-table-draft.md › AuditLog). Tạo mới từ form public không có
+ * action trong catalog nên không ghi audit.
  */
 @Service
 public class RentalRequestService {
@@ -69,6 +76,8 @@ public class RentalRequestService {
     private final EmailSender emailSender;
     private final UnitTypeQueryService unitTypeQueryService;
     private final PolicyQueryService policyQueryService;
+    private final AuditRecorder auditRecorder;
+    private final CurrentAccountProvider currentAccountProvider;
 
     public RentalRequestService(RentalRequestRepository repository, FacilityAccess facilityAccess,
                                 StorageUnitQueryService storageUnitQueryService, Access access,
@@ -76,7 +85,8 @@ public class RentalRequestService {
                                 NotificationService notificationService,
                                 NotificationTemplateCatalog templateCatalog, EmailSender emailSender,
                                 UnitTypeQueryService unitTypeQueryService,
-                                PolicyQueryService policyQueryService) {
+                                PolicyQueryService policyQueryService, AuditRecorder auditRecorder,
+                                CurrentAccountProvider currentAccountProvider) {
         this.repository = repository;
         this.facilityAccess = facilityAccess;
         this.storageUnitQueryService = storageUnitQueryService;
@@ -87,6 +97,8 @@ public class RentalRequestService {
         this.emailSender = emailSender;
         this.unitTypeQueryService = unitTypeQueryService;
         this.policyQueryService = policyQueryService;
+        this.auditRecorder = auditRecorder;
+        this.currentAccountProvider = currentAccountProvider;
     }
 
     @Transactional
@@ -177,6 +189,11 @@ public class RentalRequestService {
         if (updated == 0) {
             throw new RentalRequestAlreadyHandledException();
         }
+        auditRecorder.record(new AuditEntry(AuditAction.RENTAL_REQUEST_APPROVED,
+                AuditEntityType.RENTAL_REQUEST, String.valueOf(requestId),
+                Map.of("status", RentalRequestStatus.Pending.name()),
+                Map.of("status", RentalRequestStatus.Approved.name(), "unitId", unitId),
+                null, currentAccountProvider.getCurrentAccountId()));
         sendApprovalEmail(request, expiresAt);
         return new ApproveRentalRequestResponse(request.getId(), RentalRequestStatus.Approved.name(),
                 unitId, respondedAt, expiresAt);
@@ -239,6 +256,16 @@ public class RentalRequestService {
         if (updated == 0) {
             throw new RentalRequestAlreadyHandledException();
         }
+        Map<String, Object> newValue = new LinkedHashMap<>();
+        newValue.put("status", RentalRequestStatus.Rejected.name());
+        newValue.put("rejectReason", reason.name());
+        if (trimmedNote != null) {
+            newValue.put("rejectNote", trimmedNote);
+        }
+        auditRecorder.record(new AuditEntry(AuditAction.RENTAL_REQUEST_REJECTED,
+                AuditEntityType.RENTAL_REQUEST, String.valueOf(requestId),
+                Map.of("status", RentalRequestStatus.Pending.name()), newValue, null,
+                currentAccountProvider.getCurrentAccountId()));
         sendRejection(request, reason, trimmedNote);
         return new RejectRentalRequestResponse(request.getId(), RentalRequestStatus.Rejected.name(),
                 reason.name(), respondedAt);

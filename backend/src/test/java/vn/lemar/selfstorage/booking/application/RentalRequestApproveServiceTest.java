@@ -2,6 +2,7 @@ package vn.lemar.selfstorage.booking.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,9 +17,14 @@ import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import vn.lemar.selfstorage.audit.application.AuditEntry;
+import vn.lemar.selfstorage.audit.application.AuditRecorder;
+import vn.lemar.selfstorage.audit.domain.AuditAction;
+import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
@@ -32,6 +38,7 @@ import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
+import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.NotificationService;
@@ -77,6 +84,12 @@ class RentalRequestApproveServiceTest {
     @Mock
     private PolicyQueryService policyQueryService;
 
+    @Mock
+    private AuditRecorder auditRecorder;
+
+    @Mock
+    private CurrentAccountProvider currentAccountProvider;
+
     @InjectMocks
     private RentalRequestService service;
 
@@ -92,6 +105,7 @@ class RentalRequestApproveServiceTest {
         when(repository.approveIfPending(eq(1L), eq(10L), any(), any(),
                 eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved))).thenReturn(1);
         when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         ApproveRentalRequestResponse response = service.approve(1L, 10L);
 
@@ -100,6 +114,16 @@ class RentalRequestApproveServiceTest {
         assertThat(response.respondedAt()).isNotNull();
         assertThat(response.expiresAt())
                 .isEqualTo(response.respondedAt().plusSeconds(7L * 24L * 60L * 60L));
+
+        ArgumentCaptor<AuditEntry> audit = ArgumentCaptor.forClass(AuditEntry.class);
+        verify(auditRecorder).record(audit.capture());
+        assertThat(audit.getValue().action()).isEqualTo(AuditAction.RENTAL_REQUEST_APPROVED);
+        assertThat(audit.getValue().entityType()).isEqualTo(AuditEntityType.RENTAL_REQUEST);
+        assertThat(audit.getValue().entityId()).isEqualTo("1");
+        assertThat(audit.getValue().actorAccountId()).isEqualTo(77L);
+        assertThat(audit.getValue().newValue()).asInstanceOf(MAP)
+                .containsEntry("status", "Approved")
+                .containsEntry("unitId", 10L);
     }
 
     @Test
@@ -115,12 +139,14 @@ class RentalRequestApproveServiceTest {
                 eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved)))
                 .thenReturn(1, 0); // lần 2: DB đã Approved — conditional update trả 0 row
         when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         service.approve(1L, 10L);
 
         assertThatThrownBy(() -> service.approve(1L, 10L))
                 .isInstanceOf(RentalRequestAlreadyHandledException.class)
                 .hasMessage("Yêu cầu đã được xử lý bởi FM khác");
+        verify(auditRecorder).record(any(AuditEntry.class)); // chỉ lần duyệt đầu ghi audit
     }
 
     @Test
@@ -193,11 +219,13 @@ class RentalRequestApproveServiceTest {
                 eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved))).thenReturn(1);
         when(accountQueryService.findIdByEmail("khach@example.com"))
                 .thenReturn(Optional.empty());
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
 
         ApproveRentalRequestResponse response = service.approve(1L, 10L);
 
         assertThat(response.status()).isEqualTo("Approved");
         verify(emailSender).sendHtml(eq("khach@example.com"), any(), any());
+        verify(auditRecorder).record(any(AuditEntry.class));
     }
 
     @Test
