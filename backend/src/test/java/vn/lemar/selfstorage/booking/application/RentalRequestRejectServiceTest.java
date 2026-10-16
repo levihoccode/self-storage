@@ -33,7 +33,6 @@ import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
-import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
@@ -89,17 +88,17 @@ class RentalRequestRejectServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.reject"), eq(5L));
-        when(accountQueryService.requireIdByEmail("khach@example.com")).thenReturn(42L);
+        when(repository.rejectIfPending(eq(1L),
+                eq(RentalRequestRejectReason.UNIT_UNAVAILABLE), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Rejected))).thenReturn(1);
+        when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
 
         RejectRentalRequestResponse response = service.reject(1L,
                 RentalRequestRejectReason.UNIT_UNAVAILABLE, null);
 
-        assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Rejected);
-        assertThat(request.getRejectReason())
-                .isEqualTo(RentalRequestRejectReason.UNIT_UNAVAILABLE);
-        assertThat(request.getRespondedAt()).isNotNull();
         assertThat(response.status()).isEqualTo("Rejected");
         assertThat(response.rejectReason()).isEqualTo("UNIT_UNAVAILABLE");
+        assertThat(response.respondedAt()).isNotNull();
         verify(notificationService).notify(eq(42L), eq("khach@example.com"),
                 eq(NotificationRecipient.CUSTOMER),
                 eq(NotificationType.RENTAL_REQUEST_REJECTED), any(Map.class), eq(null));
@@ -111,8 +110,11 @@ class RentalRequestRejectServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.reject"), eq(5L));
-        when(accountQueryService.requireIdByEmail("khach@example.com"))
-                .thenThrow(new AccountNotFoundException());
+        when(repository.rejectIfPending(eq(1L),
+                eq(RentalRequestRejectReason.CUSTOMER_REQUEST), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Rejected))).thenReturn(1);
+        when(accountQueryService.findIdByEmail("khach@example.com"))
+                .thenReturn(Optional.empty());
         when(templateCatalog.resolve(NotificationType.RENTAL_REQUEST_REJECTED,
                 NotificationRecipient.CUSTOMER)).thenReturn(
                         new NotificationTemplateCatalog.Template("T {{reason}}", "B {{reason}}"));
@@ -130,7 +132,10 @@ class RentalRequestRejectServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.reject"), eq(5L));
-        when(accountQueryService.requireIdByEmail("khach@example.com")).thenReturn(42L);
+        when(repository.rejectIfPending(eq(1L), eq(RentalRequestRejectReason.UNIT_MISMATCH),
+                eq("note"), any(), eq(RentalRequestStatus.Pending),
+                eq(RentalRequestStatus.Rejected))).thenReturn(1, 0); // lần 2: 0 row — đã xử lý
+        when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
 
         service.reject(1L, RentalRequestRejectReason.UNIT_MISMATCH, "note");
 
@@ -179,13 +184,18 @@ class RentalRequestRejectServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.reject"), eq(5L));
-        when(accountQueryService.requireIdByEmail("khach@example.com")).thenReturn(42L);
+        when(repository.rejectIfPending(eq(1L), eq(RentalRequestRejectReason.OTHER),
+                eq("Khach doi y"), any(), eq(RentalRequestStatus.Pending),
+                eq(RentalRequestStatus.Rejected))).thenReturn(1);
+        when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
 
         RejectRentalRequestResponse response = service.reject(1L,
                 RentalRequestRejectReason.OTHER, "Khach doi y");
 
         assertThat(response.status()).isEqualTo("Rejected");
-        assertThat(request.getRejectNote()).isEqualTo("Khach doi y");
+        verify(repository).rejectIfPending(eq(1L), eq(RentalRequestRejectReason.OTHER),
+                eq("Khach doi y"), any(), eq(RentalRequestStatus.Pending),
+                eq(RentalRequestStatus.Rejected));
     }
 
     @Test

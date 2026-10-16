@@ -16,8 +16,8 @@ Form public cho khách điền nhu cầu thuê kho mà không cần chỉ địn
 - Validate Bean Validation: `facilityId`/`unitTypeId`/`startDate`/`period` bắt buộc; `customerName`
   non-blank; `customerEmail` email hợp lệ; `customerPhone` theo pattern hỗ trợ; `period >= 1`.
 - Service: `facility` phải tồn tại (404 "Không tìm thấy cơ sở"); `unit_type` phải tồn tại
-  (404 "Không tìm thấy loại khoang") + được cơ sở cung cấp (bảng `facility_unit_type`, V4 —
-  sai tổ hợp → 400 "Loại khoang không được cung cấp tại cơ sở này"); `start_date >= hôm nay
+  ("Loại khoang không tồn tại" — 400) + được cơ sở cung cấp (bảng `facility_unit_type`, V4 —
+  "Loại khoang không được cung cấp tại cơ sở này" — 400); `start_date >= hôm nay
   theo Asia/Ho_Chi_Minh` (400); phone 7-15 digit (400). Email normalize trim + lowercase
   trước khi lưu. Dropdown loại khoang lấy từ `GET /api/unit-types?facilityId=`.
 - Tạo `RentalRequest(status=Pending)`, `expires_at = created_at + request.pending_expiry_days`

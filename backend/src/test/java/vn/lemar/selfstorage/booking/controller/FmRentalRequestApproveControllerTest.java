@@ -27,6 +27,7 @@ import vn.lemar.selfstorage.booking.application.RentalRequestService;
 import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AuthService;
@@ -120,6 +121,20 @@ class FmRentalRequestApproveControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void approveUnknownUnitReturns404() throws Exception {
+        authenticate("fm@lemar.vn", "FM");
+        when(rentalRequestService.approve(eq(1L), eq(10L)))
+                .thenThrow(new StorageUnitNotFoundException());
+
+        mockMvc.perform(post("/api/fm/rental-requests/1/approve")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"unitId\":10}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Không tìm thấy khoang"));
     }
 
     @Test

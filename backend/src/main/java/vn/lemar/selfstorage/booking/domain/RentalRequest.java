@@ -84,27 +84,4 @@ public class RentalRequest {
         this.period = period;
         this.expiresAt = expiresAt;
     }
-
-    /**
-     * FM duyệt yêu cầu: gán khoang + chuyển Pending sang Approved (B1, spec draft.md §1.1).
-     * Caller (service) phải kiểm tra Pending + khoang Available trước — method này chỉ đổi trạng
-     * thái, không tự quyết định, để lỗi 409 được ném nhất quán từ service.
-     */
-    public void approve(Long unitId, Instant respondedAt, Instant expiresAt) {
-        this.unitId = unitId;
-        this.status = RentalRequestStatus.Approved;
-        this.respondedAt = respondedAt;
-        this.expiresAt = expiresAt;
-    }
-
-    /**
-     * FM từ chối yêu cầu: chuyển Pending sang Rejected (B1 phần 4, spec draft.md §1.1).
-     * Caller (service) phải kiểm tra Pending + reason/note trước — method này chỉ đổi trạng thái.
-     */
-    public void reject(RentalRequestRejectReason reason, String note, Instant respondedAt) {
-        this.status = RentalRequestStatus.Rejected;
-        this.rejectReason = reason;
-        this.rejectNote = note;
-        this.respondedAt = respondedAt;
-    }
 }

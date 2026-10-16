@@ -20,14 +20,17 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
 2. Chéo cơ sở / thiếu permission → 403 (permission kiểm trước, facility 404 sau — theo `Access`).
 3. Request không còn `Pending` (2 FM / double-click) → 409 "Yêu cầu đã được xử lý bởi FM khác",
    không đổi gì.
-4. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
+4. Khoang không tồn tại hoặc thuộc cơ sở khác → 404 "Không tìm thấy khoang", không đổi gì
+   (khoang ngoài cơ sở trả cùng lỗi để không lộ tài nguyên ngoài phạm vi FM).
+5. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
    request giữ `Pending`.
-5. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` (#126) →
+6. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` (#126) →
    409 "Khoang đã được gán cho yêu cầu khác của cùng khách hàng...", request giữ `Pending`,
    không noti. Khác email + cùng khoang vẫn cho (cọc trước giữ trước).
-6. OK → 1 transaction: `approve(unitId)` → `Approved` + `responded_at=now` +
-   `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).
-7. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
+7. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
+   chống race: 2 FM duyệt song song chỉ 1 tx thắng, tx sau nhận 0 row → 409) → `Approved` +
+   `responded_at=now` + `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).
+8. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
    nhánh đã-có-account để B2 thông báo kèm proposal link.
 
 Body: `{unitId}` bắt buộc. Trả envelope `{message, data: {id, status, unitId, respondedAt,

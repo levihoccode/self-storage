@@ -22,8 +22,8 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHa
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
+import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
-import vn.lemar.selfstorage.booking.application.exception.UnitTypeNotFoundException;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
 import vn.lemar.selfstorage.booking.domain.RentalRequestRejectReason;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
@@ -32,7 +32,6 @@ import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
-import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
 import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.NotificationEmailLayout;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
@@ -94,7 +93,7 @@ public class RentalRequestService {
             throw new FacilityNotFoundException();
         }
         if (!unitTypeQueryService.exists(request.unitTypeId())) {
-            throw new UnitTypeNotFoundException();
+            throw new RentalRequestValidationException("Loại khoang không tồn tại");
         }
         if (!unitTypeQueryService.existsForFacility(request.facilityId(), request.unitTypeId())) {
             throw new RentalRequestValidationException(
@@ -138,8 +137,12 @@ public class RentalRequestService {
      * <p>Guard {@code rental_request.approve} đặt trong service (thay vì controller) vì cần
      * {@code facilityId} từ entity mới guard được theo cơ sở — controller không có sẵn.
      * Thứ tự đúng spec + #126: 404 nếu request không tồn tại, 403 chéo cơ sở, 409 nếu request
-     * không còn Pending, 409 nếu khoang mất Available, 409 nếu khoang đã gán cho request khác
-     * của cùng email (giữ Pending, không noti).
+     * không còn Pending, 404 nếu khoang không tồn tại hoặc thuộc cơ sở khác, 409 nếu khoang mất
+     * Available, 409 nếu khoang đã gán cho request khác của cùng email (giữ Pending, không noti).
+     *
+     * <p>Cửa chặn race: conditional update {@code WHERE status = 'Pending'} (spec draft.md:135) —
+     * 2 FM duyệt song song chỉ 1 tx thắng, tx sau nhận 0 row → 409. Response dựng từ giá trị
+     * update, nguồn sự thật là DB.
      *
      * <p>Sau duyệt: email chưa có account nhận mail đăng ký theo template draft.md:156
      * (after-commit); email đã có account để B2 thông báo kèm proposal link.
@@ -152,7 +155,12 @@ public class RentalRequestService {
         if (request.getStatus() != RentalRequestStatus.Pending) {
             throw new RentalRequestAlreadyHandledException();
         }
-        if (unitId == null || !storageUnitQueryService.isAvailable(unitId)) {
+        StorageUnitQueryService.UnitInfo unit = storageUnitQueryService.findUnitInfo(unitId)
+                .orElseThrow(StorageUnitNotFoundException::new);
+        if (!unit.facilityId().equals(request.getFacilityId())) {
+            throw new StorageUnitNotFoundException();
+        }
+        if (!unit.available()) {
             throw new StorageUnitUnavailableException();
         }
         if (repository.existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(
@@ -162,9 +170,14 @@ public class RentalRequestService {
         }
         Instant respondedAt = Instant.now();
         Instant expiresAt = respondedAt.plusSeconds(claimExpiryDays() * 24L * 60L * 60L);
-        request.approve(unitId, respondedAt, expiresAt);
+        int updated = repository.approveIfPending(requestId, unitId, respondedAt, expiresAt,
+                RentalRequestStatus.Pending, RentalRequestStatus.Approved);
+        if (updated == 0) {
+            throw new RentalRequestAlreadyHandledException();
+        }
         sendApprovalEmail(request, expiresAt);
-        return ApproveRentalRequestResponse.from(request);
+        return new ApproveRentalRequestResponse(request.getId(), RentalRequestStatus.Approved.name(),
+                unitId, respondedAt, expiresAt);
     }
 
     /**
@@ -172,11 +185,11 @@ public class RentalRequestService {
      * lỗi mail chỉ log, không rollback. Nhánh đã có account để B2 thông báo kèm proposal link.
      */
     private void sendApprovalEmail(RentalRequest request, Instant expiresAt) {
-        try {
-            accountQueryService.requireIdByEmail(request.getNormalizedCustomerEmail());
+        // findIdByEmail (không throw) thay requireIdByEmail: throw từ @Transactional proxy sẽ mark
+        // transaction hiện tại rollback-only → commit nổ UnexpectedRollbackException (bug có từ
+        // bản đầu PR, unit test mock không thấy được).
+        if (accountQueryService.findIdByEmail(request.getNormalizedCustomerEmail()).isPresent()) {
             return;
-        } catch (AccountNotFoundException ex) {
-            // Chua co account — gui mail dang ky ben duoi.
         }
         String deadline = VI_DATE.format(expiresAt.atZone(FACILITY_ZONE));
         String title = "Yêu cầu đặt kho của bạn đã được duyệt";
@@ -195,6 +208,8 @@ public class RentalRequestService {
      * <p>Guard {@code rental_request.reject} đặt trong service (giống approve) vì cần
      * {@code facilityId} từ entity. Thứ tự: 404 nếu request không tồn tại, 403 chéo cơ sở,
      * 409 nếu request không còn Pending, 400 nếu {@code OTHER} thiếu ghi chú.
+     * Chuyển trạng thái bằng conditional update {@code WHERE status = 'Pending'} (chống race
+     * double-click / approve-reject song song) — 0 row thì 409.
      *
      * <p>Sau khi đổi trạng thái: gửi mail từ chối cho khách trong mọi trường hợp (after-commit,
      * lỗi mail chỉ log, không rollback); tạo thêm thông báo web chỉ khi email đã có account.
@@ -216,22 +231,23 @@ public class RentalRequestService {
                 && (trimmedNote == null || trimmedNote.isEmpty())) {
             throw new RentalRequestValidationException("Ghi chú bắt buộc khi lý do là Khác");
         }
-        request.reject(reason, trimmedNote, Instant.now());
+        Instant respondedAt = Instant.now();
+        int updated = repository.rejectIfPending(requestId, reason, trimmedNote, respondedAt,
+                RentalRequestStatus.Pending, RentalRequestStatus.Rejected);
+        if (updated == 0) {
+            throw new RentalRequestAlreadyHandledException();
+        }
         sendRejection(request, reason, trimmedNote);
-        return RejectRentalRequestResponse.from(request);
+        return new RejectRentalRequestResponse(request.getId(), RentalRequestStatus.Rejected.name(),
+                reason.name(), respondedAt);
     }
 
     private void sendRejection(RentalRequest request, RentalRequestRejectReason reason,
                                String note) {
         String reasonText = rejectReasonText(reason, note);
         Map<String, String> values = Map.of("reason", reasonText);
-        Long accountId = null;
-        try {
-            accountId = accountQueryService
-                    .requireIdByEmail(request.getNormalizedCustomerEmail());
-        } catch (AccountNotFoundException ex) {
-            accountId = null;
-        }
+        Long accountId = accountQueryService.findIdByEmail(request.getNormalizedCustomerEmail())
+                .orElse(null);
         if (accountId != null) {
             notificationService.notify(accountId, request.getNormalizedCustomerEmail(),
                     NotificationRecipient.CUSTOMER, NotificationType.RENTAL_REQUEST_REJECTED,

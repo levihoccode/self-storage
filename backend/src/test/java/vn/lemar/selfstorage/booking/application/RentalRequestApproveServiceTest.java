@@ -23,6 +23,7 @@ import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
@@ -31,7 +32,6 @@ import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
-import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.notification.EmailSender;
 import vn.lemar.selfstorage.notification.application.NotificationService;
@@ -85,20 +85,21 @@ class RentalRequestApproveServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
-        when(storageUnitQueryService.isAvailable(10L)).thenReturn(true);
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
         when(policyQueryService.valueOf("account.claim_ttl_days"))
                 .thenReturn(Optional.of("7"));
-        when(accountQueryService.requireIdByEmail("khach@example.com")).thenReturn(42L);
+        when(repository.approveIfPending(eq(1L), eq(10L), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved))).thenReturn(1);
+        when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
 
         ApproveRentalRequestResponse response = service.approve(1L, 10L);
 
-        assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Approved);
-        assertThat(request.getUnitId()).isEqualTo(10L);
-        assertThat(request.getRespondedAt()).isNotNull();
-        assertThat(request.getExpiresAt())
-                .isEqualTo(request.getRespondedAt().plusSeconds(7L * 24L * 60L * 60L));
         assertThat(response.status()).isEqualTo("Approved");
         assertThat(response.unitId()).isEqualTo(10L);
+        assertThat(response.respondedAt()).isNotNull();
+        assertThat(response.expiresAt())
+                .isEqualTo(response.respondedAt().plusSeconds(7L * 24L * 60L * 60L));
     }
 
     @Test
@@ -106,10 +107,14 @@ class RentalRequestApproveServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
-        when(storageUnitQueryService.isAvailable(10L)).thenReturn(true);
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
         when(policyQueryService.valueOf("account.claim_ttl_days"))
                 .thenReturn(Optional.of("7"));
-        when(accountQueryService.requireIdByEmail("khach@example.com")).thenReturn(42L);
+        when(repository.approveIfPending(eq(1L), eq(10L), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved)))
+                .thenReturn(1, 0); // lần 2: DB đã Approved — conditional update trả 0 row
+        when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
 
         service.approve(1L, 10L);
 
@@ -123,7 +128,8 @@ class RentalRequestApproveServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
-        when(storageUnitQueryService.isAvailable(11L)).thenReturn(false);
+        when(storageUnitQueryService.findUnitInfo(11L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Maintenance")));
 
         assertThatThrownBy(() -> service.approve(1L, 11L))
                 .isInstanceOf(StorageUnitUnavailableException.class)
@@ -132,11 +138,39 @@ class RentalRequestApproveServiceTest {
     }
 
     @Test
+    void approveUnknownUnitReturns404() {
+        RentalRequest request = pendingRequest();
+        when(repository.findById(1L)).thenReturn(Optional.of(request));
+        doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
+        when(storageUnitQueryService.findUnitInfo(10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.approve(1L, 10L))
+                .isInstanceOf(StorageUnitNotFoundException.class)
+                .hasMessage("Không tìm thấy khoang");
+        assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Pending);
+    }
+
+    @Test
+    void approveUnitFromOtherFacilityReturns404() {
+        RentalRequest request = pendingRequest();
+        when(repository.findById(1L)).thenReturn(Optional.of(request));
+        doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(7L, "Available")));
+
+        assertThatThrownBy(() -> service.approve(1L, 10L))
+                .isInstanceOf(StorageUnitNotFoundException.class)
+                .hasMessage("Không tìm thấy khoang");
+        assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Pending);
+    }
+
+    @Test
     void approveDuplicateUnitForSameEmailReturns409() {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
-        when(storageUnitQueryService.isAvailable(10L)).thenReturn(true);
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
         when(repository.existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(
                 eq("khach@example.com"), eq(10L), any())).thenReturn(true);
 
@@ -151,15 +185,18 @@ class RentalRequestApproveServiceTest {
         RentalRequest request = pendingRequest();
         when(repository.findById(1L)).thenReturn(Optional.of(request));
         doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
-        when(storageUnitQueryService.isAvailable(10L)).thenReturn(true);
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
         when(policyQueryService.valueOf("account.claim_ttl_days"))
                 .thenReturn(Optional.of("7"));
-        when(accountQueryService.requireIdByEmail("khach@example.com"))
-                .thenThrow(new AccountNotFoundException());
+        when(repository.approveIfPending(eq(1L), eq(10L), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved))).thenReturn(1);
+        when(accountQueryService.findIdByEmail("khach@example.com"))
+                .thenReturn(Optional.empty());
 
-        service.approve(1L, 10L);
+        ApproveRentalRequestResponse response = service.approve(1L, 10L);
 
-        assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Approved);
+        assertThat(response.status()).isEqualTo("Approved");
         verify(emailSender).sendHtml(eq("khach@example.com"), any(), any());
     }
 

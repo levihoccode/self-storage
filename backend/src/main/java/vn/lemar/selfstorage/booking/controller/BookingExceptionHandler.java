@@ -12,8 +12,8 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHa
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
+import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
-import vn.lemar.selfstorage.booking.application.exception.UnitTypeNotFoundException;
 
 /**
  * Lỗi nghiệp vụ của booking — phải HIGHEST_PRECEDENCE vì ApiExceptionHandler
@@ -28,13 +28,13 @@ public class BookingExceptionHandler {
         return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(UnitTypeNotFoundException.class)
-    public ResponseEntity<ApiError> handleUnitTypeNotFound(UnitTypeNotFoundException ex) {
+    @ExceptionHandler(FacilityNotFoundException.class)
+    public ResponseEntity<ApiError> handleFacilityNotFound(FacilityNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(FacilityNotFoundException.class)
-    public ResponseEntity<ApiError> handleFacilityNotFound(FacilityNotFoundException ex) {
+    @ExceptionHandler(StorageUnitNotFoundException.class)
+    public ResponseEntity<ApiError> handleStorageUnitNotFound(StorageUnitNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
     }
 

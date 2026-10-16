@@ -21,7 +21,8 @@ FM từ chối `RentalRequest` đang `Pending` với lý do theo bộ chuẩn.
    không đổi gì.
 4. `rejectReason` null → 400; `OTHER` thiếu ghi chú → 400 "Ghi chú bắt buộc khi lý do là Khác"
    (khớp CHECK DB: Rejected bắt buộc reason, OTHER bắt buộc note).
-5. OK → 1 transaction: `reject(reason, note)` → `Rejected` + `responded_at=now`
+5. OK → 1 transaction: conditional update `WHERE status='Pending'` (chống race double-click /
+   approve-reject song song — chỉ 1 tx thắng) → `Rejected` + `responded_at=now`
    (`expires_at` giữ nguyên — request đã đóng).
 6. Mail + noti (after-commit, lỗi mail chỉ log, không rollback): luôn gửi mail từ chối tới
    email khách; tạo thêm thông báo web `RENTAL_REQUEST_REJECTED` chỉ khi email đã có account

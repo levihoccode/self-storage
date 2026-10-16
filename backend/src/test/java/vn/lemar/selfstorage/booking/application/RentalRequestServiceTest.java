@@ -91,6 +91,16 @@ class RentalRequestServiceTest {
     }
 
     @Test
+    void createRejectsUnknownUnitTypeReturns400() {
+        when(facilityAccess.exists(1L)).thenReturn(true);
+        when(unitTypeQueryService.exists(2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.create(validRequest()))
+                .isInstanceOf(RentalRequestValidationException.class)
+                .hasMessage("Loại khoang không tồn tại");
+    }
+
+    @Test
     void createRejectsUnitTypeNotProvidedByFacility() {
         when(facilityAccess.exists(1L)).thenReturn(true);
         when(unitTypeQueryService.exists(2L)).thenReturn(true);

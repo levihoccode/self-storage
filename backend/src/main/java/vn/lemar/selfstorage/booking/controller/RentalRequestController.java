@@ -41,14 +41,15 @@ public class RentalRequestController {
                     + "request.pending_expiry_days.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Gửi yêu cầu thành công"),
-            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ",
+            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ (gồm loại "
+                    + "khoang không tồn tại / không được cơ sở cung cấp)",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class),
                             examples = @ExampleObject(value = """
                                     {"message":"Dữ liệu không hợp lệ",
                                     "timestamp":"2026-10-04T08:14:28.048550698Z"}"""))),
             @ApiResponse(responseCode = "404",
-                    description = "Không tìm thấy cơ sở / loại khoang",
+                    description = "Không tìm thấy cơ sở",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class)))
     })

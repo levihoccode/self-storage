@@ -20,6 +20,7 @@ import vn.lemar.selfstorage.SecurityConfig;
 import vn.lemar.selfstorage.booking.application.RentalRequestService;
 import vn.lemar.selfstorage.booking.application.dto.CreateRentalRequestRequest;
 import vn.lemar.selfstorage.booking.application.dto.RentalRequestResponse;
+import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
 import vn.lemar.selfstorage.identity.application.AccountJwtAuthenticationConverter;
 import vn.lemar.selfstorage.identity.application.AuthService;
 import vn.lemar.selfstorage.identity.config.JwtConfiguration;
@@ -69,5 +70,19 @@ class RentalRequestControllerTest {
                                 "startDate":"2026-11-01","period":0}"""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
+    }
+
+    @Test
+    void serviceValidationReturns400() throws Exception {
+        when(rentalRequestService.create(any(CreateRentalRequestRequest.class)))
+                .thenThrow(new RentalRequestValidationException("Loại khoang không tồn tại"));
+
+        mockMvc.perform(post("/api/rental-requests").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"facilityId":1,"customerName":"Nguyen Van A",
+                                "customerEmail":"khach@example.com","customerPhone":"0901234567",
+                                "unitTypeId":999,"startDate":"2026-11-01","period":6}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Loại khoang không tồn tại"));
     }
 }
