@@ -20,6 +20,11 @@ public class FacilityAccess {
     }
 
     @Transactional(readOnly = true)
+    /** FM đang phụ trách cơ sở — module nghiệp vụ dùng để gửi thông báo cho đúng người. */
+    public java.util.Optional<Long> findManagerAccountId(Long facilityId) {
+        return facilityAccessRepository.findManagerAccountId(facilityId);
+    }
+
     public boolean exists(Long facilityId) {
         return facilityAccessRepository.exists(facilityId);
     }

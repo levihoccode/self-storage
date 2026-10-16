@@ -22,6 +22,7 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | PATCH | `/api/notifications/read-all` | Bearer + `ACCOUNT_ACTIVE` | Đánh dấu tất cả đã đọc | [routes/notification/read-all.md](routes/notification/read-all.md) |
 | GET | `/api/payments/vnpay/ipn` | Public (chữ ký VNPay) | VNPay xác nhận thanh toán — nguồn xác nhận duy nhất | [routes/payment/vnpay-ipn.md](routes/payment/vnpay-ipn.md) |
 | GET | `/api/payments/vnpay/return` | Public (redirect VNPay) | Trang kết quả cho khách — không ghi dữ liệu | [routes/payment/vnpay-return.md](routes/payment/vnpay-return.md) |
+| POST | `/api/invoices/{invoiceId}/pay` | Chủ hóa đơn + đã xác minh email | Mở phiên thanh toán hóa đơn cọc (Flow 1.4) | [routes/booking/invoice-pay.md](routes/booking/invoice-pay.md) |
 | POST | `/api/media/uploads` | Bearer + `ACCOUNT_ACTIVE` | Upload file (ảnh/PDF ≤ 10MB), trả URL dùng lại trong flow | [routes/media/upload.md](routes/media/upload.md) |
 
 Ghi chú:
