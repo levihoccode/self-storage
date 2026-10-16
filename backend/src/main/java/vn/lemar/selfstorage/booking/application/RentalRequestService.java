@@ -50,7 +50,9 @@ import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 @Service
 public class RentalRequestService {
 
-    // Bảng facilities chưa có cột timezone (chốt #126 mục 3) — tạm dùng giờ VN.
+    // TODO(spec-gap): spec draft.md:122 yêu cầu start_date "theo timezone của Facility" nhưng
+    // bảng facilities chưa có cột timezone — tạm hardcode giờ VN, chờ owner chốt (hardcode
+    // chính thức hay bổ sung cột timezone).
     private static final ZoneId FACILITY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final String PENDING_EXPIRY_KEY = "request.pending_expiry_days";
     private static final String CLAIM_EXPIRY_KEY = "account.claim_ttl_days";
