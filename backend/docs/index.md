@@ -90,8 +90,8 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 ## Database & seed
 
 Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__baseline_seed.sql`,
-`V3__rbac_permissions_seed.sql`. V1/V2 có mirror ở `backend/sql/` — sửa thì sửa cả hai nơi
-(CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
+`V3__rbac_permissions_seed.sql`, `V4__facility_unit_type.sql`. V1/V2 có mirror ở `backend/sql/`
+— sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
 (chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
