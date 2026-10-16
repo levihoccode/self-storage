@@ -60,6 +60,7 @@ INSERT INTO policies (key, value, description) VALUES
     ('account.claim_ttl_days',       '7',  'Hạn khách claim request Approved sau khi duyệt (Flow 1.2)'),
     ('proposal.max_rejection_count', '3',  'Số lần khách từ chối proposal tối đa trước khi hủy đơn (Flow 1.3)'),
     ('invoice.deposit_due_days',     '3',  'Hạn thanh toán hóa đơn cọc (Flow 1.3)'),
+    ('invoice.deposit_months',       '1',  'Số tháng giá thuê thu làm tiền cọc (Flow 1.3, chốt #113)'),
     ('order.deposit_expiry_days',    '30', 'Hạn giữ kho sau khi đặt cọc (Flow 1.4)'),
     ('handover.max_rejection_count', '2',  'Số lần khách từ chối khoang tại chỗ tối đa (Flow 2)');
 
