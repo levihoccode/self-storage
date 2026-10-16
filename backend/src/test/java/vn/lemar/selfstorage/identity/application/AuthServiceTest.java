@@ -12,6 +12,7 @@ import vn.lemar.selfstorage.identity.application.dto.LoginResponse;
 import vn.lemar.selfstorage.identity.application.dto.MeResponse;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
+import vn.lemar.selfstorage.identity.application.exception.TooManyLoginAttemptsException;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.domain.Role;
@@ -19,12 +20,17 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
+
+    private static final String IP = "203.0.113.7";
 
     @Mock
     private AccountRepository accountRepository;
@@ -34,6 +40,9 @@ class AuthServiceTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Mock
+    private LoginAttemptLimiter loginAttemptLimiter;
 
     @InjectMocks
     private AuthService authService;
@@ -49,13 +58,26 @@ class AuthServiceTest {
         when(passwordEncoder.matches("password", "password-hash")).thenReturn(true);
         when(jwtService.issueAccessToken(account)).thenReturn("signed.jwt.token");
 
-        LoginResponse response = authService.login(new LoginRequest(" Customer@Example.com ", "password"));
+        LoginResponse response = authService.login(new LoginRequest(" Customer@Example.com ", "password"), IP);
 
         assertThat(response.accountId()).isEqualTo(42L);
         assertThat(response.email()).isEqualTo("customer@example.com");
         assertThat(response.token()).isEqualTo("signed.jwt.token");
         verify(accountRepository).findByEmail("customer@example.com");
         verify(jwtService).issueAccessToken(account);
+        verify(loginAttemptLimiter).reset("customer@example.com");
+        verify(loginAttemptLimiter, never()).recordFailure("customer@example.com", IP);
+    }
+
+    @Test
+    void loginIsBlockedBeforeCheckingCredentialsWhenLimitExceeded() {
+        doThrow(new TooManyLoginAttemptsException())
+                .when(loginAttemptLimiter).checkOrThrow("customer@example.com", IP);
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("customer@example.com", "password"), IP))
+                .isInstanceOf(TooManyLoginAttemptsException.class);
+        verifyNoInteractions(accountRepository, passwordEncoder, jwtService);
     }
 
     @Test
@@ -65,8 +87,10 @@ class AuthServiceTest {
         when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
         when(passwordEncoder.matches("wrong", "password-hash")).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("customer@example.com", "wrong")))
+        assertThatThrownBy(() -> authService.login(new LoginRequest("customer@example.com", "wrong"), IP))
                 .isInstanceOf(InvalidCredentialsException.class);
+        verify(loginAttemptLimiter).recordFailure("customer@example.com", IP);
+        verify(loginAttemptLimiter, never()).reset("customer@example.com");
     }
 
     @Test
@@ -78,18 +102,20 @@ class AuthServiceTest {
         when(accountRepository.findByEmail("user@example.com")).thenReturn(Optional.of(account));
         when(passwordEncoder.matches("password", "password-hash")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("user@example.com", "password")))
+        assertThatThrownBy(() -> authService.login(new LoginRequest("user@example.com", "password"), IP))
                 .isInstanceOfSatisfying(AccountNotAllowedException.class,
                         ex -> assertThat(ex.getStatus()).isEqualTo(AccountStatus.BANNED))
                 .hasMessageNotContaining("Email hoặc mật khẩu");
+        verify(loginAttemptLimiter, never()).recordFailure("user@example.com", IP);
     }
 
     @Test
     void loginRejectsUnknownEmail() {
         when(accountRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("ghost@example.com", "password")))
+        assertThatThrownBy(() -> authService.login(new LoginRequest("ghost@example.com", "password"), IP))
                 .isInstanceOf(InvalidCredentialsException.class);
+        verify(loginAttemptLimiter).recordFailure("ghost@example.com", IP);
     }
 
     @Test
@@ -99,7 +125,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("password", "hash")).thenReturn(true);
         when(jwtService.issueAccessToken(account)).thenReturn("signed.jwt.token");
 
-        LoginResponse response = authService.login(new LoginRequest("customer@example.com", "password"));
+        LoginResponse response = authService.login(new LoginRequest("customer@example.com", "password"), IP);
 
         assertThat(account.isVerified()).isFalse();
         assertThat(response.token()).isEqualTo("signed.jwt.token");

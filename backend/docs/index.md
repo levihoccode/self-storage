@@ -65,6 +65,12 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `JWT_SECRET` | Khóa ký JWT, Base64, ≥ 32 byte sau decode | — (bắt buộc) |
 | `JWT_ACCESS_TOKEN_TTL` | TTL access token (ISO-8601 duration) | `PT15M` |
 | `BCRYPT_STRENGTH` | Bcrypt cost (log2 rounds), OWASP khuyến nghị ≥ 10 | `10` |
+| `EMAIL_VERIFICATION_TTL` | TTL mã xác minh email (ISO-8601 duration) | `PT10M` |
+| `EMAIL_VERIFICATION_MAX_ATTEMPTS` | Số lần nhập sai tối đa cho mỗi mã xác minh | `5` |
+| `EMAIL_VERIFICATION_RESEND_COOLDOWN` | Cooldown giữa hai lần gửi lại mã | `PT60S` |
+| `LOGIN_RATE_LIMIT_EMAIL_MAX` | Số lần đăng nhập sai tối đa theo email / window | `5` |
+| `LOGIN_RATE_LIMIT_IP_MAX` | Số lần đăng nhập sai tối đa theo IP / window | `20` |
+| `LOGIN_RATE_LIMIT_WINDOW` | Cửa sổ đếm lần đăng nhập sai | `PT15M` |
 | `VNPAY_TMN_CODE` | Mã website đăng ký trên VNPay | — (bắt buộc) |
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
@@ -98,6 +104,10 @@ Chi tiết: `backend/sql/README.md`.
 
 - Module khác inject `vn.lemar.selfstorage.notification.EmailSender` và gọi
   `send(to, subject, body)` (văn bản thuần) hoặc `sendHtml(to, subject, htmlBody)`.
+- Module `identity` **không** gọi trực tiếp `EmailSender` (notification đã phụ thuộc ngược lại
+  identity — cycle): identity phát event `VerificationEmailRequested`, listener
+  `VerificationEmailListener` trong notification gửi email. Dùng pattern này khi module nguồn
+  không thể phụ thuộc notification.
 - Gửi lỗi chỉ log, không ném exception → không rollback nghiệp vụ của caller; `true` = đã gửi
   hoặc đã xếp lịch, `false` = không gửi được (thiếu recipient/lỗi).
 - Đang trong transaction → email được xếp lịch gửi **sau commit**; rollback thì không gửi.
