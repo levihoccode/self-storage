@@ -16,7 +16,8 @@ B2 **không có endpoint HTTP**. Mọi thứ đi qua public API của `booking::
 | FM duyệt request, email đã thuộc account **đã xác minh** | B1 (#126), ngay sau khi set `Approved` | `RentalRequestConversionService.convertOnApproval(requestId)` | Join transaction duyệt của B1 — convert lỗi thì duyệt rollback theo |
 | Customer vừa xác minh email | A3a, sau khi set `email_verified_at` | `RentalRequestConversionService.claimForVerifiedAccount(accountId)` | Join transaction xác minh (hoặc tự mở nếu gọi riêng) |
 
-Hiện **chưa nối** cả hai trigger: B1 và A3a chưa merge. Test gọi thẳng service.
+Hiện **chưa nối** cả hai trigger: B1 (#145) chưa merge; A3a đã merge nhưng `verifyEmail` chưa phát
+event cho booking — nối sau cùng B1. Test gọi thẳng service.
 
 `convertOnApproval` trả `ConversionResult`:
 
