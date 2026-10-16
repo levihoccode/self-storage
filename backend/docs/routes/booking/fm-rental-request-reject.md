@@ -1,4 +1,5 @@
 ---
+auth-model: role-bound
 purpose: FM từ chối yêu cầu đặt kho (B1 phần 4) — sang Rejected, gửi mail, hết nhóm B1.
 ---
 

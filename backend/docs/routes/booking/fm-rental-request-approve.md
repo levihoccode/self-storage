@@ -1,4 +1,5 @@
 ---
+auth-model: role-bound
 purpose: FM duyệt yêu cầu đặt kho (B1) — gán khoang Available, dừng ở Approved.
 ---
 
