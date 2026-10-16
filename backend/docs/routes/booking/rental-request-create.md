@@ -22,7 +22,8 @@ Form public cho khách điền nhu cầu thuê kho mà không cần chỉ địn
   trước khi lưu. Dropdown loại khoang lấy từ `GET /api/unit-types?facilityId=`.
 - Tạo `RentalRequest(status=Pending)`, `expires_at = created_at + request.pending_expiry_days`
   (đọc từ bảng `policies`, fallback 7 ngày). Trả 201 + envelope `{message, data}`.
-- NOTE(B1): chưa ghi AuditLog cho bản ghi mới — A8 chưa có code, sẽ bổ sung khi A8 xong.
+- Create không ghi AuditLog — catalog chưa định nghĩa action cho việc tạo request; transition
+  duyệt/từ chối đã ghi (`RENTAL_REQUEST_APPROVED/REJECTED` — xem [audit-log.md](../../audit-log.md)).
 
 ## Ghi chú nghiệp vụ
 
