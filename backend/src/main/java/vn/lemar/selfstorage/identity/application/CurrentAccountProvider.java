@@ -27,4 +27,9 @@ public class CurrentAccountProvider {
         return accountRepository.findWithRoleByEmail(Account.normalize(authentication.getName()))
                 .orElseThrow(UnauthenticatedException::new);
     }
+
+    /** Id account của request hiện tại — cho module khác cần actor (ví dụ AuditLog) không phải chạm domain. */
+    public Long getCurrentAccountId() {
+        return getCurrentAccount().getId();
+    }
 }

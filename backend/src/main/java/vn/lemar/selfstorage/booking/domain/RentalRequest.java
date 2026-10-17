@@ -1,28 +1,27 @@
 package vn.lemar.selfstorage.booking.domain;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import lombok.AccessLevel;
+import java.time.LocalDate;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Yêu cầu thuê từ form ({@code specs/db-table-draft.md} › RentalRequest).
- *
- * <p>Bản này chỉ map các cột luồng convert (B2) cần; tạo/duyệt/từ chối request thuộc B1 và sẽ bổ
- * sung cột + thao tác khi merge. {@code unitId}, {@code facilityId} để kiểu {@code Long}: bảng đích
- * thuộc module facility.
+ * Yêu cầu đặt kho từ form public (B1, spec draft.md §1.1).
+ * Kiểu trạng thái + ràng buộc khớp CHECK trong V1 / db-table-draft.md.
+ * Khóa ngoại chỉ giữ id thô (không @ManyToOne module chéo).
  */
+@Getter
+@NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @Entity
 @Table(name = "rental_requests")
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RentalRequest {
 
     @Id
@@ -32,36 +31,57 @@ public class RentalRequest {
     @Column(name = "facility_id", nullable = false)
     private Long facilityId;
 
-    @Column(name = "normalized_customer_email", nullable = false)
+    @Column(name = "customer_name", nullable = false, length = 255)
+    private String customerName;
+
+    @Column(name = "normalized_customer_email", nullable = false, length = 255)
     private String normalizedCustomerEmail;
 
-    /** Khoang FM chỉ định lúc duyệt — dùng tạo {@code ProposalFeedback} đầu tiên. */
+    @Column(name = "customer_phone", nullable = false, length = 20)
+    private String customerPhone;
+
+    @Column(name = "unit_type_id", nullable = false)
+    private Long unitTypeId;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(nullable = false)
+    private Integer period;
+
     @Column(name = "unit_id")
     private Long unitId;
 
-    @Convert(converter = RentalRequestStatusConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private RentalRequestStatus status;
+    private RentalRequestStatus status = RentalRequestStatus.Pending;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "responded_at")
+    private Instant respondedAt;
+
+    @Column(name = "reject_reason", length = 50)
+    @Enumerated(EnumType.STRING)
+    private RentalRequestRejectReason rejectReason;
+
+    @Column(name = "reject_note", columnDefinition = "text")
+    private String rejectNote;
 
     @Column(name = "expires_at")
     private Instant expiresAt;
 
-    /**
-     * Spec RentalRequest › CONSTRAINTS: chỉ request {@code Approved} chưa quá {@code expires_at} mới
-     * được chuyển sang {@code Converted}.
-     */
-    public boolean isConvertibleAt(Instant now) {
-        return status == RentalRequestStatus.APPROVED && expiresAt != null && expiresAt.isAfter(now);
-    }
-
-    /** {@code Approved → Converted} khi đã sinh {@code RentalOrder}; caller kiểm {@link #isConvertibleAt}. */
-    public void markConverted() {
-        if (status != RentalRequestStatus.APPROVED) {
-            throw new IllegalStateException("RentalRequest " + id + " không ở Approved: " + status);
-        }
-        if (unitId == null) {
-            throw new IllegalStateException("RentalRequest " + id + " Approved nhưng chưa có unit_id");
-        }
-        this.status = RentalRequestStatus.CONVERTED;
+    public RentalRequest(Long facilityId, String customerName, String normalizedCustomerEmail,
+                         String customerPhone, Long unitTypeId, LocalDate startDate, Integer period,
+                         Instant expiresAt) {
+        this.facilityId = facilityId;
+        this.customerName = customerName;
+        this.normalizedCustomerEmail = normalizedCustomerEmail;
+        this.customerPhone = customerPhone;
+        this.unitTypeId = unitTypeId;
+        this.startDate = startDate;
+        this.period = period;
+        this.expiresAt = expiresAt;
     }
 }

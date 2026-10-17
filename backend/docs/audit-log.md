@@ -54,6 +54,7 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | Module | Action | Entity | Nối ở |
 |---|---|---|---|
 | `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.register` (A3a) |
+| `booking` | `RENTAL_REQUEST_APPROVED`, `RENTAL_REQUEST_REJECTED` | `RentalRequest` | `booking/application/RentalRequestService.approve/reject` (B1) |
 | `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` (B2) — actor = customer vừa xác minh; trigger duyệt / tạo đơn / proposal chờ spec-gap #132 |
 
 ## Xem thêm

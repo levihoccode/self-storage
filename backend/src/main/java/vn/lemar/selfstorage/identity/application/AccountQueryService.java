@@ -1,7 +1,6 @@
 package vn.lemar.selfstorage.identity.application;
 
 import java.util.Optional;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +25,19 @@ public class AccountQueryService {
         return accountRepository.findByEmail(Account.normalize(email))
                 .orElseThrow(AccountNotFoundException::new)
                 .getId();
+    }
+
+    /**
+     * Id account theo email (đã normalize); {@code Optional.empty()} khi chưa có account.
+     *
+     * <p>Dùng thay {@link #requireIdByEmail} khi caller đang trong transaction và "chưa có account"
+     * là nhánh bình thường: exception ném ra từ method {@code @Transactional} này sẽ mark cả
+     * transaction đang chạy rollback-only, commit sau đó nổ {@code UnexpectedRollbackException}
+     * dù caller đã catch.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Long> findIdByEmail(String email) {
+        return accountRepository.findByEmail(Account.normalize(email)).map(Account::getId);
     }
 
     @Transactional(readOnly = true)

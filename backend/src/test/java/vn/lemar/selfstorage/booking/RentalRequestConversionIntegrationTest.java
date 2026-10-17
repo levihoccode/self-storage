@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -41,6 +42,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.booking.application.ConversionResult;
 import vn.lemar.selfstorage.booking.application.ConversionResult.Outcome;
 import vn.lemar.selfstorage.booking.application.RentalRequestConversionService;
+import vn.lemar.selfstorage.booking.application.RentalRequestService;
+import vn.lemar.selfstorage.identity.application.Access;
+import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
+import vn.lemar.selfstorage.identity.application.EmailVerified;
 
 /**
  * B2 chạy thật trên Postgres (Testcontainers) với seed V2: convert khi FM duyệt (trigger 1), claim
@@ -70,6 +75,15 @@ class RentalRequestConversionIntegrationTest {
     private JdbcTemplate jdbc;
     @Autowired
     private PlatformTransactionManager transactionManager;
+    @Autowired
+    private RentalRequestService rentalRequestService;
+    @Autowired
+    private ApplicationEventPublisher events;
+    // Gọi approve của B1 không qua HTTP: bỏ guard RBAC + JWT, chỉ giữ actor cho audit.
+    @MockBean
+    private Access access;
+    @MockBean
+    private CurrentAccountProvider currentAccountProvider;
 
     @BeforeEach
     void setUp() {
@@ -337,6 +351,82 @@ class RentalRequestConversionIntegrationTest {
         assertThat(((ConversionResult) results.get(0)).outcome()).isEqualTo(Outcome.CONVERTED);
         assertThat(requestStatus(alreadyApproved)).isEqualTo("Approved");
         assertOneActiveConversion("B-01");
+    }
+
+    // ------------------------------------------------------------ nối B1 + A3a
+
+    @Test
+    void fmApprovalThroughB1ConvertsForVerifiedCustomer() {
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        long requestId = request(VERIFIED, "A-01", "Pending", 7);
+
+        rentalRequestService.approve(requestId, unitId("A-01"));
+
+        assertThat(requestStatus(requestId)).isEqualTo("Converted");
+        assertThat(count("rental_orders")).isEqualTo(1);
+        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ?", String.class,
+                String.valueOf(requestId))).containsExactly("RENTAL_REQUEST_APPROVED");
+        Long orderId = jdbc.queryForObject("select id from rental_orders", Long.class);
+        assertApprovedNotification(accountId(VERIFIED), orderId, "A-01");
+    }
+
+    @Test
+    void fmApprovalThroughB1KeepsApprovedForUnverifiedCustomer() {
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        long requestId = request(UNVERIFIED, "A-01", "Pending", 7);
+
+        rentalRequestService.approve(requestId, unitId("A-01"));
+
+        assertThat(requestStatus(requestId)).isEqualTo("Approved");
+        assertNothingCreated();
+    }
+
+    @Test
+    void emailVerifiedEventClaimsAfterVerificationCommits() {
+        long requestId = approvedRequest(UNVERIFIED, "B-01", 7);
+        long accountId = accountId(UNVERIFIED);
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            verifyEmail(UNVERIFIED);
+            events.publishEvent(new EmailVerified(accountId));
+            assertThat(requestStatus(requestId)).as("chưa claim trước commit").isEqualTo("Approved");
+        });
+
+        assertThat(requestStatus(requestId)).isEqualTo("Converted");
+        assertThat(jdbc.queryForObject("select action from audit_logs where entity_id = ?", String.class,
+                String.valueOf(requestId))).isEqualTo("RENTAL_REQUEST_CLAIMED");
+    }
+
+    @Test
+    void emailVerifiedEventDoesNothingWhenVerificationRollsBack() {
+        long requestId = approvedRequest(UNVERIFIED, "B-01", 7);
+        long accountId = accountId(UNVERIFIED);
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            verifyEmail(UNVERIFIED);
+            events.publishEvent(new EmailVerified(accountId));
+            status.setRollbackOnly();
+        });
+
+        assertThat(requestStatus(requestId)).isEqualTo("Approved");
+        assertNothingCreated();
+    }
+
+    @Test
+    void claimFailureAfterVerificationDoesNotUndoVerification() {
+        jdbc.update("delete from policies where key = 'order.expiry_days'");
+        long requestId = approvedRequest(UNVERIFIED, "B-01", 7);
+        long accountId = accountId(UNVERIFIED);
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            verifyEmail(UNVERIFIED);
+            events.publishEvent(new EmailVerified(accountId));
+        });
+
+        assertThat(jdbc.queryForObject("select email_verified_at is not null from accounts where id = ?",
+                Boolean.class, accountId)).isTrue();
+        assertThat(requestStatus(requestId)).isEqualTo("Approved");
+        assertNothingCreated();
     }
 
     // ------------------------------------------------------------ request đã Expired

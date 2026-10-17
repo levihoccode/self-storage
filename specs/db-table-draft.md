@@ -128,7 +128,7 @@
 - `start_date` không được ở trước ngày hiện tại theo timezone của `Facility`.
 - `period` là số nguyên dương.
 - `unit_type_id` phải tồn tại (MVP: loại khoang dùng chung toàn hệ thống — ràng buộc "cung cấp tại facility" sẽ bổ sung khi Flow 4/5 chốt).
-- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired`.
+- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired` (cron). Khi cron chưa chuyển kịp, FM không duyệt được request đã quá `expires_at` — xem Flow 1.1.
 - Khi claim, chỉ request `Approved` chưa quá `expires_at` mới được chuyển sang `Converted`.
 - `Rejected` phải có `reject_reason`; giá trị chuẩn gồm `UNIT_UNAVAILABLE`, `UNIT_MISMATCH`, `CUSTOMER_REQUEST`, `OTHER`. `reject_note` bắt buộc khi dùng `OTHER`.
 

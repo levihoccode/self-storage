@@ -89,6 +89,7 @@ public class RegistrationService {
         }
         verificationCodes.verify(account.getEmail(), request.code());
         account.markEmailVerified();
+        events.publishEvent(new EmailVerified(account.getId()));
         return EmailVerificationResult.VERIFIED;
     }
 

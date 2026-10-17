@@ -30,8 +30,9 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
   chốt tại spec-gap #139.
 - Cấu hình: `EMAIL_VERIFICATION_TTL`, `EMAIL_VERIFICATION_MAX_ATTEMPTS` — xem
   [index.md › Cấu hình](../index.md#cấu-hình).
-- Sau khi xác minh, account được liên kết `RentalRequest` đã duyệt (Flow 1 §1.2 — thuộc package B,
-  chưa triển khai tại đây).
+- Sau khi xác minh: phát event `EmailVerified`; sau commit, booking (B2) claim các `RentalRequest`
+  `Approved` còn hạn khớp email trong transaction riêng — claim lỗi chỉ log, không ảnh hưởng kết quả
+  xác minh ([booking-conversion.md](../../booking-conversion.md)).
 
 ## Ví dụ
 
