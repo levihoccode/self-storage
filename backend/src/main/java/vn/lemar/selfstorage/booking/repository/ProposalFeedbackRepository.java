@@ -1,0 +1,28 @@
+package vn.lemar.selfstorage.booking.repository;
+
+import jakarta.persistence.LockModeType;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import vn.lemar.selfstorage.booking.domain.ProposalFeedback;
+import vn.lemar.selfstorage.booking.domain.ProposalStatus;
+
+public interface ProposalFeedbackRepository extends JpaRepository<ProposalFeedback, Long> {
+
+    /**
+     * Khoá row proposal khi khách đồng ý/từ chối — bấm đúp hoặc mở hai tab thì request sau phải
+     * đợi và thấy proposal đã hết {@code Pending}. Phải gọi trong transaction.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProposalFeedback p where p.id = :id")
+    Optional<ProposalFeedback> findByIdForUpdate(@Param("id") Long id);
+
+    boolean existsByOrderIdAndStatus(Long orderId, ProposalStatus status);
+
+    /** Các khoang khách đã từ chối trong cùng đơn — mặc định không được đề xuất lại. */
+    @Query("select distinct p.unitId from ProposalFeedback p where p.orderId = :orderId and p.status = :status")
+    List<Long> findUnitIdsByOrderIdAndStatus(@Param("orderId") Long orderId, @Param("status") ProposalStatus status);
+}

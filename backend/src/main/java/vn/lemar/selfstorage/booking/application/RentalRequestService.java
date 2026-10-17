@@ -79,6 +79,7 @@ public class RentalRequestService {
     private final PolicyQueryService policyQueryService;
     private final AuditRecorder auditRecorder;
     private final CurrentAccountProvider currentAccountProvider;
+    private final RentalRequestConversionService conversionService;
 
     public RentalRequestService(RentalRequestRepository repository, FacilityAccess facilityAccess,
                                 StorageUnitQueryService storageUnitQueryService, Access access,
@@ -87,7 +88,8 @@ public class RentalRequestService {
                                 NotificationTemplateCatalog templateCatalog, EmailSender emailSender,
                                 UnitTypeQueryService unitTypeQueryService,
                                 PolicyQueryService policyQueryService, AuditRecorder auditRecorder,
-                                CurrentAccountProvider currentAccountProvider) {
+                                CurrentAccountProvider currentAccountProvider,
+                                RentalRequestConversionService conversionService) {
         this.repository = repository;
         this.facilityAccess = facilityAccess;
         this.storageUnitQueryService = storageUnitQueryService;
@@ -100,6 +102,7 @@ public class RentalRequestService {
         this.policyQueryService = policyQueryService;
         this.auditRecorder = auditRecorder;
         this.currentAccountProvider = currentAccountProvider;
+        this.conversionService = conversionService;
     }
 
     @Transactional
@@ -147,7 +150,8 @@ public class RentalRequestService {
     }
 
     /**
-     * FM duyệt yêu cầu (B1, spec draft.md §1.1) — dừng ở Approved, không tạo proposal/order (B2).
+     * FM duyệt yêu cầu (B1, spec draft.md §1.1); email đã thuộc account xác minh thì convert ngay
+     * sang đơn + proposal (B2, {@link RentalRequestConversionService#convertOnApproval}).
      *
      * <p>Guard {@code rental_request.approve} đặt trong service (thay vì controller) vì cần
      * {@code facilityId} từ entity mới guard được theo cơ sở — controller không có sẵn.
@@ -160,7 +164,7 @@ public class RentalRequestService {
      * update, nguồn sự thật là DB.
      *
      * <p>Sau duyệt: email chưa có account nhận mail đăng ký theo template draft.md:156
-     * (after-commit); email đã có account để B2 thông báo kèm proposal link.
+     * (after-commit); email đã có account xác minh thì B2 convert và thông báo kèm proposal link.
      */
     @Transactional
     public ApproveRentalRequestResponse approve(Long requestId, Long unitId) {
@@ -198,6 +202,9 @@ public class RentalRequestService {
                 Map.of("status", RentalRequestStatus.Pending.name()),
                 Map.of("status", RentalRequestStatus.Approved.name(), "unitId", unitId),
                 null, currentAccountProvider.getCurrentAccountId()));
+        // B2: email đã thuộc account xác minh → tạo đơn + proposal ngay trong transaction duyệt
+        // (chốt #129). Convert lỗi thì duyệt rollback theo.
+        conversionService.convertOnApproval(requestId);
         sendApprovalEmail(request, expiresAt);
         return new ApproveRentalRequestResponse(request.getId(), RentalRequestStatus.Approved.name(),
                 unitId, respondedAt, expiresAt);

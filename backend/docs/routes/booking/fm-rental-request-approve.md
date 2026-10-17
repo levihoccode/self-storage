@@ -15,7 +15,7 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
   `booking/controller/FmRentalRequestApproveController.java`;
   Swagger UI — `http://localhost:8080/swagger-ui/index.html`.
 
-## Luồng / hành vi (đúng spec `specs/draft.md` §1.1, dừng ở Approved — không sang B2)
+## Luồng / hành vi (đúng spec `specs/draft.md` §1.1)
 
 1. Request không tồn tại → 404, không đổi gì.
 2. Chéo cơ sở / thiếu permission → 403 (permission kiểm trước, facility 404 sau — theo `Access`).
@@ -33,8 +33,12 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
 8. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
    chống race: 2 FM duyệt song song chỉ 1 tx thắng, tx sau nhận 0 row → 409) → `Approved` +
    `responded_at=now` + `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).
-9. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
-   nhánh đã-có-account để B2 thông báo kèm proposal link.
+9. Cùng transaction: gọi B2 `RentalRequestConversionService.convertOnApproval` — email đã thuộc
+   account **đã xác minh** thì tạo `RentalOrder(Pending)` + `ProposalFeedback(Pending)`, request →
+   `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback
+   ([booking-conversion.md](../../booking-conversion.md)).
+10. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
+   account chưa xác minh không nhận mail duyệt — claim + notification sau khi xác minh (B2).
 
 Body: `{unitId}` bắt buộc. Trả envelope `{message, data: {id, status, unitId, respondedAt,
 expiresAt}}`.
@@ -43,7 +47,8 @@ expiresAt}}`.
 
 - Spec: `specs/draft.md` §1.1; permission `rental_request.approve` (FACILITY) đã seed V3;
   #126 (claim_ttl, chặn gán trùng khoang, mail nhánh chưa-có-account).
-- Không tạo `ProposalFeedback` / `RentalOrder` / chuyển `Converted` (sang B2).
+- Response giữ `status: "Approved"` (contract B1) kể cả khi B2 đã convert request sang `Converted`
+  trong cùng transaction — B2 không đổi contract HTTP (#129).
 
 ## Ví dụ
 

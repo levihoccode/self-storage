@@ -92,8 +92,31 @@ class RentalRequestApproveServiceTest {
     @Mock
     private CurrentAccountProvider currentAccountProvider;
 
+    // B2: approve gọi convert trong cùng transaction — collaborator mới của RentalRequestService.
+    @Mock
+    private RentalRequestConversionService conversionService;
+
     @InjectMocks
     private RentalRequestService service;
+
+    @Test
+    void approveConvertsRightAfterApprovalAndNeverOnFailedApproval() {
+        RentalRequest request = pendingRequest();
+        when(repository.findById(1L)).thenReturn(Optional.of(request));
+        doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
+        when(policyQueryService.valueOf("account.claim_ttl_days")).thenReturn(Optional.of("7"));
+        when(repository.approveIfPending(eq(1L), eq(10L), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved))).thenReturn(1, 0);
+        when(accountQueryService.findIdByEmail("khach@example.com")).thenReturn(Optional.of(42L));
+
+        service.approve(1L, 10L);
+        assertThatThrownBy(() -> service.approve(1L, 10L))
+                .isInstanceOf(RentalRequestAlreadyHandledException.class);
+
+        verify(conversionService).convertOnApproval(1L); // đúng 1 lần — lần duyệt thất bại không convert
+    }
 
     @Test
     void approvePendingSetsApprovedAndExpiry() {

@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -143,6 +144,17 @@ class RegistrationServiceTest {
 
         assertThat(result).isEqualTo(EmailVerificationResult.ALREADY_VERIFIED);
         verifyNoInteractions(verificationCodes);
+    }
+
+    @Test
+    void verifyEmailPublishesEmailVerifiedOnlyOnFirstVerification() {
+        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
+        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
+
+        registrationService.verifyEmail(new VerifyEmailRequest("customer@example.com", "123456"));
+        registrationService.verifyEmail(new VerifyEmailRequest("customer@example.com", "123456"));
+
+        verify(events, times(1)).publishEvent(new EmailVerified(account.getId()));
     }
 
     @Test
