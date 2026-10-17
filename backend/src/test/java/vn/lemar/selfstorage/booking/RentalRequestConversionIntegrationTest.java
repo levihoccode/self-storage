@@ -322,7 +322,9 @@ class RentalRequestConversionIntegrationTest {
     /**
      * Race thật giữa hai trigger: FM duyệt r1 trong transaction B1 chưa commit (với transaction khác
      * r1 vẫn {@code Pending}, nên claim không khoá trùng row nào) đúng lúc khách xác minh và claim r2
-     * cùng khoang. Chỉ khoá theo account mới bắt claim chờ và thấy đơn của r1.
+     * cùng khoang. Chỉ khoá advisory theo email mới bắt claim chờ và thấy đơn của r1. Transaction
+     * duyệt chỉ commit sau khi thấy claim thật sự bị chặn trên advisory lock — không có khoá thì
+     * {@link #awaitBlockedOnAdvisoryLock()} hết hạn và test fail.
      */
     @Test
     void claimDuringUncommittedApprovalWaitsAndSkipsSameUnit() throws Exception {
@@ -338,7 +340,7 @@ class RentalRequestConversionIntegrationTest {
                     jdbc.update("update rental_requests set status = 'Approved' where id = ?", beingApproved);
                     ConversionResult result = service.convertOnApproval(beingApproved);
                     converted.countDown();
-                    sleep(1500);
+                    awaitBlockedOnAdvisoryLock();
                     return result;
                 }),
                 () -> {
@@ -351,6 +353,43 @@ class RentalRequestConversionIntegrationTest {
         assertThat(((ConversionResult) results.get(0)).outcome()).isEqualTo(Outcome.CONVERTED);
         assertThat(requestStatus(alreadyApproved)).isEqualTo("Approved");
         assertOneActiveConversion("B-01");
+    }
+
+    /**
+     * Review #149 mục 1: FM duyệt lúc account chưa xác minh xong (tx duyệt tra account → chưa xác
+     * minh → {@code NO_VERIFIED_ACCOUNT}), rồi xác minh commit và claim chạy trước khi tx duyệt
+     * commit. Khoá theo email bắt claim chờ duyệt commit, nên select thấy request {@code Approved} và
+     * claim được — không kẹt {@code Approved}. Khoá theo account id thì nhánh chưa xác minh không giữ
+     * khoá nào, claim không bị chặn và {@link #awaitBlockedOnAdvisoryLock()} hết hạn.
+     */
+    @Test
+    void approvalBeforeVerificationCommitIsStillClaimed() throws Exception {
+        long accountId = accountId(UNVERIFIED);
+        long requestId = request(UNVERIFIED, "B-02", "Pending", 7);
+        CountDownLatch looked = new CountDownLatch(1);
+
+        List<Callable<Object>> tasks = List.of(
+                () -> new TransactionTemplate(transactionManager).execute(status -> {
+                    jdbc.update("update rental_requests set status = 'Approved' where id = ?", requestId);
+                    ConversionResult result = service.convertOnApproval(requestId);
+                    looked.countDown();
+                    awaitBlockedOnAdvisoryLock();
+                    return result;
+                }),
+                () -> {
+                    looked.await(10, TimeUnit.SECONDS);
+                    verifyEmail(UNVERIFIED); // commit ngay (auto-commit) — như tx xác minh vừa xong
+                    return service.claimForVerifiedAccount(accountId);
+                });
+        List<Object> results = runConcurrently(tasks);
+
+        assertThat(results).noneMatch(r -> r instanceof Throwable);
+        assertThat(((ConversionResult) results.get(0)).outcome()).isEqualTo(Outcome.NO_VERIFIED_ACCOUNT);
+        @SuppressWarnings("unchecked")
+        List<ConversionResult> claimed = (List<ConversionResult>) results.get(1);
+        assertThat(claimed).extracting(ConversionResult::requestId, ConversionResult::outcome)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(requestId, Outcome.CONVERTED));
+        assertThat(requestStatus(requestId)).isEqualTo("Converted");
     }
 
     // ------------------------------------------------------------ nối B1 + A3a
@@ -523,13 +562,27 @@ class RentalRequestConversionIntegrationTest {
                 returning id""", Long.class, facilityId, email, unitTypeId, unitId(unitCode), status, expiresInDays);
     }
 
-    private static void sleep(long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(e);
+    /**
+     * Chờ tới khi có một session đang bị chặn trên advisory lock (claim chờ transaction đang giữ khoá)
+     * — thay cho sleep cố định: CI chậm vẫn tạo đúng interleaving, còn nếu không có ai bị chặn trong
+     * 10 giây thì ném lỗi để test fail.
+     */
+    private void awaitBlockedOnAdvisoryLock() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Long waiting = jdbc.queryForObject(
+                    "select count(*) from pg_locks where locktype = 'advisory' and not granted", Long.class);
+            if (waiting != null && waiting > 0) {
+                return;
+            }
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
         }
+        throw new IllegalStateException("Không có session nào chờ advisory lock trong 10 giây");
     }
 
     private void verifyEmail(String email) {

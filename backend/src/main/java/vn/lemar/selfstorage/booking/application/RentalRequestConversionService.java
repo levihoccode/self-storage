@@ -43,7 +43,7 @@ import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
  *   <li>{@link #claimForVerifiedAccount} — {@link EmailVerifiedClaimListener} gọi sau khi giao dịch
  *       xác minh email (A3a, event {@code EmailVerified}) đã commit.</li>
  * </ul>
- * Cả hai khoá advisory theo account trước khi kiểm trùng, nên không thể tạo hai đơn/proposal
+ * Cả hai khoá advisory theo email khách trước khi kiểm trùng, nên không thể tạo hai đơn/proposal
  * đang hoạt động cho cùng (account, khoang) kể cả khi chạy đồng thời. Email đi qua
  * {@link NotificationService} — gửi sau commit, lỗi gửi không rollback conversion.
  */
@@ -98,15 +98,17 @@ public class RentalRequestConversionService {
      */
     @Transactional
     public ConversionResult convertOnApproval(Long requestId) {
-        // Đọc email bằng query scalar, chưa load entity: entity chỉ load sau khi đã khoá account,
-        // nên không dùng trạng thái cũ. Thứ tự khoá giống claim: account trước, row request sau.
+        // Đọc email bằng query scalar, chưa load entity: entity chỉ load sau khi đã khoá, nên không
+        // dùng trạng thái cũ. Khoá email TRƯỚC khi tra account và giữ tới commit kể cả khi chưa có
+        // account xác minh: claim của một lần xác minh đang chạy song song phải chờ duyệt commit rồi
+        // mới select, nên không bỏ sót request vừa duyệt (review #149).
         String email = requestRepository.findEmailById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy RentalRequest " + requestId));
+        conversionGuard.lockCustomerEmail(email);
         Optional<VerifiedAccount> account = accountQueryService.findVerifiedByEmail(email);
         if (account.isEmpty()) {
             return ConversionResult.skipped(requestId, ConversionResult.Outcome.NO_VERIFIED_ACCOUNT);
         }
-        conversionGuard.lockAccount(account.get().id());
         RentalRequest request = requestRepository.findById(requestId).orElseThrow();
         return convert(request.getId(), request.getUnitId(), account.get(), Instant.now(), false);
     }
@@ -126,7 +128,8 @@ public class RentalRequestConversionService {
         if (account.isEmpty()) {
             return List.of();
         }
-        conversionGuard.lockAccount(accountId);
+        // Khoá email trước select: duyệt đang mở cho cùng email phải commit xong thì select mới chạy.
+        conversionGuard.lockCustomerEmail(account.get().email());
         Instant now = Instant.now();
         // Lấy id + unit trước: conditional update clear persistence context sau mỗi vòng.
         List<Claimable> claimable = requestRepository.findClaimableForUpdate(account.get().email(), now).stream()

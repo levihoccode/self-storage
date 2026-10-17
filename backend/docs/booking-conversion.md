@@ -62,12 +62,20 @@ insert into policies (key, value) values ('order.expiry_days', '30') on conflict
 - "Đang hoạt động" = có `ProposalFeedback` `Pending`/`Agreed` cho khoang đó, trên một đơn của
   account chưa `Canceled`/`Done`/`Expired` (`ConversionGuardRepository.hasActiveConversion`).
   Đơn cũ đã đóng thì convert lại cùng khoang được.
-- Hai trigger cùng khoá `pg_advisory_xact_lock` theo account trước khi kiểm trùng, nên chạy
-  tuần tự theo account. Khoá row request là chưa đủ: request r1 đang được duyệt trong transaction
-  B1 chưa commit thì với transaction khác r1 vẫn `Pending`, nên claim r2 cùng khoang không đụng row
-  nào của r1. Test `claimDuringUncommittedApprovalWaitsAndSkipsSameUnit` tái hiện đúng ca này:
-  bỏ khoá thì test fail.
-- Thứ tự khoá ở cả hai trigger: account trước, row request sau.
+- Hai trigger cùng khoá `pg_advisory_xact_lock` theo **email khách đã chuẩn hoá**, giữ tới hết
+  transaction, nên duyệt và claim của cùng email chạy tuần tự (email unique theo account, claim↔claim
+  vẫn tuần tự).
+  - Khoá row request là chưa đủ: request r1 đang được duyệt trong transaction B1 chưa commit thì
+    với transaction khác r1 vẫn `Pending`, nên claim r2 cùng khoang không đụng row nào của r1.
+    Test `claimDuringUncommittedApprovalWaitsAndSkipsSameUnit`.
+  - Không khoá theo account id: lúc FM duyệt, account có thể chưa xác minh xong. Trigger duyệt khoá
+    email **trước** khi tra account và giữ khoá cả ở nhánh `NO_VERIFIED_ACCOUNT`, nên claim của lần
+    xác minh chạy song song phải chờ duyệt commit rồi mới select — không bỏ sót request (review #149).
+    Test `approvalBeforeVerificationCommitIsStillClaimed`.
+  - Hai test trên chỉ commit transaction duyệt khi thấy claim thật sự bị chặn trên advisory lock
+    (`pg_locks`), không dựa vào sleep; bỏ khoá hoặc khoá sau khi tra account thì test fail.
+- Thứ tự khoá: email trước, row request sau (trigger duyệt: row request đã bị B1 khoá trước, không
+  deadlock vì claim chỉ khoá request `Approved` đã commit).
 - Request trùng giữ nguyên `Approved`, không auto-reject. Khi quá hạn, request được chuyển
   `Expired` bởi cron Flow 1 (#143) — không thuộc B2. Claim luôn bỏ qua request đã quá
   `expires_at`, kể cả khi cron chưa chạy.

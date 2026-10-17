@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage.booking.repository;
 
+import java.util.Locale;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -19,18 +20,24 @@ public class ConversionGuardRepository {
     }
 
     /**
-     * Khoá advisory theo account tới hết transaction hiện tại. Hai luồng convert (duyệt + claim sau
-     * xác minh) của cùng account chạy tuần tự, nên bước "kiểm trùng rồi tạo" không bị race. Các
-     * request khác nhau trỏ cùng khoang nằm ở các row khác nhau — khoá row request không đủ.
+     * Khoá advisory theo email khách (đã chuẩn hoá) tới hết transaction hiện tại. Duyệt và claim
+     * sau xác minh của cùng email chạy tuần tự, nên bước "kiểm trùng rồi tạo" không bị race.
+     *
+     * <p>Khoá theo email chứ không theo account id: lúc FM duyệt, account có thể chưa hiện ra (đang
+     * xác minh, chưa commit) — khoá theo account thì nhánh "chưa có account xác minh" không có gì để
+     * khoá, và claim chạy song song sẽ bỏ sót request vừa duyệt. Email unique theo account nên
+     * claim↔claim vẫn tuần tự. Khoá row request không đủ: các request khác nhau là các row khác nhau.
      */
-    public void lockAccount(Long accountId) {
+    public void lockCustomerEmail(String normalizedEmail) {
         jdbc.query("select pg_advisory_xact_lock(hashtextextended(?, 0))",
-                rs -> null, LOCK_NAMESPACE + accountId);
+                rs -> null, LOCK_NAMESPACE + normalizedEmail.trim().toLowerCase(Locale.ROOT));
     }
 
     /**
-     * Account đã có proposal {@code Pending}/{@code Agreed} cho khoang này trên một đơn chưa đóng
-     * ({@code Canceled}/{@code Done}/{@code Expired}).
+     * Account đã có proposal {@code Pending}/{@code Agreed} cho khoang này trên một đơn chưa đóng.
+     *
+     * <p>Danh sách status đóng chép lại {@code RentalOrderStatus#isClosed()} (Canceled/Done/Expired)
+     * — đổi định nghĩa đơn "đóng" thì phải sửa cả hai nơi.
      */
     public boolean hasActiveConversion(Long accountId, Long unitId) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
