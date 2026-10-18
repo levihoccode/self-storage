@@ -11,6 +11,8 @@ export type RentedStorage = {
   monthlyPrice: number;
   paymentLabel: string;
   status: StorageStatus;
+  /** Có giá trị khi khoang còn hóa đơn Unpaid — FE chỉ hiện nút thanh toán theo dữ liệu này. */
+  unpaidInvoiceId?: string;
 };
 
 export const rentedStorage: RentedStorage[] = [
@@ -37,5 +39,6 @@ export const rentedStorage: RentedStorage[] = [
     monthlyPrice: 820000,
     paymentLabel: "Còn 18 ngày thanh toán",
     status: "expiring",
+    unpaidInvoiceId: "invoice-503",
   },
 ];

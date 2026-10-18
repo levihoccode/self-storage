@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarDays, MapPin, ReceiptText } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Navigate } from "../app/types";
+import { PayButton } from "../components/domain/PayButton";
 import { rentedStorage, StorageStatus } from "../mocks/customer";
 import { proposals } from "../mocks/proposals";
 import { formatPrice } from "../mocks/catalog";
@@ -156,6 +157,7 @@ function StorageCard({
           <ReceiptText size={16} />
           <span>{storage.paymentLabel}</span>
         </div>
+        {storage.unpaidInvoiceId && <PayButton invoiceId={storage.unpaidInvoiceId} />}
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => navigate(`/my-storage/${storage.id}`)}>
             Xem chi tiết <ArrowRight size={16} />

@@ -21,6 +21,7 @@ export function viewFromLocation(): View {
   if (path === "/invoices") return "invoices";
   if (path === "/appointments/new") return "appointments";
   if (path === "/notifications") return "notifications";
+  if (path === "/payment/result") return "payment-result";
   if (path === "/fm/rental-requests") return "fm-rental-requests";
   if (path.startsWith("/fm/rental-orders/") && path.endsWith("/re-propose")) {
     return "fm-proposal-redo";
