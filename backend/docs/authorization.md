@@ -13,9 +13,11 @@ Phân quyền backend: **ai được làm gì** sau khi đã xác thực. Phần
 | Authority | Nguồn | Ý nghĩa |
 |---|---|---|
 | `ROLE_<role>` | `Account.role.name` | `ADMIN` · `BOM` · `FM` · `FS` · `CUSTOMER` |
-| `ACCOUNT_ACTIVE` | `status = ACTIVE` | account đang hoạt động |
+| `ACCOUNT_ACTIVE` | `status = ACTIVE` + email đã xác minh | account hoạt động và đã xác minh email |
+| `ACCOUNT_UNVERIFIED` (marker) | `status = ACTIVE` + email chưa xác minh | không cấp quyền — chỉ để 403 trả đúng message |
 
-Account `BANNED` không được cấp authority nào → mọi route yêu cầu quyền đều 403.
+Account `BANNED` không được cấp authority nào; account `ACTIVE` chưa xác minh chỉ có marker → mọi
+route yêu cầu quyền đều 403 (message phân biệt hai ca — xem bảng 403 bên dưới).
 
 ## Models — ba kiểu ràng buộc quyền
 
