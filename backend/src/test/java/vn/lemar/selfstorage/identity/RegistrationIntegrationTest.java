@@ -87,19 +87,14 @@ class RegistrationIntegrationTest {
     }
 
     @Test
-    void registerCreatesUnverifiedCustomerAuditsAndSendsHashedCode() throws Exception {
+    void registerStoresPendingAndSendsVerificationWithoutCreatingAccount() throws Exception {
         String email = uniqueEmail("reg");
 
         register(email).andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Đăng ký thành công. Kiểm tra email để lấy mã xác minh."));
 
-        Account account = accountRepository.findWithRoleByEmail(email).orElseThrow();
-        assertThat(account.isVerified()).isFalse();
-        assertThat(account.getRole().getName()).isEqualTo("CUSTOMER");
-        Integer audits = jdbc.queryForObject(
-                "select count(*) from audit_logs where action = 'ACCOUNT_REGISTERED' and entity_id = ?",
-                Integer.class, String.valueOf(account.getId()));
-        assertThat(audits).isEqualTo(1);
+        // Verify-first (proposal #152): chưa có Account nào được tạo.
+        assertThat(accountRepository.findWithRoleByEmail(email)).isEmpty();
 
         verify(mailSender, atLeastOnce()).send(any(MimeMessage.class));
 
@@ -108,29 +103,48 @@ class RegistrationIntegrationTest {
         String codeKey = "auth:verify-code:" + email;
         Object storedHash = redisTemplate.opsForHash().get(codeKey, "hash");
         assertThat(storedHash).isNotNull().isNotEqualTo(code);
+        assertThat(redisTemplate.opsForHash().get(codeKey, "passwordHash")).isNotNull().isNotEqualTo(PASSWORD);
         assertThat(redisTemplate.getExpire(codeKey)).isPositive();
     }
 
     @Test
-    void registerRejectsDuplicateEmail() throws Exception {
+    void registerRejectsEmailThatAlreadyHasAccount() throws Exception {
         String email = uniqueEmail("dup");
-
         register(email).andExpect(status().isOk());
+        verifyEmail(email, lastCodeFor(email)).andExpect(status().isOk());
+
         register(email).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Email đã được đăng ký"));
     }
 
     @Test
-    void verifyEmailActivatesAccountAndIsIdempotent() throws Exception {
+    void registerIsRateLimitedWhilePending() throws Exception {
+        String email = uniqueEmail("spam");
+        register(email).andExpect(status().isOk());
+
+        register(email).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("Vui lòng chờ trước khi yêu cầu gửi lại mã."));
+        assertThat(accountRepository.findByEmail(email)).isEmpty();
+    }
+
+    @Test
+    void verifyEmailCreatesAccountAndIsIdempotent() throws Exception {
         String email = uniqueEmail("ver");
         register(email).andExpect(status().isOk());
+        assertThat(accountRepository.findByEmail(email)).isEmpty();
         String code = lastCodeFor(email);
 
         verifyEmail(email, code).andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Xác minh email thành công"));
 
-        assertThat(accountRepository.findByEmail(email).orElseThrow().isVerified()).isTrue();
+        Account account = accountRepository.findWithRoleByEmail(email).orElseThrow();
+        assertThat(account.isVerified()).isTrue();
+        assertThat(account.getRole().getName()).isEqualTo("CUSTOMER");
         assertThat(redisTemplate.hasKey("auth:verify-code:" + email)).isFalse();
+        Integer audits = jdbc.queryForObject(
+                "select count(*) from audit_logs where action = 'ACCOUNT_REGISTERED' and entity_id = ?",
+                Integer.class, String.valueOf(account.getId()));
+        assertThat(audits).isEqualTo(1);
 
         verifyEmail(email, code).andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Email đã được xác minh trước đó"));
@@ -151,7 +165,7 @@ class RegistrationIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới."));
 
         verifyEmail(email, code).andExpect(status().isTooManyRequests());
-        assertThat(accountRepository.findByEmail(email).orElseThrow().isVerified()).isFalse();
+        assertThat(accountRepository.findByEmail(email)).isEmpty();
     }
 
     @Test
@@ -164,6 +178,7 @@ class RegistrationIntegrationTest {
 
         verifyEmail(email, code).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Mã xác minh không đúng hoặc đã hết hạn"));
+        assertThat(accountRepository.findByEmail(email)).isEmpty();
     }
 
     @Test
@@ -171,15 +186,15 @@ class RegistrationIntegrationTest {
         String email = uniqueEmail("resend");
         register(email).andExpect(status().isOk());
 
-        // Resend đầu tiên sau register được phép — cooldown chỉ áp giữa hai lần resend.
-        resend(email).andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đã gửi lại mã xác minh"));
+        // Register cũng đặt cooldown (test config 1s) — resend ngay bị chặn.
         resend(email).andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.message").value("Vui lòng chờ trước khi yêu cầu gửi lại mã."));
 
         Thread.sleep(1100);
-        resend(email).andExpect(status().isOk());
-        assertThat(eventsFor(email, VerificationEmailRequested.class)).hasSize(3);
+        resend(email).andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã gửi lại mã xác minh"));
+        assertThat(eventsFor(email, VerificationEmailRequested.class)).hasSize(2);
+        assertThat(accountRepository.findByEmail(email)).isEmpty();
 
         verifyEmail(email, lastCodeFor(email)).andExpect(status().isOk());
         resend(email).andExpect(status().isBadRequest())
@@ -207,12 +222,13 @@ class RegistrationIntegrationTest {
     }
 
     @Test
-    void loginIsBlockedUntilEmailVerified() throws Exception {
+    void loginFailsUntilEmailVerifiedBecauseAccountIsCreatedOnVerify() throws Exception {
         String email = uniqueEmail("gate");
         register(email).andExpect(status().isOk());
 
-        login(email, PASSWORD).andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
+        // Chưa verify → chưa có account → 401 (không lộ trạng thái pending).
+        login(email, PASSWORD).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Email hoặc mật khẩu không đúng"));
 
         verifyEmail(email, lastCodeFor(email)).andExpect(status().isOk());
 

@@ -13,16 +13,16 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
 
 `RegistrationService.verifyEmail`:
 
-1. Chuẩn hoá email; không tìm thấy account → **400** cùng message với mã sai (không lộ email nào
-   tồn tại).
-2. Account **đã xác minh** → trả 200 với message `Email đã được xác minh trước đó` (idempotent,
-   không kiểm mã, không đốt lượt nhập sai).
-3. Đối chiếu mã trong Redis (`auth:verify-code:<email>` — so với BCRYPT hash):
+1. Chuẩn hoá email. Account đã tồn tại:
+   - **đã xác minh** → 200 với message `Email đã được xác minh trước đó` (idempotent, không kiểm mã);
+   - chưa xác minh (legacy/seed) → kiểm mã rồi set `email_verified_at`.
+2. Chưa có account → đối chiếu mã trong Redis (`auth:verify-code:<email>` — so với BCRYPT hash):
    - mã sai → tăng `attempts`, trả **400**; đủ 5 lần sai → **429** (khoá tới khi resend / mã hết hạn);
-   - mã hết hạn / chưa từng phát → **400**;
-   - mã đúng → xoá mã (dùng một lần), set `email_verified_at`.
-4. Xác minh email **không** ghi `AuditLog` — bản ghi vòng đời là `Account.email_verified_at`
-   (spec-gap #75).
+   - mã hết hạn / chưa từng phát → **400** (không lộ email nào tồn tại);
+   - mã đúng → xoá mã (dùng một lần), **tạo `Account` role `CUSTOMER` với `email_verified_at` set
+     ngay** + ghi `AuditLog` `ACCOUNT_REGISTERED` (actor = account vừa tạo).
+3. Việc xác minh tự nó **không** ghi `AuditLog` riêng — bản ghi vòng đời là `Account.email_verified_at`
+   (spec-gap #75); audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
 
 ## Ghi chú nghiệp vụ
 
@@ -30,8 +30,9 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
   chốt tại spec-gap #139.
 - Cấu hình: `EMAIL_VERIFICATION_TTL`, `EMAIL_VERIFICATION_MAX_ATTEMPTS` — xem
   [index.md › Cấu hình](../index.md#cấu-hình).
-- Xác minh **mở khoá account**: trước đó login trả 403 `Tài khoản chưa xác minh email`; sau khi xác
-  minh mới đăng nhập được.
+- **Xác minh tạo account (verify-first)**: trước khi nhập đúng mã, email chỉ có pending registration
+  (không có `Account`); sau khi xác minh mới đăng nhập được. Account legacy chưa xác minh (seed) được
+  mark verified.
 - Sau khi xác minh: phát event `EmailVerified`; sau commit, booking (B2) claim các `RentalRequest`
   `Approved` còn hạn khớp email trong transaction riêng — claim lỗi chỉ log, không ảnh hưởng kết quả
   xác minh ([booking-conversion.md](../../booking-conversion.md)).

@@ -91,30 +91,32 @@ return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 ## Trạng thái account
 
 - `status` (`AccountStatus`): `ACTIVE` (mặc định khi tạo) | `BANNED` — chỉ dùng để chặn truy cập.
-- `email_verified_at = null` (chưa xác minh) **chặn đăng nhập và mọi thao tác authenticated** —
-  xác minh là bắt buộc ngay tại đăng ký; chỉ luồng xác minh email (register/verify/resend) hoạt động.
-  Login trả 403 `Tài khoản chưa xác minh email`; token phát trước đó (nếu có) cũng không được cấp
-  quyền — xem
+- `email_verified_at = null` (chỉ còn ở account legacy/seed/admin tạo tay) **chặn đăng nhập và mọi
+  thao tác authenticated** — account tự đăng ký luôn được tạo **sau khi** xác minh; chỉ luồng xác
+  minh email (register/verify/resend) hoạt động. Login trả 403 `Tài khoản chưa xác minh email`; token
+  phát trước đó (nếu có) cũng không được cấp quyền — xem
   [authorization.md › Điều kiện nghiệp vụ](authorization.md#điều-kiện-nghiệp-vụ-xác-minh-email).
 
 ## Đăng ký và xác minh email
 
 Đăng ký → email mã 6 số → xác minh bằng mã (spec-gap #139):
 
-- `POST /api/auth/register`: tạo `Account` role `CUSTOMER`, `email_verified_at = null`, ghi audit
-  `ACCOUNT_REGISTERED` (actor = chính account vừa tạo), gửi email mã xác minh.
-- `POST /api/auth/verify-email`: mã đúng → set `email_verified_at`; account đã xác minh trước đó →
-  200 với message `Email đã được xác minh trước đó` (no-op, không kiểm mã — thao tác lặp của user
-  không thành lỗi). Xác minh email **không** ghi `AuditLog` (spec-gap #75 — bản ghi vòng đời là
-  `email_verified_at`).
+- `POST /api/auth/register`: validate email chưa có account + password; **chưa tạo `Account`** —
+  ghi pending registration (email + hash mật khẩu BCrypt) trong Redis cùng TTL với mã rồi gửi email
+  mã xác minh. Đăng ký lại khi đang chờ dùng chung cooldown 60 giây (429).
+- `POST /api/auth/verify-email`: mã đúng → **tạo `Account` role `CUSTOMER` với `email_verified_at`
+  set ngay** + ghi audit `ACCOUNT_REGISTERED` (actor = chính account vừa tạo); account legacy chưa
+  xác minh chỉ được mark verified. Account đã xác minh trước đó → 200 với message
+  `Email đã được xác minh trước đó` (no-op, không kiểm mã). Việc xác minh tự nó **không** ghi
+  `AuditLog` riêng (spec-gap #75 — bản ghi vòng đời là `Account.email_verified_at`).
 - Mã: 6 số, TTL 10 phút, tối đa 5 lần nhập sai (429), gửi lại tối đa mỗi 60 giây; lưu Redis dạng
   BCRYPT hash (`auth:verify-code:<email>` — không plaintext), dùng một lần. Redis lỗi thì
   register/verify/resend trả lỗi (không fail-open).
 - Mã gắn theo email: mã của account này **không** verify được account khác (tra key theo email đích).
   Mặt trái: đoán sai 5 lần khoá mã của account — kẻ xấu biết email có thể cố tình khoá để buộc nạn
   nhân gửi lại mã (DoS nhẹ, khôi phục bằng resend; verify chưa có rate limit theo IP — bổ sung khi cần).
-- Account **chỉ đăng nhập được sau khi xác minh**: `POST /api/auth/login` trả 403
-  `Tài khoản chưa xác minh email` khi `email_verified_at = null` (kể cả mật khẩu đúng).
+- Account tạo từ đăng ký **đã xác minh ngay khi tạo**; account legacy/seed có `email_verified_at
+  = null` bị chặn đăng nhập (403 `Tài khoản chưa xác minh email`, kể cả mật khẩu đúng).
 - Gửi email đi qua event `VerificationEmailRequested` (identity không phụ thuộc module
   `notification` — cycle); listener `VerificationEmailListener` gửi after-commit như mọi email.
 - Route chi tiết: [register](routes/auth/register.md) · [verify-email](routes/auth/verify-email.md)

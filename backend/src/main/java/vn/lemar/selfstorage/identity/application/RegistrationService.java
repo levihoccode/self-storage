@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.identity.application;
 
 import java.time.Duration;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,9 +26,13 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 import vn.lemar.selfstorage.identity.repository.RoleRepository;
 
 /**
- * Đăng ký tài khoản khách hàng + vòng đời mã xác minh email (spec-gap #139): phát mã khi
- * đăng ký, xác minh, gửi lại mã. Gửi email đi qua event {@link VerificationEmailRequested}
- * (module notification lắng nghe) — gửi after-commit nên rollback không gửi.
+ * Đăng ký tài khoản khách hàng + vòng đời mã xác minh email (spec-gap #139).
+ *
+ * <p>Luồng verify-first (proposal #152): đăng ký chỉ ghi *pending registration* (email + hash mật
+ * khẩu trong Redis, cùng TTL với mã) và gửi mã; {@link Account} chỉ được tạo sau khi khách nhập
+ * đúng mã — email typo/không kiểm soát không để lại account rác và không chiếm được email của
+ * người khác. Gửi email đi qua event {@link VerificationEmailRequested} (module notification lắng
+ * nghe) — gửi after-commit nên rollback không gửi.
  */
 @Service
 public class RegistrationService {
@@ -57,56 +62,85 @@ public class RegistrationService {
         this.codeTtl = codeTtl;
     }
 
-    /** Tạo account CUSTOMER (chưa xác minh) + audit ACCOUNT_REGISTERED + gửi mã xác minh. */
-    @Transactional
+    /** Ghi pending registration + gửi mã xác minh; **chưa tạo** {@link Account}. */
+    @Transactional(readOnly = true)
     public void register(RegisterRequest request) {
         String email = Account.normalize(request.email());
         if (accountRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException();
         }
-        Role customerRole = roleRepository.findByName(RoleName.CUSTOMER.name())
-                .orElseThrow(() -> new IllegalStateException("Role CUSTOMER chưa được seed"));
+        verificationCodes.markResendCooldown(email);
+        String code = verificationCodes.issue(email, passwordEncoder.encode(request.password()));
+        events.publishEvent(new VerificationEmailRequested(email, code, codeTtl));
+    }
+
+    /**
+     * Xác minh email. Yêu cầu đăng ký chưa hoàn tất → tạo {@code Account} CUSTOMER đã xác minh +
+     * audit {@code ACCOUNT_REGISTERED}; account legacy chưa xác minh (seed/admin) → chỉ mark verified.
+     * Account đã xác minh → no-op (idempotent, không kiểm mã).
+     */
+    @Transactional
+    public EmailVerificationResult verifyEmail(VerifyEmailRequest request) {
+        String email = Account.normalize(request.email());
+        Optional<Account> existing = accountRepository.findByEmail(email);
+        if (existing.isPresent()) {
+            Account account = existing.get();
+            if (account.isVerified()) {
+                return EmailVerificationResult.ALREADY_VERIFIED;
+            }
+            verificationCodes.verify(email, request.code());
+            account.markEmailVerified();
+            events.publishEvent(new EmailVerified(account.getId()));
+            return EmailVerificationResult.VERIFIED;
+        }
+
+        PendingRegistration pending = verificationCodes.verify(email, request.code())
+                .orElseThrow(InvalidVerificationCodeException::new);
         Account account;
         try {
-            account = accountRepository.save(
-                    new Account(email, passwordEncoder.encode(request.password()), customerRole));
+            account = accountRepository.save(newVerifiedAccount(email, pending.passwordHash()));
         } catch (DataIntegrityViolationException e) {
-            // Hai request đăng ký cùng email chạy song song — unique index bắt được.
-            throw new EmailAlreadyExistsException();
+            // Verify đồng thời: request còn lại đã tạo account — coi như đã xác minh.
+            return accountRepository.findByEmail(email)
+                    .filter(Account::isVerified)
+                    .map(ignored -> EmailVerificationResult.ALREADY_VERIFIED)
+                    .orElseThrow(() -> e);
         }
         auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
                 String.valueOf(account.getId()), null, null, null, account.getId()));
-        issueVerificationCode(email);
-    }
-
-    /** Xác minh email; account đã xác minh thì no-op (idempotent, không lỗi, không kiểm mã). */
-    @Transactional
-    public EmailVerificationResult verifyEmail(VerifyEmailRequest request) {
-        Account account = accountRepository.findByEmail(Account.normalize(request.email()))
-                .orElseThrow(InvalidVerificationCodeException::new);
-        if (account.isVerified()) {
-            return EmailVerificationResult.ALREADY_VERIFIED;
-        }
-        verificationCodes.verify(account.getEmail(), request.code());
-        account.markEmailVerified();
         events.publishEvent(new EmailVerified(account.getId()));
         return EmailVerificationResult.VERIFIED;
     }
 
-    /** Gửi lại mã xác minh; cooldown chống spam cấu hình ở {@link EmailVerificationCodes}. */
+    /** Gửi lại mã: pending registration chưa hoàn tất, hoặc account legacy chưa xác minh. */
     @Transactional(readOnly = true)
     public void resendVerification(ResendVerificationRequest request) {
-        Account account = accountRepository.findByEmail(Account.normalize(request.email()))
-                .orElseThrow(EmailNotRegisteredException::new);
-        if (account.isVerified()) {
-            throw new EmailAlreadyVerifiedException();
+        String email = Account.normalize(request.email());
+        Optional<Account> account = accountRepository.findByEmail(email);
+        if (account.isPresent()) {
+            if (account.get().isVerified()) {
+                throw new EmailAlreadyVerifiedException();
+            }
+            resendCode(email);
+            return;
         }
-        verificationCodes.markResendCooldown(account.getEmail());
-        issueVerificationCode(account.getEmail());
+        if (!verificationCodes.hasPending(email)) {
+            throw new EmailNotRegisteredException();
+        }
+        resendCode(email);
     }
 
-    private void issueVerificationCode(String email) {
-        String code = verificationCodes.issue(email);
+    private void resendCode(String email) {
+        verificationCodes.markResendCooldown(email);
+        String code = verificationCodes.reissue(email);
         events.publishEvent(new VerificationEmailRequested(email, code, codeTtl));
+    }
+
+    private Account newVerifiedAccount(String email, String passwordHash) {
+        Role customerRole = roleRepository.findByName(RoleName.CUSTOMER.name())
+                .orElseThrow(() -> new IllegalStateException("Role CUSTOMER chưa được seed"));
+        Account account = new Account(email, passwordHash, customerRole);
+        account.markEmailVerified();
+        return account;
     }
 }

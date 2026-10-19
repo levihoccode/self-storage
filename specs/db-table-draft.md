@@ -3,9 +3,9 @@
 # Account
 - id
 - email (unique, normalized)
-- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) = account chưa
-  hoàn tất đăng ký: KHÔNG đăng nhập được, không thực hiện được thao tác nghiệp vụ nào; chỉ luồng
-  xác minh email hoạt động (nhập mã, gửi lại mã). Xác minh là bắt buộc, thực hiện ngay sau đăng ký.
+- email_verified_at (nullable) - thời điểm xác minh email. Luồng đăng ký tự phục vụ chỉ tạo
+  `Account` sau khi xác minh (field set ngay khi tạo); account có `null` (legacy/seed/admin tạo tay)
+  bị chặn đăng nhập và mọi thao tác nghiệp vụ — chỉ luồng xác minh email hoạt động.
 - role_id (N - 1: Role)
 - status
   - ACTIVE: đang hoạt động — được đăng nhập/gọi API
