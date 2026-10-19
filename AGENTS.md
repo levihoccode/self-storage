@@ -67,6 +67,10 @@ plainly: **"not verified, because &lt;reason&gt;"**.
 3. **What was not verified.**
 4. Remaining risks + what the reviewer should look at.
 
+Split **Đã đổi gì** into subsections by area of change — trigger events/entry points, API, logic,
+concurrency/dedup, data & module, audit, tests, docs/infra. Drop sections that don't apply; each
+item says what changed, not a file dump.
+
 ## Self-challenge
 
 Before saying "done", name **one weakness** in your own solution: an untested path, an unchecked
