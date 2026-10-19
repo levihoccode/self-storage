@@ -22,7 +22,7 @@ Phát mã xác minh mới (ghi đè mã cũ) cho account chưa xác minh; mỗi 
 
 ## Ghi chú nghiệp vụ
 
-- Spec: `specs/draft.md` › `## Business workflow`; tham số cooldown chốt tại spec-gap #139.
+- Spec: `specs/draft.md` › `## Business workflow`; cooldown gửi lại 60 giây.
 - Cấu hình: `EMAIL_VERIFICATION_RESEND_COOLDOWN` — xem [index.md › Cấu hình](../index.md#cấu-hình).
 
 ## Ví dụ

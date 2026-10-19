@@ -22,12 +22,12 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
    - mã đúng → xoá mã (dùng một lần), **tạo `Account` role `CUSTOMER` với `email_verified_at` set
      ngay** + ghi `AuditLog` `ACCOUNT_REGISTERED` (actor = account vừa tạo).
 3. Việc xác minh tự nó **không** ghi `AuditLog` riêng — bản ghi vòng đời là `Account.email_verified_at`
-   (spec-gap #75); audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
+   ; audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
 
 ## Ghi chú nghiệp vụ
 
-- Spec: `specs/draft.md` › `## Business workflow` + Flow 1 §1.2; tham số (6 số / 10 phút / 5 lần)
-  chốt tại spec-gap #139.
+- Spec: `specs/draft.md` › `## Business workflow` + Flow 1 §1.2; tham số: mã 6 số, TTL 10 phút,
+  tối đa 5 lần nhập sai.
 - Cấu hình: `EMAIL_VERIFICATION_TTL`, `EMAIL_VERIFICATION_MAX_ATTEMPTS` — xem
   [index.md › Cấu hình](../index.md#cấu-hình).
 - **Xác minh tạo account**: trước khi nhập đúng mã, email chỉ có pending registration (không có

@@ -1,6 +1,6 @@
 ---
 auth-model: role-bound
-purpose: FM từ chối yêu cầu đặt kho (B1 phần 4) — sang Rejected, gửi mail, hết nhóm B1.
+purpose: FM từ chối yêu cầu đặt kho — sang Rejected, gửi mail.
 ---
 
 # POST /api/fm/rental-requests/{id}/reject
@@ -36,7 +36,7 @@ rejectNote?}`. Trả envelope `{message, data: {id, status, rejectReason, respon
 
 - Spec: `specs/draft.md` §1.1 + nhánh "không tìm thấy khoang" §1.1; bộ chuẩn
   `db-table-draft.md`; permission `rental_request.reject` (FACILITY) đã seed V3.
-- Không tạo `ProposalFeedback` / `RentalOrder` / chuyển `Converted` (sang B2).
+- Không tạo `ProposalFeedback` / `RentalOrder` / chuyển `Converted`.
 
 ## Ví dụ
 

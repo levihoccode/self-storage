@@ -54,6 +54,16 @@ plainly: **"not verified, because &lt;reason&gt;"**.
 4. **Never edit a test to make it pass.** Fix the cause; changing a test needs a stated reason and
    approval.
 
+## Docs — writing rules
+
+Docs (`backend/docs/`, `specs/`, `README.md`) describe behavior, not the work that produced it.
+
+- Do not use work-split codes (`A3a`, `A4`, `B1`, `B2`, …). They are temporary labels for
+  coordinating tasks and mean nothing to a later reader — name the flow or the rule instead.
+- Do not cite issue or PR numbers. State the problem and how the code handles it, briefly:
+  "Seed thiếu policy `order.expiry_days` — migration V5 bổ sung", not "bug #130".
+- Docs record what is already implemented (as-built). Open work lives in issues, not in docs.
+
 ## Definition of done
 
 - Backend: `cd backend && ./mvnw -B verify` green.

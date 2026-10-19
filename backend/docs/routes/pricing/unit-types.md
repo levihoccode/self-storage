@@ -1,5 +1,5 @@
 ---
-purpose: Danh mục loại khoang một cơ sở cung cấp (B1) — public cho form lọc dropdown.
+purpose: Danh mục loại khoang một cơ sở cung cấp — public cho form lọc dropdown.
 ---
 
 # GET /api/unit-types?facilityId={id}
@@ -7,7 +7,7 @@ purpose: Danh mục loại khoang một cơ sở cung cấp (B1) — public cho 
 Trả các loại khoang một cơ sở cung cấp (bảng `facility_unit_type`, migration V4).
 
 - **Actor / quyền:** public (`permitAll` đúng scope `GET /api/unit-types` trong
-  `SecurityConfig` — #126).
+  `SecurityConfig`).
 - **Contract chi tiết:** annotation tại `pricing/controller/UnitTypeController.java`;
   Swagger UI — `http://localhost:8080/swagger-ui/index.html`.
 
@@ -19,7 +19,7 @@ Trả các loại khoang một cơ sở cung cấp (bảng `facility_unit_type`,
 
 ## Ghi chú nghiệp vụ
 
-- Spec: #126 (deviate `db-table-draft.md:130` được chấp nhận). Seed V4: Q7 đủ 3 loại,
+- Spec: deviate `db-table-draft.md:130` được chấp nhận. Seed V4: Q7 đủ 3 loại,
   TD chỉ Small + Medium.
 - `POST /api/rental-requests` dùng cùng bảng để chặn tổ hợp sai → 400.
 

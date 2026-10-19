@@ -14,7 +14,7 @@ endpoint nằm trong thư mục [`routes/`](routes.md) — file này chỉ ghi q
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · PostgreSQL 16 · Redis · MailHog (mail dev).
 
-Kiến trúc **modular monolith** theo issue #15: `vn.lemar.selfstorage` là package gốc,
+Kiến trúc **modular monolith**: `vn.lemar.selfstorage` là package gốc,
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
@@ -141,7 +141,7 @@ Chi tiết: `backend/sql/README.md`.
   hệ thống/cron/IPN. Bảng `audit_logs` append-only.
 - Hợp đồng tích hợp đầy đủ cho module gọi (checklist, ví dụ, call site hiện có):
   [audit-log.md](audit-log.md).
-- **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
+- **Chưa có caller nghiệp vụ nào nối** (các luồng nghiệp vụ nối khi được triển khai) — xem
   [follow-up.md](follow-up.md).
 
 ## Upload file (module media)
@@ -149,7 +149,7 @@ Chi tiết: `backend/sql/README.md`.
 - FE upload qua `POST /api/media/uploads` (multipart, field `file`) → `{url, publicId, bytes, format}`;
   URL dùng lại khi submit flow (ảnh hiện trạng, scan hợp đồng, ảnh giấy tờ).
 - Validate JPEG/PNG/WebP/PDF ≤ 10MB (khớp cap free plan Cloudinary); sai → 400 message cụ thể.
-- Storage sau interface `FileStorage` (#15 §6, impl Cloudinary) — đổi provider chỉ thay impl.
+- Storage sau interface `FileStorage` (impl Cloudinary) — đổi provider chỉ thay impl.
 - File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
 - Creds `CLOUDINARY_NAME/KEY/SECRET` để `@NotBlank` — thiếu là app chết lúc boot; test/CI dùng
   giá trị giả, không gọi mạng.

@@ -12,7 +12,7 @@ xác minh 6 số — hoàn tất ở [POST /api/auth/verify-email](verify-email.
 
 ## Luồng / hành vi
 
-`RegistrationService.register` (verify-first — proposal #152):
+`RegistrationService.register` (verify-first):
 
 1. Chuẩn hoá email (`trim` + lowercase — `Account.normalize`); email đã có account → **409**
    (pending chưa xác minh không tính là account — dùng [resend-verification](resend-verification.md)).
@@ -25,8 +25,7 @@ xác minh 6 số — hoàn tất ở [POST /api/auth/verify-email](verify-email.
 
 ## Ghi chú nghiệp vụ
 
-- Spec: `specs/draft.md` › Flow 1 §1.2; cơ chế OTP chốt tại spec-gap #139; verify-first tại
-  proposal #152.
+- Spec: `specs/draft.md` › Flow 1 §1.2; cơ chế OTP: mã 6 số, TTL 10 phút; verify-first: account tạo sau xác minh.
 - Mật khẩu tối thiểu 8 ký tự (validate DTO → 400 `Dữ liệu không hợp lệ`).
 - **Không có account nào được tạo ở bước này** — email typo/bỏ dở không để lại account rác. Khách
   hoàn tất [verify-email](verify-email.md) để tạo account rồi mới đăng nhập được:
