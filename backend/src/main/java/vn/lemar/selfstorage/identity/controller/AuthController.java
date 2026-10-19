@@ -57,12 +57,18 @@ public class AuthController {
                             examples = @ExampleObject(value = """
                                     {"message":"Email hoặc mật khẩu không đúng",
                                     "timestamp":"2026-10-04T08:14:27.947381536Z"}"""))),
-            @ApiResponse(responseCode = "403", description = "Tài khoản đã bị chặn",
+            @ApiResponse(responseCode = "403", description = "Tài khoản không được đăng nhập — "
+                    + "bị chặn hoặc chưa xác minh email",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = """
-                                    {"message":"Tài khoản đã bị chặn",
-                                    "timestamp":"2026-10-04T08:14:28.027349693Z"}"""))),
+                            examples = {
+                                    @ExampleObject(name = "banned", value = """
+                                            {"message":"Tài khoản đã bị chặn",
+                                            "timestamp":"2026-10-04T08:14:28.027349693Z"}"""),
+                                    @ExampleObject(name = "unverified", value = """
+                                            {"message":"Tài khoản chưa xác minh email",
+                                            "timestamp":"2026-10-04T08:14:28.027349693Z"}""")
+                            })),
             @ApiResponse(responseCode = "429", description = "Sai quá nhiều lần "
                     + "(5 lần/15 phút theo email hoặc 20 lần/15 phút theo IP)",
                     content = @Content(mediaType = "application/json",
@@ -169,12 +175,18 @@ public class AuthController {
                             examples = @ExampleObject(value = """
                                     {"message":"Bạn cần đăng nhập để tiếp tục.",
                                     "timestamp":"2026-10-04T08:14:32.840856214Z"}"""))),
-            @ApiResponse(responseCode = "403", description = "Token hợp lệ nhưng account BANNED",
+            @ApiResponse(responseCode = "403", description = "Token hợp lệ nhưng account BANNED "
+                    + "hoặc chưa xác minh email",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class),
-                            examples = @ExampleObject(value = """
-                                    {"message":"Tài khoản đã bị chặn",
-                                    "timestamp":"2026-10-04T08:14:28.027349693Z"}""")))
+                            examples = {
+                                    @ExampleObject(name = "banned", value = """
+                                            {"message":"Tài khoản đã bị chặn",
+                                            "timestamp":"2026-10-04T08:14:28.027349693Z"}"""),
+                                    @ExampleObject(name = "unverified", value = """
+                                            {"message":"Tài khoản chưa xác minh email",
+                                            "timestamp":"2026-10-04T08:14:28.027349693Z"}""")
+                            }))
     })
     @GetMapping("/me")
     public ResponseEntity<ApiEnvelope<MeResponse>> me(Authentication authentication) {

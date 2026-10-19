@@ -104,6 +104,7 @@ tả lỗi token từ Spring. 403 có các message sau:
 |---|---|
 | Sai role cho route (SecurityConfig) | `"Bạn không có quyền truy cập"` |
 | Account `BANNED` | `"Tài khoản đã bị chặn"` |
+| Account `ACTIVE` chưa xác minh email | `"Tài khoản chưa xác minh email"` |
 | `Access.can()` — role thiếu permission | `"Bạn không có quyền thực hiện thao tác này"` |
 | `Access.can(permission, facilityId)` — ngoài phạm vi cơ sở | `"Bạn không được gán vào cơ sở này"` |
 
@@ -111,12 +112,14 @@ Chi tiết: [error-handling.md](error-handling.md).
 
 ## Điều kiện nghiệp vụ: xác minh email
 
-- Khách chưa xác minh (`email_verified_at = null`) **vẫn đăng nhập được**, nhưng không được thực hiện
-  thao tác nghiệp vụ thuộc luồng thuê kho (claim/liên kết đơn, đặt cọc, ký hợp đồng, nhận/trả kho…).
-- Đây là điều kiện authorization **theo hành động**, không theo route — sẽ enforce trong service khi
-  flow tương ứng được làm (Flow 1 §1.2 là case đầu tiên).
+- Xác minh email **bắt buộc ngay tại đăng ký**: account chưa xác minh (`email_verified_at = null`)
+  không đăng nhập được và không gọi được API nghiệp vụ — chỉ luồng xác minh email hoạt động
+  (register / verify-email / resend-verification).
+- Enforce ở tầng authentication: login (`AuthService`) và mỗi request
+  (`AccountJwtAuthenticationConverter` — xem
+  [authentication.md › Trạng thái account](authentication.md#trạng-thái-account)).
 - Spec: [db-table-draft.md › Account](../../specs/db-table-draft.md#account);
-  [draft.md › Business workflow](../../specs/draft.md#business-workflow).
+  [draft.md › Business workflow](../../specs/draft.md#business-workflow); spec-gap #150.
 
 ## Chưa có
 

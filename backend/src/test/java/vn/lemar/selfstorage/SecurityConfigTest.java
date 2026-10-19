@@ -165,6 +165,30 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.message").value("Tài khoản đã bị chặn"));
     }
 
+    @Test
+    void unverifiedAccountTokenCannotAccessBusinessRoutes() throws Exception {
+        Account unverified = unverifiedAccount();
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(unverified));
+
+        mockMvc.perform(get("/api/customer/probe")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
+    }
+
+    @Test
+    void meRejectsUnverifiedAccountToken() throws Exception {
+        Account unverified = unverifiedAccount();
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(unverified));
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
+    }
+
     /**
      * VNPay gọi IPN từ server của họ, không có JWT và sẽ không bao giờ có. Nếu route này rơi vào
      * dòng vét `/api/**` thì VNPay nhận 401, coi như merchant không xác nhận, và toàn bộ A6 chết.
@@ -202,6 +226,15 @@ class SecurityConfigTest {
         when(account.getRole()).thenReturn(role);
         when(account.getStatus()).thenReturn(status);
         when(account.isLoginAllowed()).thenReturn(status == AccountStatus.ACTIVE);
+        return account;
+    }
+
+    /** Account ACTIVE nhưng chưa xác minh — chỉ stub đúng những gì converter gọi trên nhánh này. */
+    private Account unverifiedAccount() {
+        Account account = mock(Account.class);
+        when(account.getEmail()).thenReturn("customer@example.com");
+        when(account.getStatus()).thenReturn(AccountStatus.ACTIVE);
+        when(account.isLoginAllowed()).thenReturn(false);
         return account;
     }
 

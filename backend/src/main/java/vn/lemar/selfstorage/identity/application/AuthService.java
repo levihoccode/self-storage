@@ -7,8 +7,10 @@ import vn.lemar.selfstorage.identity.application.dto.LoginRequest;
 import vn.lemar.selfstorage.identity.application.dto.LoginResponse;
 import vn.lemar.selfstorage.identity.application.dto.MeResponse;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
+import vn.lemar.selfstorage.identity.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 @Service
@@ -48,7 +50,11 @@ public class AuthService {
         }
 
         if (!account.isLoginAllowed()) {
-            throw new AccountNotAllowedException(account.getStatus());
+            if (account.getStatus() != AccountStatus.ACTIVE) {
+                throw new AccountNotAllowedException(account.getStatus());
+            }
+            // ACTIVE nhưng chưa xác minh — xác minh là bắt buộc ngay tại đăng ký (Business workflow).
+            throw new EmailNotVerifiedException();
         }
 
         loginAttemptLimiter.reset(normalizedEmail);

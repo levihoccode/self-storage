@@ -57,10 +57,12 @@ Jwt (claims: email, iss, exp…)
   │    email claim rỗng                     → InvalidBearerTokenException (401)
   │    findWithRoleByEmail(email)
   │      không tồn tại                      → 401
-  │    isLoginAllowed == true:
+  │    isLoginAllowed == true (ACTIVE + đã xác minh):
   │      authorities = [ACCOUNT_ACTIVE, ROLE_<role>]
-  │    isLoginAllowed == false:
-  │      authorities = []                   → route yêu cầu quyền đều 403
+  │    ACTIVE nhưng chưa xác minh email:
+  │      authorities = [ACCOUNT_UNVERIFIED] → 403 "Tài khoản chưa xác minh email"
+  │    BANNED:
+  │      authorities = []                   → 403 "Tài khoản đã bị chặn"
   ▼
 JwtAuthenticationToken → SecurityContext
   │
@@ -77,9 +79,11 @@ Account account = accountRepository.findWithRoleByEmail(Account.normalize(email)
         .orElseThrow(() -> new InvalidBearerTokenException("Account for JWT was not found"));
 
 List<GrantedAuthority> authorities = new ArrayList<>();
-if (account.isLoginAllowed()) {
+if (account.isLoginAllowed()) {                        // status ACTIVE && đã xác minh email
     authorities.add(new SimpleGrantedAuthority("ACCOUNT_ACTIVE"));
     authorities.add(new SimpleGrantedAuthority("ROLE_" + account.getRole().getName()));
+} else if (account.getStatus() == AccountStatus.ACTIVE) {
+    authorities.add(new SimpleGrantedAuthority("ACCOUNT_UNVERIFIED"));   // chỉ để 403 có message đúng
 }
 return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 ```
@@ -87,8 +91,10 @@ return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 ## Trạng thái account
 
 - `status` (`AccountStatus`): `ACTIVE` (mặc định khi tạo) | `BANNED` — chỉ dùng để chặn truy cập.
-- `email_verified_at = null` (chưa xác minh) **không chặn login**; chỉ chặn các thao tác nghiệp vụ
-  yêu cầu xác minh — xem
+- `email_verified_at = null` (chưa xác minh) **chặn đăng nhập và mọi thao tác authenticated** —
+  xác minh là bắt buộc ngay tại đăng ký; chỉ luồng xác minh email (register/verify/resend) hoạt động.
+  Login trả 403 `Tài khoản chưa xác minh email`; token phát trước đó (nếu có) cũng không được cấp
+  quyền — xem
   [authorization.md › Điều kiện nghiệp vụ](authorization.md#điều-kiện-nghiệp-vụ-xác-minh-email).
 
 ## Đăng ký và xác minh email
@@ -107,6 +113,8 @@ return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 - Mã gắn theo email: mã của account này **không** verify được account khác (tra key theo email đích).
   Mặt trái: đoán sai 5 lần khoá mã của account — kẻ xấu biết email có thể cố tình khoá để buộc nạn
   nhân gửi lại mã (DoS nhẹ, khôi phục bằng resend; verify chưa có rate limit theo IP — bổ sung khi cần).
+- Account **chỉ đăng nhập được sau khi xác minh**: `POST /api/auth/login` trả 403
+  `Tài khoản chưa xác minh email` khi `email_verified_at = null` (kể cả mật khẩu đúng).
 - Gửi email đi qua event `VerificationEmailRequested` (identity không phụ thuộc module
   `notification` — cycle); listener `VerificationEmailListener` gửi after-commit như mọi email.
 - Route chi tiết: [register](routes/auth/register.md) · [verify-email](routes/auth/verify-email.md)

@@ -12,6 +12,7 @@ import vn.lemar.selfstorage.identity.application.dto.LoginResponse;
 import vn.lemar.selfstorage.identity.application.dto.MeResponse;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
+import vn.lemar.selfstorage.identity.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.identity.application.exception.TooManyLoginAttemptsException;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.domain.AccountStatus;
@@ -119,16 +120,17 @@ class AuthServiceTest {
     }
 
     @Test
-    void loginAllowsActiveAccountWithoutEmailVerification() {
+    void loginRejectsActiveAccountWithUnverifiedEmail() {
         Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
         when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
         when(passwordEncoder.matches("password", "hash")).thenReturn(true);
-        when(jwtService.issueAccessToken(account)).thenReturn("signed.jwt.token");
 
-        LoginResponse response = authService.login(new LoginRequest("customer@example.com", "password"), IP);
+        assertThatThrownBy(() -> authService.login(new LoginRequest("customer@example.com", "password"), IP))
+                .isInstanceOf(EmailNotVerifiedException.class)
+                .hasMessage("Tài khoản chưa xác minh email");
 
         assertThat(account.isVerified()).isFalse();
-        assertThat(response.token()).isEqualTo("signed.jwt.token");
+        verify(loginAttemptLimiter, never()).reset("customer@example.com");
     }
 
     @Test

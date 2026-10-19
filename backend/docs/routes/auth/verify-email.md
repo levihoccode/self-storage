@@ -30,6 +30,8 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
   chốt tại spec-gap #139.
 - Cấu hình: `EMAIL_VERIFICATION_TTL`, `EMAIL_VERIFICATION_MAX_ATTEMPTS` — xem
   [index.md › Cấu hình](../index.md#cấu-hình).
+- Xác minh **mở khoá account**: trước đó login trả 403 `Tài khoản chưa xác minh email`; sau khi xác
+  minh mới đăng nhập được.
 - Sau khi xác minh, account được liên kết `RentalRequest` đã duyệt (Flow 1 §1.2 — thuộc package B,
   chưa triển khai tại đây).
 
