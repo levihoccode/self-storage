@@ -3,9 +3,9 @@
 # Account
 - id
 - email (unique, normalized)
-- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) KHÔNG chặn đăng nhập,
-  nhưng chặn các thao tác yêu cầu xác minh (tối thiểu: claim/liên kết `RentalRequest` — Flow 1 §1.2;
-  các flow khác bổ sung khi triển khai)
+- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) = account chưa
+  hoàn tất đăng ký: KHÔNG đăng nhập được, không thực hiện được thao tác nghiệp vụ nào; chỉ luồng
+  xác minh email hoạt động (nhập mã, gửi lại mã). Xác minh là bắt buộc, thực hiện ngay sau đăng ký.
 - role_id (N - 1: Role)
 - status
   - ACTIVE: đang hoạt động — được đăng nhập/gọi API

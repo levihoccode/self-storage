@@ -62,10 +62,10 @@
 
 ## Business workflow
 
-- **Xác minh email:** khách hàng chưa xác minh email (`email_verified_at = null`) vẫn đăng nhập được,
-  nhưng không được thực hiện các thao tác nghiệp vụ liên quan đến thuê kho (liên kết/claim đơn,
-  đặt cọc, ký hợp đồng, nhận kho, trả kho…). Chi tiết field: `db-table-draft.md › Account`;
-  mỗi flow bổ sung danh sách thao tác cụ thể khi triển khai.
+- **Xác minh email — bắt buộc ngay tại đăng ký:** account chưa xác minh (`email_verified_at = null`)
+  không đăng nhập được và không thực hiện được thao tác nghiệp vụ nào; chỉ luồng xác minh email
+  hoạt động (nhập mã, gửi lại mã). Khách bỏ dở xác minh thì account chưa dùng được cho tới khi
+  hoàn tất. Chi tiết field: `db-table-draft.md › Account`.
 - **Xác minh email bằng mã OTP:** khi khách đăng ký (mục 1.2), hệ thống gửi email chứa mã xác minh
   **6 số**; mã hiệu lực **10 phút**, nhập sai tối đa **5 lần** (vượt → 429), gửi lại mã tối đa mỗi
   **60 giây**. Đăng ký với email đã tồn tại trả 409. Nhập mã khi account đã xác minh là no-op, không lỗi.
@@ -212,7 +212,8 @@
 **Details:**
 - Tạo một bản ghi `Account` với role là `Customer` (chưa verify); mật khẩu tối thiểu 8 ký tự;
   email đã tồn tại → 409.
-- Hệ thống gửi email chứa **mã xác minh 6 số** (cơ chế chung ở `## Business workflow`); **đơn chỉ
+- Hệ thống gửi email chứa **mã xác minh 6 số** (cơ chế chung ở `## Business workflow`); xác minh là
+  **bắt buộc ngay tại bước này** — account chưa xác minh không đăng nhập/thao tác được; **đơn chỉ
   được liên kết sau khi khách xác minh email** (chống chiếm đơn).
 - Nội dung email xác minh:
   ```
