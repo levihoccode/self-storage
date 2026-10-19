@@ -38,7 +38,8 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
    `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback
    ([booking-conversion.md](../../booking-conversion.md)).
 10. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
-   account chưa xác minh không nhận mail duyệt — claim + notification sau khi xác minh (B2).
+   với verify-first (#153), email đang pending registration chưa có account nên vẫn nhận mail này;
+   account legacy chưa xác minh không nhận mail — claim + notification sau khi xác minh (B2).
 
 Body: `{unitId}` bắt buộc. Trả envelope `{message, data: {id, status, unitId, respondedAt,
 expiresAt}}`.
