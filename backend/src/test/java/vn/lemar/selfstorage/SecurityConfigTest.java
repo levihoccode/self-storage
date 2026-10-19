@@ -178,6 +178,18 @@ class SecurityConfigTest {
     }
 
     @Test
+    void unverifiedAccountTokenCannotAccessApiCatchAll() throws Exception {
+        Account unverified = unverifiedAccount();
+        when(accountRepository.findWithRoleByEmail("customer@example.com"))
+                .thenReturn(Optional.of(unverified));
+
+        mockMvc.perform(get("/api/internal/probe")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("customer@example.com")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
+    }
+
+    @Test
     void meRejectsUnverifiedAccountToken() throws Exception {
         Account unverified = unverifiedAccount();
         when(accountRepository.findWithRoleByEmail("customer@example.com"))
