@@ -88,7 +88,7 @@ class RentalRequestConversionIntegrationTest {
     @BeforeEach
     void setUp() {
         when(mailSender.createMimeMessage()).thenAnswer(inv -> new MimeMessage(Session.getInstance(new Properties())));
-        // Seed V2 chưa có key spec `order.expiry_days` (chỉ có `order.deposit_expiry_days`) — bug #130.
+        // V5 đã seed sẵn; chèn lại cho chắc vì missingOrderExpiryPolicyRollsBackConversion xoá key.
         jdbc.update("insert into policies (key, value) values ('order.expiry_days', '30') "
                 + "on conflict (key) do nothing");
     }

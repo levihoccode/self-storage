@@ -49,13 +49,9 @@ Trong một transaction:
 5. Audit: chỉ trigger claim ghi `RENTAL_REQUEST_CLAIMED` (entity `RentalRequest`, actor = customer).
    Trigger duyệt và tạo đơn/proposal **chưa ghi audit**, chờ spec-gap #132.
 
-`order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQueryService` (B1), không fallback. Seed V2 hiện
-**chưa có key này** (bug #130) — thiếu key thì convert ném `IllegalStateException` và rollback.
-Chạy local thì tự thêm:
-
-```sql
-insert into policies (key, value) values ('order.expiry_days', '30') on conflict (key) do nothing;
-```
+`order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQueryService` (B1), không fallback.
+Key này seed ở `V5__order_expiry_days_seed.sql` (bug #130) — thiếu key là lỗi cấu hình: convert ném
+`IllegalStateException` và rollback.
 
 ## Chống tạo trùng (account + khoang)
 
@@ -94,7 +90,6 @@ insert into policies (key, value) values ('order.expiry_days', '30') on conflict
 
 ## Việc còn mở
 
-- Seed `order.expiry_days`: bug #130.
 - Nội dung email/notification thiếu loại + kích thước khoang so với email Flow 1.1: spec-gap #131.
 - Audit cho trigger duyệt / tạo đơn / proposal: spec-gap #132.
 - Cron `RentalRequest` → `Expired`: #143 (cron Flow 1), không thuộc B2.

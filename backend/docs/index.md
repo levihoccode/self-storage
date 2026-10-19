@@ -99,8 +99,7 @@ Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 
 (chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
-Seed V2 chưa có policy `order.expiry_days` mà B2 cần (bug #130) — câu SQL thêm tay khi chạy local
-ở [booking-conversion.md](booking-conversion.md).
+Policy `order.expiry_days` (B2 cần) seed ở migration V5 (bug #130) — không cần thêm tay khi chạy local.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
