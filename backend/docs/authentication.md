@@ -199,8 +199,8 @@ Chưa có (theo dõi ở issue #74):
 - `JwtServiceTest` — claims email-only, issuer, expiry.
 - `SecurityConfigTest` — route gate theo role/`ACCOUNT_ACTIVE`, `/me` 401/200/403, account bị xóa,
   token chưa xác minh bị 403 ở route role lẫn dòng vét.
-- `AuthServiceTest` + `RegistrationIntegrationTest` — login bị chặn khi chưa xác minh (403), mở
-  sau khi verify (200).
+- `AuthServiceTest` + `RegistrationIntegrationTest` — trước verify chưa có account nên login 401;
+  verify tạo account rồi login 200; 403 `Tài khoản chưa xác minh email` chỉ còn cho account legacy.
 - `AuthServiceTest` — login 401/403, chuẩn hoá email, `/me`, rate limit (429/đếm/reset).
 - `RegistrationServiceTest` — đăng ký (409, audit, phát mã), verify (idempotent), resend (cooldown).
 - `EmailVerificationCodesTest`, `LoginAttemptLimiterTest` — kho mã Redis + bộ đếm rate limit (unit).
