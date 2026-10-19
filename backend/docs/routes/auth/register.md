@@ -1,10 +1,10 @@
 ---
-purpose: Đăng ký tài khoản khách hàng — tạo account CUSTOMER chưa xác minh và gửi mã xác minh qua email.
+purpose: Đăng ký tài khoản khách hàng — ghi nhận yêu cầu và gửi mã xác minh; account chỉ được tạo sau khi xác minh.
 ---
 # POST /api/auth/register
 
-Đăng ký tài khoản khách hàng: tạo `Account` role `CUSTOMER` (chưa xác minh) và gửi email chứa mã
-xác minh 6 số — hoàn tất ở [POST /api/auth/verify-email](verify-email.md).
+Đăng ký tài khoản khách hàng: ghi nhận pending registration và gửi email chứa mã xác minh 6 số —
+**`Account` chỉ được tạo ở bước [POST /api/auth/verify-email](verify-email.md)**.
 
 - **Actor / quyền:** public — không cần token.
 - **Contract chi tiết:** annotation (`@Operation`/`@ApiResponses`/`@ExampleObject`) tại
@@ -15,7 +15,7 @@ xác minh 6 số — hoàn tất ở [POST /api/auth/verify-email](verify-email.
 `RegistrationService.register` (verify-first):
 
 1. Chuẩn hoá email (`trim` + lowercase — `Account.normalize`); email đã có account → **409**
-   (pending chưa xác minh không tính là account — dùng [resend-verification](resend-verification.md)).
+   (pending registration không tính là account — dùng [resend-verification](resend-verification.md)).
 2. Băm mật khẩu BCrypt và **chưa tạo `Account`**: ghi pending registration (email + hash mật khẩu)
    vào Redis cùng mã xác minh, TTL 10 phút. Đăng ký lại khi đang pending chịu cooldown 60 giây (429).
 3. Phát mã xác minh (6 số) — lưu Redis dạng BCRYPT hash, không lưu plaintext — rồi phát event
