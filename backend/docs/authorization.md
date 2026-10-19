@@ -114,9 +114,10 @@ Chi tiết: [error-handling.md](error-handling.md).
 
 ## Điều kiện nghiệp vụ: xác minh email
 
-- Xác minh email **bắt buộc ngay tại đăng ký**: account chưa xác minh (`email_verified_at = null`)
-  không đăng nhập được và không gọi được API nghiệp vụ — chỉ luồng xác minh email hoạt động
-  (register / verify-email / resend-verification).
+- Xác minh email **bắt buộc trước khi tạo account**: `Account` tự đăng ký chỉ được tạo sau khi khách
+  nhập đúng mã (đã xác minh). Account legacy/seed có `email_verified_at = null` bị chặn đăng nhập và
+  mọi thao tác nghiệp vụ — chỉ luồng xác minh email hoạt động (register / verify-email /
+  resend-verification).
 - Enforce ở tầng authentication: login (`AuthService`) và mỗi request
   (`AccountJwtAuthenticationConverter` — xem
   [authentication.md › Trạng thái account](authentication.md#trạng-thái-account)).

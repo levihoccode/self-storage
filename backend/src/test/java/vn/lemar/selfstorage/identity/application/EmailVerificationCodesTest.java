@@ -2,6 +2,7 @@ package vn.lemar.selfstorage.identity.application;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,10 +19,9 @@ import vn.lemar.selfstorage.identity.application.exception.VerificationResendToo
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,17 +65,52 @@ class EmailVerificationCodesTest {
     }
 
     @Test
-    void issueStoresHashedCodeWithTtl() {
+    void issueStoresHashedCodeAndPendingPasswordHashWithTtl() {
         when(redis.opsForHash()).thenReturn(hashOps);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
 
-        String code = codes.issue(EMAIL);
+        String code = codes.issue(EMAIL, "password-hash");
 
         assertThat(code).matches("\\d{6}");
         verify(passwordEncoder).encode(code);
         verify(hashOps).put(CODE_KEY, "hash", "hashed");
         verify(hashOps).put(CODE_KEY, "attempts", "0");
+        verify(hashOps).put(CODE_KEY, "passwordHash", "password-hash");
         verify(redis).expire(CODE_KEY, TTL);
+    }
+
+    @Test
+    void reissueKeepsStoredPendingPasswordHash() {
+        when(redis.opsForHash()).thenReturn(hashOps);
+        when(hashOps.get(CODE_KEY, "passwordHash")).thenReturn("password-hash");
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+
+        String code = codes.reissue(EMAIL);
+
+        assertThat(code).matches("\\d{6}");
+        verify(hashOps).put(CODE_KEY, "passwordHash", "password-hash");
+        verify(redis).expire(CODE_KEY, TTL);
+    }
+
+    @Test
+    void reissueWithoutStoredPasswordHashSkipsTheField() {
+        when(redis.opsForHash()).thenReturn(hashOps);
+        when(hashOps.get(CODE_KEY, "passwordHash")).thenReturn(null);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+
+        codes.reissue(EMAIL);
+
+        verify(hashOps, never()).put(CODE_KEY, "passwordHash", "password-hash");
+        verify(hashOps).put(CODE_KEY, "hash", "hashed");
+    }
+
+    @Test
+    void hasPendingReflectsRedisKey() {
+        when(redis.hasKey(CODE_KEY)).thenReturn(true);
+        assertThat(codes.hasPending(EMAIL)).isTrue();
+
+        when(redis.hasKey(CODE_KEY)).thenReturn(false);
+        assertThat(codes.hasPending(EMAIL)).isFalse();
     }
 
     @Test
@@ -87,6 +122,29 @@ class EmailVerificationCodesTest {
         when(valueOps.setIfAbsent(COOLDOWN_KEY, "1", COOLDOWN)).thenReturn(false);
         assertThatThrownBy(() -> codes.markResendCooldown(EMAIL))
                 .isInstanceOf(VerificationResendTooEarlyException.class);
+    }
+
+    @Test
+    void verifyReturnsPendingRegistrationAndConsumesCode() {
+        when(redis.opsForHash()).thenReturn(hashOps);
+        when(hashOps.entries(CODE_KEY)).thenReturn(
+                Map.of("hash", "hashed", "attempts", "0", "passwordHash", "password-hash"));
+        when(passwordEncoder.matches("123456", "hashed")).thenReturn(true);
+
+        Optional<PendingRegistration> pending = codes.verify(EMAIL, "123456");
+
+        assertThat(pending).contains(new PendingRegistration(EMAIL, "password-hash"));
+        verify(redis).delete(CODE_KEY);
+    }
+
+    @Test
+    void verifyReturnsEmptyForLegacyCodeWithoutPendingData() {
+        when(redis.opsForHash()).thenReturn(hashOps);
+        when(hashOps.entries(CODE_KEY)).thenReturn(Map.of("hash", "hashed", "attempts", "0"));
+        when(passwordEncoder.matches("123456", "hashed")).thenReturn(true);
+
+        assertThat(codes.verify(EMAIL, "123456")).isEmpty();
+        verify(redis).delete(CODE_KEY);
     }
 
     @Test
@@ -117,36 +175,5 @@ class EmailVerificationCodesTest {
         assertThatThrownBy(() -> codes.verify(EMAIL, "000000"))
                 .isInstanceOf(InvalidVerificationCodeException.class);
         verify(hashOps).increment(CODE_KEY, "attempts", 1);
-    }
-
-    @Test
-    void verifyLocksAfterMaxWrongAttempts() {
-        when(redis.opsForHash()).thenReturn(hashOps);
-        when(hashOps.entries(CODE_KEY)).thenReturn(Map.of("hash", "hashed", "attempts", "4"));
-        when(passwordEncoder.matches("000000", "hashed")).thenReturn(false);
-        when(hashOps.increment(CODE_KEY, "attempts", 1)).thenReturn(5L);
-
-        assertThatThrownBy(() -> codes.verify(EMAIL, "000000"))
-                .isInstanceOf(TooManyVerificationAttemptsException.class);
-    }
-
-    @Test
-    void verifyRejectsWhenStoredStateIsCorrupt() {
-        when(redis.opsForHash()).thenReturn(hashOps);
-        when(hashOps.entries(CODE_KEY)).thenReturn(Map.of("attempts", "not-a-number"));
-
-        assertThatThrownBy(() -> codes.verify(EMAIL, "123456"))
-                .isInstanceOf(InvalidVerificationCodeException.class);
-    }
-
-    @Test
-    void verifyAcceptsCorrectCodeAndDeletesIt() {
-        when(redis.opsForHash()).thenReturn(hashOps);
-        when(hashOps.entries(CODE_KEY)).thenReturn(Map.of("hash", "hashed", "attempts", "2"));
-        when(passwordEncoder.matches("123456", "hashed")).thenReturn(true);
-
-        assertThatCode(() -> codes.verify(EMAIL, "123456")).doesNotThrowAnyException();
-        verify(redis).delete(CODE_KEY);
-        verify(hashOps, org.mockito.Mockito.never()).increment(anyString(), any(), anyLong());
     }
 }

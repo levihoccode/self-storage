@@ -5,11 +5,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
@@ -30,9 +32,8 @@ import vn.lemar.selfstorage.identity.repository.RoleRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -41,6 +42,7 @@ import static org.mockito.Mockito.when;
 class RegistrationServiceTest {
 
     private static final Duration TTL = Duration.ofMinutes(10);
+    private static final String EMAIL = "customer@example.com";
 
     @Mock
     private AccountRepository accountRepository;
@@ -63,140 +65,202 @@ class RegistrationServiceTest {
                 verificationCodes, auditRecorder, events, TTL);
     }
 
+    // ------------------------------------------------------------ register: chỉ ghi pending
+
     @Test
-    void registerCreatesCustomerAccountAuditsAndPublishesVerificationEmail() {
-        Role customerRole = new Role("CUSTOMER");
-        Account saved = mock(Account.class);
-        when(saved.getId()).thenReturn(42L);
-        when(accountRepository.existsByEmail("customer@example.com")).thenReturn(false);
-        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(customerRole));
-        when(passwordEncoder.encode("password123")).thenReturn("hash");
-        when(accountRepository.save(any(Account.class))).thenReturn(saved);
-        when(verificationCodes.issue("customer@example.com")).thenReturn("123456");
+    void registerStoresPendingAndPublishesVerificationEmail() {
+        when(accountRepository.existsByEmail(EMAIL)).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("password-hash");
+        when(verificationCodes.issue(EMAIL, "password-hash")).thenReturn("123456");
 
         registrationService.register(new RegisterRequest(" Customer@Example.com ", "password123"));
 
-        verify(accountRepository).save(argThat(account ->
-                account.getEmail().equals("customer@example.com")
-                        && account.getPasswordHash().equals("hash")
-                        && account.getRole() == customerRole));
-        verify(auditRecorder).record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
-                "42", null, null, null, 42L));
-        verify(events).publishEvent(new VerificationEmailRequested("customer@example.com", "123456", TTL));
+        verify(verificationCodes).markResendCooldown(EMAIL);
+        verify(verificationCodes).issue(EMAIL, "password-hash");
+        verify(events).publishEvent(new VerificationEmailRequested(EMAIL, "123456", TTL));
+        verify(accountRepository, never()).save(any());
+        verifyNoInteractions(roleRepository, auditRecorder);
     }
 
     @Test
     void registerRejectsExistingEmail() {
-        when(accountRepository.existsByEmail("customer@example.com")).thenReturn(true);
+        when(accountRepository.existsByEmail(EMAIL)).thenReturn(true);
 
-        assertThatThrownBy(() -> registrationService.register(
-                new RegisterRequest("customer@example.com", "password123")))
+        assertThatThrownBy(() -> registrationService.register(new RegisterRequest(EMAIL, "password123")))
                 .isInstanceOf(EmailAlreadyExistsException.class);
-        verifyNoInteractions(auditRecorder, events, verificationCodes);
+        verifyNoInteractions(verificationCodes, events, auditRecorder);
     }
 
     @Test
-    void registerFailsWhenCustomerRoleIsNotSeeded() {
-        when(accountRepository.existsByEmail("customer@example.com")).thenReturn(false);
-        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.empty());
+    void registerStopsAtCooldownViolation() {
+        when(accountRepository.existsByEmail(EMAIL)).thenReturn(false);
+        doThrow(new VerificationResendTooEarlyException())
+                .when(verificationCodes).markResendCooldown(EMAIL);
 
-        assertThatThrownBy(() -> registrationService.register(
-                new RegisterRequest("customer@example.com", "password123")))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> registrationService.register(new RegisterRequest(EMAIL, "password123")))
+                .isInstanceOf(VerificationResendTooEarlyException.class);
+        verifyNoInteractions(events, auditRecorder);
     }
 
-    @Test
-    void registerMapsUniqueConstraintViolationToConflict() {
-        when(accountRepository.existsByEmail("customer@example.com")).thenReturn(false);
-        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(new Role("CUSTOMER")));
-        when(passwordEncoder.encode("password123")).thenReturn("hash");
-        when(accountRepository.save(any(Account.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
-
-        assertThatThrownBy(() -> registrationService.register(
-                new RegisterRequest("customer@example.com", "password123")))
-                .isInstanceOf(EmailAlreadyExistsException.class);
-        verifyNoInteractions(auditRecorder, events, verificationCodes);
-    }
+    // ------------------------------------------------------------ verify: tạo account từ pending
 
     @Test
-    void verifyEmailMarksAccountVerified() {
-        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
-        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
+    void verifyCreatesVerifiedCustomerAccountFromPending() {
+        Role customerRole = new Role("CUSTOMER");
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.verify(EMAIL, "123456"))
+                .thenReturn(Optional.of(new PendingRegistration(EMAIL, "password-hash")));
+        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(customerRole));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
+            Account saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 42L);
+            return saved;
+        });
 
         EmailVerificationResult result =
-                registrationService.verifyEmail(new VerifyEmailRequest("Customer@Example.com", "123456"));
+                registrationService.verifyEmail(new VerifyEmailRequest(" Customer@Example.com ", "123456"));
+
+        assertThat(result).isEqualTo(EmailVerificationResult.VERIFIED);
+        ArgumentCaptor<Account> savedAccount = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(savedAccount.capture());
+        assertThat(savedAccount.getValue().getEmail()).isEqualTo(EMAIL);
+        assertThat(savedAccount.getValue().getPasswordHash()).isEqualTo("password-hash");
+        assertThat(savedAccount.getValue().getRole()).isEqualTo(customerRole);
+        assertThat(savedAccount.getValue().isVerified()).isTrue();
+        verify(auditRecorder).record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
+                "42", null, null, null, 42L));
+    }
+
+    @Test
+    void verifyIsIdempotentForVerifiedAccount() {
+        Account account = new Account(EMAIL, "hash", new Role("CUSTOMER"));
+        account.markEmailVerified();
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(account));
+
+        EmailVerificationResult result =
+                registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "000000"));
+
+        assertThat(result).isEqualTo(EmailVerificationResult.ALREADY_VERIFIED);
+        verifyNoInteractions(verificationCodes, auditRecorder, events);
+    }
+
+    @Test
+    void verifyLegacyUnverifiedAccountJustMarksVerified() {
+        Account account = new Account(EMAIL, "hash", new Role("CUSTOMER"));
+        ReflectionTestUtils.setField(account, "id", 7L);
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(account));
+        when(verificationCodes.verify(EMAIL, "123456")).thenReturn(Optional.empty());
+
+        EmailVerificationResult result =
+                registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
 
         assertThat(result).isEqualTo(EmailVerificationResult.VERIFIED);
         assertThat(account.isVerified()).isTrue();
-        verify(verificationCodes).verify("customer@example.com", "123456");
+        verify(accountRepository, never()).save(any());
+        verifyNoInteractions(auditRecorder);
     }
 
     @Test
-    void verifyEmailIsIdempotentForVerifiedAccount() {
-        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
-        account.markEmailVerified();
-        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
+    void verifyRejectsUnknownEmailWithoutPending() {
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.verify(EMAIL, "123456")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456")))
+                .isInstanceOf(InvalidVerificationCodeException.class);
+        verify(accountRepository, never()).save(any());
+    }
+
+    @Test
+    void verifyFailsWhenCustomerRoleIsMissing() {
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.verify(EMAIL, "123456"))
+                .thenReturn(Optional.of(new PendingRegistration(EMAIL, "password-hash")));
+        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456")))
+                .isInstanceOf(IllegalStateException.class);
+        verify(accountRepository, never()).save(any());
+        verifyNoInteractions(auditRecorder, events);
+    }
+
+    @Test
+    void verifyMapsConcurrentAccountCreationToAlreadyVerified() {
+        Account verified = new Account(EMAIL, "hash", new Role("CUSTOMER"));
+        verified.markEmailVerified();
+        when(accountRepository.findByEmail(EMAIL))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(verified));
+        when(verificationCodes.verify(EMAIL, "123456"))
+                .thenReturn(Optional.of(new PendingRegistration(EMAIL, "password-hash")));
+        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(new Role("CUSTOMER")));
+        when(accountRepository.save(any(Account.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         EmailVerificationResult result =
-                registrationService.verifyEmail(new VerifyEmailRequest("customer@example.com", "000000"));
+                registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
 
         assertThat(result).isEqualTo(EmailVerificationResult.ALREADY_VERIFIED);
-        verifyNoInteractions(verificationCodes);
+        verifyNoInteractions(auditRecorder);
     }
 
-    @Test
-    void verifyEmailRejectsUnknownAccountWithGenericCodeError() {
-        when(accountRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> registrationService.verifyEmail(
-                new VerifyEmailRequest("ghost@example.com", "123456")))
-                .isInstanceOf(InvalidVerificationCodeException.class);
-    }
+    // ------------------------------------------------------------ resend
 
     @Test
-    void resendIssuesNewCodeAfterCooldown() {
-        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
-        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
-        when(verificationCodes.issue("customer@example.com")).thenReturn("654321");
+    void resendReissuesCodeForPendingRegistration() {
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.hasPending(EMAIL)).thenReturn(true);
+        when(verificationCodes.reissue(EMAIL)).thenReturn("654321");
 
-        registrationService.resendVerification(new ResendVerificationRequest("customer@example.com"));
+        registrationService.resendVerification(new ResendVerificationRequest(EMAIL));
 
-        verify(verificationCodes).markResendCooldown("customer@example.com");
-        verify(events).publishEvent(new VerificationEmailRequested("customer@example.com", "654321", TTL));
+        verify(verificationCodes).markResendCooldown(EMAIL);
+        verify(events).publishEvent(new VerificationEmailRequested(EMAIL, "654321", TTL));
     }
 
     @Test
     void resendStopsAtCooldownViolation() {
-        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
-        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.hasPending(EMAIL)).thenReturn(true);
         doThrow(new VerificationResendTooEarlyException())
-                .when(verificationCodes).markResendCooldown("customer@example.com");
+                .when(verificationCodes).markResendCooldown(EMAIL);
 
-        assertThatThrownBy(() -> registrationService.resendVerification(
-                new ResendVerificationRequest("customer@example.com")))
+        assertThatThrownBy(() -> registrationService.resendVerification(new ResendVerificationRequest(EMAIL)))
                 .isInstanceOf(VerificationResendTooEarlyException.class);
+        verify(verificationCodes, never()).reissue(EMAIL);
         verifyNoInteractions(events);
     }
 
     @Test
     void resendRejectsVerifiedAccount() {
-        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
+        Account account = new Account(EMAIL, "hash", new Role("CUSTOMER"));
         account.markEmailVerified();
-        when(accountRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(account));
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(account));
 
-        assertThatThrownBy(() -> registrationService.resendVerification(
-                new ResendVerificationRequest("customer@example.com")))
+        assertThatThrownBy(() -> registrationService.resendVerification(new ResendVerificationRequest(EMAIL)))
                 .isInstanceOf(EmailAlreadyVerifiedException.class);
         verifyNoInteractions(verificationCodes);
     }
 
     @Test
-    void resendRejectsUnknownEmail() {
-        when(accountRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+    void resendRejectsUnknownEmailWithoutPending() {
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.hasPending(EMAIL)).thenReturn(false);
 
-        assertThatThrownBy(() -> registrationService.resendVerification(
-                new ResendVerificationRequest("ghost@example.com")))
+        assertThatThrownBy(() -> registrationService.resendVerification(new ResendVerificationRequest(EMAIL)))
                 .isInstanceOf(EmailNotRegisteredException.class);
+        verify(verificationCodes, never()).markResendCooldown(EMAIL);
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void resendLegacyUnverifiedAccountReissuesCode() {
+        Account account = new Account(EMAIL, "hash", new Role("CUSTOMER"));
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(account));
+        when(verificationCodes.reissue(EMAIL)).thenReturn("654321");
+
+        registrationService.resendVerification(new ResendVerificationRequest(EMAIL));
+
+        verify(verificationCodes).markResendCooldown(EMAIL);
+        verify(events).publishEvent(new VerificationEmailRequested(EMAIL, "654321", TTL));
     }
 }

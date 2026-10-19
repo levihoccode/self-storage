@@ -13,11 +13,12 @@ Phát mã xác minh mới (ghi đè mã cũ) cho account chưa xác minh; mỗi 
 
 `RegistrationService.resendVerification`:
 
-1. Chuẩn hoá email; không tìm thấy account → **400** `Email chưa được đăng ký`.
+1. Chuẩn hoá email. Không có account và không có pending registration còn hạn → **400**
+   `Email chưa được đăng ký`.
 2. Account đã xác minh → **400** `Tài khoản đã được xác minh` (không phát mã mới).
-3. Redis `auth:verify-cooldown:<email>` (SET NX, TTL 60 giây) — còn hiệu lực → **429**.
-   Qua được cooldown → phát mã mới, reset bộ đếm sai, gửi email sau commit như
-   [register](register.md#luồng--hành-vi).
+3. Redis `auth:verify-cooldown:<email>` (SET NX, TTL 60 giây) — còn hiệu lực → **429** (áp cho cả
+   register lẫn resend). Qua được cooldown → phát mã mới (giữ hash mật khẩu của pending), reset bộ
+   đếm sai, gửi email sau commit như [register](register.md#luồng--hành-vi).
 
 ## Ghi chú nghiệp vụ
 
