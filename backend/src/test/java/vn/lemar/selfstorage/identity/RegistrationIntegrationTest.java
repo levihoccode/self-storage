@@ -207,6 +207,20 @@ class RegistrationIntegrationTest {
     }
 
     @Test
+    void loginIsBlockedUntilEmailVerified() throws Exception {
+        String email = uniqueEmail("gate");
+        register(email).andExpect(status().isOk());
+
+        login(email, PASSWORD).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
+
+        verifyEmail(email, lastCodeFor(email)).andExpect(status().isOk());
+
+        login(email, PASSWORD).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").isNotEmpty());
+    }
+
+    @Test
     void loginResetsEmailCounterAfterSuccess() throws Exception {
         String email = "customer1@lemar.vn";
 

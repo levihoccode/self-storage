@@ -26,8 +26,9 @@ xác minh 6 số — hoàn tất ở [POST /api/auth/verify-email](verify-email.
 
 - Spec: `specs/draft.md` › Flow 1 §1.2; cơ chế OTP chốt tại spec-gap #139.
 - Mật khẩu tối thiểu 8 ký tự (validate DTO → 400 `Dữ liệu không hợp lệ`).
-- Chưa xác minh **không chặn đăng nhập** — chỉ chặn thao tác nghiệp vụ thuê kho khi flow tương ứng
-  triển khai: [authentication.md › Đăng ký và xác minh email](../../authentication.md#đăng-ký-và-xác-minh-email).
+- Account chưa xác minh **bị chặn đăng nhập** (403 `Tài khoản chưa xác minh email`) và mọi thao tác
+  authenticated — phải hoàn tất [verify-email](verify-email.md) trước:
+  [authentication.md › Đăng ký và xác minh email](../../authentication.md#đăng-ký-và-xác-minh-email).
 - Chống spam gửi lại mã: [resend-verification](resend-verification.md); chống brute-force login:
   [login](login.md).
 
