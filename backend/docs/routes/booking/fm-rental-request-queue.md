@@ -1,6 +1,6 @@
 ---
 auth-model: role-bound
-purpose: Hàng đợi yêu cầu đặt kho cho FM (B1) — chỉ thấy cơ sở của mình.
+purpose: Hàng đợi yêu cầu đặt kho cho FM — chỉ thấy cơ sở của mình.
 ---
 
 # GET /api/fm/rental-requests

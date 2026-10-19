@@ -1,6 +1,6 @@
 ---
 auth-model: role-bound
-purpose: FM duyệt yêu cầu đặt kho (B1) — gán khoang Available, dừng ở Approved.
+purpose: FM duyệt yêu cầu đặt kho — gán khoang Available, dừng ở Approved.
 ---
 
 # POST /api/fm/rental-requests/{id}/approve
@@ -8,7 +8,7 @@ purpose: FM duyệt yêu cầu đặt kho (B1) — gán khoang Available, dừng
 FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ thể.
 
 - **Actor / quyền:** role-bound `FM` (`/api/fm/**` trong `SecurityConfig`) + permission
-  `rental_request.approve` theo facility qua `Access.can(permission, facilityId)` (#126).
+  `rental_request.approve` theo facility qua `Access.can(permission, facilityId)`.
   Guard đặt trong service (thay vì controller) vì cần `facilityId` từ entity mới guard được
   theo cơ sở.
 - **Contract chi tiết:** annotation tại
@@ -27,19 +27,19 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
    (khoang ngoài cơ sở trả cùng lỗi để không lộ tài nguyên ngoài phạm vi FM).
 6. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
    request giữ `Pending`.
-7. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` (#126) →
+7. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` →
    409 "Khoang đã được gán cho yêu cầu khác của cùng khách hàng...", request giữ `Pending`,
    không noti. Khác email + cùng khoang vẫn cho (cọc trước giữ trước).
 8. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
    chống race: 2 FM duyệt song song chỉ 1 tx thắng, tx sau nhận 0 row → 409) → `Approved` +
    `responded_at=now` + `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).
-9. Cùng transaction: gọi B2 `RentalRequestConversionService.convertOnApproval` — email đã thuộc
+9. Cùng transaction: gọi `RentalRequestConversionService.convertOnApproval` — email đã thuộc
    account **đã xác minh** thì tạo `RentalOrder(Pending)` + `ProposalFeedback(Pending)`, request →
    `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback
    ([booking-conversion.md](../../booking-conversion.md)).
 10. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
-   với verify-first (#153), email đang pending registration chưa có account nên vẫn nhận mail này;
-   account legacy chưa xác minh không nhận mail — claim + notification sau khi xác minh (B2).
+   với verify-first, email đang pending registration chưa có account nên vẫn nhận mail này;
+   account legacy chưa xác minh không nhận mail — claim + notification sau khi xác minh.
 
 Body: `{unitId}` bắt buộc. Trả envelope `{message, data: {id, status, unitId, respondedAt,
 expiresAt}}`.
@@ -47,9 +47,9 @@ expiresAt}}`.
 ## Ghi chú nghiệp vụ
 
 - Spec: `specs/draft.md` §1.1; permission `rental_request.approve` (FACILITY) đã seed V3;
-  #126 (claim_ttl, chặn gán trùng khoang, mail nhánh chưa-có-account).
-- Response giữ `status: "Approved"` (contract B1) kể cả khi B2 đã convert request sang `Converted`
-  trong cùng transaction — B2 không đổi contract HTTP (#129).
+  claim_ttl, chặn gán trùng khoang, mail nhánh chưa-có-account.
+- Response giữ `status: "Approved"` (contract endpoint duyệt) kể cả khi convert đã chuyển request sang
+  `Converted` trong cùng transaction — luồng convert không đổi contract HTTP.
 
 ## Ví dụ
 

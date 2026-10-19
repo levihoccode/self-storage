@@ -14,14 +14,14 @@ endpoint nằm trong thư mục [`routes/`](routes.md) — file này chỉ ghi q
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · PostgreSQL 16 · Redis · MailHog (mail dev).
 
-Kiến trúc **modular monolith** theo issue #15: `vn.lemar.selfstorage` là package gốc,
+Kiến trúc **modular monolith**: `vn.lemar.selfstorage` là package gốc,
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
 và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `media` upload file
 (ảnh/PDF) lên Cloudinary; `booking` có luồng nội bộ convert request đã duyệt thành đơn + proposal
-(B2, [booking-conversion.md](booking-conversion.md)).
+([booking-conversion.md](booking-conversion.md)).
 
 Layout trong một module:
 
@@ -99,7 +99,7 @@ Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 
 (chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
-Policy `order.expiry_days` (B2 cần) seed ở migration V5 (bug #130) — không cần thêm tay khi chạy local.
+Policy `order.expiry_days` (luồng convert cần) seed ở migration V5 — không cần thêm tay khi chạy local.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
@@ -145,15 +145,15 @@ Policy `order.expiry_days` (B2 cần) seed ở migration V5 (bug #130) — khôn
   hệ thống/cron/IPN. Bảng `audit_logs` append-only.
 - Hợp đồng tích hợp đầy đủ cho module gọi (checklist, ví dụ, call site hiện có):
   [audit-log.md](audit-log.md).
-- Caller nghiệp vụ hiện có: booking B2 (`RENTAL_REQUEST_CLAIMED`); B1, B3, B4 và A3a nối ở PR của
-  flow tương ứng — bảng call site ở [audit-log.md](audit-log.md#call-site-hiện-có).
+- Caller nghiệp vụ hiện có: luồng convert (`RENTAL_REQUEST_CLAIMED`); các luồng khác nối khi được
+  triển khai — bảng call site ở [audit-log.md](audit-log.md#call-site-hiện-có).
 
 ## Upload file (module media)
 
 - FE upload qua `POST /api/media/uploads` (multipart, field `file`) → `{url, publicId, bytes, format}`;
   URL dùng lại khi submit flow (ảnh hiện trạng, scan hợp đồng, ảnh giấy tờ).
 - Validate JPEG/PNG/WebP/PDF ≤ 10MB (khớp cap free plan Cloudinary); sai → 400 message cụ thể.
-- Storage sau interface `FileStorage` (#15 §6, impl Cloudinary) — đổi provider chỉ thay impl.
+- Storage sau interface `FileStorage` (impl Cloudinary) — đổi provider chỉ thay impl.
 - File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
 - Creds `CLOUDINARY_NAME/KEY/SECRET` để `@NotBlank` — thiếu là app chết lúc boot; test/CI dùng
   giá trị giả, không gọi mạng.
@@ -213,7 +213,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
-| [booking-conversion.md](booking-conversion.md) | B2: convert request → đơn + proposal, claim sau xác minh |
+| [booking-conversion.md](booking-conversion.md) | Convert request → đơn + proposal, claim sau xác minh |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |

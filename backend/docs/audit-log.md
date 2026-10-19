@@ -25,14 +25,14 @@ flow. Catalog action/entity là nguồn sự thật ở spec — **không chép 
 9. `oldValue`/`newValue`: Map/POJO trạng thái trước–sau (serialize thành JSONB); null khi
    không có giá trị tương ứng (ví dụ tạo mới).
 10. Không đưa vào audit: mật khẩu, secret, số thẻ, raw payment payload; không audit thao tác
-    đọc; xác minh email không ghi audit — dùng `Account.email_verified_at` (spec-gap #75).
+    đọc; xác minh email không ghi audit — dùng `Account.email_verified_at`.
 
 Hạ tầng append-only: không có API sửa/xóa bản ghi; module gọi chỉ ghi thêm.
 
 ## Gọi trông như thế nào
 
 ```java
-// Tạo tài khoản (A3a) — actor là chính account vừa được tạo
+// Tạo tài khoản — actor là chính account vừa được tạo
 auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
         String.valueOf(account.getId()), null, null, null, account.getId()));
 
@@ -53,12 +53,12 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 
 | Module | Action | Entity | Nối ở |
 |---|---|---|---|
-| `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.verifyEmail` — tạo account sau khi xác minh (A3a, proposal #152) |
-| `booking` | `RENTAL_REQUEST_APPROVED`, `RENTAL_REQUEST_REJECTED` | `RentalRequest` | `booking/application/RentalRequestService.approve/reject` (B1) |
-| `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` (B2) — actor = customer vừa xác minh; trigger duyệt / tạo đơn / proposal chờ spec-gap #132 |
+| `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.verifyEmail` — tạo account sau khi xác minh |
+| `booking` | `RENTAL_REQUEST_APPROVED`, `RENTAL_REQUEST_REJECTED` | `RentalRequest` | `booking/application/RentalRequestService.approve/reject` |
+| `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` — actor = customer vừa xác minh; trigger duyệt / tạo đơn / proposal chưa ghi audit |
 
 ## Xem thêm
 
 - Catalog + constraint + quy tắc "một bản ghi mỗi entity": `specs/db-table-draft.md` › AuditLog.
 - API + known limitation: [index.md](index.md#ghi-audit-module-audit).
-- Việc còn lại (AOP interceptor theo #15 §7): [follow-up.md](follow-up.md).
+- Việc còn lại (AOP interceptor): [follow-up.md](follow-up.md).

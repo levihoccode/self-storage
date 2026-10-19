@@ -16,7 +16,7 @@ thì mở issue theo workflow; file này không thay thế issue.
 
 ## Notification
 
-- Caller nghiệp vụ đầu tiên: booking B2 gửi `RENTAL_REQUEST_APPROVED` (có `orderId`) —
+- Caller nghiệp vụ đầu tiên: luồng convert gửi `RENTAL_REQUEST_APPROVED` (có `orderId`) —
   [booking-conversion.md](booking-conversion.md). Handover/payment nối sau; khi nối flow, truyền
   `orderId` để FE deep-link mở đơn.
 - `RENTAL_ORDER_CANCELED`: template dùng `{{outcome}}` — caller của Cancellation Cascade phải map
@@ -28,8 +28,8 @@ thì mở issue theo workflow; file này không thay thế issue.
 
 ## Audit
 
-- AuditLog (A8) đi theo hướng service ghi audit gọi tường minh từ call site. Hướng AOP interceptor
-  nêu ở #15 §7 tạm để sau: interceptor không tự biết `entity_id` / `old_value` / `new_value` khi
+- AuditLog đi theo hướng service ghi audit gọi tường minh từ call site. Hướng AOP interceptor
+  tạm gác lại: interceptor không tự biết `entity_id` / `old_value` / `new_value` khi
   một thao tác đổi nhiều entity — caller vẫn phải truyền đủ dữ liệu, thêm annotation lúc này chỉ
   che luồng chạy thật. Xem lại khi số call site đủ nhiều và pattern đã ổn định.
 
@@ -37,5 +37,5 @@ thì mở issue theo workflow; file này không thay thế issue.
 
 - **File mồ côi**: FE upload xong nhưng flow không submit (bỏ ngang) → asset không được entity nào
   trỏ tới. Đã truy vết được theo folder `uploads/acc-{id}`; chưa có job dọn — cân nhắc sweep định kỳ
-  khi A7 (scheduler) xong, hoặc bảng `media_uploads` (pending/attached) nếu cần relink tự động.
+  khi hạ tầng scheduler xong, hoặc bảng `media_uploads` (pending/attached) nếu cần relink tự động.
 - Không rate limit upload; trùng file tạo nhiều asset (không dedup) — chấp nhận ở MVP.
