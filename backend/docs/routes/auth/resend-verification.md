@@ -1,9 +1,10 @@
 ---
-purpose: Gửi lại mã xác minh email cho account chưa xác minh (cooldown 60 giây).
+purpose: Gửi lại mã xác minh cho yêu cầu đăng ký đang chờ xác minh (cooldown 60 giây).
 ---
 # POST /api/auth/resend-verification
 
-Phát mã xác minh mới (ghi đè mã cũ) cho account chưa xác minh; mỗi lần cách nhau tối thiểu 60 giây.
+Phát mã xác minh mới (ghi đè mã cũ) cho pending registration hoặc account legacy chưa xác minh;
+mỗi lần cách nhau tối thiểu 60 giây.
 
 - **Actor / quyền:** public — không cần token.
 - **Contract chi tiết:** annotation tại `identity/controller/AuthController.java`; Swagger UI —
