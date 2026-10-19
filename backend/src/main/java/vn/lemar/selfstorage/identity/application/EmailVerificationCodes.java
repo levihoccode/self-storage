@@ -3,6 +3,7 @@ package vn.lemar.selfstorage.identity.application;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,8 +21,10 @@ import vn.lemar.selfstorage.identity.application.exception.VerificationResendToo
  * <p>Key:
  * <ul>
  *   <li>{@code auth:verify-code:<email>} — hash {@code hash} (BCrypt của mã, không lưu plaintext)
- *       + {@code attempts}; TTL = thời hạn mã, ghi lại mỗi lần phát mã mới.</li>
- *   <li>{@code auth:verify-cooldown:<email>} — set NX với TTL = cooldown, chặn spam resend.</li>
+ *       + {@code attempts} + {@code passwordHash} (BCrypt mật khẩu của pending registration —
+ *       proposal #152: account chỉ được tạo sau khi xác minh); TTL = thời hạn mã, ghi lại mỗi lần
+ *       phát mã mới.</li>
+ *   <li>{@code auth:verify-cooldown:<email>} — set NX với TTL = cooldown, chặn spam register/resend.</li>
  * </ul>
  *
  * <p>Không fail-open: Redis lỗi thì register / verify / resend trả lỗi thay vì bỏ qua kiểm mã —
@@ -37,6 +40,7 @@ public class EmailVerificationCodes {
     private static final String COOLDOWN_KEY_PREFIX = "auth:verify-cooldown:";
     private static final String FIELD_HASH = "hash";
     private static final String FIELD_ATTEMPTS = "attempts";
+    private static final String FIELD_PASSWORD_HASH = "passwordHash";
 
     private final StringRedisTemplate redis;
     private final PasswordEncoder passwordEncoder;
@@ -66,17 +70,41 @@ public class EmailVerificationCodes {
         this.resendCooldown = resendCooldown;
     }
 
-    /** Phát mã mới (ghi đè mã cũ nếu có) và trả mã plaintext để caller gửi email. */
-    public String issue(String normalizedEmail) {
+    /**
+     * Phát mã mới (ghi đè mã cũ nếu có) kèm hash mật khẩu của pending registration; trả mã
+     * plaintext để caller gửi email.
+     */
+    public String issue(String normalizedEmail, String passwordHash) {
+        return issueCode(normalizedEmail, passwordHash);
+    }
+
+    /**
+     * Phát lại mã cho pending registration hoặc account legacy chưa xác minh — giữ nguyên hash
+     * mật khẩu đã lưu (nếu có). Không có key sẵn (mã cũ đã hết hạn) vẫn phát mã mới.
+     */
+    public String reissue(String normalizedEmail) {
+        Object passwordHash = redis.opsForHash().get(CODE_KEY_PREFIX + normalizedEmail, FIELD_PASSWORD_HASH);
+        return issueCode(normalizedEmail, passwordHash == null ? null : passwordHash.toString());
+    }
+
+    /** Có pending registration còn hạn (mã chưa hết TTL) cho email này không. */
+    public boolean hasPending(String normalizedEmail) {
+        return Boolean.TRUE.equals(redis.hasKey(CODE_KEY_PREFIX + normalizedEmail));
+    }
+
+    private String issueCode(String normalizedEmail, String passwordHash) {
         String code = generateCode();
         String key = CODE_KEY_PREFIX + normalizedEmail;
         redis.opsForHash().put(key, FIELD_HASH, passwordEncoder.encode(code));
         redis.opsForHash().put(key, FIELD_ATTEMPTS, "0");
+        if (passwordHash != null) {
+            redis.opsForHash().put(key, FIELD_PASSWORD_HASH, passwordHash);
+        }
         redis.expire(key, ttl);
         return code;
     }
 
-    /** Chặn gửi lại mã quá nhanh; gọi trước {@link #issue} ở luồng resend. */
+    /** Chặn gửi lại mã quá nhanh; gọi trước {@link #reissue} ở luồng resend (và ở register). */
     public void markResendCooldown(String normalizedEmail) {
         Boolean fresh = redis.opsForValue()
                 .setIfAbsent(COOLDOWN_KEY_PREFIX + normalizedEmail, "1", resendCooldown);
@@ -87,9 +115,12 @@ public class EmailVerificationCodes {
 
     /**
      * Kiểm mã: sai thì tăng bộ đếm; đủ {@code max-attempts} thì khoá (429) tới khi resend hoặc
-     * mã hết hạn. Mã đúng bị xoá ngay (dùng một lần). Mã không tồn tại / hết hạn → 400.
+     * mã hết hạn. Mã đúng bị xoá ngay (dùng một lần).
+     *
+     * @return pending registration (email + hash mật khẩu) nếu mã gắn với yêu cầu đăng ký chưa
+     *         tạo account; rỗng nếu mã thuộc account đã tồn tại (legacy)
      */
-    public void verify(String normalizedEmail, String code) {
+    public Optional<PendingRegistration> verify(String normalizedEmail, String code) {
         String key = CODE_KEY_PREFIX + normalizedEmail;
         Map<Object, Object> state = redis.opsForHash().entries(key);
         if (state.isEmpty()) {
@@ -106,7 +137,11 @@ public class EmailVerificationCodes {
             }
             throw new InvalidVerificationCodeException();
         }
+        Object passwordHash = state.get(FIELD_PASSWORD_HASH);
         redis.delete(key);
+        return passwordHash == null
+                ? Optional.empty()
+                : Optional.of(new PendingRegistration(normalizedEmail, passwordHash.toString()));
     }
 
     private static int parseAttempts(Object raw) {
