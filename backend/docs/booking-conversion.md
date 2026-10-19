@@ -25,12 +25,12 @@ Claim lỗi ở trigger 2 (ví dụ thiếu policy #130) không tự thử lại
 | `outcome` | Ý nghĩa | Caller (B1) làm gì |
 |---|---|---|
 | `CONVERTED` | Đã tạo đơn + proposal, request → `Converted`, đã gửi notification + email | — |
-| `NO_VERIFIED_ACCOUNT` | Email chưa có account, hoặc account chưa xác minh. Request giữ `Approved` | B1 gửi email "chưa có tài khoản" (Flow 1.1) khi email chưa có account; account chưa xác minh thì không gửi gì, chờ claim |
+| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả đang pending registration) hoặc account legacy chưa xác minh. Request giữ `Approved` | B1 gửi email "chưa có tài khoản" (Flow 1.1); khách đăng ký/xác minh xong (verify-first #153) → claim |
 | `NOT_CONVERTIBLE` | Request không ở `Approved` hoặc đã quá `expires_at` | — |
 | `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này. Request giữ `Approved` | — (B1 đã chặn gán trùng lúc duyệt; đây là guard cho race hiếm) |
 
 `claimForVerifiedAccount` trả danh sách `ConversionResult` cho từng request `Approved` còn hạn khớp
-email (rỗng = Case B, hoặc account chưa xác minh / không tồn tại).
+email (rỗng = Case B, hoặc email chưa có account — pending/không tồn tại).
 
 ## Convert làm gì
 
@@ -64,7 +64,7 @@ Key này seed ở `V5__order_expiry_days_seed.sql` (bug #130) — thiếu key l�
   - Khoá row request là chưa đủ: request r1 đang được duyệt trong transaction B1 chưa commit thì
     với transaction khác r1 vẫn `Pending`, nên claim r2 cùng khoang không đụng row nào của r1.
     Test `claimDuringUncommittedApprovalWaitsAndSkipsSameUnit`.
-  - Không khoá theo account id: lúc FM duyệt, account có thể chưa xác minh xong. Trigger duyệt khoá
+  - Không khoá theo account id: lúc FM duyệt, khách có thể đang pending đăng ký (chưa có account). Trigger duyệt khoá
     email **trước** khi tra account và giữ khoá cả ở nhánh `NO_VERIFIED_ACCOUNT`, nên claim của lần
     xác minh chạy song song phải chờ duyệt commit rồi mới select — không bỏ sót request (review #149).
     Test `approvalBeforeVerificationCommitIsStillClaimed`.
