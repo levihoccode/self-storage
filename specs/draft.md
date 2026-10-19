@@ -62,10 +62,11 @@
 
 ## Business workflow
 
-- **Xác minh email — bắt buộc ngay tại đăng ký:** account chưa xác minh (`email_verified_at = null`)
-  không đăng nhập được và không thực hiện được thao tác nghiệp vụ nào; chỉ luồng xác minh email
-  hoạt động (nhập mã, gửi lại mã). Khách bỏ dở xác minh thì account chưa dùng được cho tới khi
-  hoàn tất. Chi tiết field: `db-table-draft.md › Account`.
+- **Xác minh email — bắt buộc trước khi tạo tài khoản:** đăng ký chỉ ghi nhận yêu cầu và gửi mã
+  xác minh; **`Account` chỉ được tạo sau khi khách nhập đúng mã** (kèm `email_verified_at`).
+  Yêu cầu chưa xác minh hết hạn cùng mã, không để lại account. Account có `email_verified_at = null`
+  (legacy/seed) bị chặn đăng nhập và mọi thao tác nghiệp vụ; chỉ luồng xác minh email hoạt động.
+  Chi tiết field: `db-table-draft.md › Account`.
 - **Xác minh email bằng mã OTP:** khi khách đăng ký (mục 1.2), hệ thống gửi email chứa mã xác minh
   **6 số**; mã hiệu lực **10 phút**, nhập sai tối đa **5 lần** (vượt → 429), gửi lại mã tối đa mỗi
   **60 giây**. Đăng ký với email đã tồn tại trả 409. Nhập mã khi account đã xác minh là no-op, không lỗi.
@@ -210,11 +211,15 @@
 **Flow tổng quát:** Yêu cầu đã được duyệt và ghi nhận trên hệ thống, khách hàng đăng ký trong thời gian quy định (`responded_at` -> `expires_at`) và một yêu cầu xác nhận khoang được chỉ định được thêm vào tài khoản.
 
 **Details:**
-- Tạo một bản ghi `Account` với role là `Customer` (chưa verify); mật khẩu tối thiểu 8 ký tự;
-  email đã tồn tại → 409.
-- Hệ thống gửi email chứa **mã xác minh 6 số** (cơ chế chung ở `## Business workflow`); xác minh là
-  **bắt buộc ngay tại bước này** — account chưa xác minh không đăng nhập/thao tác được; **đơn chỉ
-  được liên kết sau khi khách xác minh email** (chống chiếm đơn).
+- Khách gửi email + mật khẩu (tối thiểu 8 ký tự); email đã tồn tại → 409. Hệ thống **chưa tạo
+  `Account`** — yêu cầu đăng ký chỉ được ghi nhận tạm và hết hạn cùng mã xác minh.
+- Hệ thống gửi email chứa **mã xác minh 6 số** (cơ chế chung ở `## Business workflow`); mỗi lần
+  đăng ký/gửi lại mã cách nhau tối thiểu 60 giây.
+- Khách nhập đúng mã → hệ thống tạo `Account` role `Customer` với `email_verified_at` đã set; sau đó
+  mới liên kết `RentalRequest` (**đơn chỉ được liên kết sau khi khách xác minh email** — chống
+  chiếm đơn).
+- Khách bỏ dở xác minh → yêu cầu đăng ký hết hạn cùng mã, **không có `Account` nào được tạo**;
+  khách có thể đăng ký lại.
 - Nội dung email xác minh:
   ```
   Mã xác minh email của bạn là: [mã]
