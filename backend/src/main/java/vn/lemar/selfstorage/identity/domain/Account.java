@@ -62,8 +62,9 @@ public class Account {
         return emailVerifiedAt != null;
     }
 
+    /** Đăng nhập / cấp authority chỉ khi account `ACTIVE` và email đã xác minh (Business workflow). */
     public boolean isLoginAllowed() {
-        return status == AccountStatus.ACTIVE;
+        return status == AccountStatus.ACTIVE && isVerified();
     }
 
     public void markEmailVerified() {

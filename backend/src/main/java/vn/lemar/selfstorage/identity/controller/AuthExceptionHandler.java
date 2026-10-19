@@ -12,6 +12,7 @@ import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundExcept
 import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsException;
 import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyVerifiedException;
 import vn.lemar.selfstorage.identity.application.exception.EmailNotRegisteredException;
+import vn.lemar.selfstorage.identity.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.identity.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
@@ -32,6 +33,11 @@ public class AuthExceptionHandler {
 
     @ExceptionHandler(AccountNotAllowedException.class)
     public ResponseEntity<ApiError> handleAccountNotAllowed(AccountNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiError> handleEmailNotVerified(EmailNotVerifiedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
     }
 

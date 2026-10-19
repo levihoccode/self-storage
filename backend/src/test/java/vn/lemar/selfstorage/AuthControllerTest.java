@@ -20,6 +20,7 @@ import vn.lemar.selfstorage.identity.application.dto.VerifyEmailRequest;
 import vn.lemar.selfstorage.identity.application.exception.AccountNotAllowedException;
 import vn.lemar.selfstorage.identity.application.exception.EmailAlreadyExistsException;
 import vn.lemar.selfstorage.identity.application.exception.EmailNotRegisteredException;
+import vn.lemar.selfstorage.identity.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidCredentialsException;
 import vn.lemar.selfstorage.identity.application.exception.InvalidVerificationCodeException;
 import vn.lemar.selfstorage.identity.application.exception.TooManyLoginAttemptsException;
@@ -93,6 +94,18 @@ class AuthControllerTest {
                         .content("{\"email\":\"banned@lemar.vn\",\"password\":\"Test@1234\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản đã bị chặn"));
+    }
+
+    @Test
+    void loginReturns403BodyForUnverifiedEmail() throws Exception {
+        when(authService.login(any(LoginRequest.class), anyString()))
+                .thenThrow(new EmailNotVerifiedException());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"unverified@lemar.vn\",\"password\":\"Test@1234\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
     }
 
     @Test
