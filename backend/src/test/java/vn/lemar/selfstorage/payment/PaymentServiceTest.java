@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import vn.lemar.selfstorage.payment.application.PaymentGateway;
+import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
@@ -39,6 +40,7 @@ class PaymentServiceTest {
     private PaymentGateway gateway;
     private PaymentTransactionRepository repository;
     private ApplicationEventPublisher events;
+    private AuditRecorder audit;
     private PaymentService service;
     private PaymentTransaction transaction;
 
@@ -47,9 +49,10 @@ class PaymentServiceTest {
         gateway = mock(PaymentGateway.class);
         repository = mock(PaymentTransactionRepository.class);
         events = mock(ApplicationEventPublisher.class);
+        audit = mock(AuditRecorder.class);
         service = new PaymentService(gateway, repository,
                 new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
-                new ObjectMapper());
+                new ObjectMapper(), audit);
 
         transaction = new PaymentTransaction(7L, TXN_REF, new BigDecimal("10000"), "Thanh toan");
         when(gateway.verifySignature(any())).thenReturn(true);
@@ -118,7 +121,7 @@ class PaymentServiceTest {
         when(failingMapper.writeValueAsString(any())).thenThrow(new JsonGenerationException("boom"));
         PaymentService failingService = new PaymentService(gateway, repository,
                 new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
-                failingMapper);
+                failingMapper, audit);
         Map<String, String> params = ipn();
 
         var response = failingService.handleIpn(params);

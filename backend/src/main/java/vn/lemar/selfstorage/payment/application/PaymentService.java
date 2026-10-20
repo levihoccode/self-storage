@@ -14,6 +14,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.lemar.selfstorage.audit.application.AuditEntry;
+import vn.lemar.selfstorage.audit.application.AuditRecorder;
+import vn.lemar.selfstorage.audit.domain.AuditAction;
+import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
@@ -43,15 +47,17 @@ public class PaymentService {
     private final VnPayProperties properties;
     private final ApplicationEventPublisher events;
     private final ObjectMapper objectMapper;
+    private final AuditRecorder audit;
 
     public PaymentService(PaymentGateway gateway, PaymentTransactionRepository repository,
                           VnPayProperties properties, ApplicationEventPublisher events,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper, AuditRecorder audit) {
         this.gateway = gateway;
         this.repository = repository;
         this.properties = properties;
         this.events = events;
         this.objectMapper = objectMapper;
+        this.audit = audit;
     }
 
     /**
@@ -111,12 +117,22 @@ public class PaymentService {
         if (gatewayReportedSuccess(params)) {
             transaction.markSucceeded(
                     params.get("vnp_TransactionNo"), parsePayDate(params.get("vnp_PayDate")), responsePayload);
+            // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
+            audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
+                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                    Map.of("status", "Pending"),
+                    Map.of("status", "Success", "gatewayTransactionNo",
+                            String.valueOf(transaction.getGatewayTransactionNo())),
+                    null, null));
             events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(), txnRef,
                     transaction.getAmount(), transaction.getPaidAt()));
         } else {
             String reason = "vnp_ResponseCode=" + params.get("vnp_ResponseCode")
                     + ", vnp_TransactionStatus=" + params.get("vnp_TransactionStatus");
             transaction.markFailed(reason, responsePayload);
+            audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
+                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                    Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
             events.publishEvent(new PaymentFailed(transaction.getInvoiceId(), txnRef,
                     transaction.getAmount(), reason));
         }
