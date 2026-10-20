@@ -47,19 +47,26 @@ public class AccountQueryService {
                 .getEmail();
     }
 
-    /** Account của email nếu đã xác minh; chưa có account hoặc chưa xác minh → rỗng. */
+    /**
+     * Account của email nếu dùng được để convert/claim: đã xác minh **và** đang `ACTIVE`
+     * ({@link Account#isLoginAllowed()}) — account bị chặn không được tạo đơn.
+     * Chưa có account / chưa xác minh / bị chặn → rỗng.
+     */
     @Transactional(readOnly = true)
     public Optional<VerifiedAccount> findVerifiedByEmail(String email) {
         return accountRepository.findByEmail(Account.normalize(email))
-                .filter(Account::isVerified)
+                .filter(Account::isLoginAllowed)
                 .map(account -> new VerifiedAccount(account.getId(), account.getEmail()));
     }
 
-    /** Account theo id nếu đã xác minh; không tồn tại hoặc chưa xác minh → rỗng. */
+    /**
+     * Account theo id nếu dùng được để convert/claim: đã xác minh **và** đang `ACTIVE`.
+     * Không tồn tại / chưa xác minh / bị chặn → rỗng.
+     */
     @Transactional(readOnly = true)
     public Optional<VerifiedAccount> findVerifiedById(Long accountId) {
         return accountRepository.findById(accountId)
-                .filter(Account::isVerified)
+                .filter(Account::isLoginAllowed)
                 .map(account -> new VerifiedAccount(account.getId(), account.getEmail()));
     }
 }

@@ -29,7 +29,7 @@ và rollback cả transaction duyệt — request giữ `Pending`, không có ca
 | `outcome` | Ý nghĩa | Caller (luồng duyệt) làm gì |
 |---|---|---|
 | `CONVERTED` | Đã tạo đơn + proposal, request → `Converted`, đã gửi notification + email | — |
-| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả đang pending registration) hoặc account legacy chưa xác minh. Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" (Flow 1.1); khách đăng ký/xác minh xong → claim |
+| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả pending registration), account chưa xác minh, hoặc account đã bị chặn (`BANNED`). Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" khi email **chưa có account**; chưa xác minh/bị chặn → không gửi; khách xác minh xong → claim (bị chặn thì chờ unban) |
 | `NOT_CONVERTIBLE` | Request không ở `Approved` hoặc đã quá `expires_at` | — |
 | `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này. Request giữ `Approved` | — (luồng duyệt đã chặn gán trùng; đây là guard cho race hiếm) |
 

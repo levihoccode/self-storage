@@ -147,6 +147,38 @@ class RentalRequestConversionIntegrationTest {
     }
 
     @Test
+    void approvalForBannedAccountKeepsRequestApproved() {
+        // Seed: banned@lemar.vn đã xác minh nhưng status = BANNED.
+        long requestId = approvedRequest("banned@lemar.vn", "B-01", 7);
+
+        ConversionResult result = service.convertOnApproval(requestId);
+
+        assertThat(result.outcome()).isEqualTo(Outcome.NO_VERIFIED_ACCOUNT);
+        assertThat(requestStatus(requestId)).isEqualTo("Approved");
+        assertNothingCreated();
+    }
+
+    @Test
+    void claimForBannedAccountDoesNothing() {
+        long requestId = approvedRequest("banned@lemar.vn", "B-01", 7);
+
+        assertThat(service.claimForVerifiedAccount(accountId("banned@lemar.vn"))).isEmpty();
+        assertThat(requestStatus(requestId)).isEqualTo("Approved");
+        assertNothingCreated();
+    }
+
+    @Test
+    void fmApprovalThroughB1KeepsApprovedForBannedCustomer() {
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        long requestId = request("banned@lemar.vn", "A-01", "Pending", 7);
+
+        rentalRequestService.approve(requestId, unitId("A-01"));
+
+        assertThat(requestStatus(requestId)).isEqualTo("Approved");
+        assertNothingCreated();
+    }
+
+    @Test
     void approvalForEmailWithoutAccountKeepsRequestApproved() {
         long requestId = approvedRequest("new.customer@example.com", "A-01", 7);
 
