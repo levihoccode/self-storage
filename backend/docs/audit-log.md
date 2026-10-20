@@ -32,9 +32,9 @@ Hạ tầng append-only: không có API sửa/xóa bản ghi; module gọi chỉ
 ## Gọi trông như thế nào
 
 ```java
-// Tối giản — tạo tài khoản (A3a)
-auditRecorder.record(AuditEntry.of(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
-        String.valueOf(accountId)));
+// Tạo tài khoản (A3a) — actor là chính account vừa được tạo
+auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
+        String.valueOf(account.getId()), null, null, null, account.getId()));
 
 // Thao tác nhiều entity, có old/new + lý do + actor (ví dụ hủy đơn — Flow 6)
 auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER,
@@ -53,7 +53,8 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 
 | Module | Action | Entity | Nối ở |
 |---|---|---|---|
-| — | — | — | Chưa có caller nào — nối ở PR của flow thì thêm một dòng vào bảng này |
+| `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.verifyEmail` — tạo account sau khi xác minh (A3a, proposal #152) |
+| `booking` | `RENTAL_REQUEST_APPROVED`, `RENTAL_REQUEST_REJECTED` | `RentalRequest` | `booking/application/RentalRequestService.approve/reject` (B1) |
 
 ## Xem thêm
 

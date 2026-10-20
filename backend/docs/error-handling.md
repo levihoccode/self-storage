@@ -56,9 +56,9 @@ cao không đè nhau vì mỗi cái match theo exception type riêng.
 | 401 | `AuthExceptionHandler` | `Email hoặc mật khẩu không đúng` (sai email/mật khẩu) |
 | 401 | `AuthExceptionHandler` | `Yêu cầu chưa được xác thực` (guard chạy khi thiếu/xóa account) |
 | 401 | `JsonAuthenticationEntryPoint` | `Bạn cần đăng nhập để tiếp tục.` + header `WWW-Authenticate` (`Bearer` / `Bearer error="invalid_token"`) |
-| 403 | `AuthExceptionHandler` | `Tài khoản đã bị chặn` (login với account `BANNED`) |
+| 403 | `AuthExceptionHandler` | `Tài khoản đã bị chặn` (login với account `BANNED`) hoặc `Tài khoản chưa xác minh email` (account legacy chưa xác minh) |
 | 403 | `AuthExceptionHandler` | `Bạn không có quyền thực hiện thao tác này` (thiếu permission) hoặc `Bạn không được gán vào cơ sở này` (ngoài facility scope) |
-| 403 | `JsonAccessDeniedHandler` | `Tài khoản đã bị chặn` (`BANNED`) hoặc `Bạn không có quyền truy cập` (sai role) |
+| 403 | `JsonAccessDeniedHandler` | `Tài khoản đã bị chặn` (`BANNED`), `Tài khoản chưa xác minh email` (token của account chưa xác minh) hoặc `Bạn không có quyền truy cập` (sai role) |
 | 404 | `AuthExceptionHandler` | `Không tìm thấy tài khoản` / `Không tìm thấy cơ sở` (nghiệp vụ) |
 | 404 | `NotificationExceptionHandler` | `Không tìm thấy thông báo` (nghiệp vụ) |
 | 404 | `ApiExceptionHandler` | `Không tìm thấy tài nguyên` (khung — sai path) |
@@ -81,6 +81,9 @@ WWW-Authenticate: Bearer error="invalid_token"
 
 # 403 — account BANNED
 {"message":"Tài khoản đã bị chặn","timestamp":"2026-10-04T08:14:28.027349693Z"}
+
+# 403 — chưa xác minh email
+{"message":"Tài khoản chưa xác minh email","timestamp":"2026-10-04T08:14:28.027349693Z"}
 
 # 400 — validate
 {"message":"Dữ liệu không hợp lệ","timestamp":"2026-10-04T08:14:28.048550698Z"}
@@ -106,6 +109,6 @@ ra; khi thêm filter đầu tiên cần `ErrorController` tùy biến theo envel
 
 - `ApiExceptionHandlerTest` — 500 generic không lộ chi tiết; 405 giữ status + message
 - `AuthControllerTest` — login 200 envelope; 400/401/403 message
-- `SecurityConfigTest` — 401 thiếu token, 403 sai role/`BANNED` có body
+- `SecurityConfigTest` — 401 thiếu token, 403 sai role/`BANNED`/chưa xác minh có body
 - `ExpiredTokenTest` — token hết hạn 401 + header `WWW-Authenticate`
 - `RequiredClaimsTest` — token thiếu claim bắt buộc 401

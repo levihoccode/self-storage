@@ -28,15 +28,17 @@ public class CurrentAccountProvider {
                 .orElseThrow(UnauthenticatedException::new);
     }
 
-    /**
-     * Id account hiện tại. Module nghiệp vụ dùng cái này thay vì {@link #getCurrentAccount()} để
-     * không phải tham chiếu entity {@code Account} — entity là nội bộ của identity.
-     */
-    public Long currentAccountId() {
+    /** Id account của request hiện tại — cho module khác cần actor (ví dụ AuditLog) không phải chạm domain. */
+    public Long getCurrentAccountId() {
         return getCurrentAccount().getId();
     }
 
-    /** Khách đã xác minh email chưa — điều kiện chặn thao tác nghiệp vụ theo spec Flow 1 §1.2. */
+    /**
+     * Khách đã xác minh email chưa.
+     *
+     * <p>Từ #151, account chưa xác minh không được cấp {@code ACCOUNT_ACTIVE} nên đã bị chặn ở
+     * tầng filter — method này còn lại như một lớp phòng thủ cho service, không phải cổng chính.
+     */
     public boolean isCurrentAccountVerified() {
         return getCurrentAccount().isVerified();
     }

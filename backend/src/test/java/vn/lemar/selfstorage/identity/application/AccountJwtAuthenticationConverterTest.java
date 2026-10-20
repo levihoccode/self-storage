@@ -57,8 +57,9 @@ class AccountJwtAuthenticationConverterTest {
     }
 
     @Test
-    void mapsActiveAccountToRoleAndActiveAuthorities() {
+    void verifiedAccountMapsToRoleAndActiveAuthorities() {
         Account account = new Account("Customer@Example.com ", "hash", new Role("CUSTOMER"));
+        account.markEmailVerified();
         when(accountRepository.findWithRoleByEmail("customer@example.com")).thenReturn(Optional.of(account));
 
         JwtAuthenticationToken token = converter.convert(jwt(" Customer@Example.com "));
@@ -70,8 +71,20 @@ class AccountJwtAuthenticationConverterTest {
     }
 
     @Test
+    void unverifiedAccountGetsOnlyUnverifiedMarker() {
+        Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
+        when(accountRepository.findWithRoleByEmail("customer@example.com")).thenReturn(Optional.of(account));
+
+        JwtAuthenticationToken token = converter.convert(jwt("customer@example.com"));
+
+        assertThat(token.getAuthorities()).extracting(GrantedAuthority::getAuthority)
+                .containsExactly(AccountJwtAuthenticationConverter.ACCOUNT_UNVERIFIED_AUTHORITY);
+    }
+
+    @Test
     void bannedAccountGetsNoAuthorities() {
         Account account = new Account("customer@example.com", "hash", new Role("CUSTOMER"));
+        account.markEmailVerified();
         account.setStatus(AccountStatus.BANNED);
         when(accountRepository.findWithRoleByEmail("customer@example.com")).thenReturn(Optional.of(account));
 

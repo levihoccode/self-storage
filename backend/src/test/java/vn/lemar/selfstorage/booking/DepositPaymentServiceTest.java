@@ -68,7 +68,7 @@ class DepositPaymentServiceTest {
                 currentAccount, invoiceVoiding);
 
         when(currentAccount.isCurrentAccountVerified()).thenReturn(true);
-        when(currentAccount.currentAccountId()).thenReturn(CUSTOMER_ID);
+        when(currentAccount.getCurrentAccountId()).thenReturn(CUSTOMER_ID);
 
         invoice = mock(Invoice.class);
         when(invoice.getId()).thenReturn(INVOICE_ID);

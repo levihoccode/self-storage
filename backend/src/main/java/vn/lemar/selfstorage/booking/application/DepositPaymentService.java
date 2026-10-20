@@ -86,7 +86,7 @@ public class DepositPaymentService {
         if (!currentAccount.isCurrentAccountVerified()) {
             throw new EmailNotVerifiedException();
         }
-        Long actorId = currentAccount.currentAccountId();
+        Long actorId = currentAccount.getCurrentAccountId();
 
         Invoice invoice = invoices.findById(invoiceId)
                 .filter(found -> found.belongsTo(actorId))

@@ -12,7 +12,7 @@ Xác minh session hiện tại là ai — FE dùng sau login để biết email 
 ## Luồng / hành vi
 
 - Route nằm dưới `/api/auth/**` nhưng được match **trước** rule `permitAll` trong `SecurityConfig`,
-  nên vẫn yêu cầu token và status `ACTIVE`.
+  nên vẫn yêu cầu token và account `ACTIVE` (đã xác minh email).
 - Role đọc từ DB **mỗi request**: admin đổi role hoặc khóa account thì request kế tiếp thấy hiệu lực ngay.
 - 401/403 trả body `{message, timestamp}`; 401 kèm header `WWW-Authenticate` — xem
   [authentication.md › Tín hiệu 401 cho client](../../authentication.md#tín-hiệu-401-cho-client).

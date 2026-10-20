@@ -3,9 +3,9 @@
 # Account
 - id
 - email (unique, normalized)
-- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) KHÔNG chặn đăng nhập,
-  nhưng chặn các thao tác yêu cầu xác minh (tối thiểu: claim/liên kết `RentalRequest` — Flow 1 §1.2;
-  các flow khác bổ sung khi triển khai)
+- email_verified_at (nullable) - thời điểm xác minh email. Luồng đăng ký tự phục vụ chỉ tạo
+  `Account` sau khi xác minh (field set ngay khi tạo); account có `null` (legacy/seed/admin tạo tay)
+  bị chặn đăng nhập và mọi thao tác nghiệp vụ — chỉ luồng xác minh email hoạt động.
 - role_id (N - 1: Role)
 - status
   - ACTIVE: đang hoạt động — được đăng nhập/gọi API
@@ -128,7 +128,7 @@
 - `start_date` không được ở trước ngày hiện tại theo timezone của `Facility`.
 - `period` là số nguyên dương.
 - `unit_type_id` phải tồn tại (MVP: loại khoang dùng chung toàn hệ thống — ràng buộc "cung cấp tại facility" sẽ bổ sung khi Flow 4/5 chốt).
-- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired`.
+- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired` (cron). Khi cron chưa chuyển kịp, FM không duyệt được request đã quá `expires_at` — xem Flow 1.1.
 - Khi claim, chỉ request `Approved` chưa quá `expires_at` mới được chuyển sang `Converted`.
 - `Rejected` phải có `reject_reason`; giá trị chuẩn gồm `UNIT_UNAVAILABLE`, `UNIT_MISMATCH`, `CUSTOMER_REQUEST`, `OTHER`. `reject_note` bắt buộc khi dùng `OTHER`.
 
