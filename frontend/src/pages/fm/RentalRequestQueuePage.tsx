@@ -1,100 +1,237 @@
 import { AlertTriangle, ArrowRight, Check, Mail, Phone, X } from "lucide-react";
-import { useState } from "react";
-import type { Navigate } from "../../app/types";
-import { unitTypes } from "../../mocks/catalog";
+import { useEffect, useState } from "react";
+import { ApiError } from "../../app/api";
 import {
-  fmUnits,
-  rentalOrders,
-  rentalRequests as initialRequests,
-  type RentalRequest,
-} from "../../mocks/fm";
+  approveRentalRequest,
+  currentFmFacilityId,
+  fetchRentalRequests,
+  fetchUnitTypes,
+  formatDate,
+  formatDateTime,
+  rejectRentalRequest,
+  selectableUnits,
+  type RejectReason,
+  type RentalRequestStatus,
+  type RentalRequestSummary,
+  type UnitType,
+} from "../../app/rentalRequests";
+import type { Navigate } from "../../app/types";
+import { rentalOrders } from "../../mocks/fm";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 
-type StatusFilter = "all" | RentalRequest["status"];
+type StatusFilter = "all" | RentalRequestStatus;
 
-const STATUS_LABEL: Record<RentalRequest["status"], string> = {
+const PAGE_SIZE = 20;
+
+const STATUS_LABEL: Record<RentalRequestStatus, string> = {
   Pending: "Chờ xử lý",
   Approved: "Đã duyệt",
   Rejected: "Đã từ chối",
+  Converted: "Đã tạo đơn",
   Expired: "Hết hạn",
-  Wishlisted: "Danh sách chờ",
 };
 
-const STATUS_BADGE: Record<RentalRequest["status"], string> = {
+const STATUS_BADGE: Record<RentalRequestStatus, string> = {
   Pending: "bg-warning/14 text-warning",
   Approved: "bg-success/14 text-success",
   Rejected: "bg-danger/14 text-danger",
+  Converted: "bg-brand-soft text-brand",
   Expired: "bg-surface-subtle text-muted",
-  Wishlisted: "bg-brand-soft text-brand",
+};
+
+const REJECT_REASON_LABEL: Record<RejectReason, string> = {
+  UNIT_UNAVAILABLE: "Không còn khoang trống phù hợp",
+  UNIT_MISMATCH: "Loại khoang không đáp ứng nhu cầu",
+  CUSTOMER_REQUEST: "Khách yêu cầu huỷ",
+  OTHER: "Khác (ghi rõ lý do)",
 };
 
 const FILTER_SELECT =
   "min-w-[170px] rounded-sm border border-border bg-surface px-[11px] py-[10px] pr-[30px] text-[12px] font-semibold text-ink";
 
-function unitTypeName(unitTypeId: string) {
-  return unitTypes.find((type) => type.id === unitTypeId)?.name ?? unitTypeId;
+type QueueState =
+  | { kind: "loading" }
+  | { kind: "no-facility" }
+  | { kind: "error"; status: number | null; message: string }
+  | { kind: "ready"; items: RentalRequestSummary[]; total: number; page: number };
+
+/** Kết quả FM vừa xử lý trong phiên này — danh sách từ BE không trả khoang đã gán / lý do. */
+type HandledResult = { kind: "approved"; unitCode: string } | { kind: "rejected"; reason: string };
+
+function filterStatus(filter: StatusFilter): RentalRequestStatus | undefined {
+  return filter === "all" ? undefined : filter;
+}
+
+/** Hàm tải thuần (không setState) để effect chỉ ghi state sau `await`. */
+async function loadQueue(facilityId: number, filter: StatusFilter): Promise<QueueState> {
+  try {
+    const data = await fetchRentalRequests(facilityId, filterStatus(filter), 0, PAGE_SIZE);
+    return { kind: "ready", items: data.items, total: data.total, page: 0 };
+  } catch (error) {
+    return error instanceof ApiError
+      ? { kind: "error", status: error.status, message: error.message }
+      : { kind: "error", status: null, message: "Không tải được hàng chờ, thử lại sau." };
+  }
 }
 
 export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
+  // Banner vẫn đọc mock: chưa có API danh sách đơn thuê cho FM (spec-gap #100).
   const openOrders = rentalOrders.filter((order) => order.status === "OpenForRepropose");
+  const facilityId = currentFmFacilityId();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Pending");
-  const [items, setItems] = useState<RentalRequest[]>(initialRequests);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<QueueState>(
+    facilityId === null ? { kind: "no-facility" } : { kind: "loading" },
+  );
+  const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [handled, setHandled] = useState<Record<number, HandledResult>>({});
+  const [openId, setOpenId] = useState<number | null>(null);
   const [mode, setMode] = useState<"view" | "reject">("view");
   const [selectedUnitId, setSelectedUnitId] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [conflictId, setConflictId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<RejectReason | "">("");
+  const [rejectNote, setRejectNote] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const list = items.filter((request) => statusFilter === "all" || request.status === statusFilter);
+  useEffect(() => {
+    if (facilityId === null) return;
+    let active = true;
+    async function load(id: number) {
+      const [next, types] = await Promise.all([
+        loadQueue(id, "Pending"),
+        fetchUnitTypes(id).catch(() => [] as UnitType[]),
+      ]);
+      if (!active) return;
+      setQueue(next);
+      setUnitTypes(types);
+    }
+    void load(facilityId);
+    return () => {
+      active = false;
+    };
+  }, [facilityId]);
+
+  const items = queue.kind === "ready" ? queue.items : [];
   const openRequest = items.find((request) => request.id === openId) ?? null;
 
-  function openDetails(request: RentalRequest) {
+  function unitTypeLabel(unitTypeId: number) {
+    const type = unitTypes.find((item) => item.id === unitTypeId);
+    return type ? `${type.name} · ${type.area} m²` : `Loại khoang #${unitTypeId}`;
+  }
+
+  // setState ở event handler, không phải trong effect.
+  async function reload(filter: StatusFilter) {
+    if (facilityId === null) return;
+    setQueue({ kind: "loading" });
+    setLoadMoreError(null);
+    setQueue(await loadQueue(facilityId, filter));
+  }
+
+  function changeFilter(next: StatusFilter) {
+    setStatusFilter(next);
+    setOpenId(null);
+    void reload(next);
+  }
+
+  async function loadMore() {
+    if (facilityId === null || queue.kind !== "ready") return;
+    setIsLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const nextPage = queue.page + 1;
+      const data = await fetchRentalRequests(
+        facilityId,
+        filterStatus(statusFilter),
+        nextPage,
+        PAGE_SIZE,
+      );
+      setQueue({
+        kind: "ready",
+        items: [...queue.items, ...data.items],
+        total: data.total,
+        page: nextPage,
+      });
+    } catch {
+      setLoadMoreError("Không tải thêm được — thử lại sau.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  function openDetails(request: RentalRequestSummary) {
     setOpenId(request.id);
     setMode("view");
     setSelectedUnitId("");
     setRejectReason("");
-    setConflictId(null);
+    setRejectNote("");
+    setActionError(null);
   }
 
-  function approve(request: RentalRequest) {
+  function markHandled(requestId: number, status: RentalRequestStatus, result: HandledResult) {
+    setQueue((current) =>
+      current.kind === "ready"
+        ? {
+            ...current,
+            items: current.items.map((item) =>
+              item.id === requestId ? { ...item, status } : item,
+            ),
+          }
+        : current,
+    );
+    setHandled((current) => ({ ...current, [requestId]: result }));
+  }
+
+  async function approve(request: RentalRequestSummary) {
     if (!selectedUnitId) return;
     setBusyId(request.id);
-    window.setTimeout(() => {
+    setActionError(null);
+    try {
+      const result = await approveRentalRequest(request.id, Number(selectedUnitId));
+      const unitCode =
+        selectableUnits(facilityId ?? 0, request.unitTypeId).find(
+          (unit) => unit.id === result.unitId,
+        )?.code ?? `#${result.unitId}`;
+      markHandled(request.id, result.status, { kind: "approved", unitCode });
+    } catch (error) {
+      // 409 (khoang hết Available, FM khác đã xử lý, quá hạn), 403, 404: hiện nguyên câu của BE.
+      setActionError(error instanceof ApiError ? error.message : "Không duyệt được, thử lại sau.");
+    } finally {
       setBusyId(null);
-      if (request.simulateConflict) {
-        setConflictId(request.id);
-        return;
-      }
-      const unit = fmUnits.find((item) => item.id === selectedUnitId);
-      setItems((current) =>
-        current.map((item) =>
-          item.id === request.id
-            ? { ...item, status: "Approved", approvedUnitCode: unit?.code }
-            : item,
-        ),
+    }
+  }
+
+  async function reject(request: RentalRequestSummary) {
+    if (!rejectReason || (rejectReason === "OTHER" && !rejectNote.trim())) return;
+    setBusyId(request.id);
+    setActionError(null);
+    try {
+      const note = rejectNote.trim();
+      const result = await rejectRentalRequest(request.id, rejectReason, note || undefined);
+      const label = REJECT_REASON_LABEL[result.rejectReason];
+      markHandled(request.id, result.status, {
+        kind: "rejected",
+        reason: note ? `${label}: ${note}` : label,
+      });
+      setMode("view");
+    } catch (error) {
+      setActionError(
+        error instanceof ApiError ? error.message : "Không từ chối được, thử lại sau.",
       );
-      setOpenId(null);
-    }, 800);
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  function reject(request: RentalRequest) {
-    if (!rejectReason.trim()) return;
-    setItems((current) =>
-      current.map((item) =>
-        item.id === request.id
-          ? { ...item, status: "Rejected", rejectReason: rejectReason.trim() }
-          : item,
-      ),
-    );
-    setOpenId(null);
-  }
-
-  const availableUnitsForRequest = (request: RentalRequest) =>
-    fmUnits.filter((unit) => unit.unitTypeId === request.unitTypeId && unit.status === "Available");
+  const availableUnits = openRequest
+    ? selectableUnits(facilityId ?? 0, openRequest.unitTypeId)
+    : [];
+  const canConfirmReject =
+    rejectReason !== "" && (rejectReason !== "OTHER" || rejectNote.trim().length > 0);
+  const openResult = openRequest ? handled[openRequest.id] : undefined;
 
   return (
     <main>
@@ -126,41 +263,63 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
         <select
           className={FILTER_SELECT}
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+          disabled={queue.kind === "no-facility"}
+          onChange={(event) => changeFilter(event.target.value as StatusFilter)}
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="Pending">Chờ xử lý</option>
           <option value="Approved">Đã duyệt</option>
           <option value="Rejected">Đã từ chối</option>
+          <option value="Converted">Đã tạo đơn</option>
           <option value="Expired">Hết hạn</option>
-          <option value="Wishlisted">Danh sách chờ</option>
         </select>
       </div>
 
-      {list.length === 0 ? (
+      {queue.kind === "loading" && <SurfaceState variant="loading" title="Đang tải hàng chờ…" />}
+
+      {queue.kind === "no-facility" && (
+        <SurfaceState
+          variant="forbidden"
+          title="Chưa xác định được cơ sở của bạn"
+          description="Tài khoản này chưa được gán cơ sở để xem hàng chờ yêu cầu đặt kho."
+        />
+      )}
+
+      {queue.kind === "error" && (
+        <SurfaceState
+          variant={queue.status === 403 ? "forbidden" : "error"}
+          title={
+            queue.status === 403 ? "Bạn không có quyền xem hàng chờ này" : "Không tải được hàng chờ"
+          }
+          description={queue.message}
+          action={
+            queue.status === 403
+              ? undefined
+              : { label: "Thử lại", onClick: () => void reload(statusFilter) }
+          }
+        />
+      )}
+
+      {queue.kind === "ready" && items.length === 0 && (
         <SurfaceState variant="empty" title="Không có yêu cầu nào phù hợp bộ lọc" />
-      ) : (
+      )}
+
+      {queue.kind === "ready" && items.length > 0 && (
         <div className="grid gap-3">
-          {list.map((request) => (
+          {items.map((request) => (
             <button
               key={request.id}
               className="flex items-start justify-between gap-5 border border-border bg-surface p-5 text-left transition-colors hover:border-brand max-[760px]:flex-col"
               onClick={() => openDetails(request)}
             >
               <div>
-                <div className="flex items-center gap-2.5">
-                  <p className="m-0 text-[15px] font-bold text-ink">{request.customerName}</p>
-                  {!request.hasAccount && (
-                    <span className="rounded-full bg-warning/14 px-2 py-0.5 text-[10px] font-bold text-warning">
-                      Chưa có tài khoản
-                    </span>
-                  )}
-                </div>
+                <p className="m-0 text-[15px] font-bold text-ink">{request.customerName}</p>
                 <p className="mb-0 mt-1.5 text-[13px] text-muted">
-                  {unitTypeName(request.unitTypeId)} · {request.desiredSize}
+                  {unitTypeLabel(request.unitTypeId)} · từ {formatDate(request.startDate)} ·{" "}
+                  {request.period} tháng
                 </p>
                 <p className="mb-0 mt-1 font-mono text-[10px] uppercase tracking-[0.06em] text-muted">
-                  Gửi lúc {request.createdAt}
+                  Gửi lúc {formatDateTime(request.createdAt)}
                 </p>
               </div>
               <span
@@ -170,13 +329,21 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
               </span>
             </button>
           ))}
+          {items.length < queue.total && (
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <Button variant="secondary" pending={isLoadingMore} onClick={() => void loadMore()}>
+                Tải thêm ({items.length}/{queue.total})
+              </Button>
+              {loadMoreError && <p className="m-0 text-[12px] text-danger">{loadMoreError}</p>}
+            </div>
+          )}
         </div>
       )}
 
       {openRequest && (
         <DetailPanel
           title={openRequest.customerName}
-          eyebrow={`Yêu cầu · ${unitTypeName(openRequest.unitTypeId)}`}
+          eyebrow={`Yêu cầu · ${unitTypeLabel(openRequest.unitTypeId)}`}
           onClose={() => setOpenId(null)}
         >
           <div className="grid gap-2.5 text-[13px] text-muted">
@@ -186,19 +353,15 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             <span className="flex items-center gap-2">
               <Mail size={14} /> {openRequest.customerEmail}
             </span>
-            {!openRequest.hasAccount && (
-              <span className="w-fit rounded-full bg-warning/14 px-2 py-0.5 text-[10px] font-bold text-warning">
-                Chưa có tài khoản — khách sẽ nhận email mời đăng ký
-              </span>
-            )}
           </div>
-          <p className="mb-0 mt-4 text-[13px] leading-[1.6] text-ink">{openRequest.note}</p>
+          <p className="mb-0 mt-4 text-[13px] leading-[1.6] text-ink">
+            Bắt đầu thuê {formatDate(openRequest.startDate)} · {openRequest.period} tháng
+            {openRequest.expiresAt && <> · Hạn xử lý {formatDateTime(openRequest.expiresAt)}</>}
+          </p>
 
-          {conflictId === openRequest.id && (
+          {actionError && (
             <div className="mt-5">
-              <DemoNotice tone="error">
-                Khoang đã không còn khả dụng, vui lòng chọn khoang khác.
-              </DemoNotice>
+              <DemoNotice tone="error">{actionError}</DemoNotice>
             </div>
           )}
 
@@ -212,14 +375,14 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
                   onChange={(event) => setSelectedUnitId(event.target.value)}
                 >
                   <option value="">— Chọn khoang —</option>
-                  {availableUnitsForRequest(openRequest).map((unit) => (
+                  {availableUnits.map((unit) => (
                     <option key={unit.id} value={unit.id}>
-                      {unit.code} · {unit.size}
+                      {unit.code}
                     </option>
                   ))}
                 </select>
               </label>
-              {availableUnitsForRequest(openRequest).length === 0 && (
+              {availableUnits.length === 0 && (
                 <p className="mb-0 mt-2 text-[12px] text-danger">
                   Hiện không còn khoang trống đúng loại yêu cầu.
                 </p>
@@ -228,7 +391,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
                 <Button
                   pending={busyId === openRequest.id}
                   disabled={!selectedUnitId}
-                  onClick={() => approve(openRequest)}
+                  onClick={() => void approve(openRequest)}
                 >
                   {busyId !== openRequest.id && <Check size={16} />}
                   Duyệt &amp; gán khoang
@@ -244,16 +407,35 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             <div className="mt-6 border border-border bg-surface-subtle p-4">
               <label className="grid gap-1.5 text-[12px] font-bold text-ink">
                 Lý do từ chối
+                <select
+                  className="rounded-sm border border-border bg-surface px-3 py-2.5 text-[13px] font-normal text-ink"
+                  value={rejectReason}
+                  onChange={(event) => setRejectReason(event.target.value as RejectReason | "")}
+                >
+                  <option value="">— Chọn lý do —</option>
+                  {(Object.keys(REJECT_REASON_LABEL) as RejectReason[]).map((reason) => (
+                    <option key={reason} value={reason}>
+                      {REJECT_REASON_LABEL[reason]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="mt-3 grid gap-1.5 text-[12px] font-bold text-ink">
+                {rejectReason === "OTHER" ? "Ghi chú (bắt buộc)" : "Ghi chú (không bắt buộc)"}
                 <textarea
                   className="min-h-[80px] rounded-sm border border-border bg-surface p-2.5 text-[13px] font-normal text-ink"
-                  value={rejectReason}
-                  onChange={(event) => setRejectReason(event.target.value)}
+                  value={rejectNote}
+                  onChange={(event) => setRejectNote(event.target.value)}
                   placeholder="Cho khách biết vì sao yêu cầu chưa phù hợp…"
                 />
               </label>
               <div className="mt-3 flex items-center gap-2.5">
-                <Button disabled={!rejectReason.trim()} onClick={() => reject(openRequest)}>
-                  <AlertTriangle size={16} /> Xác nhận từ chối
+                <Button
+                  pending={busyId === openRequest.id}
+                  disabled={!canConfirmReject}
+                  onClick={() => void reject(openRequest)}
+                >
+                  {busyId !== openRequest.id && <AlertTriangle size={16} />} Xác nhận từ chối
                 </Button>
                 <button
                   className="border-0 bg-transparent px-3 py-2 text-[12px] text-muted hover:text-brand"
@@ -268,13 +450,17 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
           {openRequest.status === "Approved" && (
             <div className="mt-6">
               <DemoNotice tone="success">
-                Đã gán khoang {openRequest.approvedUnitCode} cho yêu cầu này.
+                {openResult?.kind === "approved"
+                  ? `Đã gán khoang ${openResult.unitCode} cho yêu cầu này.`
+                  : "Yêu cầu này đã được duyệt."}
               </DemoNotice>
             </div>
           )}
           {openRequest.status === "Rejected" && (
             <div className="mt-6">
-              <DemoNotice tone="error">{openRequest.rejectReason}</DemoNotice>
+              <DemoNotice tone="error">
+                {openResult?.kind === "rejected" ? openResult.reason : "Yêu cầu này đã bị từ chối."}
+              </DemoNotice>
             </div>
           )}
         </DetailPanel>
