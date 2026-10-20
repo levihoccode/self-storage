@@ -8,7 +8,9 @@
 
 ## Đã đổi gì
 
-<!-- Gạch đầu dòng, theo file hoặc theo khu vực. Không liệt kê file không liên quan. -->
+<!-- Chia mục con theo khu vực thay đổi (bỏ mục không áp dụng): Trigger events · API · Logic ·
+     Concurrency / chống trùng · Dữ liệu & module · Audit · Tests · Docs & hạ tầng.
+     Mỗi mục nêu việc đã làm; không liệt kê file không liên quan. -->
 
 ## Đã chạy gì — kèm kết quả
 
