@@ -76,9 +76,10 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
     (`pg_locks`), không dựa vào sleep; bỏ khoá hoặc khoá sau khi tra account thì test fail.
 - Thứ tự khoá ở cả hai trigger: **email trước, row request sau** — trigger duyệt khoá email trước
   pre-check và update row; claim khoá email trước select.
-- Request trùng giữ nguyên `Approved`, không auto-reject. Khi quá hạn, request được chuyển
-  `Expired` bởi cron Flow 1 — không thuộc luồng convert. Claim luôn bỏ qua request đã quá
-  `expires_at`, kể cả khi cron chưa chạy.
+- Request trùng giữ nguyên `Approved`, không auto-reject. **Hiện chưa có cron** chuyển request quá
+  hạn sang `Expired`: request trùng hoặc claim lỗi vẫn ở `Approved` kể cả sau `expires_at`. Request
+  quá hạn vẫn không bị convert — select claim và `convertIfApproved` đều yêu cầu `expires_at > now`
+  (cron Flow 1 là việc riêng, chưa triển khai).
 
 ## Code map
 
@@ -96,4 +97,5 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 
 - Nội dung email/notification chưa có loại + kích thước khoang (mới có mã khoang + link).
 - Audit cho trigger duyệt / tạo đơn / proposal chưa được ghi.
+- Claim lỗi sau xác minh chưa có cơ chế thử lại (request giữ `Approved`, không job nào claim lại).
 - Cron `RentalRequest` → `Expired` chưa có (thuộc cron Flow 1).
