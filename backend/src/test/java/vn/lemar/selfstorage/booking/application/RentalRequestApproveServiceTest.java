@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -35,6 +37,7 @@ import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundExc
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
+import vn.lemar.selfstorage.booking.repository.ConversionGuardRepository;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
@@ -96,8 +99,19 @@ class RentalRequestApproveServiceTest {
     @Mock
     private RentalRequestConversionService conversionService;
 
+    @Mock
+    private ConversionGuardRepository conversionGuard;
+
     @InjectMocks
     private RentalRequestService service;
+
+    @BeforeEach
+    void defaultConversionResult() {
+        // Mặc định convert thành công; test cần outcome khác thì stub lại. lenient vì nhiều test
+        // fail trước khi tới bước convert.
+        lenient().when(conversionService.convertOnApproval(anyLong()))
+                .thenReturn(new ConversionResult(1L, ConversionResult.Outcome.CONVERTED, 1L, 1L));
+    }
 
     @Test
     void approveConvertsRightAfterApprovalAndNeverOnFailedApproval() {
@@ -242,6 +256,26 @@ class RentalRequestApproveServiceTest {
                 .isInstanceOf(RentalRequestDuplicateUnitException.class)
                 .hasMessageContaining("đã được gán cho yêu cầu khác của cùng khách hàng");
         assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Pending);
+    }
+
+    @Test
+    void approveThrows409WhenConversionDetectsDuplicate() {
+        RentalRequest request = pendingRequest();
+        when(repository.findById(1L)).thenReturn(Optional.of(request));
+        doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
+        when(storageUnitQueryService.findUnitInfo(10L))
+                .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
+        when(policyQueryService.valueOf("account.claim_ttl_days")).thenReturn(Optional.of("7"));
+        when(repository.approveIfPending(eq(1L), eq(10L), any(), any(),
+                eq(RentalRequestStatus.Pending), eq(RentalRequestStatus.Approved))).thenReturn(1);
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
+        when(conversionService.convertOnApproval(1L))
+                .thenReturn(new ConversionResult(1L, ConversionResult.Outcome.DUPLICATE_UNIT, null, null));
+
+        assertThatThrownBy(() -> service.approve(1L, 10L))
+                .isInstanceOf(RentalRequestDuplicateUnitException.class)
+                .hasMessageContaining("đã được gán cho yêu cầu khác của cùng khách hàng");
+        verify(conversionGuard).lockCustomerEmail("khach@example.com");
     }
 
     @Test

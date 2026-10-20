@@ -27,7 +27,8 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
    (khoang ngoài cơ sở trả cùng lỗi để không lộ tài nguyên ngoài phạm vi FM).
 6. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
    request giữ `Pending`.
-7. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` →
+7. Trước bước kiểm trùng, service khoá advisory theo email khách (giữ tới commit) để hai FM duyệt
+   cùng khách chạy tuần tự. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` →
    409 "Khoang đã được gán cho yêu cầu khác của cùng khách hàng...", request giữ `Pending`,
    không noti. Khác email + cùng khoang vẫn cho (cọc trước giữ trước).
 8. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
@@ -35,7 +36,9 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
    `responded_at=now` + `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).
 9. Cùng transaction: gọi `RentalRequestConversionService.convertOnApproval` — email đã thuộc
    account **đã xác minh** thì tạo `RentalOrder(Pending)` + `ProposalFeedback(Pending)`, request →
-   `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback
+   `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback.
+   Nếu convert phát hiện trùng khoang (race hiếm — request khác vừa convert) → **409**
+   `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt, request giữ `Pending`
    ([booking-conversion.md](../../booking-conversion.md)).
 10. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
    với verify-first, email đang pending registration chưa có account nên vẫn nhận mail này;

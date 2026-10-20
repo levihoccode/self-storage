@@ -14,11 +14,15 @@ Luồng convert **không có endpoint HTTP riêng**. Chạy bên trong hai endpo
 
 | Trigger | Điểm nối | Hàm | Transaction |
 |---|---|---|---|
-| FM duyệt request, email đã thuộc account **đã xác minh** | `RentalRequestService.approve`, ngay sau conditional update `Approved` + audit | `RentalRequestConversionService.convertOnApproval(requestId)` | Join transaction duyệt — convert lỗi thì duyệt rollback theo |
+| FM duyệt request, email đã thuộc account **đã xác minh** | `RentalRequestService.approve` — khoá email trước pre-check trùng, rồi conditional update `Approved` + audit | `RentalRequestConversionService.convertOnApproval(requestId)` | Join transaction duyệt — convert lỗi thì duyệt rollback theo |
 | Customer vừa xác minh email | `RegistrationService.verifyEmail` phát `EmailVerified(accountId)` → `booking/application/EmailVerifiedClaimListener` (`@TransactionalEventListener(AFTER_COMMIT)`) | `RentalRequestConversionService.claimForVerifiedAccount(accountId)` | Transaction **riêng** (`REQUIRES_NEW`) sau khi xác minh đã commit — claim lỗi chỉ log, xác minh vẫn thành công |
 
 Identity không gọi sang booking (identity là module nền) — nên trigger 2 đi qua event.
 Claim lỗi ở trigger 2 (ví dụ thiếu policy `order.expiry_days`) không tự thử lại; request vẫn `Approved`.
+
+Trigger 1 khoá advisory theo email **trước pre-check trùng** và giữ tới commit; nếu `convertOnApproval`
+vẫn phát hiện trùng (request khác vừa convert), B1 trả **409** `RentalRequestDuplicateUnitException`
+và rollback cả transaction duyệt — request giữ `Pending`, không có ca "duyệt xong nhưng không có đơn".
 
 `convertOnApproval` trả `ConversionResult`:
 
@@ -70,8 +74,8 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
     Test `approvalBeforeVerificationCommitIsStillClaimed`.
   - Hai test trên chỉ commit transaction duyệt khi thấy claim thật sự bị chặn trên advisory lock
     (`pg_locks`), không dựa vào sleep; bỏ khoá hoặc khoá sau khi tra account thì test fail.
-- Thứ tự khoá: email trước, row request sau (trigger duyệt: row request đã bị luồng duyệt khoá trước, không
-  deadlock vì claim chỉ khoá request `Approved` đã commit).
+- Thứ tự khoá ở cả hai trigger: **email trước, row request sau** — trigger duyệt khoá email trước
+  pre-check và update row; claim khoá email trước select.
 - Request trùng giữ nguyên `Approved`, không auto-reject. Khi quá hạn, request được chuyển
   `Expired` bởi cron Flow 1 — không thuộc luồng convert. Claim luôn bỏ qua request đã quá
   `expires_at`, kể cả khi cron chưa chạy.

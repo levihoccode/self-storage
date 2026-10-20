@@ -33,6 +33,7 @@ import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailable
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
 import vn.lemar.selfstorage.booking.domain.RentalRequestRejectReason;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
+import vn.lemar.selfstorage.booking.repository.ConversionGuardRepository;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
@@ -80,6 +81,7 @@ public class RentalRequestService {
     private final AuditRecorder auditRecorder;
     private final CurrentAccountProvider currentAccountProvider;
     private final RentalRequestConversionService conversionService;
+    private final ConversionGuardRepository conversionGuard;
 
     public RentalRequestService(RentalRequestRepository repository, FacilityAccess facilityAccess,
                                 StorageUnitQueryService storageUnitQueryService, Access access,
@@ -89,7 +91,8 @@ public class RentalRequestService {
                                 UnitTypeQueryService unitTypeQueryService,
                                 PolicyQueryService policyQueryService, AuditRecorder auditRecorder,
                                 CurrentAccountProvider currentAccountProvider,
-                                RentalRequestConversionService conversionService) {
+                                RentalRequestConversionService conversionService,
+                                ConversionGuardRepository conversionGuard) {
         this.repository = repository;
         this.facilityAccess = facilityAccess;
         this.storageUnitQueryService = storageUnitQueryService;
@@ -103,6 +106,7 @@ public class RentalRequestService {
         this.auditRecorder = auditRecorder;
         this.currentAccountProvider = currentAccountProvider;
         this.conversionService = conversionService;
+        this.conversionGuard = conversionGuard;
     }
 
     @Transactional
@@ -185,6 +189,11 @@ public class RentalRequestService {
         if (!unit.available()) {
             throw new StorageUnitUnavailableException();
         }
+        // Khoá advisory theo email khách trước pre-check trùng, giữ tới commit: hai FM duyệt cùng
+        // một khách phải tuần tự, để pre-check thấy request vừa `Converted` của lần duyệt trước —
+        // tránh ca race duyệt trùng khoang (review #149: ưu tiên lỗi tường minh 409, không để
+        // request nằm `Approved` mà không có đơn).
+        conversionGuard.lockCustomerEmail(request.getNormalizedCustomerEmail());
         if (repository.existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(
                 request.getNormalizedCustomerEmail(), unitId,
                 List.of(RentalRequestStatus.Approved, RentalRequestStatus.Converted))) {
@@ -202,9 +211,15 @@ public class RentalRequestService {
                 Map.of("status", RentalRequestStatus.Pending.name()),
                 Map.of("status", RentalRequestStatus.Approved.name(), "unitId", unitId),
                 null, currentAccountProvider.getCurrentAccountId()));
-        // B2: email đã thuộc account xác minh → tạo đơn + proposal ngay trong transaction duyệt
-        // (chốt #129). Convert lỗi thì duyệt rollback theo.
-        conversionService.convertOnApproval(requestId);
+        // B2: email đã thuộc account xác minh → tạo đơn + proposal ngay trong transaction duyệt.
+        // Convert lỗi thì duyệt rollback theo.
+        ConversionResult conversion = conversionService.convertOnApproval(requestId);
+        if (conversion.outcome() == ConversionResult.Outcome.DUPLICATE_UNIT) {
+            // Race hiếm: request khác của cùng khách vừa được convert cho khoang này (pre-check
+            // chạy trước khi request kia commit). Trả 409 như pre-check và rollback cả transaction
+            // duyệt — request giữ `Pending`, không có ca "duyệt xong nhưng không có đơn".
+            throw new RentalRequestDuplicateUnitException();
+        }
         sendApprovalEmail(request, expiresAt);
         return new ApproveRentalRequestResponse(request.getId(), RentalRequestStatus.Approved.name(),
                 unitId, respondedAt, expiresAt);

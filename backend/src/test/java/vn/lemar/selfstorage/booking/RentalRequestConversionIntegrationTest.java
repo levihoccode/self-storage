@@ -43,6 +43,7 @@ import vn.lemar.selfstorage.booking.application.ConversionResult;
 import vn.lemar.selfstorage.booking.application.ConversionResult.Outcome;
 import vn.lemar.selfstorage.booking.application.RentalRequestConversionService;
 import vn.lemar.selfstorage.booking.application.RentalRequestService;
+import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.identity.application.EmailVerified;
@@ -418,6 +419,29 @@ class RentalRequestConversionIntegrationTest {
 
         assertThat(requestStatus(requestId)).isEqualTo("Approved");
         assertNothingCreated();
+    }
+
+    @Test
+    void concurrentApprovalsForSameCustomerSameUnitOneWinsAndLoserGets409() throws Exception {
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        long first = request(VERIFIED, "A-01", "Pending", 7);
+        long second = request(VERIFIED, "A-01", "Pending", 7);
+
+        List<Callable<Object>> tasks = List.of(
+                () -> rentalRequestService.approve(first, unitId("A-01")),
+                () -> rentalRequestService.approve(second, unitId("A-01")));
+        List<Object> results = runConcurrently(tasks);
+
+        assertThat(results).filteredOn(r -> r instanceof RentalRequestDuplicateUnitException).hasSize(1);
+        assertThat(results).filteredOn(r -> !(r instanceof Throwable)).hasSize(1);
+        assertThat(count("rental_orders")).isEqualTo(1);
+        assertThat(count("proposal_feedbacks")).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from rental_requests where status = 'Pending'", Long.class)).isEqualTo(1);
+        // Chỉ transaction thắng ghi audit; transaction thua rollback toàn bộ.
+        assertThat(jdbc.queryForObject(
+                "select count(*) from audit_logs where action = 'RENTAL_REQUEST_APPROVED'", Long.class))
+                .isEqualTo(1);
     }
 
     @Test
