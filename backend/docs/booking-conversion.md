@@ -21,7 +21,7 @@ Identity không gọi sang booking (identity là module nền) — nên trigger 
 Claim lỗi ở trigger 2 (ví dụ thiếu policy `order.expiry_days`) không tự thử lại; request vẫn `Approved`.
 
 Trigger 1 khoá advisory theo email **trước pre-check trùng** và giữ tới commit; nếu `convertOnApproval`
-vẫn phát hiện trùng (request khác vừa convert), B1 trả **409** `RentalRequestDuplicateUnitException`
+vẫn phát hiện trùng (request khác vừa convert), luồng duyệt trả **409** `RentalRequestDuplicateUnitException`
 và rollback cả transaction duyệt — request giữ `Pending`, không có ca "duyệt xong nhưng không có đơn".
 
 `convertOnApproval` trả `ConversionResult`:
@@ -31,7 +31,7 @@ và rollback cả transaction duyệt — request giữ `Pending`, không có ca
 | `CONVERTED` | Đã tạo đơn + proposal, request → `Converted`, đã gửi notification + email | — |
 | `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả pending registration), account chưa xác minh, hoặc account đã bị chặn (`BANNED`). Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" khi email **chưa có account**; chưa xác minh/bị chặn → không gửi; khách xác minh xong → claim (bị chặn thì chờ unban) |
 | `NOT_CONVERTIBLE` | Request không ở `Approved` hoặc đã quá `expires_at` | — |
-| `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này. Request giữ `Approved` | — (luồng duyệt đã chặn gán trùng; đây là guard cho race hiếm) |
+| `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này | Luồng duyệt: trả **409** `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt — request giữ `Pending`. Claim sau xác minh: request giữ `Approved` |
 
 `claimForVerifiedAccount` trả danh sách `ConversionResult` cho từng request `Approved` còn hạn khớp
 email (rỗng = Case B, hoặc email chưa có account — pending/không tồn tại).
@@ -92,10 +92,3 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 | Đọc policy | `pricing/application/PolicyQueryService.java` |
 | Account đã xác minh | `identity/application/AccountQueryService.java` (`findVerifiedByEmail`, `findVerifiedById`) |
 | Test | `src/test/.../booking/RentalRequestConversionIntegrationTest.java` (Testcontainers) |
-
-## Việc còn mở
-
-- Nội dung email/notification chưa có loại + kích thước khoang (mới có mã khoang + link).
-- Audit cho trigger duyệt / tạo đơn / proposal chưa được ghi.
-- Claim lỗi sau xác minh chưa có cơ chế thử lại (request giữ `Approved`, không job nào claim lại).
-- Cron `RentalRequest` → `Expired` chưa có (thuộc cron Flow 1).
