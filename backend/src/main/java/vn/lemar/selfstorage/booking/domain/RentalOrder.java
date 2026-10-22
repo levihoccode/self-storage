@@ -56,6 +56,19 @@ public class RentalOrder {
     private boolean needsReproposal;
 
     /**
+     * Spec 1.1/1.2: đơn convert từ request — {@code Pending}, chưa gán {@code unit_id} cho tới khi
+     * proposal {@code Agreed}; {@code expires_at} set một lần lúc tạo.
+     */
+    public static RentalOrder open(Long requestId, Long customerId, Instant expiresAt) {
+        RentalOrder order = new RentalOrder();
+        order.requestId = requestId;
+        order.customerId = customerId;
+        order.status = RentalOrderStatus.PENDING;
+        order.expiresAt = expiresAt;
+        return order;
+    }
+
+    /**
      * Chốt PR #136: FM được đề xuất lại khi đơn chưa đóng và đang {@code Pending} hoặc được đánh dấu
      * {@code needs_reproposal}. Điều kiện "không có proposal Pending" do service kiểm (cần truy vấn proposal).
      */

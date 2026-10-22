@@ -57,7 +57,10 @@ class BookingDomainTest {
 
     @Test
     void unknownDbValuesAreRejected() {
+        assertThatThrownBy(() -> ProposalStatus.fromDbValue("PENDING")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> ProposalStatus.fromDbValue("Expired")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> RentalOrderStatus.fromDbValue("pending"))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> RentalOrderStatus.fromDbValue("Expired"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> InvoiceStatus.fromDbValue("UNPAID")).isInstanceOf(IllegalArgumentException.class);
@@ -71,7 +74,7 @@ class BookingDomainTest {
     }
 
     @Test
-    void handledProposalCannotBeAnsweredAgain() {
+    void handledProposalCannotChangeStateAgain() {
         ProposalFeedback proposal = ProposalFeedback.propose(new RentalOrder(), 7L);
         proposal.agree();
 

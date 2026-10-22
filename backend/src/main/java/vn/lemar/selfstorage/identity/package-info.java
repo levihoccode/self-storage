@@ -4,5 +4,5 @@
  * <p>Module ná»n, khÃ´ng phá»¥ thuá»™c ngÆ°á»£c láº¡i module nghiá»‡p vá»¥ nÃ o (issue #15 má»¥c 1).
  */
 @org.springframework.modulith.ApplicationModule(
-        displayName = "Identity", allowedDependencies = {"facility::application"})
+        displayName = "Identity", allowedDependencies = {"facility::application", "audit::application"})
 package vn.lemar.selfstorage.identity;

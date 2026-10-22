@@ -7,7 +7,8 @@ Bản đọc được của SQL — **mirror byte-identical** với Flyway migra
 | `schema.sql` | `src/main/resources/db/migration/V1__baseline_schema.sql` |
 | `seed.sql` | `src/main/resources/db/migration/V2__baseline_seed.sql` |
 
-**Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Nguồn sự thật của thiết kế vẫn là `specs/db-table-draft.md`.
+**Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Thiết kế as-built nằm ở `backend/docs/`;
+`specs/` chỉ còn là tham chiếu flow, không sửa.
 
 ## Vòng đời baseline (V1)
 
@@ -37,4 +38,4 @@ psql "$DB_URL" -f sql/seed.sql
 
 ## Seed (V2) — mật khẩu dev
 
-Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin`(ADMIN) · `bom1`(BOM) · `fm1`(FM, gán Q7) · `fm2`(FM, gán TD) · `fs1`(FS, gán Q7) · `customer1`(CUSTOMER) · `unverified` · `banned`.
+Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin`(ADMIN) · `bom1`(BOM) · `fm1`(FM, gán Q7) · `fm2`(FM, gán TD) · `fs1`(FS, gán Q7) · `customer1`(CUSTOMER) · `unverified`(CUSTOMER, chưa xác minh — login 403) · `banned`(CUSTOMER, BANNED — 403).
