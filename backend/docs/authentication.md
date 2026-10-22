@@ -105,8 +105,9 @@ return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
   ghi pending registration (email + hash mật khẩu BCrypt) trong Redis cùng TTL với mã rồi gửi email
   mã xác minh. Đăng ký lại khi đang chờ dùng chung cooldown 60 giây (429).
 - `POST /api/auth/verify-email`: mã đúng → **tạo `Account` role `CUSTOMER` với `email_verified_at`
-  set ngay** + ghi audit `ACCOUNT_REGISTERED` (actor = chính account vừa tạo); account legacy chưa
-  xác minh chỉ được mark verified. Account đã xác minh trước đó → 200 với message
+  set ngay** + ghi audit `ACCOUNT_REGISTERED` (actor = chính account vừa tạo); mã chỉ bị xoá sau khi
+  transaction commit (save lỗi thì mã còn để nhập lại/resend); account legacy chưa xác minh chỉ được
+  mark verified. Account đã xác minh trước đó → 200 với message
   `Email đã được xác minh trước đó` (no-op, không kiểm mã). Việc xác minh tự nó **không** ghi
   `AuditLog` riêng (bản ghi vòng đời là `Account.email_verified_at`).
 - Mã: 6 số, TTL 10 phút, tối đa 5 lần nhập sai (429), gửi lại tối đa mỗi 60 giây; lưu Redis dạng

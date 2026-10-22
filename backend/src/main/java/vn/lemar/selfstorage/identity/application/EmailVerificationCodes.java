@@ -115,7 +115,8 @@ public class EmailVerificationCodes {
 
     /**
      * Kiểm mã: sai thì tăng bộ đếm; đủ {@code max-attempts} thì khoá (429) tới khi resend hoặc
-     * mã hết hạn. Mã đúng bị xoá ngay (dùng một lần).
+     * mã hết hạn. Mã đúng **không** bị xoá ở đây — caller gọi {@link #consume(String)} sau khi
+     * transaction DB commit, để save account lỗi thì mã còn cho lần thử lại/resend.
      *
      * @return pending registration (email + hash mật khẩu) nếu mã gắn với yêu cầu đăng ký chưa
      *         tạo account; rỗng nếu mã thuộc account đã tồn tại (legacy)
@@ -138,10 +139,14 @@ public class EmailVerificationCodes {
             throw new InvalidVerificationCodeException();
         }
         Object passwordHash = state.get(FIELD_PASSWORD_HASH);
-        redis.delete(key);
         return passwordHash == null
                 ? Optional.empty()
                 : Optional.of(new PendingRegistration(normalizedEmail, passwordHash.toString()));
+    }
+
+    /** Tiêu thụ mã sau khi transaction xác minh đã commit (dùng một lần). */
+    public void consume(String normalizedEmail) {
+        redis.delete(CODE_KEY_PREFIX + normalizedEmail);
     }
 
     private static int parseAttempts(Object raw) {

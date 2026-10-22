@@ -125,7 +125,7 @@ class EmailVerificationCodesTest {
     }
 
     @Test
-    void verifyReturnsPendingRegistrationAndConsumesCode() {
+    void verifyReturnsPendingRegistrationWithoutConsumingCode() {
         when(redis.opsForHash()).thenReturn(hashOps);
         when(hashOps.entries(CODE_KEY)).thenReturn(
                 Map.of("hash", "hashed", "attempts", "0", "passwordHash", "password-hash"));
@@ -134,7 +134,7 @@ class EmailVerificationCodesTest {
         Optional<PendingRegistration> pending = codes.verify(EMAIL, "123456");
 
         assertThat(pending).contains(new PendingRegistration(EMAIL, "password-hash"));
-        verify(redis).delete(CODE_KEY);
+        verify(redis, never()).delete(CODE_KEY);
     }
 
     @Test
@@ -144,6 +144,13 @@ class EmailVerificationCodesTest {
         when(passwordEncoder.matches("123456", "hashed")).thenReturn(true);
 
         assertThat(codes.verify(EMAIL, "123456")).isEmpty();
+        verify(redis, never()).delete(CODE_KEY);
+    }
+
+    @Test
+    void consumeDeletesCode() {
+        codes.consume(EMAIL);
+
         verify(redis).delete(CODE_KEY);
     }
 
