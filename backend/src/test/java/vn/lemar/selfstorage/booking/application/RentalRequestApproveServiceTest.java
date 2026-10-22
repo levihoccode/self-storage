@@ -48,8 +48,10 @@ import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 import vn.lemar.selfstorage.notification.EmailSender;
+import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationTemplateCatalog;
+import vn.lemar.selfstorage.notification.application.NotificationType;
 import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
 import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 
@@ -269,6 +271,10 @@ class RentalRequestApproveServiceTest {
                 eq("Tài khoản khách đã bị chặn"), any(), eq(RentalRequestStatus.Pending),
                 eq(RentalRequestStatus.Rejected))).thenReturn(1);
         when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
+        when(templateCatalog.resolve(NotificationType.RENTAL_REQUEST_REJECTED_BANNED,
+                NotificationRecipient.CUSTOMER)).thenReturn(new NotificationTemplateCatalog.Template(
+                        "Yêu cầu thuê kho bị từ chối",
+                        "Tài khoản của bạn hiện đang bị chặn, nên yêu cầu đặt kho của bạn đã bị từ chối."));
 
         ApproveRentalRequestResponse response = service.approve(1L, 10L);
 

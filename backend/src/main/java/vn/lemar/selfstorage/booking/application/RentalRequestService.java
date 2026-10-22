@@ -247,11 +247,11 @@ public class RentalRequestService {
                 Map.of("status", RentalRequestStatus.Pending.name()), newValue, null,
                 currentAccountProvider.getCurrentAccountId()));
 
-        String title = "Yêu cầu thuê kho bị từ chối";
-        String body = "Tài khoản của bạn hiện đang bị chặn, nên yêu cầu đặt kho của bạn đã bị từ chối. "
-                + "Vui lòng liên hệ CSKH nếu có sai sót.";
+        NotificationTemplateCatalog.Template template = templateCatalog.resolve(
+                NotificationType.RENTAL_REQUEST_REJECTED_BANNED, NotificationRecipient.CUSTOMER);
+        String title = template.renderTitle(Map.of());
         emailSender.sendHtml(request.getNormalizedCustomerEmail(), title,
-                NotificationEmailLayout.wrap(title, body));
+                NotificationEmailLayout.wrap(title, template.renderBody(Map.of())));
 
         return new ApproveRentalRequestResponse(requestId, RentalRequestStatus.Rejected.name(),
                 null, respondedAt, null);
