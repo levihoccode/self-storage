@@ -14,7 +14,7 @@ Luồng convert **không có endpoint HTTP riêng**. Chạy bên trong hai endpo
 
 | Trigger | Điểm nối | Hàm | Transaction |
 |---|---|---|---|
-| FM duyệt request, email đã thuộc account **đã xác minh** | `RentalRequestService.approve` — khoá email trước pre-check trùng, rồi conditional update `Approved` + audit | `RentalRequestConversionService.convertOnApproval(requestId)` | Join transaction duyệt — convert lỗi thì duyệt rollback theo |
+| FM duyệt request, email đã thuộc account **đã xác minh, không bị chặn** | `RentalRequestService.approve` — khoá email trước pre-check trùng, rồi conditional update `Approved` + audit | `RentalRequestConversionService.convertOnApproval(requestId)` | Join transaction duyệt — convert lỗi thì duyệt rollback theo |
 | Customer vừa xác minh email | `RegistrationService.verifyEmail` phát `EmailVerified(accountId)` → `booking/application/EmailVerifiedClaimListener` (`@TransactionalEventListener(AFTER_COMMIT)`) | `RentalRequestConversionService.claimForVerifiedAccount(accountId)` | Transaction **riêng** (`REQUIRES_NEW`) sau khi xác minh đã commit — claim lỗi chỉ log, xác minh vẫn thành công |
 
 Identity không gọi sang booking (identity là module nền) — nên trigger 2 đi qua event.
@@ -45,7 +45,8 @@ Trong một transaction:
    Không có auto-matching hay đề xuất nhiều khoang.
 3. `RentalRequest.status = Converted` — conditional update `WHERE status = 'Approved' AND expires_at > now`
    (`RentalRequestRepository.convertIfApproved`, cùng kiểu `approveIfPending` của luồng duyệt); 0 row → `NOT_CONVERTIBLE`,
-   không tạo gì. Kiểm trùng chạy trước bước này để request trùng giữ nguyên `Approved`.
+   không tạo gì. Kiểm trùng chạy trước bước này: trùng ở trigger duyệt thì caller trả **409** và
+   rollback cả transaction duyệt (request giữ `Pending`); trùng ở claim thì request giữ `Approved`.
 4. Notification `RENTAL_REQUEST_APPROVED` cho customer, gắn `OrderNotification(order_id)`; email
    cùng nội dung gửi **sau commit**. Lỗi SMTP chỉ log, không rollback (xem
    [index.md › Gửi email](index.md#gửi-email-module-notification)). Link trong body:
@@ -76,7 +77,8 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
     (`pg_locks`), không dựa vào sleep; bỏ khoá hoặc khoá sau khi tra account thì test fail.
 - Thứ tự khoá ở cả hai trigger: **email trước, row request sau** — trigger duyệt khoá email trước
   pre-check và update row; claim khoá email trước select.
-- Request trùng giữ nguyên `Approved`, không auto-reject. **Hiện chưa có cron** chuyển request quá
+- Request trùng ở claim giữ nguyên `Approved`, không auto-reject; trùng ở luồng duyệt bị chặn **409**
+  và giữ `Pending`. **Hiện chưa có cron** chuyển request quá
   hạn sang `Expired`: request trùng hoặc claim lỗi vẫn ở `Approved` kể cả sau `expires_at`. Request
   quá hạn vẫn không bị convert — select claim và `convertIfApproved` đều yêu cầu `expires_at > now`
   (cron Flow 1 là việc riêng, chưa triển khai).
@@ -90,5 +92,5 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 | Khoá + kiểm trùng | `booking/repository/ConversionGuardRepository.java` |
 | Request | `booking/domain/RentalRequest.java`, `booking/repository/RentalRequestRepository.java` (`convertIfApproved`, `findClaimableForUpdate`) |
 | Đọc policy | `pricing/application/PolicyQueryService.java` |
-| Account đã xác minh | `identity/application/AccountQueryService.java` (`findVerifiedByEmail`, `findVerifiedById`) |
+| Account đã xác minh, không bị chặn | `identity/application/AccountQueryService.java` (`findVerifiedByEmail`, `findVerifiedById` — lọc `isLoginAllowed`) |
 | Test | `src/test/.../booking/RentalRequestConversionIntegrationTest.java` (Testcontainers) |
