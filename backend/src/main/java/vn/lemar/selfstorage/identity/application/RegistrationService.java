@@ -8,6 +8,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
@@ -90,6 +92,7 @@ public class RegistrationService {
             }
             verificationCodes.verify(email, request.code());
             account.markEmailVerified();
+            consumeCodeAfterCommit(email);
             events.publishEvent(new EmailVerified(account.getId()));
             return EmailVerificationResult.VERIFIED;
         }
@@ -108,8 +111,26 @@ public class RegistrationService {
         }
         auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
                 String.valueOf(account.getId()), null, null, null, account.getId()));
+        consumeCodeAfterCommit(email);
         events.publishEvent(new EmailVerified(account.getId()));
         return EmailVerificationResult.VERIFIED;
+    }
+
+    /**
+     * Chỉ xoá mã xác minh sau khi transaction tạo/mark account commit — Redis không rollback theo
+     * DB, xoá sớm thì save lỗi làm pending mất và khách phải đăng ký lại.
+     */
+    private void consumeCodeAfterCommit(String email) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    verificationCodes.consume(email);
+                }
+            });
+            return;
+        }
+        verificationCodes.consume(email);
     }
 
     /** Gửi lại mã: pending registration chưa hoàn tất, hoặc account legacy chưa xác minh. */

@@ -19,8 +19,9 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
 2. Chưa có account → đối chiếu mã trong Redis (`auth:verify-code:<email>` — so với BCRYPT hash):
    - mã sai → tăng `attempts`, trả **400**; đủ 5 lần sai → **429** (khoá tới khi resend / mã hết hạn);
    - mã hết hạn / chưa từng phát → **400** (không lộ email nào tồn tại);
-   - mã đúng → xoá mã (dùng một lần), **tạo `Account` role `CUSTOMER` với `email_verified_at` set
-     ngay** + ghi `AuditLog` `ACCOUNT_REGISTERED` (actor = account vừa tạo).
+   - mã đúng → **tạo `Account` role `CUSTOMER` với `email_verified_at` set ngay** + ghi `AuditLog`
+     `ACCOUNT_REGISTERED` (actor = account vừa tạo); mã chỉ bị xoá **sau khi transaction commit**
+     (dùng một lần). Save lỗi thì mã còn, khách nhập lại/resend được.
 3. Việc xác minh tự nó **không** ghi `AuditLog` riêng — bản ghi vòng đời là `Account.email_verified_at`
    ; audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
 

@@ -12,6 +12,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
@@ -181,7 +183,34 @@ class RegistrationServiceTest {
         assertThatThrownBy(() -> registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456")))
                 .isInstanceOf(IllegalStateException.class);
         verify(accountRepository, never()).save(any());
+        verify(verificationCodes, never()).consume(EMAIL);
         verifyNoInteractions(auditRecorder, events);
+    }
+
+    @Test
+    void verifyConsumesCodeOnlyAfterCommit() {
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.verify(EMAIL, "123456"))
+                .thenReturn(Optional.of(new PendingRegistration(EMAIL, "password-hash")));
+        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(new Role("CUSTOMER")));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
+            Account saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 42L);
+            return saved;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
+            verify(verificationCodes, never()).consume(EMAIL);
+
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCommit();
+            }
+            verify(verificationCodes).consume(EMAIL);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -201,6 +230,7 @@ class RegistrationServiceTest {
                 registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
 
         assertThat(result).isEqualTo(EmailVerificationResult.ALREADY_VERIFIED);
+        verify(verificationCodes, never()).consume(EMAIL);
         verifyNoInteractions(auditRecorder);
     }
 
