@@ -2,9 +2,15 @@ package vn.lemar.selfstorage.identity;
 
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +32,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import vn.lemar.selfstorage.identity.application.EmailVerificationResult;
+import vn.lemar.selfstorage.identity.application.RegistrationService;
 import vn.lemar.selfstorage.identity.application.VerificationEmailRequested;
+import vn.lemar.selfstorage.identity.application.dto.VerifyEmailRequest;
 import vn.lemar.selfstorage.identity.domain.Account;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
@@ -80,6 +89,8 @@ class RegistrationIntegrationTest {
     private StringRedisTemplate redisTemplate;
     @Autowired
     private ApplicationEvents applicationEvents;
+    @Autowired
+    private RegistrationService registrationService;
 
     @BeforeEach
     void mockMimeMessage() {
@@ -148,6 +159,42 @@ class RegistrationIntegrationTest {
 
         verifyEmail(email, code).andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Email đã được xác minh trước đó"));
+    }
+
+    @Test
+    void concurrentVerifyCreatesOneAccountAndReturnsAlreadyVerified() throws Exception {
+        String email = uniqueEmail("race");
+        register(email).andExpect(status().isOk());
+        String code = lastCodeFor(email);
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<EmailVerificationResult>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < 2; i++) {
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    return registrationService.verifyEmail(new VerifyEmailRequest(email, code));
+                }));
+            }
+            start.countDown();
+
+            List<EmailVerificationResult> results = new ArrayList<>();
+            for (Future<EmailVerificationResult> future : futures) {
+                results.add(future.get(15, TimeUnit.SECONDS));
+            }
+            assertThat(results).containsExactlyInAnyOrder(
+                    EmailVerificationResult.VERIFIED, EmailVerificationResult.ALREADY_VERIFIED);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        Account account = accountRepository.findWithRoleByEmail(email).orElseThrow();
+        assertThat(account.isVerified()).isTrue();
+        Integer audits = jdbc.queryForObject(
+                "select count(*) from audit_logs where action = 'ACCOUNT_REGISTERED' and entity_id = ?",
+                Integer.class, String.valueOf(account.getId()));
+        assertThat(audits).isEqualTo(1);
     }
 
     @Test

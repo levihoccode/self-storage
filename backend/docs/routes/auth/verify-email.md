@@ -24,6 +24,9 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
      (dùng một lần). Save lỗi thì mã còn, khách nhập lại/resend được.
 3. Việc xác minh tự nó **không** ghi `AuditLog` riêng — bản ghi vòng đời là `Account.email_verified_at`
    ; audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
+4. Hai request verify đồng thời cùng mã: một request tạo account (`VERIFIED`), request còn lại trả
+   `ALREADY_VERIFIED` — account được tạo trong transaction `REQUIRES_NEW` để unique violation không
+   làm hỏng transaction ngoài.
 
 ## Ghi chú nghiệp vụ
 
