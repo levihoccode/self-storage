@@ -83,4 +83,4 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
   đang chạy chế độ demo khi chưa cấu hình `VITE_API_BASE_URL`; endpoint thật thuộc luồng đặt cọc.
 - **Chưa có ai nghe `PaymentSucceeded`/`PaymentFailed`** — invoice/booking chưa có code (các luồng đơn hàng).
 - **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc luồng đặt cọc.
-- **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt spec trước.
+- **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.

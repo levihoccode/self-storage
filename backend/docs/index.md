@@ -126,7 +126,7 @@ V6 thu hẹp CHECK `rental_orders.status` còn 6 giá trị (bỏ `Expired` — 
   - Gửi best-effort, không retry/outbox. Process chết sau commit nhưng trước khi gửi xong thì
     email mất, không dấu vết. Gửi lỗi trả `false` và không thử lại.
   - Gửi đồng bộ trên thread caller, kể cả nhánh afterCommit — SMTP chậm làm chậm response.
-    Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker, cần đổi spec trước.
+    Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker — cần chốt và ghi vào docs trước.
   - Layout HTML là mẫu cố định dùng chung; nội dung theo `(type, recipient)` do
     `NotificationTemplateCatalog` render (placeholder `{{key}}`).
 - Việc còn lại của module (caller nghiệp vụ, cron dedup, pagination): [follow-up.md](follow-up.md).

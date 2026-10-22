@@ -3,9 +3,9 @@ purpose: Luồng nội bộ convert RentalRequest đã duyệt thành RentalOrde
 ---
 # Convert yêu cầu thuê → đơn + proposal
 
-Hành vi theo spec: `specs/draft.md` › 1.1 Yêu cầu đặt kho (nhánh "email đã có tài khoản"),
-› 1.2 Khách tạo tài khoản › Case A. Trang này mô tả **cách code đang chạy** và cách module khác
-nối vào — không thay spec.
+Nguồn flow tham khảo: `specs/draft.md` › 1.1 Yêu cầu đặt kho (nhánh "email đã có tài khoản"),
+› 1.2 Khách tạo tài khoản › Case A. Trang này là **nguồn sự thật** cho hành vi convert (as-built):
+code và các module khác theo trang này.
 
 Luồng convert **không có endpoint HTTP riêng**. Chạy bên trong hai endpoint có sẵn:
 `POST /api/fm/rental-requests/{id}/approve` và `POST /api/auth/verify-email`.

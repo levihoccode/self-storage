@@ -2,9 +2,11 @@
 
 ## Source of truth
 
-- Business rules: `specs/draft.md`, `specs/db-table-draft.md`. Doc format: `specs/spec-format.md`.
-- Code must match the spec. If spec and code disagree: **report it, do not pick a side**.
-- `specs/*.md` is shared across flows: edit only your flow's section, leave the rest alone.
+- Behavior is defined by the docs inside each module: `backend/docs/`, `frontend/docs/`.
+- Code must match those docs. If docs and code disagree: **report it, do not pick a side**.
+- A behavior change updates the module docs in the same PR — docs are kept as-built.
+- `specs/` is **reference only**: read it for the flow, refine the behavior, then record it in the
+  module docs. **Do not edit `specs/**` anymore.**
 
 ## Workflow — one issue behind every PR
 
@@ -13,15 +15,15 @@ Work starts from an issue, and the PR links back to it. There is no PR without a
 | Issue form | What it is | Relation to a PR |
 |---|---|---|
 | `be-api`, `be-server`, `fe-page` | a unit of work | the PR ships it; `Closes #N` closes it on merge |
-| `bug` | behavior that runs against the spec | the PR fixes it; `Closes #N` |
-| `spec-gap` | the spec is silent, contradicts itself, or you want to deviate | no PR of its own — it is the permission for the current PR |
+| `bug` | behavior that runs against the module docs | the PR fixes it; `Closes #N` |
+| `spec-gap` | the module docs are silent, contradict themselves, or you want to deviate | no PR of its own — it is the decision gate for the current PR; the approved behavior lands in the module docs |
 | `proposal` | you want to change something already defined | no PR of its own — approve first, then it becomes work |
 
 ```text
 issue (task) → branch → PR "Closes #N" → CI green + 1 approval → merge → issue closes
                               │
-                              └─ spec unclear → open spec-gap #M → STOP
-                                 → approved → spec + code in the same PR
+                              └─ docs unclear → open spec-gap #M → STOP
+                                 → approved → docs + code in the same PR
 ```
 
 - One issue may produce several PRs. One PR closes **one** issue; link any others with `#N`.
@@ -56,8 +58,12 @@ plainly: **"not verified, because &lt;reason&gt;"**.
 
 ## Docs — writing rules
 
-Docs (`backend/docs/`, `specs/`, `README.md`) describe behavior, not the work that produced it.
+Docs (`backend/docs/`, `frontend/docs/`, `README.md`) describe behavior, not the work that
+produced it.
 
+- Docs are the behavior authority; `specs/` is frozen reference — never edit it.
+- If a rule only exists in `specs/`, write the implemented rule into the module docs before relying
+  on it.
 - Do not use work-split codes (`A3a`, `A4`, `B1`, `B2`, …). They are temporary labels for
   coordinating tasks and mean nothing to a later reader — name the flow or the rule instead.
 - Do not cite issue or PR numbers. State the problem and how the code handles it, briefly:

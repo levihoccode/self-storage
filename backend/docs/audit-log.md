@@ -5,8 +5,8 @@ purpose: Hợp đồng tích hợp AuditLog cho module gọi — gọi ở đâu
 
 Module `audit` (`backend/src/main/java/vn/lemar/selfstorage/audit/`) là hạ tầng ghi vết;
 module nghiệp vụ chịu trách nhiệm gọi đúng chỗ. Trang này là checklist khi nối audit ở PR của
-flow. Catalog action/entity là nguồn sự thật ở spec — **không chép lại ở đây**:
-`specs/db-table-draft.md` › AuditLog (catalog + CONSTRAINTS + NOTES).
+flow. Catalog action/entity đầy đủ để tham khảo flow ở `specs/db-table-draft.md` › AuditLog;
+trang này ghi các action **đã nối trong code** ở bảng call site bên dưới.
 
 ## Module gọi làm gì
 
@@ -21,7 +21,7 @@ flow. Catalog action/entity là nguồn sự thật ở spec — **không chép 
    `IllegalStateException` (lỗi lập trình, 500), đã có unit test.
 6. `entityId`: truyền id dạng chuỗi, không rỗng — `String.valueOf(id)`.
 7. `actorAccountId`: account thực hiện; `null` khi do hệ thống/cron/IPN.
-8. `reason`: bắt buộc với thao tác override theo spec (nhập lý do); các case khác để null.
+8. `reason`: bắt buộc với thao tác override (nhập lý do); các case khác để null.
 9. `oldValue`/`newValue`: Map/POJO trạng thái trước–sau (serialize thành JSONB); null khi
    không có giá trị tương ứng (ví dụ tạo mới).
 10. Không đưa vào audit: mật khẩu, secret, số thẻ, raw payment payload; không audit thao tác

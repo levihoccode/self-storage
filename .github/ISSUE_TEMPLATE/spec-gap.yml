@@ -1,5 +1,5 @@
-name: Spec gap (spec chưa rõ / cần lệch)
-description: Spec thiếu, mâu thuẫn, hoặc cần đổi hành vi đã định nghĩa. BẮT BUỘC mở trước khi implement phần đó.
+name: Behavior decision (docs chưa rõ / cần lệch)
+description: Docs module thiếu, mâu thuẫn, hoặc cần đổi hành vi đã ghi. BẮT BUỘC mở trước khi implement phần đó.
 title: "spec-gap: <module> — "
 labels: ["spec-gap"]
 assignees: ["levihoccode"]
@@ -7,10 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Cổng chặn cứng.** Code là bản chuyển 1:1 từ `specs/` — hành vi spec định nghĩa phải giống hệt.
+        **Cổng chặn cứng.** Code implement đúng hành vi ghi trong docs của module (`backend/docs/`,
+        `frontend/docs/`).
 
-        Gặp chỗ spec không nói, spec tự mâu thuẫn, hoặc muốn đổi hành vi đã định nghĩa → mở issue này
+        Gặp chỗ docs không nói, docs tự mâu thuẫn, hoặc muốn đổi hành vi đã ghi → mở issue này
         rồi **dừng đúng ở hành vi đó**. Không tự chọn một cách hiểu, không tự thêm default, không để TODO rồi đi tiếp.
+
+        Quyết định được duyệt sẽ ghi vào docs module trong cùng PR. **Không sửa `specs/`** — spec chỉ là
+        nguồn tham khảo flow.
 
         **Không có issue này thì không được implement tiếp.** Chỉ hành vi đang mơ hồ bị chặn; phần còn lại của task đi tiếp bình thường.
 
@@ -53,17 +57,17 @@ body:
   - type: input
     id: spec_ref
     attributes:
-      label: Vị trí spec
-      description: File + heading (kèm số dòng nếu có)
-      placeholder: "specs/db-table-draft.md › UnitAccessKey → CONSTRAINTS"
+      label: Vị trí docs
+      description: File + heading (kèm số dòng nếu có); thêm link `specs/` nếu cần tham khảo flow
+      placeholder: "backend/docs/booking-conversion.md › Chống tạo trùng (account + khoang)"
     validations:
       required: true
 
   - type: textarea
     id: spec_quote
     attributes:
-      label: Spec hiện nói gì
-      description: Trích nguyên văn đoạn liên quan. Đừng diễn giải lại.
+      label: Docs hiện nói gì
+      description: Trích nguyên văn đoạn liên quan trong docs module. Đừng diễn giải lại.
       render: markdown
     validations:
       required: true
@@ -112,5 +116,5 @@ body:
       options:
         - label: Tôi không implement phần đang mơ hồ cho tới khi @levihoccode comment duyệt.
           required: true
-        - label: Nếu phương án được duyệt làm lệch spec, tôi sẽ sửa spec và code trong cùng một PR.
+        - label: Nếu phương án được duyệt làm lệch hành vi đã ghi, tôi sẽ cập nhật docs module và code trong cùng một PR. Không sửa `specs/`.
           required: true
