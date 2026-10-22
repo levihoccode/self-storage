@@ -1,7 +1,7 @@
 name: Behavior decision (docs chưa rõ / cần lệch)
 description: Docs module thiếu, mâu thuẫn, hoặc cần đổi hành vi đã ghi. BẮT BUỘC mở trước khi implement phần đó.
-title: "spec-gap: <module> — "
-labels: ["spec-gap"]
+title: "behavior-gap: <module> — "
+labels: ["behavior-gap"]
 assignees: ["levihoccode"]
 body:
   - type: markdown

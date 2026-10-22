@@ -26,7 +26,7 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 import vn.lemar.selfstorage.identity.repository.RoleRepository;
 
 /**
- * Đăng ký tài khoản khách hàng + vòng đời mã xác minh email (spec-gap #139).
+ * Đăng ký tài khoản khách hàng + vòng đời mã xác minh email (behavior-gap #139).
  *
  * <p>Luồng verify-first (proposal #152): đăng ký chỉ ghi *pending registration* (email + hash mật
  * khẩu trong Redis, cùng TTL với mã) và gửi mã; {@link Account} chỉ được tạo sau khi khách nhập

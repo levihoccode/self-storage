@@ -26,11 +26,10 @@ leave a TODO and keep going, do not silently pick one reading of the docs.
 
 Issue requirements:
 
-- Title `spec-gap: <module> — <one line>`, label `spec-gap`, assignee `@levihoccode`. The label
-  keeps its old name; it now means a behavior decision.
+- Title `behavior-gap: <module> — <one line>`, label `behavior-gap`, assignee `@levihoccode`.
 - Body: the module doc (`backend/docs/...` + heading) and, when useful, the flow reference in
   `specs/`; what is undefined or contradictory; the options with trade-offs; and what stays
-  blocked. The UI form is `.github/ISSUE_TEMPLATE/spec-gap.yml`; if you open the issue with
+  blocked. The UI form is `.github/ISSUE_TEMPLATE/behavior-gap.yml`; if you open the issue with
   `gh issue create` instead, fill those same fields.
 - Approval = a comment from `@levihoccode` on that issue. Check it before continuing:
   `gh issue view <n> --repo levihoccode/self-storage --json state,comments`.
@@ -67,8 +66,8 @@ Examples inside docs must be **real output from a running app**, never invented.
 genuinely needs no docs update, state that explicitly in the PR body with the reason.
 
 `backend/docs/` is the **behavior authority** and is kept **as-built**: behavior that is not
-written there is not a contract yet. The `spec-gap` gate above decides anything ambiguous before it
-is implemented and recorded.
+written there is not a contract yet. The `behavior-gap` gate above decides anything ambiguous
+before it is implemented and recorded.
 
 ## Commands
 

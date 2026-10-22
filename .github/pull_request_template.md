@@ -4,7 +4,7 @@
 
 ## Căn cứ trong spec
 
-<!-- specs/draft.md › §…  ·  specs/db-table-draft.md › …  — hoặc: spec-gap #__ đã được duyệt -->
+<!-- backend/docs/… › §…  — hoặc: behavior-gap #__ đã được duyệt -->
 
 ## Đã đổi gì
 

@@ -92,7 +92,7 @@ public class RentalRequestConversionService {
      * (caller gửi email "chưa có tài khoản" của Flow 1.1).
      *
      * <p>Không ghi AuditLog cho bước convert ở trigger này — catalog chưa có action phù hợp, chờ
-     * spec-gap #132. Bản ghi {@code RENTAL_REQUEST_APPROVED} do B1 ghi.
+     * behavior-gap #132. Bản ghi {@code RENTAL_REQUEST_APPROVED} do B1 ghi.
      *
      * @throws IllegalArgumentException request không tồn tại
      */

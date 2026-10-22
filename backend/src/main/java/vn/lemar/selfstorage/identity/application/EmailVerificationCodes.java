@@ -13,7 +13,7 @@ import vn.lemar.selfstorage.identity.application.exception.TooManyVerificationAt
 import vn.lemar.selfstorage.identity.application.exception.VerificationResendTooEarlyException;
 
 /**
- * Kho mã xác minh email trên Redis (spec-gap #139): mã 6 số, TTL cấu hình
+ * Kho mã xác minh email trên Redis (behavior-gap #139): mã 6 số, TTL cấu hình
  * ({@code security.email-verification.ttl}, mặc định 10 phút), tối đa
  * {@code security.email-verification.max-attempts} lần nhập sai (mặc định 5), gửi lại
  * cách nhau tối thiểu {@code security.email-verification.resend-cooldown} (mặc định 60 giây).

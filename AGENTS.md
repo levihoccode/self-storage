@@ -16,13 +16,13 @@ Work starts from an issue, and the PR links back to it. There is no PR without a
 |---|---|---|
 | `be-api`, `be-server`, `fe-page` | a unit of work | the PR ships it; `Closes #N` closes it on merge |
 | `bug` | behavior that runs against the module docs | the PR fixes it; `Closes #N` |
-| `spec-gap` | the module docs are silent, contradict themselves, or you want to deviate | no PR of its own — it is the decision gate for the current PR; the approved behavior lands in the module docs |
+| `behavior-gap` | the module docs are silent, contradict themselves, or you want to deviate | no PR of its own — it is the decision gate for the current PR; the approved behavior lands in the module docs |
 | `proposal` | you want to change something already defined | no PR of its own — approve first, then it becomes work |
 
 ```text
 issue (task) → branch → PR "Closes #N" → CI green + 1 approval → merge → issue closes
                               │
-                              └─ docs unclear → open spec-gap #M → STOP
+                              └─ docs unclear → open behavior-gap #M → STOP
                                  → approved → docs + code in the same PR
 ```
 
