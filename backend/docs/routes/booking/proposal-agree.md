@@ -17,16 +17,16 @@ Khách bấm "Đồng ý" trên một proposal `Pending`.
   `unit_id`.
 - Khoang còn `Available`: proposal `Agreed`, `RentalOrder.unit_id` = khoang đó, tạo `Invoice`
   `Deposit`/`Unpaid`, AuditLog `PROPOSAL_AGREED` (payload có `unitId`) + `INVOICE_CREATED`.
-- Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED` (chốt PR #136), FM nhận
+- Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED`, FM nhận
   `PROPOSAL_REPROPOSAL_REQUIRED`, response 409 — các thay đổi này **vẫn được commit** (service trả kết quả,
   không ném exception).
 
 ## Ghi chú nghiệp vụ
 
 - Hoá đơn: code `INV-DEP-{facility_code}-{YYMMDD}-{rand 6 ký tự}`, title "Đặt cọc khoang chứa {mã}",
-  amount = giá thuê hiệu lực × `invoice.deposit_months` (chốt #113, seed 1), `due_date` =
+  amount = giá thuê hiệu lực × `invoice.deposit_months` (seed 1), `due_date` =
   min(now + `invoice.deposit_due_days`, `RentalOrder.expires_at`).
-- `Canceled` thay `Expired` của spec (chốt #113); spec sẽ cập nhật sau review.
+- Proposal bị huỷ dùng `Canceled` thay `Expired` của spec (proposal không có TTL).
 
 ## Ví dụ
 

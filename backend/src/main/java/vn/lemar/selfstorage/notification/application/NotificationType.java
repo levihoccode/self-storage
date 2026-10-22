@@ -9,6 +9,7 @@ package vn.lemar.selfstorage.notification.application;
 public enum NotificationType {
     RENTAL_REQUEST_APPROVED,
     RENTAL_REQUEST_REJECTED,
+    RENTAL_REQUEST_REJECTED_BANNED,
     PROPOSAL_REJECTED,
     PROPOSAL_REPROPOSAL_REQUIRED,
     PROPOSAL_REPROPOSED,

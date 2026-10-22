@@ -16,7 +16,7 @@ Khách bấm "Từ chối" trên một proposal `Pending`, body `{ "note": "..."
 - Khoá proposal + khoá đơn, đếm số proposal `Rejected` của đơn **trước khi** ghi.
 - Chưa chạm ngưỡng: proposal `Rejected` + note, AuditLog `PROPOSAL_REJECTED`, FM nhận `PROPOSAL_REJECTED`;
   `orderCanceled = false`.
-- Chạm ngưỡng (`số Rejected + 1 >= proposal.max_rejection_count`, chốt #113): ghi `Rejected` rồi chạy
+- Chạm ngưỡng (`số Rejected + 1 >= proposal.max_rejection_count`, tức huỷ ngay ở lần từ chối thứ 3 với seed 3): ghi `Rejected` rồi chạy
   Cancellation Cascade — đơn `Canceled` với lý do "Từ chối quá số khoang cho phép", proposal
   `Pending`/`Agreed` → `Canceled`, hoá đơn `Unpaid` → `Canceled`, khoang `Reserved` → `Available`, AuditLog
   từng entity, khách + FM nhận `RENTAL_ORDER_CANCELED`; `orderCanceled = true`.

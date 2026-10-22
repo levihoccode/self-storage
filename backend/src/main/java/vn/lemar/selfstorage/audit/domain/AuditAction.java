@@ -15,10 +15,13 @@ public enum AuditAction {
     RENTAL_REQUEST_APPROVED(AuditEntityType.RENTAL_REQUEST),
     RENTAL_REQUEST_REJECTED(AuditEntityType.RENTAL_REQUEST),
     RENTAL_REQUEST_CLAIMED(AuditEntityType.RENTAL_REQUEST),
+    RENTAL_REQUEST_CONVERTED(AuditEntityType.RENTAL_REQUEST),
+    RENTAL_REQUEST_EXPIRED(AuditEntityType.RENTAL_REQUEST),
     PROPOSAL_AGREED(AuditEntityType.PROPOSAL_FEEDBACK),
     PROPOSAL_REJECTED(AuditEntityType.PROPOSAL_FEEDBACK),
     PROPOSAL_REPROPOSED(AuditEntityType.PROPOSAL_FEEDBACK),
-    /** Khoang hết Available lúc khách đồng ý → proposal Canceled (chốt PR #136; catalog spec cập nhật sau). */
+    PROPOSAL_CREATED(AuditEntityType.PROPOSAL_FEEDBACK),
+    /** Khoang hết Available lúc khách đồng ý → proposal Canceled (V8). */
     PROPOSAL_CANCELED(AuditEntityType.PROPOSAL_FEEDBACK),
     INVOICE_CREATED(AuditEntityType.INVOICE),
     INVOICE_CANCELED(AuditEntityType.INVOICE),
@@ -26,6 +29,7 @@ public enum AuditAction {
     PAYMENT_FAILED(AuditEntityType.PAYMENT_TRANSACTION),
     MANUAL_REFUND_RECORDED(AuditEntityType.PAYMENT_TRANSACTION),
     RENTAL_ORDER_DEPOSITED(AuditEntityType.RENTAL_ORDER),
+    RENTAL_ORDER_CREATED(AuditEntityType.RENTAL_ORDER),
     STORAGE_UNIT_RESERVED(AuditEntityType.STORAGE_UNIT),
     APPOINTMENT_CREATED(AuditEntityType.APPOINTMENT),
     FS_ASSIGNED(AuditEntityType.APPOINTMENT),

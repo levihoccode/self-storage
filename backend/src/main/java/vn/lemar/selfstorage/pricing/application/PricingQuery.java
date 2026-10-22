@@ -5,13 +5,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.pricing.repository.PricingRepository;
 
-/** Public API đọc tham số chính sách ({@code policies}) và giá thuê hiệu lực cho module nghiệp vụ. */
+/**
+ * Public API cho module nghiệp vụ: tham số chính sách dạng số nguyên và giá thuê hiệu lực. Giá trị policy đọc qua
+ * {@link PolicyQueryService} — một nơi duy nhất đọc bảng {@code policies}.
+ */
 @Service
 public class PricingQuery {
 
+    private final PolicyQueryService policyQueryService;
     private final PricingRepository pricingRepository;
 
-    public PricingQuery(PricingRepository pricingRepository) {
+    public PricingQuery(PolicyQueryService policyQueryService, PricingRepository pricingRepository) {
+        this.policyQueryService = policyQueryService;
         this.pricingRepository = pricingRepository;
     }
 
@@ -21,7 +26,7 @@ public class PricingQuery {
      */
     @Transactional(readOnly = true)
     public int intPolicy(String key) {
-        String value = pricingRepository.findPolicyValue(key)
+        String value = policyQueryService.valueOf(key)
                 .orElseThrow(() -> new IllegalStateException("Thiếu tham số policies." + key));
         return Integer.parseInt(value.strip());
     }

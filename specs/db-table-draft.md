@@ -3,9 +3,9 @@
 # Account
 - id
 - email (unique, normalized)
-- email_verified_at (nullable) - thời điểm xác minh email; chưa xác minh (`null`) KHÔNG chặn đăng nhập,
-  nhưng chặn các thao tác yêu cầu xác minh (tối thiểu: claim/liên kết `RentalRequest` — Flow 1 §1.2;
-  các flow khác bổ sung khi triển khai)
+- email_verified_at (nullable) - thời điểm xác minh email. Luồng đăng ký tự phục vụ chỉ tạo
+  `Account` sau khi xác minh (field set ngay khi tạo); account có `null` (legacy/seed/admin tạo tay)
+  bị chặn đăng nhập và mọi thao tác nghiệp vụ — chỉ luồng xác minh email hoạt động.
 - role_id (N - 1: Role)
 - status
   - ACTIVE: đang hoạt động — được đăng nhập/gọi API
@@ -33,7 +33,7 @@
 - Unique `(role_id, permission_id)`.
 
 **NOTES:**
-- Catalog khởi điểm + mapping mặc định cho 5 role đã chốt tại spec-gap #57 (2026-10-08) — nguồn: `backend/docs/permission-catalog.md`; seed `V3__rbac_permissions_seed.sql`. Mở rộng dần khi Flow 3–7 chốt; không hard-code mapping trong source code, thêm quyền mới thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+- Catalog khởi điểm + mapping mặc định cho 5 role đã chốt (2026-10-08) — nguồn: `backend/docs/permission-catalog.md`; seed `V3__rbac_permissions_seed.sql`. Mở rộng dần khi Flow 3–7 chốt; không hard-code mapping trong source code, thêm quyền mới thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
 - `scope` thuộc mapping chứ không thuộc `Permission`: cùng một permission có thể GLOBAL ở role này và FACILITY ở role khác (vd `rental_request.read`: ADMIN/BOM global, FM/FS facility).
 - Quản trị hệ thống (`account`/`role`/`permission`) là role-bound qua namespace route, không tạo permission — tránh tự nâng quyền qua dữ liệu mapping.
 # Facility
@@ -128,7 +128,7 @@
 - `start_date` không được ở trước ngày hiện tại theo timezone của `Facility`.
 - `period` là số nguyên dương.
 - `unit_type_id` phải tồn tại (MVP: loại khoang dùng chung toàn hệ thống — ràng buộc "cung cấp tại facility" sẽ bổ sung khi Flow 4/5 chốt).
-- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired`.
+- Request `Pending` quá `Policy.request.pending_expiry_days` chuyển sang `Expired` (cron). Khi cron chưa chuyển kịp, FM không duyệt được request đã quá `expires_at` — xem Flow 1.1.
 - Khi claim, chỉ request `Approved` chưa quá `expires_at` mới được chuyển sang `Converted`.
 - `Rejected` phải có `reject_reason`; giá trị chuẩn gồm `UNIT_UNAVAILABLE`, `UNIT_MISMATCH`, `CUSTOMER_REQUEST`, `OTHER`. `reject_note` bắt buộc khi dùng `OTHER`.
 
@@ -379,7 +379,7 @@ Các bước:
 - Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
 # CheckoutRecord
 **Overview:** biên bản trả kho (Flow 2.a). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
-**Trạng thái baseline (A2):** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
+**Trạng thái baseline:** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
 - order_id (1 - 1: RentalOrder)
 - appointment_id (1 - 1: Appointment) - lịch hẹn trả kho **đang xử lý**; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
 - unit_id (N - 1: StorageUnit)

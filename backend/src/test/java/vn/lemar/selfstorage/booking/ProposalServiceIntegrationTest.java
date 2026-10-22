@@ -249,8 +249,10 @@ class ProposalServiceIntegrationTest {
         proposal("A-04", "Rejected");
         long agreedEarlier = proposal("B-01", "Agreed");
         long pendingId = proposal("A-01", "Pending");
+        // Đơn đã cọc B-01 (Reserved) và đang được đề xuất lại — huỷ đơn phải nhả khoang nó giữ.
         jdbc.update("update storage_units set status = 'Reserved' where code = 'B-01'");
-        jdbc.update("update rental_orders set unit_id = ? where id = ?", unitId("B-01"), orderId);
+        jdbc.update("update rental_orders set unit_id = ?, status = 'Deposited', needs_reproposal = true "
+                + "where id = ?", unitId("B-01"), orderId);
         long invoiceId = jdbc.queryForObject("""
                 insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
                 values (?, ?, 'INV-DEP-Q7-TEST-000001', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Unpaid', 900000,
@@ -266,6 +268,37 @@ class ProposalServiceIntegrationTest {
         assertThat(auditActions("ProposalFeedback", agreedEarlier)).containsExactly("RENTAL_ORDER_CANCELED");
         assertThat(auditActions("Invoice", invoiceId)).containsExactly("INVOICE_CANCELED");
         assertThat(auditActions("StorageUnit", unitId("B-01"))).containsExactly("RENTAL_ORDER_CANCELED");
+    }
+
+    @Test
+    void cancelingPendingOrderKeepsUnitReservedByAnotherDepositedOrder() {
+        // Đơn khác (khách khác) đã cọc A-01 → A-01 Reserved cho đơn đó.
+        long otherCustomer = otherCustomerId;
+        Long otherRequest = jdbc.queryForObject("""
+                insert into rental_requests (facility_id, customer_name, normalized_customer_email, customer_phone,
+                    unit_type_id, start_date, period, unit_id, status)
+                values (?, 'Khách Khác', 'unverified@lemar.vn', '0900000001',
+                        (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
+                returning id""", Long.class, facilityId, unitId("A-01"));
+        long otherOrder = jdbc.queryForObject("""
+                insert into rental_orders (request_id, customer_id, unit_id, status, expires_at)
+                values (?, ?, ?, 'Deposited', now() + interval '30 days') returning id""",
+                Long.class, otherRequest, otherCustomer, unitId("A-01"));
+        jdbc.update("update storage_units set status = 'Reserved' where code = 'A-01'");
+        // Đơn của khách này mới đồng ý A-01 (chưa cọc) rồi bị huỷ ở lần từ chối thứ 3.
+        jdbc.update("update rental_orders set unit_id = ? where id = ?", unitId("A-01"), orderId);
+        proposal("A-02", "Rejected");
+        proposal("A-03", "Rejected");
+        long pendingId = proposal("A-04", "Pending");
+
+        RejectResult result = service.reject(pendingId, customerId, "Không còn nhu cầu");
+
+        assertThat(result.orderCanceled()).isTrue();
+        assertThat(jdbc.queryForObject("select status from rental_orders where id = ?", String.class, otherOrder))
+                .isEqualTo("Deposited");
+        assertThat(jdbc.queryForObject("select status from storage_units where code = 'A-01'", String.class))
+                .as("A-01 vẫn giữ cho đơn đã cọc").isEqualTo("Reserved");
+        assertThat(auditActions("StorageUnit", unitId("A-01"))).isEmpty();
     }
 
     @Test
