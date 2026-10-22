@@ -21,8 +21,8 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
 2. Chéo cơ sở / thiếu permission → 403 (permission kiểm trước, facility 404 sau — theo `Access`).
 3. Request không còn `Pending` (2 FM / double-click) → 409 "Yêu cầu đã được xử lý bởi FM khác",
    không đổi gì.
-4. Request đã quá `expires_at` (cron chưa chuyển kịp `Expired`) → 409 "Yêu cầu đã quá hạn xử lý",
-   không đổi gì.
+4. Request đã quá `expires_at` → 409 "Yêu cầu đã quá hạn xử lý", không đổi gì (guard đọc
+   `expires_at`; chưa có cron đổi status sang `Expired`).
 5. Khoang không tồn tại hoặc thuộc cơ sở khác → 404 "Không tìm thấy khoang", không đổi gì
    (khoang ngoài cơ sở trả cùng lỗi để không lộ tài nguyên ngoài phạm vi FM).
 6. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
