@@ -13,8 +13,8 @@ body:
         Gặp chỗ docs không nói, docs tự mâu thuẫn, hoặc muốn đổi hành vi đã ghi → mở issue này
         rồi **dừng đúng ở hành vi đó**. Không tự chọn một cách hiểu, không tự thêm default, không để TODO rồi đi tiếp.
 
-        Quyết định được duyệt sẽ ghi vào docs module trong cùng PR. **Không sửa `specs/`** — spec chỉ là
-        nguồn tham khảo flow.
+        Quyết định được duyệt sẽ ghi vào docs module trong cùng PR. **Không sửa `specs/draft.md`** —
+        chỉ là nguồn tham khảo flow; `specs/db-table-draft.md` cập nhật theo schema.
 
         **Không có issue này thì không được implement tiếp.** Chỉ hành vi đang mơ hồ bị chặn; phần còn lại của task đi tiếp bình thường.
 
@@ -116,5 +116,5 @@ body:
       options:
         - label: Tôi không implement phần đang mơ hồ cho tới khi @levihoccode comment duyệt.
           required: true
-        - label: Nếu phương án được duyệt làm lệch hành vi đã ghi, tôi sẽ cập nhật docs module và code trong cùng một PR. Không sửa `specs/`.
+        - label: Nếu phương án được duyệt làm lệch hành vi đã ghi, tôi sẽ cập nhật docs module và code trong cùng một PR. Không sửa `specs/draft.md`.
           required: true
