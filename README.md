@@ -2,7 +2,8 @@
 
 Hệ thống cho thuê kho self-storage. Modular monolith: **Spring Boot 3.3 · Java 17** (backend) + **React 19 · Vite** (frontend — đang hợp nhất).
 
-- Nguồn sự thật: `specs/draft.md` + `specs/db-table-draft.md`. Đọc `AGENTS.md` trước khi code.
+- Nguồn sự thật: docs trong từng module (`backend/docs/`, `frontend/docs/`). `specs/` chỉ để tham
+  khảo flow — không sửa. Đọc `AGENTS.md` trước khi code.
 - Quy trình: issue → branch → PR (`Closes #N`) → CI xanh + 1 approval → merge.
 - Roadmap: theo dõi trong GitHub Issues.
 
@@ -36,5 +37,5 @@ cd frontend && npm ci && npm run dev
 |---|---|
 | `backend/` | Spring Boot modular monolith (12 module) — xem `backend/AGENTS.md` |
 | `frontend/` | React + Vite — xem `frontend/AGENTS.md` |
-| `specs/` | Đặc tả nghiệp vụ + schema DB |
+| `specs/` | Tham khảo flow + schema DB (chỉ đọc) |
 | `.github/` | Issue form, PR gate, CI |
