@@ -6,8 +6,9 @@
   `frontend/docs/`.
 - Code must match those docs. If docs and code disagree: **report it, do not pick a side**.
 - A behavior change updates the module docs in the same PR — docs are kept as-built.
-- `specs/` is **reference only**: read it for the flow, refine the behavior, then record it in the
-  module docs. **Do not edit `specs/**` anymore.**
+- `specs/draft.md` is **reference only**: read it for the flow, refine the behavior, then record it
+  in the module docs. **Do not edit `specs/draft.md`.** `specs/db-table-draft.md` may be updated
+  when the schema changes.
 
 ## Workflow — one issue behind every PR
 
@@ -62,9 +63,10 @@ plainly: **"not verified, because &lt;reason&gt;"**.
 Docs (`backend/docs/`, `frontend/docs/`, `README.md`) describe behavior, not the work that
 produced it.
 
-- Docs are the behavior authority; `specs/` is frozen reference — never edit it.
-- If a rule only exists in `specs/`, write the implemented rule into the module docs before relying
-  on it.
+- Docs are the behavior authority; `specs/draft.md` is frozen reference — never edit it.
+  `specs/db-table-draft.md` may follow schema changes.
+- If a rule only exists in `specs/draft.md`, write the implemented rule into the module docs before
+  relying on it.
 - Do not use work-split codes (`A3a`, `A4`, `B1`, `B2`, …). They are temporary labels for
   coordinating tasks and mean nothing to a later reader — name the flow or the rule instead.
 - Do not cite issue or PR numbers. State the problem and how the code handles it, briefly:

@@ -33,7 +33,8 @@ Issue requirements:
   `gh issue create` instead, fill those same fields.
 - Approval = a comment from `@levihoccode` on that issue. Check it before continuing:
   `gh issue view <n> --repo levihoccode/self-storage --json state,comments`.
-- Approved change → update the module docs and the code in the **same PR**. Never edit `specs/**`.
+- Approved change → update the module docs and the code in the **same PR**. Never edit
+  `specs/draft.md`; keep `specs/db-table-draft.md` in sync when the schema changes.
 - Report the issue number under "What was not verified".
 
 Only the ambiguous behavior is frozen. The rest of the task continues.

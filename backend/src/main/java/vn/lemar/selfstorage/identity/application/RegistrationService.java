@@ -2,6 +2,8 @@ package vn.lemar.selfstorage.identity.application;
 
 import java.time.Duration;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,6 +40,8 @@ import vn.lemar.selfstorage.identity.repository.RoleRepository;
  */
 @Service
 public class RegistrationService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(RegistrationService.class);
 
     private final AccountRepository accountRepository;
     private final RoleRepository roleRepository;
@@ -92,8 +96,8 @@ public class RegistrationService {
             }
             verificationCodes.verify(email, request.code());
             account.markEmailVerified();
-            consumeCodeAfterCommit(email);
             events.publishEvent(new EmailVerified(account.getId()));
+            consumeCodeAfterCommit(email);
             return EmailVerificationResult.VERIFIED;
         }
 
@@ -111,8 +115,8 @@ public class RegistrationService {
         }
         auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
                 String.valueOf(account.getId()), null, null, null, account.getId()));
-        consumeCodeAfterCommit(email);
         events.publishEvent(new EmailVerified(account.getId()));
+        consumeCodeAfterCommit(email);
         return EmailVerificationResult.VERIFIED;
     }
 
@@ -121,16 +125,25 @@ public class RegistrationService {
      * DB, xoá sớm thì save lỗi làm pending mất và khách phải đăng ký lại.
      */
     private void consumeCodeAfterCommit(String email) {
+        Runnable consume = () -> {
+            try {
+                verificationCodes.consume(email);
+            } catch (RuntimeException e) {
+                // Best-effort: mã còn tới TTL cũng không chặn verify; Redis lỗi không được
+                // làm hỏng afterCommit của listener claim.
+                LOG.warn("Không xoá được mã xác minh sau commit cho {}: {}", email, e.getMessage());
+            }
+        };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    verificationCodes.consume(email);
+                    consume.run();
                 }
             });
             return;
         }
-        verificationCodes.consume(email);
+        consume.run();
     }
 
     /** Gửi lại mã: pending registration chưa hoàn tất, hoặc account legacy chưa xác minh. */
