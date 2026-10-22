@@ -41,10 +41,9 @@ class BookingDomainTest {
     }
 
     @Test
-    void onlyCanceledDoneExpiredOrdersAreClosed() {
+    void onlyCanceledAndDoneOrdersAreClosed() {
         assertThat(RentalOrderStatus.values()).filteredOn(RentalOrderStatus::isClosed)
-                .containsExactlyInAnyOrder(RentalOrderStatus.CANCELED, RentalOrderStatus.DONE,
-                        RentalOrderStatus.EXPIRED);
+                .containsExactlyInAnyOrder(RentalOrderStatus.CANCELED, RentalOrderStatus.DONE);
     }
 
     @Test

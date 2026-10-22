@@ -100,6 +100,7 @@ Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 
 Chi tiết: `backend/sql/README.md`.
 
 Policy `order.expiry_days` (luồng convert cần) seed ở migration V5 — không cần thêm tay khi chạy local.
+V6 thu hẹp CHECK `rental_orders.status` còn 6 giá trị (bỏ `Expired` — spec gộp vào `Canceled`).
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.

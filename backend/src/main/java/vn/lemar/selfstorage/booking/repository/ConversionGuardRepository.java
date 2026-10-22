@@ -36,7 +36,7 @@ public class ConversionGuardRepository {
     /**
      * Account đã có proposal {@code Pending}/{@code Agreed} cho khoang này trên một đơn chưa đóng.
      *
-     * <p>Danh sách status đóng chép lại {@code RentalOrderStatus#isClosed()} (Canceled/Done/Expired)
+     * <p>Danh sách status đóng chép lại {@code RentalOrderStatus#isClosed()} (Canceled/Done)
      * — đổi định nghĩa đơn "đóng" thì phải sửa cả hai nơi.
      */
     public boolean hasActiveConversion(Long accountId, Long unitId) {
@@ -46,7 +46,7 @@ public class ConversionGuardRepository {
                     join rental_orders o on o.id = p.order_id
                     where o.customer_id = ? and p.unit_id = ?
                       and p.status in ('Pending', 'Agreed')
-                      and o.status not in ('Canceled', 'Done', 'Expired'))""",
+                      and o.status not in ('Canceled', 'Done'))""",
                 Boolean.class, accountId, unitId));
     }
 }
