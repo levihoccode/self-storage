@@ -25,6 +25,8 @@ import { SurfaceState } from "../../components/ui/SurfaceState";
 type StatusFilter = "all" | RentalRequestStatus;
 
 const PAGE_SIZE = 20;
+/** Cỡ trang tối đa BE cho phép — dùng khi đồng bộ trạng thái sau 409. */
+const SYNC_PAGE_SIZE = 100;
 
 const STATUS_LABEL: Record<RentalRequestStatus, string> = {
   Pending: "Chờ xử lý",
@@ -171,6 +173,31 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
     setActionError(null);
   }
 
+  /**
+   * Sau 409 (FM khác đã xử lý, quá hạn…): lấy trạng thái mới nhất từ BE và cập nhật đúng các dòng đang hiện,
+   * không đổi danh sách để bảng chi tiết vẫn mở cùng câu lỗi. Lỗi khi đồng bộ thì bỏ qua — câu 409 đã hiện.
+   */
+  async function syncStatusesAfterConflict() {
+    if (facilityId === null) return;
+    try {
+      const latest = await fetchRentalRequests(facilityId, undefined, 0, SYNC_PAGE_SIZE);
+      const statusById = new Map(latest.items.map((item) => [item.id, item.status]));
+      setQueue((current) =>
+        current.kind === "ready"
+          ? {
+              ...current,
+              items: current.items.map((item) => ({
+                ...item,
+                status: statusById.get(item.id) ?? item.status,
+              })),
+            }
+          : current,
+      );
+    } catch {
+      // giữ nguyên danh sách; FM có thể đổi bộ lọc để tải lại
+    }
+  }
+
   function markHandled(requestId: number, status: RentalRequestStatus, result: HandledResult) {
     setQueue((current) =>
       current.kind === "ready"
@@ -199,6 +226,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
     } catch (error) {
       // 409 (khoang hết Available, FM khác đã xử lý, quá hạn), 403, 404: hiện nguyên câu của BE.
       setActionError(error instanceof ApiError ? error.message : "Không duyệt được, thử lại sau.");
+      if (error instanceof ApiError && error.status === 409) await syncStatusesAfterConflict();
     } finally {
       setBusyId(null);
     }
@@ -221,6 +249,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
       setActionError(
         error instanceof ApiError ? error.message : "Không từ chối được, thử lại sau.",
       );
+      if (error instanceof ApiError && error.status === 409) await syncStatusesAfterConflict();
     } finally {
       setBusyId(null);
     }
