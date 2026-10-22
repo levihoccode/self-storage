@@ -61,7 +61,9 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 ## Chống tạo trùng (account + khoang)
 
 - "Đang hoạt động" = có `ProposalFeedback` `Pending`/`Agreed` cho khoang đó, trên một đơn của
-  account chưa `Canceled`/`Done` (`ConversionGuardRepository.hasActiveConversion`).
+  account chưa `Canceled`/`Done` (`ConversionGuardRepository.hasActiveConversion`). Pre-check lúc
+  duyệt dùng cùng định nghĩa theo email (`hasActiveConversionForEmail`); đơn cũ đã đóng thì được
+  gán lại khoang, không phụ thuộc status request cũ (`Converted` không bao giờ đóng).
   Đơn cũ đã đóng thì convert lại cùng khoang được.
 - Hai trigger cùng khoá `pg_advisory_xact_lock` theo **email khách đã chuẩn hoá**, giữ tới hết
   transaction, nên duyệt và claim của cùng email chạy tuần tự (email unique theo account, claim↔claim

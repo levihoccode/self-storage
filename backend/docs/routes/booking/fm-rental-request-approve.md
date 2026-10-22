@@ -28,9 +28,10 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
 6. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
    request giữ `Pending`.
 7. Trước bước kiểm trùng, service khoá advisory theo email khách (giữ tới commit) để hai FM duyệt
-   cùng khách chạy tuần tự. Khoang đã gán cho request khác của cùng email đang `Approved`/`Converted` →
-   409 "Khoang đã được gán cho yêu cầu khác của cùng khách hàng...", request giữ `Pending`,
-   không noti. Khác email + cùng khoang vẫn cho (cọc trước giữ trước).
+   cùng khách chạy tuần tự. Khách đã có đơn/proposal **đang hoạt động** cho khoang đó (proposal
+   `Pending`/`Agreed` trên đơn chưa `Canceled`/`Done`) → 409 "Khoang đã được gán cho yêu cầu khác
+   của cùng khách hàng...", request giữ `Pending`, không noti; đơn cũ đã đóng thì được gán lại.
+   Khác email + cùng khoang vẫn cho (cọc trước giữ trước).
 8. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
    chống race: 2 FM duyệt song song chỉ 1 tx thắng, tx sau nhận 0 row → 409) → `Approved` +
    `responded_at=now` + `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).

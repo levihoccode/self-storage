@@ -2,7 +2,6 @@ package vn.lemar.selfstorage.booking.repository;
 
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -22,12 +21,6 @@ public interface RentalRequestRepository extends JpaRepository<RentalRequest, Lo
             Pageable pageable);
 
     Page<RentalRequest> findByFacilityId(Long facilityId, Pageable pageable);
-
-    /**
-     * Khoang đã gán cho request khác của cùng email đang hiệu lực (#126) — chặn gán trùng lúc duyệt.
-     */
-    boolean existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(String normalizedCustomerEmail,
-            Long unitId, Collection<RentalRequestStatus> statuses);
 
     /**
      * Conditional update chống race duyệt (spec draft.md:135): khoá row, tx thứ 2 re-evaluate

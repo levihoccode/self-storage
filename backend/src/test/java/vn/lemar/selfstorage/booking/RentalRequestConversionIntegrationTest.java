@@ -477,6 +477,21 @@ class RentalRequestConversionIntegrationTest {
     }
 
     @Test
+    void fmApprovalAllowsUnitAgainOnceEarlierOrderIsClosed() {
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        long first = request(VERIFIED, "A-01", "Pending", 7);
+        rentalRequestService.approve(first, unitId("A-01"));
+        Long firstOrder = jdbc.queryForObject("select id from rental_orders", Long.class);
+        jdbc.update("update rental_orders set status = 'Canceled' where id = ?", firstOrder);
+
+        long again = request(VERIFIED, "A-01", "Pending", 7);
+        rentalRequestService.approve(again, unitId("A-01"));
+
+        assertThat(requestStatus(again)).isEqualTo("Converted");
+        assertThat(count("rental_orders")).isEqualTo(2);
+    }
+
+    @Test
     void emailVerifiedEventClaimsAfterVerificationCommits() {
         long requestId = approvedRequest(UNVERIFIED, "B-01", 7);
         long accountId = accountId(UNVERIFIED);

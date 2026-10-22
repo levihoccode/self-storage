@@ -49,4 +49,21 @@ public class ConversionGuardRepository {
                       and o.status not in ('Canceled', 'Done'))""",
                 Boolean.class, accountId, unitId));
     }
+
+    /**
+     * Email khách đã có đơn/proposal đang hoạt động cho khoang này — dùng cho pre-check lúc duyệt.
+     * Khác {@link #hasActiveConversion(Long, Long)} ở chỗ chưa cần account id (email có thể đang
+     * pending đăng ký); đơn cũ đã đóng thì không chặn, cho gán lại khoang.
+     */
+    public boolean hasActiveConversionForEmail(String normalizedEmail, Long unitId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(
+                    select 1 from proposal_feedbacks p
+                    join rental_orders o on o.id = p.order_id
+                    join accounts a on a.id = o.customer_id
+                    where a.email = ? and p.unit_id = ?
+                      and p.status in ('Pending', 'Agreed')
+                      and o.status not in ('Canceled', 'Done'))""",
+                Boolean.class, normalizedEmail.trim().toLowerCase(Locale.ROOT), unitId));
+    }
 }

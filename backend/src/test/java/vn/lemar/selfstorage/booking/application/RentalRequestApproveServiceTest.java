@@ -249,8 +249,7 @@ class RentalRequestApproveServiceTest {
         doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
         when(storageUnitQueryService.findUnitInfo(10L))
                 .thenReturn(Optional.of(new StorageUnitQueryService.UnitInfo(5L, "Available")));
-        when(repository.existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(
-                eq("khach@example.com"), eq(10L), any())).thenReturn(true);
+        when(conversionGuard.hasActiveConversionForEmail("khach@example.com", 10L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.approve(1L, 10L))
                 .isInstanceOf(RentalRequestDuplicateUnitException.class)

@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -190,13 +189,12 @@ public class RentalRequestService {
             throw new StorageUnitUnavailableException();
         }
         // Khoá advisory theo email khách trước pre-check trùng, giữ tới commit: hai FM duyệt cùng
-        // một khách phải tuần tự, để pre-check thấy request vừa `Converted` của lần duyệt trước —
-        // tránh ca race duyệt trùng khoang (review #149: ưu tiên lỗi tường minh 409, không để
-        // request nằm `Approved` mà không có đơn).
+        // một khách phải tuần tự, để pre-check thấy đơn vừa tạo của lần duyệt trước — tránh ca race
+        // duyệt trùng khoang. Pre-check theo đơn đang hoạt động (proposal Pending/Agreed trên đơn
+        // chưa đóng), không theo status request: request cũ `Converted` không bao giờ đóng, nên
+        // nếu check theo request thì khách không bao giờ được gán lại khoang sau khi đơn cũ đóng.
         conversionGuard.lockCustomerEmail(request.getNormalizedCustomerEmail());
-        if (repository.existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(
-                request.getNormalizedCustomerEmail(), unitId,
-                List.of(RentalRequestStatus.Approved, RentalRequestStatus.Converted))) {
+        if (conversionGuard.hasActiveConversionForEmail(request.getNormalizedCustomerEmail(), unitId)) {
             throw new RentalRequestDuplicateUnitException();
         }
         Instant respondedAt = Instant.now();
