@@ -178,8 +178,9 @@ class RentalRequestConversionIntegrationTest {
         assertThat(count("rental_orders")).isZero();
         assertThat(count("proposal_feedbacks")).isZero();
         assertThat(count("notifications")).isZero();
-        assertThat(jdbc.queryForObject("select action from audit_logs where entity_id = ?",
-                String.class, String.valueOf(requestId))).isEqualTo("RENTAL_REQUEST_REJECTED");
+        assertThat(jdbc.queryForObject("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'RentalRequest'", String.class, String.valueOf(requestId)))
+                .isEqualTo("RENTAL_REQUEST_REJECTED");
         verify(mailSender).send(any(MimeMessage.class));
     }
 
@@ -279,12 +280,19 @@ class RentalRequestConversionIntegrationTest {
         assertThat(jdbc.queryForObject("select customer_id from rental_orders where id = ?", Long.class, orderId))
                 .isEqualTo(accountId);
         assertApprovedNotification(accountId, orderId, "B-01");
-        Map<String, Object> audit = jdbc.queryForMap("select * from audit_logs where entity_id = ?",
-                String.valueOf(requestId));
+        Map<String, Object> audit = jdbc.queryForMap("select * from audit_logs where entity_id = ? "
+                + "and entity_type = 'RentalRequest'", String.valueOf(requestId));
         assertThat(audit.get("action")).isEqualTo("RENTAL_REQUEST_CLAIMED");
         assertThat(audit.get("entity_type")).isEqualTo("RentalRequest");
         assertThat(audit.get("actor_account_id")).isEqualTo(accountId);
         assertThat(String.valueOf(audit.get("new_value"))).contains("Converted").contains(String.valueOf(orderId));
+        Long proposalId = jdbc.queryForObject("select id from proposal_feedbacks", Long.class);
+        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'RentalOrder'", String.class, String.valueOf(orderId)))
+                .containsExactly("RENTAL_ORDER_CREATED");
+        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'ProposalFeedback'", String.class, String.valueOf(proposalId)))
+                .containsExactly("PROPOSAL_CREATED");
     }
 
     @Test
@@ -441,9 +449,17 @@ class RentalRequestConversionIntegrationTest {
 
         assertThat(requestStatus(requestId)).isEqualTo("Converted");
         assertThat(count("rental_orders")).isEqualTo(1);
-        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ?", String.class,
-                String.valueOf(requestId))).containsExactly("RENTAL_REQUEST_APPROVED");
+        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'RentalRequest'", String.class, String.valueOf(requestId)))
+                .containsExactlyInAnyOrder("RENTAL_REQUEST_APPROVED", "RENTAL_REQUEST_CONVERTED");
         Long orderId = jdbc.queryForObject("select id from rental_orders", Long.class);
+        Long proposalId = jdbc.queryForObject("select id from proposal_feedbacks", Long.class);
+        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'RentalOrder'", String.class, String.valueOf(orderId)))
+                .containsExactly("RENTAL_ORDER_CREATED");
+        assertThat(jdbc.queryForList("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'ProposalFeedback'", String.class, String.valueOf(proposalId)))
+                .containsExactly("PROPOSAL_CREATED");
         assertApprovedNotification(accountId(VERIFIED), orderId, "A-01");
     }
 
@@ -508,8 +524,9 @@ class RentalRequestConversionIntegrationTest {
         });
 
         assertThat(requestStatus(requestId)).isEqualTo("Converted");
-        assertThat(jdbc.queryForObject("select action from audit_logs where entity_id = ?", String.class,
-                String.valueOf(requestId))).isEqualTo("RENTAL_REQUEST_CLAIMED");
+        assertThat(jdbc.queryForObject("select action from audit_logs where entity_id = ? "
+                + "and entity_type = 'RentalRequest'", String.class, String.valueOf(requestId)))
+                .isEqualTo("RENTAL_REQUEST_CLAIMED");
     }
 
     @Test

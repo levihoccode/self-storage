@@ -91,8 +91,8 @@ public class RentalRequestConversionService {
      * thì trả {@link ConversionResult.Outcome#NO_VERIFIED_ACCOUNT} và request giữ {@code Approved}
      * (caller gửi email "chưa có tài khoản" của Flow 1.1).
      *
-     * <p>Không ghi AuditLog cho bước convert ở trigger này — catalog chưa có action phù hợp, chờ
-     * behavior-gap #132. Bản ghi {@code RENTAL_REQUEST_APPROVED} do B1 ghi.
+     * <p>Audit: {@code RENTAL_REQUEST_CONVERTED} (System) + {@code RENTAL_ORDER_CREATED} +
+     * {@code PROPOSAL_CREATED}; bản ghi {@code RENTAL_REQUEST_APPROVED} do B1 ghi.
      *
      * @throws IllegalArgumentException request không tồn tại
      */
@@ -174,7 +174,22 @@ public class RentalRequestConversionService {
                     Map.of("status", RentalRequestStatus.Converted.name(), "orderId", order.getId(),
                             "proposalId", proposal.getId()),
                     null, account.id()));
+        } else {
+            auditRecorder.record(new AuditEntry(AuditAction.RENTAL_REQUEST_CONVERTED,
+                    AuditEntityType.RENTAL_REQUEST, String.valueOf(requestId),
+                    Map.of("status", RentalRequestStatus.Approved.name()),
+                    Map.of("status", RentalRequestStatus.Converted.name(), "orderId", order.getId(),
+                            "proposalId", proposal.getId()),
+                    null, null));
         }
+        auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CREATED,
+                AuditEntityType.RENTAL_ORDER, String.valueOf(order.getId()), null,
+                Map.of("status", "Pending", "requestId", requestId, "expiresAt", expiresAt.toString()),
+                null, null));
+        auditRecorder.record(new AuditEntry(AuditAction.PROPOSAL_CREATED,
+                AuditEntityType.PROPOSAL_FEEDBACK, String.valueOf(proposal.getId()), null,
+                Map.of("status", "Pending", "orderId", order.getId(), "unitId", unitId),
+                null, null));
         notificationService.notify(account.id(), account.email(), NotificationRecipient.CUSTOMER,
                 NotificationType.RENTAL_REQUEST_APPROVED,
                 Map.of("unitCode", unit.code(), "proposalLink", frontendUrl + "/proposals"), order.getId());

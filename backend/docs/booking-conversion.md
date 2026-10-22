@@ -54,8 +54,9 @@ Trong một transaction:
    cùng nội dung gửi **sau commit**. Lỗi SMTP chỉ log, không rollback (xem
    [index.md › Gửi email](index.md#gửi-email-module-notification)). Link trong body:
    `<FRONTEND_URL>/proposals`.
-5. Audit: chỉ trigger claim ghi `RENTAL_REQUEST_CLAIMED` (entity `RentalRequest`, actor = customer).
-   Trigger duyệt và tạo đơn/proposal **chưa ghi audit**.
+5. Audit: trigger duyệt ghi `RENTAL_REQUEST_CONVERTED` (System) + `RENTAL_ORDER_CREATED` +
+   `PROPOSAL_CREATED`; trigger claim ghi `RENTAL_REQUEST_CLAIMED` (customer) + order/proposal created.
+   B1 giữ `RENTAL_REQUEST_APPROVED`.
 
 `order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQueryService`, không fallback.
 Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi cấu hình: convert ném
