@@ -2,7 +2,8 @@
 
 ## Source of truth
 
-- Behavior is defined by the docs inside each module: `backend/docs/`, `frontend/docs/`.
+- Behavior is defined by the docs inside each module: `backend/docs/` and, when the module has one,
+  `frontend/docs/`.
 - Code must match those docs. If docs and code disagree: **report it, do not pick a side**.
 - A behavior change updates the module docs in the same PR — docs are kept as-built.
 - `specs/` is **reference only**: read it for the flow, refine the behavior, then record it in the

@@ -1,6 +1,6 @@
 ---
 auth-model: role-bound
-purpose: FM duyệt yêu cầu đặt kho — gán khoang Available, dừng ở Approved.
+purpose: FM duyệt yêu cầu đặt kho — gán khoang Available; email đã xác minh thì convert ngay sang đơn + proposal, response vẫn trả status Approved.
 ---
 
 # POST /api/fm/rental-requests/{id}/approve
