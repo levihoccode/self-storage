@@ -345,6 +345,7 @@ class RentalRequestConversionIntegrationTest {
 
         List<Object> results = runConcurrently(4, () -> service.claimForVerifiedAccount(accountId));
 
+        assertThat(results).noneMatch(r -> r instanceof Throwable);
         assertThat(results).allSatisfy(r -> assertThat(r).isInstanceOf(List.class));
         assertOneActiveConversion("B-02");
     }
