@@ -101,6 +101,8 @@ Chi tiết: `backend/sql/README.md`.
 
 Policy `order.expiry_days` (luồng convert cần) seed ở migration V5 — không cần thêm tay khi chạy local.
 V6 thu hẹp CHECK `rental_orders.status` còn 6 giá trị (bỏ `Expired` — spec gộp vào `Canceled`).
+V7 thêm 4 action convert vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVERTED`,
+`RENTAL_REQUEST_EXPIRED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED`.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
