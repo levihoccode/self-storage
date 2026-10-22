@@ -12,6 +12,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
@@ -34,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -180,7 +183,34 @@ class RegistrationServiceTest {
         assertThatThrownBy(() -> registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456")))
                 .isInstanceOf(IllegalStateException.class);
         verify(accountRepository, never()).save(any());
+        verify(verificationCodes, never()).consume(EMAIL);
         verifyNoInteractions(auditRecorder, events);
+    }
+
+    @Test
+    void verifyConsumesCodeOnlyAfterCommit() {
+        when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(verificationCodes.verify(EMAIL, "123456"))
+                .thenReturn(Optional.of(new PendingRegistration(EMAIL, "password-hash")));
+        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(new Role("CUSTOMER")));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
+            Account saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 42L);
+            return saved;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
+            verify(verificationCodes, never()).consume(EMAIL);
+
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCommit();
+            }
+            verify(verificationCodes).consume(EMAIL);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -200,7 +230,31 @@ class RegistrationServiceTest {
                 registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
 
         assertThat(result).isEqualTo(EmailVerificationResult.ALREADY_VERIFIED);
+        verify(verificationCodes, never()).consume(EMAIL);
         verifyNoInteractions(auditRecorder);
+    }
+
+    @Test
+    void verifyPublishesEmailVerifiedOnlyOnFirstVerification() {
+        Account created = new Account(EMAIL, "password-hash", new Role("CUSTOMER"));
+        created.markEmailVerified();
+        ReflectionTestUtils.setField(created, "id", 42L);
+        when(accountRepository.findByEmail(EMAIL))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(created));
+        when(verificationCodes.verify(EMAIL, "123456"))
+                .thenReturn(Optional.of(new PendingRegistration(EMAIL, "password-hash")));
+        when(roleRepository.findByName("CUSTOMER")).thenReturn(Optional.of(new Role("CUSTOMER")));
+        when(accountRepository.save(any(Account.class))).thenAnswer(invocation -> {
+            Account saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 42L);
+            return saved;
+        });
+
+        registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
+        registrationService.verifyEmail(new VerifyEmailRequest(EMAIL, "123456"));
+
+        verify(events, times(1)).publishEvent(new EmailVerified(42L));
     }
 
     // ------------------------------------------------------------ resend

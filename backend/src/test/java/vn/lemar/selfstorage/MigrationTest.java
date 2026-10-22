@@ -86,7 +86,9 @@ class MigrationTest {
             assertThat(count(connection, "facilities")).isEqualTo(2);
             assertThat(count(connection, "unit_types")).isEqualTo(3);
             assertThat(count(connection, "storage_units")).isEqualTo(8);
-            assertThat(count(connection, "policies")).isEqualTo(6);
+            assertThat(count(connection, "policies")).isEqualTo(7);
+            // V5 (bug #130): policy key B2 đọc khi tạo RentalOrder.
+            assertThat(countWhere(connection, "policies", "key = 'order.expiry_days'")).isEqualTo(1);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
             // V3: permission catalog + mapping mặc định (A3b, #57).
             assertThat(count(connection, "permissions")).isEqualTo(24);

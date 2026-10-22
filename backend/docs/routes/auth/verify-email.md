@@ -19,21 +19,24 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
 2. Chưa có account → đối chiếu mã trong Redis (`auth:verify-code:<email>` — so với BCRYPT hash):
    - mã sai → tăng `attempts`, trả **400**; đủ 5 lần sai → **429** (khoá tới khi resend / mã hết hạn);
    - mã hết hạn / chưa từng phát → **400** (không lộ email nào tồn tại);
-   - mã đúng → xoá mã (dùng một lần), **tạo `Account` role `CUSTOMER` với `email_verified_at` set
-     ngay** + ghi `AuditLog` `ACCOUNT_REGISTERED` (actor = account vừa tạo).
+   - mã đúng → **tạo `Account` role `CUSTOMER` với `email_verified_at` set ngay** + ghi `AuditLog`
+     `ACCOUNT_REGISTERED` (actor = account vừa tạo); mã chỉ bị xoá **sau khi transaction commit**
+     (dùng một lần). Save lỗi thì mã còn, khách nhập lại/resend được.
 3. Việc xác minh tự nó **không** ghi `AuditLog` riêng — bản ghi vòng đời là `Account.email_verified_at`
-   (spec-gap #75); audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
+   ; audit duy nhất ở bước này là `ACCOUNT_REGISTERED` khi tạo account.
 
 ## Ghi chú nghiệp vụ
 
-- Spec: `specs/draft.md` › `## Business workflow` + Flow 1 §1.2; tham số (6 số / 10 phút / 5 lần)
-  chốt tại spec-gap #139.
+- Spec: `specs/draft.md` › `## Business workflow` + Flow 1 §1.2; tham số: mã 6 số, TTL 10 phút,
+  tối đa 5 lần nhập sai.
 - Cấu hình: `EMAIL_VERIFICATION_TTL`, `EMAIL_VERIFICATION_MAX_ATTEMPTS` — xem
   [index.md › Cấu hình](../index.md#cấu-hình).
-- **Xác minh tạo account**: trước khi nhập đúng mã, email chỉ có pending registration (không có
-  `Account`); sau khi xác minh mới đăng nhập được.
-- Sau khi xác minh, account được liên kết `RentalRequest` đã duyệt (Flow 1 §1.2 — thuộc package B,
-  chưa triển khai tại đây).
+- **Xác minh tạo account (verify-first)**: trước khi nhập đúng mã, email chỉ có pending registration
+  (không có `Account`); sau khi xác minh mới đăng nhập được. Account legacy chưa xác minh (seed) được
+  mark verified.
+- Sau khi xác minh: phát event `EmailVerified`; sau commit, luồng convert claim các `RentalRequest`
+  `Approved` còn hạn khớp email trong transaction riêng — claim lỗi chỉ log, không ảnh hưởng kết quả
+  xác minh ([booking-conversion.md](../../booking-conversion.md)).
 
 ## Ví dụ
 

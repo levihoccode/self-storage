@@ -1,5 +1,5 @@
 name: Proposal (đề xuất)
-description: Muốn thêm hoặc đổi thứ gì đó. Không phải bug, không phải spec gap đang chặn implement.
+description: Muốn thêm hoặc đổi thứ gì đó. Không phải bug, không phải behavior-gap đang chặn implement.
 title: "proposal: "
 labels: ["proposal"]
 assignees: ["levihoccode"]
@@ -7,17 +7,17 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Phân biệt với Spec gap:**
+        **Phân biệt với behavior-gap:**
 
-        - **Spec gap** — spec không nói, hoặc nói hai kiểu, và bạn **đang bị chặn**. Phải mở trước khi code tiếp.
-        - **Proposal** (form này) — spec đã rõ, bạn **chủ động muốn đổi/thêm**. Không chặn ai, nhưng cũng không được tự implement trước khi được duyệt.
+        - **Behavior gap** — docs module không nói, hoặc nói hai kiểu, và bạn **đang bị chặn**. Phải mở trước khi code tiếp.
+        - **Proposal** (form này) — docs đã rõ, bạn **chủ động muốn đổi/thêm**. Không chặn ai, nhưng cũng không được tự implement trước khi được duyệt.
 
   - type: dropdown
     id: kind
     attributes:
       label: Loại đề xuất
       options:
-        - Đổi spec / luồng nghiệp vụ
+        - Đổi hành vi / luồng nghiệp vụ
         - Feature mới
         - Refactor / cấu trúc code
         - Hạ tầng / CI
@@ -54,10 +54,10 @@ body:
     id: impact
     attributes:
       label: Phạm vi ảnh hưởng
-      description: File / module / flow / spec nào phải sửa. Có migration hay đổi API contract không?
+      description: File / module / flow / docs nào phải sửa. Có migration hay đổi API contract không?
       value: |
         Module: …
-        Spec phải sửa: …
+        Docs phải sửa: …
         Migration: …
         Đổi contract FE: …
     validations:
@@ -90,5 +90,5 @@ body:
       options:
         - label: Không tự implement trước khi @levihoccode duyệt proposal này.
           required: true
-        - label: Nếu proposal đổi hành vi đã định nghĩa, tôi sẽ sửa spec và code trong cùng một PR sau khi được duyệt.
+        - label: Nếu proposal đổi hành vi đã định nghĩa, tôi sẽ sửa docs module và code trong cùng một PR sau khi được duyệt.
           required: true

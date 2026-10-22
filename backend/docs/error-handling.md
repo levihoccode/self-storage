@@ -96,7 +96,7 @@ WWW-Authenticate: Bearer error="invalid_token"
 ```
 
 500 hiện xảy ra khi path/query sai kiểu — `MethodArgumentTypeMismatchException` rơi vào catch-all
-(bug đã biết: #106). `ApiExceptionHandlerTest` assert body generic không lộ chi tiết nội bộ.
+(bug đã biết). `ApiExceptionHandlerTest` assert body generic không lộ chi tiết nội bộ.
 
 ## Chưa theo envelope
 

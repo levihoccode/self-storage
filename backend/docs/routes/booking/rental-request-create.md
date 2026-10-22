@@ -1,5 +1,5 @@
 ---
-purpose: Form public gửi yêu cầu đặt kho (B1) — không cần đăng nhập.
+purpose: Form public gửi yêu cầu đặt kho — không cần đăng nhập.
 ---
 
 # POST /api/rental-requests
@@ -7,7 +7,7 @@ purpose: Form public gửi yêu cầu đặt kho (B1) — không cần đăng nh
 Form public cho khách điền nhu cầu thuê kho mà không cần chỉ định khoang cụ thể.
 
 - **Actor / quyền:** public (`permitAll` đúng scope `POST /api/rental-requests` trong
-  `SecurityConfig`, đặt trước rule vét `/api/**` — #126).
+  `SecurityConfig`, đặt trước rule vét `/api/**`).
 - **Contract chi tiết:** annotation tại `booking/controller/RentalRequestController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
@@ -27,8 +27,8 @@ Form public cho khách điền nhu cầu thuê kho mà không cần chỉ địn
 
 ## Ghi chú nghiệp vụ
 
-- Spec: `specs/draft.md §1.1`; schema `db-table-draft.md › RentalRequest`; #126 (ràng buộc
-  facility–unit_type, deviate db-table-draft.md:130 được chấp nhận).
+- Spec: `specs/draft.md §1.1`; schema `db-table-draft.md › RentalRequest`; ràng buộc
+  facility–unit_type deviate `db-table-draft.md:130` được chấp nhận.
 - Chưa có rate-limit/captcha chống spam (Advanced Features, không phải MVP).
 
 ## Ví dụ

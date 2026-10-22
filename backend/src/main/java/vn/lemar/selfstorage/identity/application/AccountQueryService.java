@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
 import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 /**
@@ -40,10 +41,41 @@ public class AccountQueryService {
         return accountRepository.findByEmail(Account.normalize(email)).map(Account::getId);
     }
 
+    /** Email đã có account và account đó đang bị chặn. */
+    @Transactional(readOnly = true)
+    public boolean isBanned(String email) {
+        return accountRepository.findByEmail(Account.normalize(email))
+                .map(account -> account.getStatus() == AccountStatus.BANNED)
+                .orElse(false);
+    }
+
     @Transactional(readOnly = true)
     public String requireEmailById(Long accountId) {
         return accountRepository.findById(accountId)
                 .orElseThrow(AccountNotFoundException::new)
                 .getEmail();
+    }
+
+    /**
+     * Account của email nếu dùng được để convert/claim: đã xác minh **và** đang `ACTIVE`
+     * ({@link Account#isLoginAllowed()}) — account bị chặn không được tạo đơn.
+     * Chưa có account / chưa xác minh / bị chặn → rỗng.
+     */
+    @Transactional(readOnly = true)
+    public Optional<VerifiedAccount> findVerifiedByEmail(String email) {
+        return accountRepository.findByEmail(Account.normalize(email))
+                .filter(Account::isLoginAllowed)
+                .map(account -> new VerifiedAccount(account.getId(), account.getEmail()));
+    }
+
+    /**
+     * Account theo id nếu dùng được để convert/claim: đã xác minh **và** đang `ACTIVE`.
+     * Không tồn tại / chưa xác minh / bị chặn → rỗng.
+     */
+    @Transactional(readOnly = true)
+    public Optional<VerifiedAccount> findVerifiedById(Long accountId) {
+        return accountRepository.findById(accountId)
+                .filter(Account::isLoginAllowed)
+                .map(account -> new VerifiedAccount(account.getId(), account.getEmail()));
     }
 }
