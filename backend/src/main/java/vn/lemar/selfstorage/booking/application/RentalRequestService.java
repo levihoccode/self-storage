@@ -180,6 +180,9 @@ public class RentalRequestService {
         if (request.getExpiresAt() != null && request.getExpiresAt().isBefore(Instant.now())) {
             throw new RentalRequestExpiredException();
         }
+        if (accountQueryService.isBanned(request.getNormalizedCustomerEmail())) {
+            return rejectBannedCustomer(requestId, request);
+        }
         StorageUnitQueryService.UnitInfo unit = storageUnitQueryService.findUnitInfo(unitId)
                 .orElseThrow(StorageUnitNotFoundException::new);
         if (!unit.facilityId().equals(request.getFacilityId())) {
@@ -221,6 +224,37 @@ public class RentalRequestService {
         sendApprovalEmail(request, expiresAt);
         return new ApproveRentalRequestResponse(request.getId(), RentalRequestStatus.Approved.name(),
                 unitId, respondedAt, expiresAt);
+    }
+
+    /**
+     * Account khách đã bị chặn: không duyệt, chuyển request sang {@code Rejected} và gửi mail.
+     * Dùng reason {@code OTHER} + note cố định để không phải mở rộng CHECK của {@code reject_reason}.
+     */
+    private ApproveRentalRequestResponse rejectBannedCustomer(Long requestId, RentalRequest request) {
+        Instant respondedAt = Instant.now();
+        String note = "Tài khoản khách đã bị chặn";
+        int updated = repository.rejectIfPending(requestId, RentalRequestRejectReason.OTHER, note,
+                respondedAt, RentalRequestStatus.Pending, RentalRequestStatus.Rejected);
+        if (updated == 0) {
+            throw new RentalRequestAlreadyHandledException();
+        }
+        Map<String, Object> newValue = new LinkedHashMap<>();
+        newValue.put("status", RentalRequestStatus.Rejected.name());
+        newValue.put("rejectReason", RentalRequestRejectReason.OTHER.name());
+        newValue.put("rejectNote", note);
+        auditRecorder.record(new AuditEntry(AuditAction.RENTAL_REQUEST_REJECTED,
+                AuditEntityType.RENTAL_REQUEST, String.valueOf(requestId),
+                Map.of("status", RentalRequestStatus.Pending.name()), newValue, null,
+                currentAccountProvider.getCurrentAccountId()));
+
+        String title = "Yêu cầu thuê kho bị từ chối";
+        String body = "Tài khoản của bạn hiện đang bị chặn, nên yêu cầu đặt kho của bạn đã bị từ chối. "
+                + "Vui lòng liên hệ CSKH nếu có sai sót.";
+        emailSender.sendHtml(request.getNormalizedCustomerEmail(), title,
+                NotificationEmailLayout.wrap(title, body));
+
+        return new ApproveRentalRequestResponse(requestId, RentalRequestStatus.Rejected.name(),
+                null, respondedAt, null);
     }
 
     /**

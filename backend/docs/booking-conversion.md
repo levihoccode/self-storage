@@ -29,9 +29,12 @@ và rollback cả transaction duyệt — request giữ `Pending`, không có ca
 | `outcome` | Ý nghĩa | Caller (luồng duyệt) làm gì |
 |---|---|---|
 | `CONVERTED` | Đã tạo đơn + proposal, request → `Converted`, đã gửi notification + email | — |
-| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả pending registration), account chưa xác minh, hoặc account đã bị chặn (`BANNED`). Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" khi email **chưa có account**; chưa xác minh/bị chặn → không gửi; khách xác minh xong → claim (bị chặn thì chờ unban) |
+| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả pending registration) hoặc account chưa xác minh. Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" khi email **chưa có account**; chưa xác minh → không gửi; khách xác minh xong → claim |
 | `NOT_CONVERTIBLE` | Request không ở `Approved` hoặc đã quá `expires_at` | — |
 | `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này | Luồng duyệt: trả **409** `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt — request giữ `Pending`. Claim sau xác minh: request giữ `Approved` |
+
+Account `BANNED` không vào convert: luồng duyệt từ chối request, gửi mail và trả `Rejected`
+([route duyệt](routes/booking/fm-rental-request-approve.md)); claim sau xác minh không tạo gì.
 
 `claimForVerifiedAccount` trả danh sách `ConversionResult` cho từng request `Approved` còn hạn khớp
 email (rỗng = Case B, hoặc email chưa có account — pending/không tồn tại).

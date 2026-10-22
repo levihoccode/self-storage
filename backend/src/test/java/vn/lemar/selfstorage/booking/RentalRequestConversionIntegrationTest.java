@@ -168,14 +168,19 @@ class RentalRequestConversionIntegrationTest {
     }
 
     @Test
-    void fmApprovalThroughB1KeepsApprovedForBannedCustomer() {
+    void fmApprovalThroughB1RejectsBannedCustomer() {
         when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
         long requestId = request("banned@lemar.vn", "A-01", "Pending", 7);
 
         rentalRequestService.approve(requestId, unitId("A-01"));
 
-        assertThat(requestStatus(requestId)).isEqualTo("Approved");
-        assertNothingCreated();
+        assertThat(requestStatus(requestId)).isEqualTo("Rejected");
+        assertThat(count("rental_orders")).isZero();
+        assertThat(count("proposal_feedbacks")).isZero();
+        assertThat(count("notifications")).isZero();
+        assertThat(jdbc.queryForObject("select action from audit_logs where entity_id = ?",
+                String.class, String.valueOf(requestId))).isEqualTo("RENTAL_REQUEST_REJECTED");
+        verify(mailSender).send(any(MimeMessage.class));
     }
 
     @Test

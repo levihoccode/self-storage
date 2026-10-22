@@ -23,28 +23,31 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
    không đổi gì.
 4. Request đã quá `expires_at` → 409 "Yêu cầu đã quá hạn xử lý", không đổi gì (guard đọc
    `expires_at`; chưa có cron đổi status sang `Expired`).
-5. Khoang không tồn tại hoặc thuộc cơ sở khác → 404 "Không tìm thấy khoang", không đổi gì
+5. Tài khoản khách đang bị chặn (`AccountStatus.BANNED`) → request chuyển `Rejected` (reason
+   `OTHER`, note "Tài khoản khách đã bị chặn"), audit `RENTAL_REQUEST_REJECTED`, gửi mail
+   "Yêu cầu thuê kho bị từ chối" (tài khoản bị chặn, liên hệ CSKH nếu sai sót); response 200 với
+   `status: "Rejected"`, `unitId`/`expiresAt` null. Không tạo đơn/proposal.
+6. Khoang không tồn tại hoặc thuộc cơ sở khác → 404 "Không tìm thấy khoang", không đổi gì
    (khoang ngoài cơ sở trả cùng lỗi để không lộ tài nguyên ngoài phạm vi FM).
-6. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
+7. Khoang mất `Available` → 409 "Khoang đã không còn khả dụng, vui lòng chọn khoang khác",
    request giữ `Pending`.
-7. Trước bước kiểm trùng, service khoá advisory theo email khách (giữ tới commit) để hai FM duyệt
+8. Trước bước kiểm trùng, service khoá advisory theo email khách (giữ tới commit) để hai FM duyệt
    cùng khách chạy tuần tự. Khách đã có đơn/proposal **đang hoạt động** cho khoang đó (proposal
    `Pending`/`Agreed` trên đơn chưa `Canceled`/`Done`) → 409 "Khoang đã được gán cho yêu cầu khác
    của cùng khách hàng...", request giữ `Pending`, không noti; đơn cũ đã đóng thì được gán lại.
    Khác email + cùng khoang vẫn cho (cọc trước giữ trước).
-8. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
+9. OK → 1 transaction: conditional update `WHERE status='Pending'` (đúng spec `draft.md:135` —
    chống race: 2 FM duyệt song song chỉ 1 tx thắng, tx sau nhận 0 row → 409) → `Approved` +
    `responded_at=now` + `expires_at=responded_at + account.claim_ttl_days` (fallback 7 ngày).
-9. Cùng transaction: gọi `RentalRequestConversionService.convertOnApproval` — email đã thuộc
-   account **đã xác minh** thì tạo `RentalOrder(Pending)` + `ProposalFeedback(Pending)`, request →
-   `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback.
-   Nếu convert phát hiện trùng khoang (race hiếm — request khác vừa convert) → **409**
-   `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt, request giữ `Pending`
-   ([booking-conversion.md](../../booking-conversion.md)).
-10. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
-   với verify-first, email đang pending registration chưa có account nên vẫn nhận mail này;
-   account legacy chưa xác minh hoặc đã bị chặn không nhận mail — claim + notification sau khi
-   xác minh (account bị chặn thì không convert, chờ unban).
+10. Cùng transaction: gọi `RentalRequestConversionService.convertOnApproval` — email đã thuộc
+    account **đã xác minh** thì tạo `RentalOrder(Pending)` + `ProposalFeedback(Pending)`, request →
+    `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback.
+    Nếu convert phát hiện trùng khoang (race hiếm — request khác vừa convert) → **409**
+    `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt, request giữ `Pending`
+    ([booking-conversion.md](../../booking-conversion.md)).
+11. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
+    với verify-first, email đang pending registration chưa có account nên vẫn nhận mail này;
+    account legacy chưa xác minh không nhận mail — claim + notification sau khi xác minh.
 
 Body: `{unitId}` bắt buộc. Trả envelope `{message, data: {id, status, unitId, respondedAt,
 expiresAt}}`.
@@ -54,7 +57,8 @@ expiresAt}}`.
 - Spec: `specs/draft.md` §1.1; permission `rental_request.approve` (FACILITY) đã seed V3;
   claim_ttl, chặn gán trùng khoang, mail nhánh chưa-có-account.
 - Response giữ `status: "Approved"` (contract endpoint duyệt) kể cả khi convert đã chuyển request sang
-  `Converted` trong cùng transaction — luồng convert không đổi contract HTTP.
+  `Converted` trong cùng transaction — luồng convert không đổi contract HTTP. Riêng nhánh tài khoản
+  bị chặn trả `status: "Rejected"` với `unitId`/`expiresAt` null.
 
 ## Ví dụ
 

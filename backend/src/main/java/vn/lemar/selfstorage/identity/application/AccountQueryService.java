@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import vn.lemar.selfstorage.identity.application.exception.AccountNotFoundException;
 import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 /**
@@ -38,6 +39,14 @@ public class AccountQueryService {
     @Transactional(readOnly = true)
     public Optional<Long> findIdByEmail(String email) {
         return accountRepository.findByEmail(Account.normalize(email)).map(Account::getId);
+    }
+
+    /** Email đã có account và account đó đang bị chặn. */
+    @Transactional(readOnly = true)
+    public boolean isBanned(String email) {
+        return accountRepository.findByEmail(Account.normalize(email))
+                .map(account -> account.getStatus() == AccountStatus.BANNED)
+                .orElse(false);
     }
 
     @Transactional(readOnly = true)

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -36,6 +37,7 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundE
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
+import vn.lemar.selfstorage.booking.domain.RentalRequestRejectReason;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
 import vn.lemar.selfstorage.booking.repository.ConversionGuardRepository;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
@@ -255,6 +257,34 @@ class RentalRequestApproveServiceTest {
                 .isInstanceOf(RentalRequestDuplicateUnitException.class)
                 .hasMessageContaining("đã được gán cho yêu cầu khác của cùng khách hàng");
         assertThat(request.getStatus()).isEqualTo(RentalRequestStatus.Pending);
+    }
+
+    @Test
+    void approveBannedCustomerRejectsRequestAndSendsEmail() {
+        RentalRequest request = pendingRequest();
+        when(repository.findById(1L)).thenReturn(Optional.of(request));
+        doNothing().when(access).can(eq("rental_request.approve"), eq(5L));
+        when(accountQueryService.isBanned("khach@example.com")).thenReturn(true);
+        when(repository.rejectIfPending(eq(1L), eq(RentalRequestRejectReason.OTHER),
+                eq("Tài khoản khách đã bị chặn"), any(), eq(RentalRequestStatus.Pending),
+                eq(RentalRequestStatus.Rejected))).thenReturn(1);
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(77L);
+
+        ApproveRentalRequestResponse response = service.approve(1L, 10L);
+
+        assertThat(response.status()).isEqualTo("Rejected");
+        assertThat(response.unitId()).isNull();
+        assertThat(response.expiresAt()).isNull();
+        verify(repository).rejectIfPending(eq(1L), eq(RentalRequestRejectReason.OTHER),
+                eq("Tài khoản khách đã bị chặn"), any(), eq(RentalRequestStatus.Pending),
+                eq(RentalRequestStatus.Rejected));
+        verify(emailSender).sendHtml(eq("khach@example.com"), eq("Yêu cầu thuê kho bị từ chối"),
+                contains("bị chặn"));
+        ArgumentCaptor<AuditEntry> audit = ArgumentCaptor.forClass(AuditEntry.class);
+        verify(auditRecorder).record(audit.capture());
+        assertThat(audit.getValue().action()).isEqualTo(AuditAction.RENTAL_REQUEST_REJECTED);
+        verify(storageUnitQueryService, never()).findUnitInfo(anyLong());
+        verify(conversionService, never()).convertOnApproval(anyLong());
     }
 
     @Test
