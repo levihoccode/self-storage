@@ -18,7 +18,8 @@ Luồng convert **không có endpoint HTTP riêng**. Chạy bên trong hai endpo
 | Customer vừa xác minh email | `RegistrationService.verifyEmail` phát `EmailVerified(accountId)` → `booking/application/EmailVerifiedClaimListener` (`@TransactionalEventListener(AFTER_COMMIT)`) | `RentalRequestConversionService.claimForVerifiedAccount(accountId)` | Transaction **riêng** (`REQUIRES_NEW`) sau khi xác minh đã commit — claim lỗi chỉ log, xác minh vẫn thành công |
 
 Identity không gọi sang booking (identity là module nền) — nên trigger 2 đi qua event.
-Claim lỗi ở trigger 2 (ví dụ thiếu policy `order.expiry_days`) không tự thử lại; request vẫn `Approved`.
+Claim chạy cả lô trong một transaction `REQUIRES_NEW`: một request lỗi (ví dụ thiếu policy
+`order.expiry_days`) rollback cả lô, listener chỉ log và không retry — các request vẫn `Approved`.
 
 Trigger 1 khoá advisory theo email **trước pre-check trùng** và giữ tới commit; nếu `convertOnApproval`
 vẫn phát hiện trùng (request khác vừa convert), luồng duyệt trả **409** `RentalRequestDuplicateUnitException`
@@ -29,7 +30,7 @@ và rollback cả transaction duyệt — request giữ `Pending`, không có ca
 | `outcome` | Ý nghĩa | Caller (luồng duyệt) làm gì |
 |---|---|---|
 | `CONVERTED` | Đã tạo đơn + proposal, request → `Converted`, đã gửi notification + email | — |
-| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả pending registration) hoặc account chưa xác minh. Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" khi email **chưa có account**; chưa xác minh → không gửi; khách xác minh xong → claim |
+| `NO_VERIFIED_ACCOUNT` | Email chưa có account (kể cả pending registration) hoặc account chưa xác minh. Request giữ `Approved` | Luồng duyệt gửi email "chưa có tài khoản" khi email **chưa có account**; chưa xác minh → không gửi; khách xác minh xong → claim. Account bị chặn không vào tới đây — luồng duyệt từ chối trước |
 | `NOT_CONVERTIBLE` | Request không ở `Approved` hoặc đã quá `expires_at` | — |
 | `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này | Luồng duyệt: trả **409** `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt — request giữ `Pending`. Claim sau xác minh: request giữ `Approved` |
 
@@ -56,7 +57,7 @@ Trong một transaction:
    `<FRONTEND_URL>/proposals`.
 5. Audit: trigger duyệt ghi `RENTAL_REQUEST_CONVERTED` (System) + `RENTAL_ORDER_CREATED` +
    `PROPOSAL_CREATED`; trigger claim ghi `RENTAL_REQUEST_CLAIMED` (customer) + order/proposal created.
-   B1 giữ `RENTAL_REQUEST_APPROVED`.
+   Luồng duyệt vẫn ghi `RENTAL_REQUEST_APPROVED` trước khi convert.
 
 `order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQueryService`, không fallback.
 Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi cấu hình: convert ném
@@ -76,7 +77,7 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
     với transaction khác r1 vẫn `Pending`, nên claim r2 cùng khoang không đụng row nào của r1.
     Test `claimDuringUncommittedApprovalWaitsAndSkipsSameUnit`.
   - Không khoá theo account id: lúc FM duyệt, khách có thể đang pending đăng ký (chưa có account). Trigger duyệt khoá
-    email **trước** khi tra account và giữ khoá cả ở nhánh `NO_VERIFIED_ACCOUNT`, nên claim của lần
+    email **trước** khi tra account đã xác minh và giữ khoá cả ở nhánh `NO_VERIFIED_ACCOUNT`, nên claim của lần
     xác minh chạy song song phải chờ duyệt commit rồi mới select — không bỏ sót request.
     Test `approvalBeforeVerificationCommitIsStillClaimed`.
   - Hai test trên chỉ commit transaction duyệt khi thấy claim thật sự bị chặn trên advisory lock

@@ -21,7 +21,7 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | POST | `/api/rental-requests` | Public | Gửi yêu cầu đặt kho (form public) | [routes/booking/rental-request-create.md](routes/booking/rental-request-create.md) |
 | GET | `/api/fm/rental-requests` | Bearer + role `FM`; `rental_request.read` + facility scope | Hàng đợi yêu cầu đặt kho | [routes/booking/fm-rental-request-queue.md](routes/booking/fm-rental-request-queue.md) |
 | GET | `/api/unit-types` | Public | Loại khoang cơ sở cung cấp cho form | [routes/pricing/unit-types.md](routes/pricing/unit-types.md) |
-| POST | `/api/fm/rental-requests/{id}/approve` | Bearer + role `FM`; `rental_request.approve` + facility scope | Duyệt yêu cầu đặt kho, gán khoang (dừng ở Approved) | [routes/booking/fm-rental-request-approve.md](routes/booking/fm-rental-request-approve.md) |
+| POST | `/api/fm/rental-requests/{id}/approve` | Bearer + role `FM`; `rental_request.approve` + facility scope | Duyệt yêu cầu đặt kho, gán khoang; email đã xác minh thì convert ngay (response vẫn `Approved`) | [routes/booking/fm-rental-request-approve.md](routes/booking/fm-rental-request-approve.md) |
 | POST | `/api/fm/rental-requests/{id}/reject` | Bearer + role `FM`; `rental_request.reject` + facility scope | Từ chối yêu cầu đặt kho + mail (dừng ở Rejected) | [routes/booking/fm-rental-request-reject.md](routes/booking/fm-rental-request-reject.md) |
 | PATCH | `/api/notifications/{notificationId}/read` | Chủ tài nguyên | Đánh dấu một thông báo đã đọc | [routes/notification/mark-read.md](routes/notification/mark-read.md) |
 | PATCH | `/api/notifications/read-all` | Bearer + `ACCOUNT_ACTIVE` | Đánh dấu tất cả đã đọc | [routes/notification/read-all.md](routes/notification/read-all.md) |

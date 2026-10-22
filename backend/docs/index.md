@@ -79,7 +79,7 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
-| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
+| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{proposalLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 
 Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
@@ -91,8 +91,8 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__baseline_seed.sql`,
-`V3__rbac_permissions_seed.sql`, `V4__facility_unit_type.sql`. V1/V2 có mirror ở `backend/sql/`
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V7__audit_convert_actions.sql`.
+V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
@@ -101,8 +101,8 @@ Chi tiết: `backend/sql/README.md`.
 
 Policy `order.expiry_days` (luồng convert cần) seed ở migration V5 — không cần thêm tay khi chạy local.
 V6 thu hẹp CHECK `rental_orders.status` còn 6 giá trị (bỏ `Expired` — spec gộp vào `Canceled`).
-V7 thêm 4 action convert vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVERTED`,
-`RENTAL_REQUEST_EXPIRED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED`.
+V7 thêm 4 action vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVERTED`, `RENTAL_REQUEST_EXPIRED`
+(chờ cron chuyển request hết hạn), `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED`.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.
@@ -141,15 +141,17 @@ V7 thêm 4 action convert vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVER
   rollback theo.
 - Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
   hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
-- `AuditAction` (41 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
+- `AuditAction` (45 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
   (`specs/db-table-draft.md` › AuditLog); action không khớp entity → `IllegalStateException`
   (lỗi lập trình, 500).
 - Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =
   hệ thống/cron/IPN. Bảng `audit_logs` append-only.
 - Hợp đồng tích hợp đầy đủ cho module gọi (checklist, ví dụ, call site hiện có):
   [audit-log.md](audit-log.md).
-- Caller nghiệp vụ hiện có: luồng convert (`RENTAL_REQUEST_CLAIMED`); các luồng khác nối khi được
-  triển khai — bảng call site ở [audit-log.md](audit-log.md#call-site-hiện-có).
+- Caller nghiệp vụ hiện có: đăng ký (`ACCOUNT_REGISTERED`), duyệt/từ chối request
+  (`RENTAL_REQUEST_APPROVED`/`REJECTED`), convert (`RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`,
+  `PROPOSAL_CREATED`), claim (`RENTAL_REQUEST_CLAIMED`) — bảng call site ở
+  [audit-log.md](audit-log.md#call-site-hiện-có).
 
 ## Upload file (module media)
 

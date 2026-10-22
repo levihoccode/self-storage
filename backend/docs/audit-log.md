@@ -55,8 +55,8 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 |---|---|---|---|
 | `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.verifyEmail` — tạo account sau khi xác minh |
 | `booking` | `RENTAL_REQUEST_APPROVED`, `RENTAL_REQUEST_REJECTED` | `RentalRequest` | `booking/application/RentalRequestService.approve/reject` |
-| `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` — actor = customer vừa xác minh |
-| `booking` | `RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED` | `RentalRequest`, `RentalOrder`, `ProposalFeedback` | `booking/application/RentalRequestConversionService.convert` — trigger duyệt (`CONVERTED` chỉ nhánh duyệt); actor = System |
+| `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` — actor = customer vừa xác minh; claim cũng ghi `RENTAL_ORDER_CREATED` + `PROPOSAL_CREATED` (System) |
+| `booking` | `RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED` | `RentalRequest`, `RentalOrder`, `ProposalFeedback` | `booking/application/RentalRequestConversionService.convert` — trigger duyệt (`CONVERTED` chỉ nhánh duyệt); order/proposal tạo ở cả hai trigger; actor = System |
 
 ## Xem thêm
 
