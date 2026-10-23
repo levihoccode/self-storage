@@ -7,7 +7,7 @@ purpose: FM xem đơn thuê để đề xuất lại — lịch sử proposal, s
 Dữ liệu cho màn "Đề xuất lại khoang" (`/fm/rental-orders/:id/re-propose`).
 
 - **Actor / quyền:** role-bound `FM` (`/api/fm/**`) + permission `rental_order.read` theo cơ sở của đơn
-  (`Access.can`), FM cơ sở khác → 403 — route nằm trong `/api/fm/**` theo quy tắc ở `authorization.md`.
+  (`Access.can`), FM cơ sở khác → 403 — cùng cách hàng đợi yêu cầu đặt kho của FM.
 - **Contract chi tiết:** annotation tại `booking/controller/FmRentalOrderController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 

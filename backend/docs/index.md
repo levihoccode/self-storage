@@ -105,7 +105,7 @@ Schema Flow 1.3 đi bằng migration V8–V9 (V1/V2 đóng băng sau khi main c�
 - Cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; Flow 1.3 chỉ đọc:
   FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
 - CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
-  hoặc đơn bị huỷ theo Cancellation Cascade).
+  hoặc đơn bị huỷ theo Cancellation Cascade); dòng `Expired` cũ (nếu có) được chuyển sang `Canceled`.
 - Audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
 - Seed policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
   (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.

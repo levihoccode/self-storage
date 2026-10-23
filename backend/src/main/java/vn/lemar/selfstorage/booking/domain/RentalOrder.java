@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 /**
  * Đơn thuê ({@code specs/db-table-draft.md} › RentalOrder).
  *
- * <p>Đơn do luồng convert (B2) tạo; entity này chỉ mở các thao tác B3 cần. {@code unitId},
+ * <p>Đơn do luồng convert tạo ({@link #open}); các thao tác còn lại phục vụ Flow 1.3. {@code unitId},
  * {@code customerId}, {@code requestId} để kiểu {@code Long} chứ không phải quan hệ JPA: bảng đích
  * thuộc module khác — ranh giới module cấm import {@code domain} của nhau, khoá ngoại vẫn do DB giữ.
  */
@@ -50,7 +50,7 @@ public class RentalOrder {
 
     /**
      * FM cần đề xuất lại dù đơn đã qua {@code Pending} (vd khách từ chối khoang tại check-in). Flow 2 bật/tắt cờ;
-     * B3 chỉ đọc trong điều kiện đề xuất lại (chốt PR #136).
+     * Flow 1.3 chỉ đọc trong điều kiện đề xuất lại.
      */
     @Column(name = "needs_reproposal", nullable = false)
     private boolean needsReproposal;
@@ -69,8 +69,8 @@ public class RentalOrder {
     }
 
     /**
-     * Chốt PR #136: FM được đề xuất lại khi đơn chưa đóng và đang {@code Pending} hoặc được đánh dấu
-     * {@code needs_reproposal}. Điều kiện "không có proposal Pending" do service kiểm (cần truy vấn proposal).
+     * FM được đề xuất lại khi đơn chưa đóng và đang {@code Pending} hoặc được đánh dấu {@code needs_reproposal}.
+     * Điều kiện "không có proposal Pending" do service kiểm (cần truy vấn proposal).
      */
     public boolean allowsReproposal() {
         return !status.isClosed() && (status == RentalOrderStatus.PENDING || needsReproposal);
@@ -81,19 +81,18 @@ public class RentalOrder {
         this.needsReproposal = false;
     }
 
+    /**
+     * Đơn đang thực sự giữ khoang {@code unit_id}: khách đã đặt cọc và đơn chưa đóng. Đơn {@code Pending} chỉ mới
+     * gán khoang khi đồng ý đề xuất (chưa cọc) nên không giữ — nhiều đơn có thể cùng trỏ một khoang.
+     */
+    public boolean holdsUnit() {
+        return status == RentalOrderStatus.DEPOSITED || status == RentalOrderStatus.SCHEDULED
+                || status == RentalOrderStatus.IN_PROGRESS;
+    }
+
     /** Spec 1.3: {@code RentalOrder.unit_id} = {@code unit_id} của proposal {@code Agreed} mới nhất. */
     public void assignUnit(Long agreedUnitId) {
         this.unitId = agreedUnitId;
-    }
-
-    /**
-     * Đơn đang giữ khoang: khoang chỉ chuyển {@code Reserved} khi thanh toán cọc (spec 1.4), nên đơn chỉ
-     * giữ khoang từ {@code Deposited} trở đi. Đơn {@code Pending} có {@code unit_id} nhưng chưa cọc.
-     */
-    public boolean holdsUnit() {
-        return status == RentalOrderStatus.DEPOSITED
-                || status == RentalOrderStatus.SCHEDULED
-                || status == RentalOrderStatus.IN_PROGRESS;
     }
 
     /** Cancellation Cascade bước 1: {@code status -> Canceled}, ghi {@code cancel_reason}. */

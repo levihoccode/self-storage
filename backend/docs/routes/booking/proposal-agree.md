@@ -18,7 +18,7 @@ Khách bấm "Đồng ý" trên một proposal `Pending`.
 - Guard trạng thái đơn: đơn `Canceled`/`Done` → 409; `expires_at < now` → 409.
 - Khoang còn `Available`, đơn chưa cọc: proposal `Agreed`, `RentalOrder.unit_id` = khoang đó, tạo `Invoice`
   `Deposit`/`Unpaid`, AuditLog `PROPOSAL_AGREED` (payload có `unitId`) + `INVOICE_CREATED`.
-- Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED` , FM nhận
+- Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED`, FM nhận
   `PROPOSAL_REPROPOSAL_REQUIRED`, response 409 — các thay đổi này **vẫn được commit** (service trả kết quả,
   không ném exception).
 
@@ -46,7 +46,7 @@ delta       = required − paidDeposit
   amount = giá thuê hiệu lực × `invoice.deposit_months` (seed 1), `due_date` =
   min(now + `invoice.deposit_due_days`, `RentalOrder.expires_at`).
 - `fee.unit_change` seed bằng V9, mặc định 0; Flow 4 chốt giá trị thật.
-- `Canceled` thay `Expired` của spec; spec sẽ cập nhật sau review.
+- Proposal bị huỷ dùng `Canceled` thay `Expired` của spec (proposal không có TTL).
 
 ## Ví dụ
 

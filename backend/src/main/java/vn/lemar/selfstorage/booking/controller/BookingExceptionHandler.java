@@ -12,11 +12,11 @@ import vn.lemar.selfstorage.booking.application.exception.ProposalConflictExcept
 import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalValidationException;
-import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -89,3 +89,4 @@ public class BookingExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
     }
 }
+
