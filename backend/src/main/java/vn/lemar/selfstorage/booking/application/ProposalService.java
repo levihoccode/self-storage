@@ -97,6 +97,11 @@ public class ProposalService {
         RentalOrder order = orderRepository.findByIdForUpdate(proposal.getOrderId())
                 .orElseThrow(RentalOrderNotFoundException::new);
         requireAgreeable(order);
+        if (invoiceRepository.existsByOrderIdAndStatusInAndTypeIn(order.getId(),
+                List.of(InvoiceStatus.UNPAID),
+                List.of(InvoiceType.DEPOSIT, InvoiceType.DEPOSIT_SUPPLEMENT))) {
+            throw new ProposalConflictException("Đơn đang có hoá đơn cọc chờ thanh toán");
+        }
         Long oldUnitId = order.holdsUnit() ? order.getUnitId() : null;
         StorageUnitView unit = lockAgreedUnits(oldUnitId, proposal.getUnitId());
 
@@ -163,8 +168,8 @@ public class ProposalService {
         if (!order.holdsUnit()) {
             return depositInvoiceIssuer.issue(order, unit, actorAccountId);
         }
-        BigDecimal paidDeposit = invoiceRepository.sumAmount(order.getId(), InvoiceType.DEPOSIT,
-                InvoiceStatus.PAID);
+        BigDecimal paidDeposit = invoiceRepository.sumAmount(order.getId(),
+                List.of(InvoiceType.DEPOSIT, InvoiceType.DEPOSIT_SUPPLEMENT), InvoiceStatus.PAID);
         BigDecimal required = depositInvoiceIssuer.depositAmount(unit)
                 .add(pricingQuery.decimalPolicy(POLICY_UNIT_CHANGE));
         BigDecimal delta = required.subtract(paidDeposit).setScale(2, RoundingMode.HALF_UP);
@@ -301,7 +306,8 @@ public class ProposalService {
      */
     private void cancelUnpaidDepositInvoices(RentalOrder order, Long actorAccountId) {
         for (Invoice invoice : invoiceRepository.findByOrderIdAndStatus(order.getId(), InvoiceStatus.UNPAID)) {
-            if (invoice.getType() != InvoiceType.DEPOSIT) {
+            if (invoice.getType() != InvoiceType.DEPOSIT
+                    && invoice.getType() != InvoiceType.DEPOSIT_SUPPLEMENT) {
                 continue;
             }
             invoice.cancel();

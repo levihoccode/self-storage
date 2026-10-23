@@ -33,12 +33,12 @@ sinh ra từ nhánh FM đề xuất lại sau khi khách từ chối khoang tạ
   riêng cho trường hợp `delta ≤ 0`).
 
 ```text
-paidDeposit = tổng Invoice Deposit đã Paid của đơn
+paidDeposit = tổng Invoice Deposit + DepositSupplement đã Paid của đơn
 required    = giá thuê hiệu lực(khoang mới) × invoice.deposit_months + fee.unit_change
 delta       = required − paidDeposit
 ```
 
-- `delta > 0`: tạo `Invoice` `Deposit`/`Unpaid` cho phần chênh lệch, title "Bổ sung cọc khoang chứa {mã}",
+- `delta > 0`: tạo `Invoice` `DepositSupplement`/`Unpaid` cho phần chênh lệch, title "Bổ sung cọc khoang chứa {mã}",
   hạn như hoá đơn cọc thường; khách nhận `UNIT_CHANGE_PAYMENT_REQUIRED` ("thanh toán để giữ khoang mới").
 - `delta < 0`: không tạo hoá đơn; AuditLog `DEPOSIT_REFUND_REQUIRED` + notification
   `DEPOSIT_REFUND_REQUIRED` cho FM, khách nhận `DEPOSIT_REFUND_PENDING`. Việc ghi nhận hoàn tiền thuộc

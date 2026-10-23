@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.booking.repository;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,9 +14,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     List<Invoice> findByOrderIdAndStatus(Long orderId, InvoiceStatus status);
 
-    /** Tổng tiền đã thu của một loại hoá đơn trên đơn — dùng để tính chênh lệch cọc. */
+    /** Tổng tiền đã thu của các loại hoá đơn trên đơn — dùng để tính chênh lệch cọc. */
     @Query("select coalesce(sum(i.amount), 0) from Invoice i where i.orderId = :orderId "
-            + "and i.type = :type and i.status = :status")
-    BigDecimal sumAmount(@Param("orderId") Long orderId, @Param("type") InvoiceType type,
+            + "and i.type in :types and i.status = :status")
+    BigDecimal sumAmount(@Param("orderId") Long orderId, @Param("types") Collection<InvoiceType> types,
                          @Param("status") InvoiceStatus status);
+
+    /** Có hoá đơn cọc/bổ sung còn hiệu lực chưa? — chặn 2 hoá đơn cọc active trên cùng đơn. */
+    boolean existsByOrderIdAndStatusInAndTypeIn(Long orderId, Collection<InvoiceStatus> statuses,
+                                                Collection<InvoiceType> types);
 }

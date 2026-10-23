@@ -158,6 +158,11 @@ class MigrationTest {
             assertThat(countWhere(connection, "policies", "key = 'invoice.deposit_months'")).isEqualTo(1);
             // V9: phí đổi khoang sau khi cọc.
             assertThat(countWhere(connection, "policies", "key = 'fee.unit_change'")).isEqualTo(1);
+            // V11: một hoá đơn cọc đầy đủ active + một hoá đơn bổ sung chờ thanh toán trên mỗi đơn.
+            assertThat(countWhere(connection, "pg_indexes",
+                    "indexname = 'uq_invoices_active_full_deposit'")).isEqualTo(1);
+            assertThat(countWhere(connection, "pg_indexes",
+                    "indexname = 'uq_invoices_unpaid_deposit_supplement'")).isEqualTo(1);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
             // V3: permission catalog + mapping mặc định (A3b, #57).
             assertThat(count(connection, "permissions")).isEqualTo(24);

@@ -171,6 +171,21 @@ class ProposalServiceIntegrationTest {
     }
 
     @Test
+    void secondAgreeOnAnotherPendingProposalIsRejected() {
+        long first = proposal("A-01", "Pending");
+        long second = proposal("A-02", "Pending");
+
+        AgreeResult ok = service.agree(first, customerId);
+        assertThat(ok.invoice()).isNotNull();
+        assertThatThrownBy(() -> service.agree(second, customerId))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("hoá đơn cọc chờ thanh toán");
+        assertThat(proposalStatus(second)).isEqualTo("Pending");
+        assertThat(jdbc.queryForObject("select count(*) from invoices where order_id = ? and type = 'Deposit' "
+                + "and status in ('Unpaid','Paid')", Long.class, orderId)).isEqualTo(1);
+    }
+
+    @Test
     void agreeOnDepositedOrderIssuesOnlyTheDepositDifference() {
         depositedOrder();
         paidDeposit(new BigDecimal("500000.00"));
@@ -182,6 +197,7 @@ class ProposalServiceIntegrationTest {
         assertThat(result.invoice()).isNotNull();
         assertThat(result.invoice().amount()).isEqualByComparingTo("400000.00");
         assertThat(result.invoice().title()).isEqualTo("Bổ sung cọc khoang chứa A-02");
+        assertThat(result.invoice().type()).isEqualTo("DepositSupplement");
         assertThat(result.invoice().status()).isEqualTo("Unpaid");
         assertThat(notificationsOf(customerId)).extracting(row -> row.get("type"))
                 .contains("UNIT_CHANGE_PAYMENT_REQUIRED");
@@ -244,6 +260,40 @@ class ProposalServiceIntegrationTest {
                 .contains("DEPOSIT_REFUND_REQUIRED");
         assertThat(notificationsOf(customerId)).extracting(row -> row.get("type"))
                 .contains("DEPOSIT_REFUND_PENDING");
+    }
+
+    @Test
+    void paidSupplementCountsTowardsTheNextDepositDifference() {
+        depositedOrder();
+        paidDeposit(new BigDecimal("500000.00"));
+        jdbc.update("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, ?, 'Bổ sung cọc', 'DepositSupplement', 'Paid', 400000, now() + interval '1 day')""",
+                orderId, customerId, "INV-DEP-Q7-SUP-" + System.nanoTime());
+        long proposalId = proposal("A-02", "Pending");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice()).isNull();
+        assertThat(jdbc.queryForObject("select new_value from audit_logs where action = 'DEPOSIT_REFUND_REQUIRED' "
+                + "and entity_id = ? order by id desc limit 1", String.class, String.valueOf(orderId)))
+                .contains("400000");
+    }
+
+    @Test
+    void reproposeCancelsAnUnpaidSupplement() {
+        proposal("A-01", "Rejected");
+        jdbc.update("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, ?, 'Bổ sung cọc', 'DepositSupplement', 'Unpaid', 400000, now() + interval '1 day')""",
+                orderId, customerId, "INV-DEP-Q7-SUP-" + System.nanoTime());
+        loginAs("fm1@lemar.vn");
+
+        service.repropose(orderId, unitId("A-02"), null, fmId);
+
+        entityManager.flush();
+        assertThat(jdbc.queryForObject("select status from invoices where order_id = ? and type = 'DepositSupplement'",
+                String.class, orderId)).isEqualTo("Canceled");
     }
 
     @Test

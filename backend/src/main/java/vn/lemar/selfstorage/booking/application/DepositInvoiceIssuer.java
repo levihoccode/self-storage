@@ -15,6 +15,7 @@ import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceType;
 import vn.lemar.selfstorage.booking.domain.RentalOrder;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
@@ -65,7 +66,7 @@ class DepositInvoiceIssuer {
     }
 
     Invoice issue(RentalOrder order, StorageUnitView unit, Long actorAccountId) {
-        return create(order, unit, depositAmount(unit),
+        return create(order, unit, depositAmount(unit), InvoiceType.DEPOSIT,
                 "Đặt cọc khoang chứa " + unit.code(),
                 "Thanh toán đặt cọc khoang chứa " + unit.code() + " để đảm bảo giữ chỗ.",
                 actorAccountId);
@@ -73,22 +74,24 @@ class DepositInvoiceIssuer {
 
     /** Hoá đơn bổ sung phần cọc còn thiếu khi đổi khoang sau khi đã cọc. */
     Invoice issueSupplemental(RentalOrder order, StorageUnitView unit, BigDecimal amount, Long actorAccountId) {
-        return create(order, unit, amount,
+        return create(order, unit, amount, InvoiceType.DEPOSIT_SUPPLEMENT,
                 "Bổ sung cọc khoang chứa " + unit.code(),
                 "Thanh toán phần chênh lệch cọc khi đổi sang khoang chứa " + unit.code() + ".",
                 actorAccountId);
     }
 
-    private Invoice create(RentalOrder order, StorageUnitView unit, BigDecimal amount, String title,
-                           String description, Long actorAccountId) {
+    private Invoice create(RentalOrder order, StorageUnitView unit, BigDecimal amount, InvoiceType type,
+                           String title, String description, Long actorAccountId) {
         Instant now = Instant.now();
         Instant dueDate = now.plus(Duration.ofDays(pricingQuery.intPolicy(POLICY_DEPOSIT_DUE_DAYS)));
         if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(dueDate)) {
             dueDate = order.getExpiresAt();
         }
 
-        Invoice invoice = invoiceRepository.save(Invoice.deposit(order, code(order, now), title, description,
-                amount, dueDate));
+        Invoice invoice = type == InvoiceType.DEPOSIT
+                ? Invoice.deposit(order, code(order, now), title, description, amount, dueDate)
+                : Invoice.depositSupplement(order, code(order, now), title, description, amount, dueDate);
+        invoiceRepository.save(invoice);
         auditRecorder.record(new AuditEntry(AuditAction.INVOICE_CREATED, AuditEntityType.INVOICE,
                 String.valueOf(invoice.getId()), null,
                 Map.of("code", invoice.getCode(), "type", invoice.getType().dbValue(),

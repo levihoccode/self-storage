@@ -246,7 +246,7 @@ Các bước:
       + INV-RNT-TD-261001-K312: Hóa đơn tiền thuê định kỳ (RNT), chi nhánh Thủ Đức.
       + INV-EXT-Q7-260915-091B: Hóa đơn dịch vụ ngoài / sự cố khóa (EXT).
 - title
-- type (Deposit/Rental/Extension/Penalty/Service) - xác định nguồn gốc hóa đơn
+- type (Deposit/DepositSupplement/Rental/Extension/Penalty/Service) - xác định nguồn gốc hóa đơn
 - description
 - status:
   - Unpaid: Hóa đơn chưa được thanh toán
@@ -256,6 +256,11 @@ Các bước:
 - amount - snapshot của giá hiệu lực tại thời điểm tạo hóa đơn.
 - created_at
 - due_date
+
+**Constraints**
+- Một `RentalOrder` tối đa một hoá đơn `Deposit` còn hiệu lực (`Unpaid`/`Paid`).
+- Một `RentalOrder` tối đa một hoá đơn `DepositSupplement` `Unpaid`.
+- Hoá đơn bổ sung dùng type `DepositSupplement`, không dùng lại `Deposit`.
 
 **Service Code:**
 - DEP: đặt cọc khoang chứa
