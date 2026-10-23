@@ -37,7 +37,7 @@ delta       = required − paidDeposit
   hạn như hoá đơn cọc thường; khách nhận `DEPOSIT_SUPPLEMENT_REQUIRED`.
 - `delta < 0`: không tạo hoá đơn; AuditLog `DEPOSIT_REFUND_REQUIRED` + notification
   `DEPOSIT_REFUND_REQUIRED` cho FM, khách nhận `DEPOSIT_REFUND_PENDING`. Việc ghi nhận hoàn tiền thuộc
-  Flow 2/4 (Flow 4 chuyển sang hoàn tự động).
+  Flow 2/4: trước B4, FM hoàn thủ công; B4 chuyển sang hoàn tự động về thẻ đã liên kết.
 - `delta = 0`: không tạo gì.
 - Response 200: `invoice = null` khi `delta ≤ 0`; khi `delta > 0` là hoá đơn bổ sung.
 

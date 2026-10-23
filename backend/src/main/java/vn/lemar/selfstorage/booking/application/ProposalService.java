@@ -138,6 +138,7 @@ public class ProposalService {
             return supplemental;
         }
         if (delta.signum() < 0) {
+            // TODO(b4): hoàn tự động về thẻ đã liên kết; trước B4 chỉ báo FM hoàn thủ công.
             BigDecimal refund = delta.abs();
             auditRecorder.record(new AuditEntry(AuditAction.DEPOSIT_REFUND_REQUIRED, AuditEntityType.RENTAL_ORDER,
                     String.valueOf(order.getId()), Map.of("depositPaid", paidDeposit),
