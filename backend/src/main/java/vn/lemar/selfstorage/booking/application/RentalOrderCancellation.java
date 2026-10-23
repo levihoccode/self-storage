@@ -51,6 +51,8 @@ class RentalOrderCancellation {
      */
     void cancel(RentalOrder order, String reason, Long actorAccountId) {
         String oldStatus = order.getStatus().dbValue();
+        // Chụp trước khi đổi status: đơn chỉ giữ khoang khi đang ở Deposited/Scheduled/InProgress.
+        boolean heldUnit = order.holdsUnit();
         order.cancel(reason);
         record(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER, order.getId(),
                 Map.of("status", oldStatus),
@@ -72,7 +74,10 @@ class RentalOrderCancellation {
                     reason, actorAccountId);
         }
 
-        if (order.getUnitId() != null && storageUnitService.releaseIfReserved(order.getUnitId())) {
+        // Chỉ nhả khoang khi đơn thực sự đang giữ nó: nhiều đơn có thể cùng unit_id (đã đồng ý, chưa cọc),
+        // trả khoang của đơn khác đã cọc là sai.
+        if (heldUnit && order.getUnitId() != null
+                && storageUnitService.releaseIfReserved(order.getUnitId())) {
             record(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.STORAGE_UNIT, order.getUnitId(),
                     Map.of("status", "Reserved"), Map.of("status", "Available"), reason, actorAccountId);
         }

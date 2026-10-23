@@ -76,9 +76,24 @@ public class RentalOrder {
         return !status.isClosed() && (status == RentalOrderStatus.PENDING || needsReproposal);
     }
 
+    /** FM đã tạo proposal mới thay cho khoang bị từ chối — cờ chỉ dùng cho gate đề xuất lại. */
+    public void clearNeedsReproposal() {
+        this.needsReproposal = false;
+    }
+
     /** Spec 1.3: {@code RentalOrder.unit_id} = {@code unit_id} của proposal {@code Agreed} mới nhất. */
     public void assignUnit(Long agreedUnitId) {
         this.unitId = agreedUnitId;
+    }
+
+    /**
+     * Đơn đang giữ khoang: khoang chỉ chuyển {@code Reserved} khi thanh toán cọc (spec 1.4), nên đơn chỉ
+     * giữ khoang từ {@code Deposited} trở đi. Đơn {@code Pending} có {@code unit_id} nhưng chưa cọc.
+     */
+    public boolean holdsUnit() {
+        return status == RentalOrderStatus.DEPOSITED
+                || status == RentalOrderStatus.SCHEDULED
+                || status == RentalOrderStatus.IN_PROGRESS;
     }
 
     /** Cancellation Cascade bước 1: {@code status -> Canceled}, ghi {@code cancel_reason}. */
