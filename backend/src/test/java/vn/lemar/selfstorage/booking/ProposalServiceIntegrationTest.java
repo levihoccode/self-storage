@@ -411,6 +411,18 @@ class ProposalServiceIntegrationTest {
     }
 
     @Test
+    void rejectOnClosedOrderConflicts() {
+        jdbc.update("update rental_orders set status = 'Canceled', cancel_reason = 'Khách không còn nhu cầu' "
+                + "where id = ?", orderId);
+        long proposalId = proposal("A-01", "Pending");
+
+        assertThatThrownBy(() -> service.reject(proposalId, customerId, "Không hợp"))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("đã đóng");
+        assertThat(proposalStatus(proposalId)).isEqualTo("Pending");
+    }
+
+    @Test
     void rejectWhenFacilityHasNoFmSkipsNotification() {
         long proposalId = proposal("A-01", "Pending");
         jdbc.update("update facilities set fm_account_id = null where id = ?", facilityId);
@@ -491,6 +503,16 @@ class ProposalServiceIntegrationTest {
 
         assertThatThrownBy(() -> service.repropose(orderId, tdUnit, null, fmId))
                 .isInstanceOf(StorageUnitNotFoundException.class);
+    }
+
+    @Test
+    void reproposeOnExpiredOrderConflicts() {
+        jdbc.update("update rental_orders set expires_at = now() - interval '1 day' where id = ?", orderId);
+        loginAs("fm1@lemar.vn");
+
+        assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, fmId))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("hết hạn");
     }
 
     @Test

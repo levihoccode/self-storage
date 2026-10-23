@@ -39,8 +39,8 @@ public class RentalOrderProposalController {
 
     @Operation(summary = "Đề xuất lại khoang",
             description = "Tạo `ProposalFeedback` `Pending` mới cho đơn, khách nhận `PROPOSAL_REPROPOSED`. "
-                    + "Được đề xuất khi đơn chưa đóng, không có proposal `Pending`, và đơn đang `Pending` hoặc "
-                    + "`needs_reproposal`. "
+                    + "Được đề xuất khi đơn chưa đóng, chưa quá `expires_at`, không có proposal `Pending`, và đơn "
+                    + "đang `Pending` hoặc `needs_reproposal`. "
                     + "Khoang phải cùng cơ sở và còn `Available`. Khoang khách đã từ chối: bắt buộc `overrideReason` + "
                     + "quyền `proposal_feedback.override`, lý do ghi AuditLog. Hoá đơn cọc `Unpaid` cũ của đơn bị huỷ.")
     @ApiResponses({
@@ -52,8 +52,9 @@ public class RentalOrderProposalController {
                     + "sở khác"),
             @ApiResponse(responseCode = "404",
                     description = "Đơn không tồn tại, hoặc khoang không thuộc cơ sở của đơn"),
-            @ApiResponse(responseCode = "409", description = "Khoang không còn trống; đơn đã đóng; đơn đang có "
-                    + "proposal chờ khách phản hồi; hoặc đơn không ở trạng thái cho phép đề xuất lại")
+            @ApiResponse(responseCode = "409", description = "Khoang không còn trống; đơn đã đóng hoặc quá "
+                    + "`expires_at`; đơn đang có proposal chờ khách phản hồi; hoặc đơn không ở trạng thái cho phép "
+                    + "đề xuất lại")
     })
     @PostMapping("/{orderId}/proposals")
     public ResponseEntity<ApiEnvelope<ProposalView>> repropose(Authentication authentication,

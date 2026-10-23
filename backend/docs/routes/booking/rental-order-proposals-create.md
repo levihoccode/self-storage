@@ -15,6 +15,7 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
 ## Luồng / hành vi
 
 - Thiếu `unitId` → 400.
+- Đơn đã quá `expires_at` → 409.
 - Điều kiện được đề xuất lại: đơn chưa đóng **và** không có proposal `Pending` **và** đơn đang
   `Pending` hoặc `needs_reproposal = true`. Sai một trong ba → 409 với câu tương ứng.
 - Khoá đơn, khoá khoang; khoang khác cơ sở → 404, khoang không `Available` → 409.

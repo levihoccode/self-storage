@@ -112,7 +112,7 @@ public class ProposalController {
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
             @ApiResponse(responseCode = "403", description = "Không phải chủ proposal"),
             @ApiResponse(responseCode = "404", description = "Proposal không tồn tại"),
-            @ApiResponse(responseCode = "409", description = "Proposal không còn Pending")
+            @ApiResponse(responseCode = "409", description = "Proposal không còn Pending, hoặc đơn đã đóng")
     })
     @PostMapping("/{proposalId}/reject")
     public ResponseEntity<ApiEnvelope<RejectResult>> reject(

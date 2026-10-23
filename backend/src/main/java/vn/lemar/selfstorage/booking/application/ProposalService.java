@@ -211,6 +211,9 @@ public class ProposalService {
         // Khoá đơn để việc đếm số lần từ chối và cập nhật nằm gọn trong một transaction.
         RentalOrder order = orderRepository.findByIdForUpdate(proposal.getOrderId())
                 .orElseThrow(RentalOrderNotFoundException::new);
+        if (order.getStatus().isClosed()) {
+            throw new ProposalConflictException("Đơn thuê đã đóng, không thể từ chối đề xuất");
+        }
         String unitCode = storageUnitQuery.find(proposal.getUnitId())
                 .map(StorageUnitView::code)
                 .orElseThrow(StorageUnitNotFoundException::new);
@@ -249,6 +252,9 @@ public class ProposalService {
         // Chốt PR #136: !đóng && !có proposal Pending && (Pending || needs_reproposal).
         if (order.getStatus().isClosed()) {
             throw new ProposalConflictException("Đơn thuê đã đóng, không thể đề xuất khoang");
+        }
+        if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(Instant.now())) {
+            throw new ProposalConflictException("Đơn thuê đã hết hạn, không thể đề xuất khoang");
         }
         if (proposalRepository.existsByOrderIdAndStatus(orderId, ProposalStatus.PENDING)) {
             throw new ProposalConflictException("Đơn đang có đề xuất chờ khách phản hồi");

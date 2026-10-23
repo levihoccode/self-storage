@@ -13,6 +13,7 @@ Khách bấm "Từ chối" trên một proposal `Pending`, body `{ "note": "..."
 ## Luồng / hành vi
 
 - Thiếu / trống `note` → 400, không đổi gì.
+- Đơn đã `Canceled`/`Done` → 409, không đổi gì.
 - Khoá proposal + khoá đơn, đếm số proposal `Rejected` của đơn **trước khi** ghi.
 - Chưa chạm ngưỡng: proposal `Rejected` + note, AuditLog `PROPOSAL_REJECTED`, FM nhận `PROPOSAL_REJECTED`;
   `orderCanceled = false`. Đơn đã cọc: bật `needs_reproposal` để FM re-propose tiếp.
