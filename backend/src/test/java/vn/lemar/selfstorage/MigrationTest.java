@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -64,6 +65,69 @@ class MigrationTest {
             try (ResultSet rs = statement.executeQuery()) {
                 rs.next();
                 return rs.getBoolean(1);
+            }
+        }
+    }
+
+    @Test
+    void v8MigratesExistingExpiredProposalRows() throws Exception {
+        String schema = "upgrade_v8";
+        MigrateResult toV7 = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .schemas(schema)
+                .defaultSchema(schema)
+                .target(MigrationVersion.fromVersion("7"))
+                .load()
+                .migrate();
+        assertThat(toV7.migrationsExecuted).isPositive();
+
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+            connection.setSchema(schema);
+            long requestId;
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    insert into rental_requests (facility_id, customer_name, normalized_customer_email,
+                        customer_phone, unit_type_id, start_date, period, unit_id, status)
+                    values (1, 'Upgrade', 'upgrade@example.com', '0900000000', 1, current_date + 1, 1, 1,
+                        'Converted') returning id""")) {
+                try (ResultSet rs = statement.executeQuery()) {
+                    rs.next();
+                    requestId = rs.getLong(1);
+                }
+            }
+            long orderId;
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    insert into rental_orders (request_id, customer_id, unit_id, status)
+                    values (?, (select id from accounts where email = 'customer1@lemar.vn'), 1, 'Deposited')
+                    returning id""")) {
+                statement.setLong(1, requestId);
+                try (ResultSet rs = statement.executeQuery()) {
+                    rs.next();
+                    orderId = rs.getLong(1);
+                }
+            }
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    insert into proposal_feedbacks (order_id, customer_id, unit_id, status)
+                    values (?, (select id from accounts where email = 'customer1@lemar.vn'), 1, 'Expired')""")) {
+                statement.setLong(1, orderId);
+                statement.executeUpdate();
+            }
+        }
+
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .schemas(schema)
+                .defaultSchema(schema)
+                .load()
+                .migrate();
+
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+            connection.setSchema(schema);
+            try (Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery("select status from proposal_feedbacks")) {
+                rs.next();
+                assertThat(rs.getString(1)).isEqualTo("Canceled");
             }
         }
     }
