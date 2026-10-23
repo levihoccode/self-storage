@@ -30,6 +30,8 @@ import vn.lemar.selfstorage.booking.application.dto.ApproveRentalRequestResponse
 public class FmRentalRequestApproveController {
 
     private static final String APPROVED_MESSAGE = "Đã duyệt yêu cầu đặt kho";
+    private static final String REJECTED_BANNED_MESSAGE =
+            "Yêu cầu đã bị từ chối do tài khoản của khách đang bị chặn";
 
     private final RentalRequestService rentalRequestService;
 
@@ -42,7 +44,8 @@ public class FmRentalRequestApproveController {
                     + "tại; 404 nếu khoang không tồn tại hoặc thuộc cơ sở khác; 409 nếu request "
                     + "không còn Pending (kể cả 2 FM duyệt song song — conditional update, chỉ 1 "
                     + "thắng); 409 nếu request đã quá hạn xử lý (cron chưa chuyển kịp Expired); "
-                    + "409 nếu khoang mất Available (request giữ Pending).")
+                    + "409 nếu khoang mất Available (request giữ Pending); 200 với status "
+                    + "Rejected nếu tài khoản khách đang bị chặn (request bị từ chối, khách nhận mail).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Duyệt thành công"),
             @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ",
@@ -60,7 +63,9 @@ public class FmRentalRequestApproveController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<ApiEnvelope<ApproveRentalRequestResponse>> approve(
             @PathVariable Long id, @Valid @RequestBody ApproveRentalRequestRequest request) {
-        return ResponseEntity.ok(ApiEnvelope.ok(APPROVED_MESSAGE,
-                rentalRequestService.approve(id, request.unitId())));
+        ApproveRentalRequestResponse response = rentalRequestService.approve(id, request.unitId());
+        String message = "Rejected".equals(response.status())
+                ? REJECTED_BANNED_MESSAGE : APPROVED_MESSAGE;
+        return ResponseEntity.ok(ApiEnvelope.ok(message, response));
     }
 }

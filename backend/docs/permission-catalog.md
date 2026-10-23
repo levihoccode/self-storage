@@ -41,13 +41,13 @@ Sắp theo code alphabet.
 | `appointment.checkin` | Xác nhận khách đã đến (Done) | | | | F | | §2.1 |
 | `appointment.create` | Chọn lịch check-in | | | | | own | §1.5 |
 | `appointment.read` | Xem lịch theo cơ sở / được gán | G | G | F | F | | §2.1 |
-| `facility.access` | Truy cập dữ liệu cơ sở (permission tạm cho endpoint demo) | F | F | F | F | | #96 — `GET /api/facility-access/ping/{facilityId}` |
+| `facility.access` | Truy cập dữ liệu cơ sở (permission tạm cho endpoint demo) | F | F | F | F | | `GET /api/facility-access/ping/{facilityId}` |
 | `handover_record.inspect` | Ghi/xác nhận hiện trạng khoang | | | | F | own | §2.2 |
 | `handover_record.reject` | Từ chối khoang tại chỗ | | | | | own | §2.5 |
 | `handover_record.verify_identity` | Xác minh danh tính | | | | F | | §2.2 |
 | `invoice.pay` | Thanh toán hóa đơn | | | | | own | §1.4 |
 | `invoice.read` | Xem hóa đơn | | | | | own | §1.4 |
-| `notification.create_other` | Tạo thông báo `OTHER` thủ công | G | G | | | | #96 — `POST /api/notifications` |
+| `notification.create_other` | Tạo thông báo `OTHER` thủ công | G | G | | | | `POST /api/notifications` |
 | `payment_transaction.refund` | Ghi nhận hoàn tiền thủ công | | | F | | | §2.5 |
 | `proposal_feedback.override` | Override khoang đã bị từ chối (audit) | | | F | | | §1.3 |
 | `proposal_feedback.repropose` | Đề xuất lại khoang | | | F | | | §1.3 |
@@ -77,7 +77,7 @@ Ghi chú:
 
 ## Trạng thái
 
-- Nguồn: đề xuất catalog của `FLG-FelixLight` trên issue #57 (2026-10-06), đã điều chỉnh theo quyết
+- Nguồn: đề xuất catalog ban đầu (2026-10-06), đã điều chỉnh theo quyết
   định của owner: bỏ nhóm `*.manage`, thêm `facility.access`, đổi `payment.refund` →
   `payment_transaction.refund`.
 - Chưa rà từng dòng với `specs/draft.md`; sẽ soát khi flow tương ứng được implement.

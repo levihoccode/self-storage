@@ -2,8 +2,8 @@
 
 React 19 · TypeScript 5.8 · Vite 6 · Prettier
 
-> Read the root [`AGENTS.md`](../AGENTS.md) first. The evidence rules, the spec-gap gate and the
-> issue ↔ PR workflow apply here too.
+> Read the root [`AGENTS.md`](../AGENTS.md) first. The evidence rules, the behavior-decision gate
+> and the issue ↔ PR workflow apply here too.
 
 ## Commands
 
@@ -14,7 +14,7 @@ React 19 · TypeScript 5.8 · Vite 6 · Prettier
 
 ## Layout
 
-- `src/pages/**` — one page per spec screen (`fe-pages/`).
+- `src/pages/**` — one page per screen (`fe-pages/` holds the flow reference).
 - `src/app/routes.ts` — route table; adding a screen means updating this file.
 - `src/app/types.ts` — shared types. `src/app/layout.ts` — nav/layout config.
 - `src/components/{ui,layout,domain}/**` — shared components.

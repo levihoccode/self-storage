@@ -7,7 +7,8 @@ Bản đọc được của SQL — **mirror byte-identical** với Flyway migra
 | `schema.sql` | `src/main/resources/db/migration/V1__baseline_schema.sql` |
 | `seed.sql` | `src/main/resources/db/migration/V2__baseline_seed.sql` |
 
-**Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Nguồn sự thật của thiết kế vẫn là `specs/db-table-draft.md`.
+**Sửa SQL thì sửa cả hai nơi** (CI sẽ fail nếu lệch). Thiết kế as-built nằm ở `backend/docs/`;
+`specs/` chỉ còn là tham chiếu flow, không sửa.
 
 ## Vòng đời baseline (V1)
 

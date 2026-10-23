@@ -33,7 +33,7 @@
 - Unique `(role_id, permission_id)`.
 
 **NOTES:**
-- Catalog khởi điểm + mapping mặc định cho 5 role đã chốt tại spec-gap #57 (2026-10-08) — nguồn: `backend/docs/permission-catalog.md`; seed `V3__rbac_permissions_seed.sql`. Mở rộng dần khi Flow 3–7 chốt; không hard-code mapping trong source code, thêm quyền mới thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
+- Catalog khởi điểm + mapping mặc định cho 5 role đã chốt (2026-10-08) — nguồn: `backend/docs/permission-catalog.md`; seed `V3__rbac_permissions_seed.sql`. Mở rộng dần khi Flow 3–7 chốt; không hard-code mapping trong source code, thêm quyền mới thì cập nhật qua dữ liệu của `Role`/`Permission`/`RolePermission`.
 - `scope` thuộc mapping chứ không thuộc `Permission`: cùng một permission có thể GLOBAL ở role này và FACILITY ở role khác (vd `rental_request.read`: ADMIN/BOM global, FM/FS facility).
 - Quản trị hệ thống (`account`/`role`/`permission`) là role-bound qua namespace route, không tạo permission — tránh tự nâng quyền qua dữ liệu mapping.
 # Facility
@@ -379,7 +379,7 @@ Các bước:
 - Reschedule không thuộc MVP. Nếu được bật ở giai đoạn sau, appointment cũ phải chuyển `Canceled` trước khi tạo appointment mới.
 # CheckoutRecord
 **Overview:** biên bản trả kho (Flow 2.a). Tách riêng khỏi `HandoverRecord` vì `HandoverRecord` chỉ chịu trách nhiệm tới khâu bàn giao.
-**Trạng thái baseline (A2):** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
+**Trạng thái baseline:** chưa đưa vào migration — Flow 2.a chưa review; thêm khi 2.a được duyệt.
 - order_id (1 - 1: RentalOrder)
 - appointment_id (1 - 1: Appointment) - lịch hẹn trả kho **đang xử lý**; cập nhật sang lịch mới khi khách phải quay lại dọn nốt
 - unit_id (N - 1: StorageUnit)

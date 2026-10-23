@@ -8,20 +8,28 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
- * Đơn thuê kho. Flow 1.4 đọc {@code expiresAt} để chặn thanh toán khi đơn đã quá hạn, và đẩy
- * đơn sang {@code Deposited} khi cổng xác nhận thu cọc.
+ * Đơn thuê ({@code specs/db-table-draft.md} › RentalOrder).
+ *
+ * <p>Đơn do luồng convert (B2) tạo; entity này chỉ mở các thao tác B3 cần. {@code unitId},
+ * {@code customerId}, {@code requestId} để kiểu {@code Long} chứ không phải quan hệ JPA: bảng đích
+ * thuộc module khác — ranh giới module cấm import {@code domain} của nhau, khoá ngoại vẫn do DB giữ.
  */
 @Entity
 @Table(name = "rental_orders")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RentalOrder {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "request_id", nullable = false)
+    @Column(name = "request_id", nullable = false, unique = true)
     private Long requestId;
 
     @Column(name = "customer_id", nullable = false)
@@ -30,48 +38,31 @@ public class RentalOrder {
     @Column(name = "unit_id")
     private Long unitId;
 
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
     @Convert(converter = RentalOrderStatusConverter.class)
     @Column(nullable = false, length = 20)
-    private RentalOrderStatus status = RentalOrderStatus.PENDING;
+    private RentalOrderStatus status;
 
     @Column(name = "expires_at")
     private Instant expiresAt;
 
-    protected RentalOrder() {
-        // JPA
-    }
-
-    /** Quá hạn tính theo mốc truyền vào để test không phụ thuộc đồng hồ hệ thống. */
-    public boolean isExpiredAt(Instant now) {
-        return expiresAt != null && expiresAt.isBefore(now);
-    }
-
     /**
-     * Ghi nhận đã thu cọc. {@code expiresAt} chuyển sang hạn giữ kho sau cọc
-     * ({@code order.deposit_expiry_days}) — trước đó nó là hạn thanh toán.
+     * Spec 1.1/1.2: đơn convert từ request — {@code Pending}, chưa gán {@code unit_id} cho tới khi
+     * proposal {@code Agreed}; {@code expires_at} set một lần lúc tạo.
      */
-    public void markDeposited(Instant holdUntil) {
-        this.status = RentalOrderStatus.DEPOSITED;
-        this.expiresAt = holdUntil;
+    public static RentalOrder open(Long requestId, Long customerId, Instant expiresAt) {
+        RentalOrder order = new RentalOrder();
+        order.requestId = requestId;
+        order.customerId = customerId;
+        order.status = RentalOrderStatus.PENDING;
+        order.expiresAt = expiresAt;
+        return order;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public Long getUnitId() {
-        return unitId;
-    }
-
-    public RentalOrderStatus getStatus() {
-        return status;
-    }
-
-    public Instant getExpiresAt() {
-        return expiresAt;
+    /** Spec 1.3: {@code RentalOrder.unit_id} = {@code unit_id} của proposal {@code Agreed} mới nhất. */
+    public void assignUnit(Long agreedUnitId) {
+        this.unitId = agreedUnitId;
     }
 }

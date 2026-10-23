@@ -99,16 +99,17 @@ return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 
 ## Đăng ký và xác minh email
 
-Đăng ký → email mã 6 số → xác minh bằng mã (spec-gap #139):
+Đăng ký → email mã 6 số → xác minh bằng mã:
 
 - `POST /api/auth/register`: validate email chưa có account + password; **chưa tạo `Account`** —
   ghi pending registration (email + hash mật khẩu BCrypt) trong Redis cùng TTL với mã rồi gửi email
   mã xác minh. Đăng ký lại khi đang chờ dùng chung cooldown 60 giây (429).
 - `POST /api/auth/verify-email`: mã đúng → **tạo `Account` role `CUSTOMER` với `email_verified_at`
-  set ngay** + ghi audit `ACCOUNT_REGISTERED` (actor = chính account vừa tạo); account legacy chưa
-  xác minh chỉ được mark verified. Account đã xác minh trước đó → 200 với message
+  set ngay** + ghi audit `ACCOUNT_REGISTERED` (actor = chính account vừa tạo); mã chỉ bị xoá sau khi
+  transaction commit (save lỗi thì mã còn để nhập lại/resend); account legacy chưa xác minh chỉ được
+  mark verified. Account đã xác minh trước đó → 200 với message
   `Email đã được xác minh trước đó` (no-op, không kiểm mã). Việc xác minh tự nó **không** ghi
-  `AuditLog` riêng (spec-gap #75 — bản ghi vòng đời là `Account.email_verified_at`).
+  `AuditLog` riêng (bản ghi vòng đời là `Account.email_verified_at`).
 - Mã: 6 số, TTL 10 phút, tối đa 5 lần nhập sai (429), gửi lại tối đa mỗi 60 giây; lưu Redis dạng
   BCRYPT hash (`auth:verify-code:<email>` — không plaintext), dùng một lần. Redis lỗi thì
   register/verify/resend trả lỗi (không fail-open).
@@ -124,7 +125,7 @@ return new JwtAuthenticationToken(jwt, authorities, account.getEmail());
 
 ## Chống brute-force đăng nhập
 
-Sai 5 lần/15 phút theo email hoặc 20 lần/15 phút theo IP → **429** (spec-gap #140):
+Sai 5 lần/15 phút theo email hoặc 20 lần/15 phút theo IP → **429**:
 
 - Đếm trên Redis (`auth:login-fail:email:<email>`, `auth:login-fail:ip:<ip>`), fixed window 15 phút
   (không sliding — chấp nhận cho MVP); đăng nhập thành công xoá bộ đếm của email.
@@ -162,7 +163,7 @@ Chi tiết lỗi token chỉ ghi log server (debug), không trả cho client; th
 header là `Bearer` trần.
 
 Client xử lý theo `status = 401` (không parse message để làm logic); `message` để hiển thị/log;
-refresh token (#74) sẽ bám vào tín hiệu này. Toàn bộ các tầng bắt lỗi:
+refresh token sẽ bám vào tín hiệu này. Toàn bộ các tầng bắt lỗi:
 [error-handling.md](error-handling.md).
 
 ## Cấu hình liên quan
@@ -187,7 +188,7 @@ Có:
 - Không lưu session phía server (stateless).
 - Swagger khai báo bearer scheme để thử API.
 
-Chưa có (theo dõi ở issue #74):
+Chưa có:
 
 - Refresh token + rotation → hết hạn 15 phút phải login lại.
 - Logout endpoint (revoke) — access token không thu hồi được trước hạn, nhưng khóa account

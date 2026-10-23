@@ -27,7 +27,7 @@ purpose: Đăng nhập bằng email + mật khẩu, trả access token (JWT).
 ## Ghi chú
 
 - Mật khẩu lưu bằng BCrypt; cost cấu hình qua `BCRYPT_STRENGTH` (mặc định 10).
-- Chống brute-force (spec-gap #140): 5 lần sai/15 phút theo email, 20 lần/15 phút theo IP → 429.
+- Chống brute-force: 5 lần sai/15 phút theo email, 20 lần/15 phút theo IP → 429.
   Redis lỗi thì fail-open (chỉ log) — xem
   [authentication.md › Chống brute-force đăng nhập](../../authentication.md#chống-brute-force-đăng-nhập).
 - Token chỉ chứa claim `email`; role/status đọc từ DB ở mỗi request — xem

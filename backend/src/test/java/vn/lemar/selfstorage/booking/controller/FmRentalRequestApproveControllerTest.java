@@ -87,6 +87,23 @@ class FmRentalRequestApproveControllerTest {
     }
 
     @Test
+    void approveBannedReturnsRejectedMessage() throws Exception {
+        authenticate("fm@lemar.vn", "FM");
+        Instant now = Instant.now();
+        when(rentalRequestService.approve(eq(1L), eq(10L))).thenReturn(
+                new ApproveRentalRequestResponse(1L, "Rejected", null, now, null));
+
+        mockMvc.perform(post("/api/fm/rental-requests/1/approve")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"unitId\":10}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message")
+                        .value("Yêu cầu đã bị từ chối do tài khoản của khách đang bị chặn"))
+                .andExpect(jsonPath("$.data.status").value("Rejected"));
+    }
+
+    @Test
     void approveHandledTwiceReturns409() throws Exception {
         authenticate("fm@lemar.vn", "FM");
         when(rentalRequestService.approve(eq(1L), eq(10L)))

@@ -50,7 +50,7 @@ Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard n�
 | `/api/admin/**` | `hasRole("ADMIN")` | Quản trị hệ thống |
 | `/api/**` (còn lại) | `ACCOUNT_ACTIVE` | Route permission-bound / ownership — guard ở method/service |
 | `/api/health`, `/api/auth/**`, `/swagger-ui/**`, `/v3/api-docs/**` | `permitAll` | Public (`/api/auth/me` khớp rule riêng trước, vẫn cần token) |
-| `POST /api/rental-requests`, `GET /api/unit-types` | `permitAll` đúng scope method | Form đặt kho + dropdown loại khoang (B1, #126 — đặt trước rule vét `/api/**`) |
+| `POST /api/rental-requests`, `GET /api/unit-types` | `permitAll` đúng scope method | Form đặt kho + dropdown loại khoang (đặt trước rule vét `/api/**`) |
 | `/api/payments/vnpay/ipn`, `/api/payments/vnpay/return` | `permitAll` | Callback của VNPay — xem ghi chú bên dưới |
 
 Quy tắc đặt route: dùng role-bound → đặt controller dưới prefix của role; không dùng role-bound
@@ -122,10 +122,10 @@ Chi tiết: [error-handling.md](error-handling.md).
   (`AccountJwtAuthenticationConverter` — xem
   [authentication.md › Trạng thái account](authentication.md#trạng-thái-account)).
 - Spec: [db-table-draft.md › Account](../../specs/db-table-draft.md#account);
-  [draft.md › Business workflow](../../specs/draft.md#business-workflow); spec-gap #150.
+  [draft.md › Business workflow](../../specs/draft.md#business-workflow).
 
 ## Chưa có
 
 - UI quản trị gán permission cho role (Flow 5): mapping hiện sửa qua seed/SQL.
-- Namespace `/api/fm/**` đã có endpoint nghiệp vụ đầu tiên (B1: hàng đợi + duyệt/từ chối
+- Namespace `/api/fm/**` đã có endpoint nghiệp vụ đầu tiên (hàng đợi + duyệt/từ chối
   rental-request); `/api/bom/**`… vẫn chưa có.

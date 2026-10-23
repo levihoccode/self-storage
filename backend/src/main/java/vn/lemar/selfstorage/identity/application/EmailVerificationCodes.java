@@ -13,7 +13,7 @@ import vn.lemar.selfstorage.identity.application.exception.TooManyVerificationAt
 import vn.lemar.selfstorage.identity.application.exception.VerificationResendTooEarlyException;
 
 /**
- * Kho mã xác minh email trên Redis (spec-gap #139): mã 6 số, TTL cấu hình
+ * Kho mã xác minh email trên Redis (behavior-gap #139): mã 6 số, TTL cấu hình
  * ({@code security.email-verification.ttl}, mặc định 10 phút), tối đa
  * {@code security.email-verification.max-attempts} lần nhập sai (mặc định 5), gửi lại
  * cách nhau tối thiểu {@code security.email-verification.resend-cooldown} (mặc định 60 giây).
@@ -115,7 +115,8 @@ public class EmailVerificationCodes {
 
     /**
      * Kiểm mã: sai thì tăng bộ đếm; đủ {@code max-attempts} thì khoá (429) tới khi resend hoặc
-     * mã hết hạn. Mã đúng bị xoá ngay (dùng một lần).
+     * mã hết hạn. Mã đúng **không** bị xoá ở đây — caller gọi {@link #consume(String)} sau khi
+     * transaction DB commit, để save account lỗi thì mã còn cho lần thử lại/resend.
      *
      * @return pending registration (email + hash mật khẩu) nếu mã gắn với yêu cầu đăng ký chưa
      *         tạo account; rỗng nếu mã thuộc account đã tồn tại (legacy)
@@ -138,10 +139,14 @@ public class EmailVerificationCodes {
             throw new InvalidVerificationCodeException();
         }
         Object passwordHash = state.get(FIELD_PASSWORD_HASH);
-        redis.delete(key);
         return passwordHash == null
                 ? Optional.empty()
                 : Optional.of(new PendingRegistration(normalizedEmail, passwordHash.toString()));
+    }
+
+    /** Tiêu thụ mã sau khi transaction xác minh đã commit (dùng một lần). */
+    public void consume(String normalizedEmail) {
+        redis.delete(CODE_KEY_PREFIX + normalizedEmail);
     }
 
     private static int parseAttempts(Object raw) {

@@ -59,6 +59,10 @@ public class NotificationTemplateCatalog {
         put(NotificationType.RENTAL_REQUEST_REJECTED, NotificationRecipient.CUSTOMER,
                 "Yêu cầu thuê kho bị từ chối",
                 "Yêu cầu thuê kho của bạn đã bị từ chối. Lý do: {{reason}}.");
+        put(NotificationType.RENTAL_REQUEST_REJECTED_BANNED, NotificationRecipient.CUSTOMER,
+                "Yêu cầu thuê kho bị từ chối",
+                "Tài khoản của bạn hiện đang bị chặn, nên yêu cầu đặt kho của bạn đã bị từ chối. "
+                        + "Vui lòng liên hệ CSKH nếu có sai sót.");
         put(NotificationType.PROPOSAL_REJECTED, NotificationRecipient.FM,
                 "Khách hàng đã từ chối đề xuất",
                 "Khách đã từ chối khoang {{unitCode}}, lý do: {{reason}}.");

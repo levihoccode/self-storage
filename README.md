@@ -2,9 +2,11 @@
 
 Hệ thống cho thuê kho self-storage. Modular monolith: **Spring Boot 3.3 · Java 17** (backend) + **React 19 · Vite** (frontend — đang hợp nhất).
 
-- Nguồn sự thật: `specs/draft.md` + `specs/db-table-draft.md`. Đọc `AGENTS.md` trước khi code.
+- Nguồn sự thật: docs trong từng module (`backend/docs/`, và `frontend/docs/` khi có).
+  `specs/draft.md` chỉ để tham khảo flow — không sửa; `specs/db-table-draft.md` cập nhật theo schema.
+  Đọc `AGENTS.md` trước khi code.
 - Quy trình: issue → branch → PR (`Closes #N`) → CI xanh + 1 approval → merge.
-- Roadmap: #30 — A #33 · B #34 · C #35.
+- Roadmap: theo dõi trong GitHub Issues.
 
 ## Chạy nhanh (dev)
 
@@ -28,7 +30,7 @@ cd frontend && npm ci && npm run dev
 	chỉ cho local. Khi chạy `mvnw spring-boot:run` trực tiếp, đặt `JWT_SECRET` trong environment trước.
 - `JWT_ACCESS_TOKEN_TTL` là thời hạn access token dạng ISO-8601, mặc định `PT15M`.
 - Build + test BE: `cd backend && ./mvnw -B verify` (JaCoCo: chặn nếu coverage LINE hoặc BRANCH toàn codebase < 80%; CI chặn thêm nếu dòng thay đổi < 80% và lưu artifact `backend-coverage`).
-- Seed dev (Flyway V2): 8 account `@lemar.vn` (admin/bom1/fm1/fm2/fs1/customer1/unverified/banned) — mật khẩu `Test@1234`. `unverified` chưa xác minh email — bị chặn login (403); `banned` bị chặn (403). Đăng ký / verify email thuộc A3a.
+- Seed dev (Flyway V2): 8 account `@lemar.vn` (admin/bom1/fm1/fm2/fs1/customer1/unverified/banned) — mật khẩu `Test@1234`. `unverified` chưa xác minh email — bị chặn login (403); `banned` bị chặn (403).
 
 ## Cấu trúc
 
@@ -36,5 +38,5 @@ cd frontend && npm ci && npm run dev
 |---|---|
 | `backend/` | Spring Boot modular monolith (12 module) — xem `backend/AGENTS.md` |
 | `frontend/` | React + Vite — xem `frontend/AGENTS.md` |
-| `specs/` | Đặc tả nghiệp vụ + schema DB |
+| `specs/` | Flow reference (`draft.md` đọc-only) + schema DB |
 | `.github/` | Issue form, PR gate, CI |

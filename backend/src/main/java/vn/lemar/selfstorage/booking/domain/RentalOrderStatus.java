@@ -1,19 +1,18 @@
 package vn.lemar.selfstorage.booking.domain;
 
 /**
- * Trạng thái đơn thuê kho.
+ * Trạng thái đơn thuê ({@code specs/db-table-draft.md} › RentalOrder).
  *
- * <p>Giá trị lưu xuống DB viết hoa chữ đầu theo CHECK constraint của bảng {@code rental_orders}
- * (xem {@code V1__baseline_schema.sql}); quy đổi do {@link RentalOrderStatusConverter} lo.
+ * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code rental_orders} (V6); quy đổi qua
+ * {@link RentalOrderStatusConverter}.
  */
 public enum RentalOrderStatus {
     PENDING("Pending"),
     DEPOSITED("Deposited"),
     SCHEDULED("Scheduled"),
-    INPROGRESS("InProgress"),
+    IN_PROGRESS("InProgress"),
     CANCELED("Canceled"),
-    DONE("Done"),
-    EXPIRED("Expired");
+    DONE("Done");
 
     private final String dbValue;
 
@@ -25,12 +24,17 @@ public enum RentalOrderStatus {
         return dbValue;
     }
 
+    /** Đơn đã đóng (huỷ hoặc hoàn tất) — không còn đề xuất khoang được nữa. */
+    public boolean isClosed() {
+        return this == CANCELED || this == DONE;
+    }
+
     public static RentalOrderStatus fromDbValue(String value) {
         for (RentalOrderStatus status : values()) {
             if (status.dbValue.equals(value)) {
                 return status;
             }
         }
-        throw new IllegalArgumentException("Giá trị không hợp lệ cho RentalOrderStatus: " + value);
+        throw new IllegalArgumentException("Giá trị status không hợp lệ: " + value);
     }
 }

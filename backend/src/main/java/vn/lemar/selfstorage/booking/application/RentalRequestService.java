@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +32,7 @@ import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailable
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
 import vn.lemar.selfstorage.booking.domain.RentalRequestRejectReason;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
+import vn.lemar.selfstorage.booking.repository.ConversionGuardRepository;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
@@ -79,6 +79,8 @@ public class RentalRequestService {
     private final PolicyQueryService policyQueryService;
     private final AuditRecorder auditRecorder;
     private final CurrentAccountProvider currentAccountProvider;
+    private final RentalRequestConversionService conversionService;
+    private final ConversionGuardRepository conversionGuard;
 
     public RentalRequestService(RentalRequestRepository repository, FacilityAccess facilityAccess,
                                 StorageUnitQueryService storageUnitQueryService, Access access,
@@ -87,7 +89,9 @@ public class RentalRequestService {
                                 NotificationTemplateCatalog templateCatalog, EmailSender emailSender,
                                 UnitTypeQueryService unitTypeQueryService,
                                 PolicyQueryService policyQueryService, AuditRecorder auditRecorder,
-                                CurrentAccountProvider currentAccountProvider) {
+                                CurrentAccountProvider currentAccountProvider,
+                                RentalRequestConversionService conversionService,
+                                ConversionGuardRepository conversionGuard) {
         this.repository = repository;
         this.facilityAccess = facilityAccess;
         this.storageUnitQueryService = storageUnitQueryService;
@@ -100,6 +104,8 @@ public class RentalRequestService {
         this.policyQueryService = policyQueryService;
         this.auditRecorder = auditRecorder;
         this.currentAccountProvider = currentAccountProvider;
+        this.conversionService = conversionService;
+        this.conversionGuard = conversionGuard;
     }
 
     @Transactional
@@ -147,7 +153,8 @@ public class RentalRequestService {
     }
 
     /**
-     * FM duyệt yêu cầu (B1, spec draft.md §1.1) — dừng ở Approved, không tạo proposal/order (B2).
+     * FM duyệt yêu cầu (B1, spec draft.md §1.1); email đã thuộc account xác minh thì convert ngay
+     * sang đơn + proposal (B2, {@link RentalRequestConversionService#convertOnApproval}).
      *
      * <p>Guard {@code rental_request.approve} đặt trong service (thay vì controller) vì cần
      * {@code facilityId} từ entity mới guard được theo cơ sở — controller không có sẵn.
@@ -160,7 +167,7 @@ public class RentalRequestService {
      * update, nguồn sự thật là DB.
      *
      * <p>Sau duyệt: email chưa có account nhận mail đăng ký theo template draft.md:156
-     * (after-commit); email đã có account để B2 thông báo kèm proposal link.
+     * (after-commit); email đã có account xác minh thì B2 convert và thông báo kèm proposal link.
      */
     @Transactional
     public ApproveRentalRequestResponse approve(Long requestId, Long unitId) {
@@ -173,6 +180,9 @@ public class RentalRequestService {
         if (request.getExpiresAt() != null && request.getExpiresAt().isBefore(Instant.now())) {
             throw new RentalRequestExpiredException();
         }
+        if (accountQueryService.isBanned(request.getNormalizedCustomerEmail())) {
+            return rejectBannedCustomer(requestId, request);
+        }
         StorageUnitQueryService.UnitInfo unit = storageUnitQueryService.findUnitInfo(unitId)
                 .orElseThrow(StorageUnitNotFoundException::new);
         if (!unit.facilityId().equals(request.getFacilityId())) {
@@ -181,9 +191,13 @@ public class RentalRequestService {
         if (!unit.available()) {
             throw new StorageUnitUnavailableException();
         }
-        if (repository.existsByNormalizedCustomerEmailAndUnitIdAndStatusIn(
-                request.getNormalizedCustomerEmail(), unitId,
-                List.of(RentalRequestStatus.Approved, RentalRequestStatus.Converted))) {
+        // Khoá advisory theo email khách trước pre-check trùng, giữ tới commit: hai FM duyệt cùng
+        // một khách phải tuần tự, để pre-check thấy đơn vừa tạo của lần duyệt trước — tránh ca race
+        // duyệt trùng khoang. Pre-check theo đơn đang hoạt động (proposal Pending/Agreed trên đơn
+        // chưa đóng), không theo status request: request cũ `Converted` không bao giờ đóng, nên
+        // nếu check theo request thì khách không bao giờ được gán lại khoang sau khi đơn cũ đóng.
+        conversionGuard.lockCustomerEmail(request.getNormalizedCustomerEmail());
+        if (conversionGuard.hasActiveConversionForEmail(request.getNormalizedCustomerEmail(), unitId)) {
             throw new RentalRequestDuplicateUnitException();
         }
         Instant respondedAt = Instant.now();
@@ -198,9 +212,49 @@ public class RentalRequestService {
                 Map.of("status", RentalRequestStatus.Pending.name()),
                 Map.of("status", RentalRequestStatus.Approved.name(), "unitId", unitId),
                 null, currentAccountProvider.getCurrentAccountId()));
+        // B2: email đã thuộc account xác minh → tạo đơn + proposal ngay trong transaction duyệt.
+        // Convert lỗi thì duyệt rollback theo.
+        ConversionResult conversion = conversionService.convertOnApproval(requestId);
+        if (conversion.outcome() == ConversionResult.Outcome.DUPLICATE_UNIT) {
+            // Race hiếm: request khác của cùng khách vừa được convert cho khoang này (pre-check
+            // chạy trước khi request kia commit). Trả 409 như pre-check và rollback cả transaction
+            // duyệt — request giữ `Pending`, không có ca "duyệt xong nhưng không có đơn".
+            throw new RentalRequestDuplicateUnitException();
+        }
         sendApprovalEmail(request, expiresAt);
         return new ApproveRentalRequestResponse(request.getId(), RentalRequestStatus.Approved.name(),
                 unitId, respondedAt, expiresAt);
+    }
+
+    /**
+     * Account khách đã bị chặn: không duyệt, chuyển request sang {@code Rejected} và gửi mail.
+     * Dùng reason {@code OTHER} + note cố định để không phải mở rộng CHECK của {@code reject_reason}.
+     */
+    private ApproveRentalRequestResponse rejectBannedCustomer(Long requestId, RentalRequest request) {
+        Instant respondedAt = Instant.now();
+        String note = "Tài khoản khách đã bị chặn";
+        int updated = repository.rejectIfPending(requestId, RentalRequestRejectReason.OTHER, note,
+                respondedAt, RentalRequestStatus.Pending, RentalRequestStatus.Rejected);
+        if (updated == 0) {
+            throw new RentalRequestAlreadyHandledException();
+        }
+        Map<String, Object> newValue = new LinkedHashMap<>();
+        newValue.put("status", RentalRequestStatus.Rejected.name());
+        newValue.put("rejectReason", RentalRequestRejectReason.OTHER.name());
+        newValue.put("rejectNote", note);
+        auditRecorder.record(new AuditEntry(AuditAction.RENTAL_REQUEST_REJECTED,
+                AuditEntityType.RENTAL_REQUEST, String.valueOf(requestId),
+                Map.of("status", RentalRequestStatus.Pending.name()), newValue, null,
+                currentAccountProvider.getCurrentAccountId()));
+
+        NotificationTemplateCatalog.Template template = templateCatalog.resolve(
+                NotificationType.RENTAL_REQUEST_REJECTED_BANNED, NotificationRecipient.CUSTOMER);
+        String title = template.renderTitle(Map.of());
+        emailSender.sendHtml(request.getNormalizedCustomerEmail(), title,
+                NotificationEmailLayout.wrap(title, template.renderBody(Map.of())));
+
+        return new ApproveRentalRequestResponse(requestId, RentalRequestStatus.Rejected.name(),
+                null, respondedAt, null);
     }
 
     /**
