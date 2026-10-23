@@ -58,6 +58,7 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` — actor = customer vừa xác minh; claim cũng ghi `RENTAL_ORDER_CREATED` + `PROPOSAL_CREATED` (System) |
 | `booking` | `RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED` | `RentalRequest`, `RentalOrder`, `ProposalFeedback` | `booking/application/RentalRequestConversionService.convert` — trigger duyệt (`CONVERTED` chỉ nhánh duyệt); order/proposal tạo ở cả hai trigger; actor = System |
 | `booking` | `DEPOSIT_REFUND_REQUIRED` | `RentalOrder` | `booking/application/ProposalService.issueDeposit` — đổi khoang sau khi cọc dư; actor = customer, FM nhận notification hoàn tiền thủ công (B4: hoàn tự động về thẻ đã liên kết) |
+| `booking` | `UNIT_CHANGE_RELEASED` | `StorageUnit` | `booking/application/ProposalService.releaseReplacedUnit` — nhả khoang cũ khi khách đồng ý khoang mới sau khi đã cọc; actor = customer |
 
 ## Xem thêm
 

@@ -153,6 +153,8 @@
 - expires_at (nullable)
   - Hạn hoàn thành của đơn, set một lần khi tạo đơn (`now + order.expiry_days`); quá hạn mà chưa `Done` → `Canceled`
   - Mọi hạn con gắn với đơn (hóa đơn, lịch hẹn, `due_at`) không được vượt `expires_at`
+- needs_reproposal (BOOLEAN, default false): Flow 2 bật khi khách từ chối khoang tại check-in; gate đề xuất lại
+  của Flow 1.3 đọc cờ này và clear khi proposal mới được tạo
 
 ## Cancellation Cascade
 
@@ -270,7 +272,7 @@ Các bước:
 - order_id (N - 1: RentalOrder)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit)
-- status (Pending/Agreed/Rejected/Expired)
+- status (Pending/Agreed/Rejected/Canceled)
 - note
 - created_at
 
@@ -455,6 +457,7 @@ Các bước:
 | `PROPOSAL_AGREED` | Khách đồng ý proposal | `ProposalFeedback` | Customer |
 | `PROPOSAL_REJECTED` | Khách từ chối proposal | `ProposalFeedback` | Customer |
 | `PROPOSAL_REPROPOSED` | FM đề xuất khoang khác | `ProposalFeedback` | FM |
+| `PROPOSAL_CANCELED` | Proposal bị huỷ do khoang hết khả dụng lúc khách đồng ý hoặc đơn bị huỷ | `ProposalFeedback` | Customer/System |
 | `INVOICE_CREATED` | Hệ thống tạo hóa đơn cọc | `Invoice` | System |
 | `INVOICE_CANCELED` | Hóa đơn bị vô hiệu hóa | `Invoice` | System |
 | `PAYMENT_SUCCEEDED` | Thanh toán được xác nhận | `PaymentTransaction` | System/IPN |
@@ -462,6 +465,7 @@ Các bước:
 | `RENTAL_ORDER_DEPOSITED` | Đơn chuyển sang đã đặt cọc | `RentalOrder` | System |
 | `STORAGE_UNIT_RESERVED` | Khoang chuyển sang Reserved | `StorageUnit` | System |
 | `MANUAL_REFUND_RECORDED` | Ghi nhận hoàn tiền thủ công | `PaymentTransaction` | Admin/FM |
+| `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau khi cọc dư — cần hoàn tiền | `RentalOrder` | Customer |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in | `Appointment` | System |
 | `FS_ASSIGNED` | FM phân công FS | `Appointment` | FM |
 | `APPOINTMENT_RESCHEDULED` | Lịch hẹn được đặt lại | `Appointment` | Customer/FM |
@@ -489,6 +493,7 @@ Các bước:
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì hoặc giải phóng khoang khi đơn bị hủy | `StorageUnit` | System |
+| `UNIT_CHANGE_RELEASED` | Nhả khoang cũ khi khách đổi khoang sau khi đã cọc | `StorageUnit` | Customer |
 | `ACCOUNT_REGISTERED` | Tạo tài khoản mới | `Account` | Customer/Admin |
 
 - Xác minh email không tạo `AuditLog`; bản ghi là `Account.email_verified_at`. Nếu sau này có đường

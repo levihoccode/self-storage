@@ -100,7 +100,7 @@ Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 
 (chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
-Schema Flow 1.3 đi bằng migration V8–V9 (V1/V2 đóng băng sau khi main có V7):
+Schema Flow 1.3 đi bằng migration V8–V10 (V1/V2 đóng băng sau khi main có V7):
 
 - Cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; Flow 1.3 chỉ đọc:
   FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
@@ -111,6 +111,8 @@ Schema Flow 1.3 đi bằng migration V8–V9 (V1/V2 đóng băng sau khi main c�
   (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
 - V9 seed `fee.unit_change = 0` (Flow 4 chốt giá trị) và thêm audit action `DEPOSIT_REFUND_REQUIRED`
   cho trường hợp đổi khoang sau khi cọc dư — trước B4, FM hoàn thủ công; B4 hoàn tự động về thẻ đã liên kết.
+- V10 thêm audit action `UNIT_CHANGE_RELEASED` — nhả khoang cũ khi khách đổi khoang sau khi đã cọc;
+  khoang mới chưa reserve cho tới khi thanh toán (B4).
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào

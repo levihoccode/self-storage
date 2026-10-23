@@ -27,6 +27,11 @@ Khách bấm "Đồng ý" trên một proposal `Pending`.
 Đơn đã giữ khoang (`Deposited`/`Scheduled`/`InProgress`) và đang có proposal `Pending` — proposal này chỉ
 sinh ra từ nhánh FM đề xuất lại sau khi khách từ chối khoang tại check-in (Flow 2):
 
+- Khoang cũ được nhả ngay (`Reserved → Available`, AuditLog `UNIT_CHANGE_RELEASED`); `order.unit_id` đổi
+  sang khoang mới.
+- Khoang mới **chưa được reserve** ở bước này — B4 sẽ reserve sau khi khách thanh toán đủ (hoặc follow-up
+  riêng cho trường hợp `delta ≤ 0`).
+
 ```text
 paidDeposit = tổng Invoice Deposit đã Paid của đơn
 required    = giá thuê hiệu lực(khoang mới) × invoice.deposit_months + fee.unit_change
@@ -34,7 +39,7 @@ delta       = required − paidDeposit
 ```
 
 - `delta > 0`: tạo `Invoice` `Deposit`/`Unpaid` cho phần chênh lệch, title "Bổ sung cọc khoang chứa {mã}",
-  hạn như hoá đơn cọc thường; khách nhận `DEPOSIT_SUPPLEMENT_REQUIRED`.
+  hạn như hoá đơn cọc thường; khách nhận `UNIT_CHANGE_PAYMENT_REQUIRED` ("thanh toán để giữ khoang mới").
 - `delta < 0`: không tạo hoá đơn; AuditLog `DEPOSIT_REFUND_REQUIRED` + notification
   `DEPOSIT_REFUND_REQUIRED` cho FM, khách nhận `DEPOSIT_REFUND_PENDING`. Việc ghi nhận hoàn tiền thuộc
   Flow 2/4: trước B4, FM hoàn thủ công; B4 chuyển sang hoàn tự động về thẻ đã liên kết.

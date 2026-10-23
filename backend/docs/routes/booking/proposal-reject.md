@@ -20,7 +20,8 @@ Khách bấm "Từ chối" trên một proposal `Pending`, body `{ "note": "..."
   Cancellation Cascade — đơn `Canceled` với lý do "Từ chối quá số khoang cho phép", proposal
   `Pending`/`Agreed` → `Canceled`, hoá đơn `Unpaid` → `Canceled`, khoang `Reserved` → `Available` **chỉ khi
   đơn bị huỷ đang giữ khoang** (`Deposited`/`Scheduled`/`InProgress` — khoang chỉ bị giữ sau khi trả cọc),
-  AuditLog từng entity, khách + FM nhận `RENTAL_ORDER_CANCELED`; `orderCanceled = true`.
+  AuditLog từng entity, khách + FM nhận `RENTAL_ORDER_CANCELED`; `orderCanceled = true`. Notification của
+  khách nêu rõ "Tiền cọc không được hoàn" vì huỷ do quá ngưỡng từ chối.
 
 ## Ghi chú nghiệp vụ
 
