@@ -59,7 +59,7 @@ Trong một transaction:
    `PROPOSAL_CREATED`; trigger claim ghi `RENTAL_REQUEST_CLAIMED` (customer) + order/proposal created.
    Luồng duyệt vẫn ghi `RENTAL_REQUEST_APPROVED` trước khi convert.
 
-`order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQueryService`, không fallback.
+`order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PricingQuery`, không fallback.
 Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi cấu hình: convert ném
 `IllegalStateException` và rollback.
 
@@ -98,6 +98,6 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 | Nối trigger | `booking/application/RentalRequestService.java` (approve), `booking/application/EmailVerifiedClaimListener.java`, `identity/application/EmailVerified.java`, `identity/application/RegistrationService.java` |
 | Khoá + kiểm trùng | `booking/repository/ConversionGuardRepository.java` |
 | Request | `booking/domain/RentalRequest.java`, `booking/repository/RentalRequestRepository.java` (`convertIfApproved`, `findClaimableForUpdate`) |
-| Đọc policy | `pricing/application/PolicyQueryService.java` |
+| Đọc policy | `pricing/application/PricingQuery.java` |
 | Account đã xác minh, không bị chặn | `identity/application/AccountQueryService.java` (`findVerifiedByEmail`, `findVerifiedById` — lọc `isLoginAllowed`) |
 | Test | `src/test/.../booking/RentalRequestConversionIntegrationTest.java` (Testcontainers) |
