@@ -127,5 +127,6 @@ Chi tiết: [error-handling.md](error-handling.md).
 ## Chưa có
 
 - UI quản trị gán permission cho role (Flow 5): mapping hiện sửa qua seed/SQL.
-- Namespace `/api/fm/**` đã có endpoint nghiệp vụ đầu tiên (hàng đợi + duyệt/từ chối
-  rental-request); `/api/bom/**`… vẫn chưa có.
+- Namespace `/api/fm/**` có các màn của FM: hàng đợi + duyệt/từ chối rental-request; lịch hẹn theo ngày,
+  danh sách FS của cơ sở và phân công FS (`appointment.read` / `appointment.assign` theo cơ sở).
+  `/api/bom/**`… vẫn chưa có.
