@@ -39,6 +39,7 @@ delta       = required − paidDeposit
   `DEPOSIT_REFUND_REQUIRED` cho FM, khách nhận `DEPOSIT_REFUND_PENDING`. Việc ghi nhận hoàn tiền thuộc
   Flow 2/4 (Flow 4 chuyển sang hoàn tự động).
 - `delta = 0`: không tạo gì.
+- Response 200: `invoice = null` khi `delta ≤ 0`; khi `delta > 0` là hoá đơn bổ sung.
 
 ## Ghi chú nghiệp vụ
 
