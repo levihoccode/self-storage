@@ -6,7 +6,7 @@ purpose: Danh sách đề xuất khoang của account đang đăng nhập (trang
 
 Trả các `ProposalFeedback` của chính người gọi, mới nhất trước — FE dùng cho tab "Chờ duyệt".
 
-- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE` (route trong `/api/**`, contract #113) + ownership: chỉ
+- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE` (route trong `/api/**`) + ownership: chỉ
   proposal có `customer_id` = account đang đăng nhập. Account không phải khách nhận danh sách rỗng.
 - **Contract chi tiết:** annotation tại `booking/controller/ProposalController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
@@ -21,7 +21,7 @@ Trả các `ProposalFeedback` của chính người gọi, mới nhất trước
 ## Ghi chú nghiệp vụ
 
 - Spec `draft.md` › 1.3: thông tin hiển thị lấy từ `ProposalFeedback`. Proposal dùng `Canceled` thay
-  `Expired` (chốt #113).
+  `Expired` của spec.
 
 ## Ví dụ
 

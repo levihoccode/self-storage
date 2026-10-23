@@ -6,7 +6,7 @@ purpose: FM đề xuất khoang khác cho đơn sau khi khách từ chối hoặ
 
 Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pending` mới cho đơn.
 
-- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE` (route trong `/api/**`, contract #113) + permission
+- **Actor / quyền:** bearer token + `ACCOUNT_ACTIVE` (route trong `/api/**`) + permission
   `proposal_feedback.repropose` theo cơ sở của đơn; chọn lại khoang khách đã từ chối cần thêm
   `proposal_feedback.override`. Role không có permission (vd khách) → 403.
 - **Contract chi tiết:** annotation tại `booking/controller/RentalOrderProposalController.java`; Swagger UI —
@@ -15,7 +15,7 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
 ## Luồng / hành vi
 
 - Thiếu `unitId` → 400.
-- Điều kiện được đề xuất lại (chốt PR #136): đơn chưa đóng **và** không có proposal `Pending` **và** đơn đang
+- Điều kiện được đề xuất lại: đơn chưa đóng **và** không có proposal `Pending` **và** đơn đang
   `Pending` hoặc `needs_reproposal = true`. Sai một trong ba → 409 với câu tương ứng.
 - Khoá đơn, khoá khoang; khoang khác cơ sở → 404, khoang không `Available` → 409.
 - Khoang khách đã từ chối trong đơn: thiếu `overrideReason` → 400; có thì lý do ghi vào AuditLog
@@ -26,9 +26,10 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
 
 ## Ghi chú nghiệp vụ
 
-- `needs_reproposal` do Flow 2 bật/tắt (vd khách từ chối khoang tại check-in); B3 chỉ đọc cờ này.
+- `needs_reproposal` do Flow 2 bật (vd khách từ chối khoang tại check-in); cờ được **clear ngay khi proposal
+  mới tạo thành công** — chỉ dùng cho gate đề xuất lại, không phải điều kiện để khách đồng ý.
 - Đơn còn proposal `Pending` (khách chưa phản hồi): giữ 409 — FM liên hệ khách ngoài hệ thống, không được thì
-  huỷ đơn (#142).
+  huỷ đơn qua endpoint FM huỷ đơn.
 
 ## Ví dụ
 
