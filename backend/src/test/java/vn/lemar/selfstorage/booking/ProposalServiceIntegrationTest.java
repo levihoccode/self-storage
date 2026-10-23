@@ -184,7 +184,26 @@ class ProposalServiceIntegrationTest {
         assertThat(result.invoice().title()).isEqualTo("Bổ sung cọc khoang chứa A-02");
         assertThat(result.invoice().status()).isEqualTo("Unpaid");
         assertThat(notificationsOf(customerId)).extracting(row -> row.get("type"))
-                .contains("DEPOSIT_SUPPLEMENT_REQUIRED");
+                .contains("UNIT_CHANGE_PAYMENT_REQUIRED");
+    }
+
+    @Test
+    void unitChangeReleasesOldUnitAndLeavesNewUnitAvailable() {
+        depositedOrder();
+        jdbc.update("update rental_orders set unit_id = ? where id = ?", unitId("A-01"), orderId);
+        jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId("A-01"));
+        paidDeposit(SMALL_MONTHLY_PRICE);
+        long proposalId = proposal("A-02", "Pending");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice()).isNull();
+        assertThat(orderUnitId()).isEqualTo(unitId("A-02"));
+        assertThat(jdbc.queryForObject("select status from storage_units where id = ?", String.class,
+                unitId("A-01"))).isEqualTo("Available");
+        assertThat(jdbc.queryForObject("select status from storage_units where id = ?", String.class,
+                unitId("A-02"))).isEqualTo("Available");
+        assertThat(auditActions("StorageUnit", unitId("A-01"))).containsExactly("UNIT_CHANGE_RELEASED");
     }
 
     @Test
@@ -316,6 +335,7 @@ class ProposalServiceIntegrationTest {
         assertThat(notificationsOf(customerId)).singleElement().satisfies(row -> {
             assertThat(row.get("type")).isEqualTo("RENTAL_ORDER_CANCELED");
             assertThat((String) row.get("body")).contains("Từ chối quá số khoang cho phép");
+            assertThat((String) row.get("body")).contains("Tiền cọc không được hoàn");
         });
         assertThat(notificationsOf(fmId)).extracting(row -> row.get("type"))
                 .containsExactly("RENTAL_ORDER_CANCELED");

@@ -108,10 +108,10 @@ public class NotificationTemplateCatalog {
         put(NotificationType.DEPOSIT_REFUND_REQUIRED, NotificationRecipient.FM,
                 "Cần hoàn cọc thủ công",
                 "Đơn {{orderCode}} đổi sang khoang có cọc thấp hơn. Số tiền cần hoàn: {{refundAmount}}.");
-        put(NotificationType.DEPOSIT_SUPPLEMENT_REQUIRED, NotificationRecipient.CUSTOMER,
-                "Có hoá đơn cọc bổ sung",
-                "Đơn {{orderCode}}: cần thanh toán thêm {{amount}} tiền cọc cho khoang mới. "
-                        + "Xem hoá đơn trong mục Hoá đơn.");
+        put(NotificationType.UNIT_CHANGE_PAYMENT_REQUIRED, NotificationRecipient.CUSTOMER,
+                "Thanh toán để giữ khoang mới",
+                "Đơn {{orderCode}}: cần thanh toán thêm {{amount}} để giữ khoang mới. "
+                        + "Khoang chỉ được giữ sau khi thanh toán; xem hoá đơn trong mục Hoá đơn.");
         put(NotificationType.DEPOSIT_REFUND_PENDING, NotificationRecipient.CUSTOMER,
                 "Cọc dư sẽ được hoàn",
                 "Đơn {{orderCode}}: cọc dư {{refundAmount}} sẽ được cơ sở hoàn lại.");

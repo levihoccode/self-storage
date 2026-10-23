@@ -28,6 +28,7 @@ import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.ProposalFeedbackRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
 import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
+import vn.lemar.selfstorage.facility.application.StorageUnitService;
 import vn.lemar.selfstorage.facility.application.StorageUnitView;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.notification.application.NotificationType;
@@ -54,6 +55,7 @@ public class ProposalService {
     private final ProposalFeedbackRepository proposalRepository;
     private final RentalOrderRepository orderRepository;
     private final StorageUnitQuery storageUnitQuery;
+    private final StorageUnitService storageUnitService;
     private final PricingQuery pricingQuery;
     private final Access access;
     private final AuditRecorder auditRecorder;
@@ -64,13 +66,15 @@ public class ProposalService {
     private final String frontendUrl;
 
     ProposalService(ProposalFeedbackRepository proposalRepository, RentalOrderRepository orderRepository,
-                    StorageUnitQuery storageUnitQuery, PricingQuery pricingQuery, Access access,
+                    StorageUnitQuery storageUnitQuery, StorageUnitService storageUnitService,
+                    PricingQuery pricingQuery, Access access,
                     AuditRecorder auditRecorder, OrderNotifier orderNotifier,
                     DepositInvoiceIssuer depositInvoiceIssuer, RentalOrderCancellation orderCancellation,
                     InvoiceRepository invoiceRepository, @Value("${app.frontend-url}") String frontendUrl) {
         this.proposalRepository = proposalRepository;
         this.orderRepository = orderRepository;
         this.storageUnitQuery = storageUnitQuery;
+        this.storageUnitService = storageUnitService;
         this.pricingQuery = pricingQuery;
         this.access = access;
         this.auditRecorder = auditRecorder;
@@ -93,8 +97,8 @@ public class ProposalService {
         RentalOrder order = orderRepository.findByIdForUpdate(proposal.getOrderId())
                 .orElseThrow(RentalOrderNotFoundException::new);
         requireAgreeable(order);
-        StorageUnitView unit = storageUnitQuery.lock(proposal.getUnitId())
-                .orElseThrow(StorageUnitNotFoundException::new);
+        Long oldUnitId = order.holdsUnit() ? order.getUnitId() : null;
+        StorageUnitView unit = lockAgreedUnits(oldUnitId, proposal.getUnitId());
 
         if (!unit.isAvailable()) {
             proposal.cancel();
@@ -109,6 +113,7 @@ public class ProposalService {
 
         proposal.agree();
         order.assignUnit(proposal.getUnitId());
+        releaseReplacedUnit(order, oldUnitId, proposal.getUnitId(), customerAccountId);
         auditRecorder.record(new AuditEntry(AuditAction.PROPOSAL_AGREED, AuditEntityType.PROPOSAL_FEEDBACK,
                 String.valueOf(proposal.getId()), Map.of("status", ProposalStatus.PENDING.dbValue()),
                 Map.of("status", proposal.getStatus().dbValue(), "unitId", proposal.getUnitId()), null,
@@ -116,6 +121,35 @@ public class ProposalService {
         Invoice invoice = issueDeposit(order, unit, customerAccountId);
         return new AgreeResult(AgreeResult.Outcome.AGREED, ProposalView.of(proposal),
                 invoice == null ? null : InvoiceView.of(invoice));
+    }
+
+    /**
+     * Khoá cả khoang cũ và khoang mới theo thứ tự id tăng dần để tránh deadlock khi hai đơn đổi khoang
+     * chéo nhau. Khoang mới trả về cho caller kiểm tra {@code Available}.
+     */
+    private StorageUnitView lockAgreedUnits(Long oldUnitId, Long newUnitId) {
+        if (oldUnitId != null && !oldUnitId.equals(newUnitId) && oldUnitId < newUnitId) {
+            storageUnitQuery.lock(oldUnitId);
+        }
+        StorageUnitView unit = storageUnitQuery.lock(newUnitId)
+                .orElseThrow(StorageUnitNotFoundException::new);
+        if (oldUnitId != null && !oldUnitId.equals(newUnitId) && oldUnitId > newUnitId) {
+            storageUnitQuery.lock(oldUnitId);
+        }
+        return unit;
+    }
+
+    /** Đổi khoang sau khi đã cọc: nhả khoang cũ; khoang mới chưa reserve cho tới khi thanh toán (B4). */
+    private void releaseReplacedUnit(RentalOrder order, Long oldUnitId, Long newUnitId, Long actorAccountId) {
+        if (oldUnitId == null || oldUnitId.equals(newUnitId)) {
+            return;
+        }
+        if (storageUnitService.releaseIfReserved(oldUnitId)) {
+            auditRecorder.record(new AuditEntry(AuditAction.UNIT_CHANGE_RELEASED, AuditEntityType.STORAGE_UNIT,
+                    String.valueOf(oldUnitId), Map.of("status", "Reserved", "orderId", order.getId()),
+                    Map.of("status", "Available", "unitId", newUnitId), "Đổi khoang sau khi đã cọc",
+                    actorAccountId));
+        }
     }
 
     /**
@@ -133,7 +167,7 @@ public class ProposalService {
         BigDecimal delta = required.subtract(paidDeposit).setScale(2, RoundingMode.HALF_UP);
         if (delta.signum() > 0) {
             Invoice supplemental = depositInvoiceIssuer.issueSupplemental(order, unit, delta, actorAccountId);
-            orderNotifier.notifyCustomer(order, NotificationType.DEPOSIT_SUPPLEMENT_REQUIRED,
+            orderNotifier.notifyCustomer(order, NotificationType.UNIT_CHANGE_PAYMENT_REQUIRED,
                     Map.of("orderCode", OrderNotifier.orderCode(order), "amount", delta.toPlainString()));
             return supplemental;
         }

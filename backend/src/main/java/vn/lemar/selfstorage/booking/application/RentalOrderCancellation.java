@@ -82,8 +82,11 @@ class RentalOrderCancellation {
                     Map.of("status", "Reserved"), Map.of("status", "Available"), reason, actorAccountId);
         }
 
+        // Khách tự chịu rủi ro mất cọc khi huỷ do quá ngưỡng từ chối (behavior-gap #172).
+        String notifyReason = ProposalService.CANCEL_REASON_TOO_MANY_REJECTIONS.equals(reason)
+                ? reason + ". Tiền cọc không được hoàn" : reason;
         Map<String, String> values = Map.of("orderCode", OrderNotifier.orderCode(order),
-                "outcome", OUTCOME_CANCELED, "reason", reason);
+                "outcome", OUTCOME_CANCELED, "reason", notifyReason);
         orderNotifier.notifyCustomer(order, NotificationType.RENTAL_ORDER_CANCELED, values);
         orderNotifier.notifyFacilityManager(order.getId(), NotificationType.RENTAL_ORDER_CANCELED, values);
     }
