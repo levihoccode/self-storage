@@ -1,23 +1,28 @@
 package vn.lemar.selfstorage.pricing.application;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.pricing.repository.PricingRepository;
 
 /**
- * Public API cho module nghiệp vụ: tham số chính sách dạng số nguyên và giá thuê hiệu lực. Giá trị policy đọc qua
- * {@link PolicyQueryService} — một nơi duy nhất đọc bảng {@code policies}.
+ * Public API cho module nghiệp vụ: đọc policy thô, tham số chính sách dạng số và giá thuê hiệu lực.
+ * Một nơi duy nhất đọc bảng {@code policies}.
  */
 @Service
 public class PricingQuery {
 
-    private final PolicyQueryService policyQueryService;
     private final PricingRepository pricingRepository;
 
-    public PricingQuery(PolicyQueryService policyQueryService, PricingRepository pricingRepository) {
-        this.policyQueryService = policyQueryService;
+    public PricingQuery(PricingRepository pricingRepository) {
         this.pricingRepository = pricingRepository;
+    }
+
+    /** Giá trị policy thô theo key; rỗng nếu key chưa seed. */
+    @Transactional(readOnly = true)
+    public Optional<String> valueOf(String key) {
+        return pricingRepository.findPolicyValue(key);
     }
 
     /**
@@ -26,7 +31,7 @@ public class PricingQuery {
      */
     @Transactional(readOnly = true)
     public int intPolicy(String key) {
-        String value = policyQueryService.valueOf(key)
+        String value = valueOf(key)
                 .orElseThrow(() -> new IllegalStateException("Thiếu tham số policies." + key));
         return Integer.parseInt(value.strip());
     }
@@ -34,7 +39,7 @@ public class PricingQuery {
     /** Tham số tiền tệ theo key (vd {@code fee.unit_change}); thiếu key là lỗi cấu hình seed. */
     @Transactional(readOnly = true)
     public BigDecimal decimalPolicy(String key) {
-        String value = policyQueryService.valueOf(key)
+        String value = valueOf(key)
                 .orElseThrow(() -> new IllegalStateException("Thiếu tham số policies." + key));
         return new BigDecimal(value.strip());
     }
