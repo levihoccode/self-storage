@@ -175,7 +175,7 @@ Mọi nhánh chuyển `RentalOrder` sang `Canceled` đều chạy các bước d
 
 Các bước:
 - `RentalOrder.status -> Canceled`, ghi `cancel_reason`.
-- `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
+- `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Canceled`.
 - `RentalContract` đang `Draft`/`Signed` chuyển `Canceled`; `Invoice` `Unpaid` gắn đơn chuyển `Canceled` (trừ invoice đã `Expired` theo cron, giữ nguyên; khoản đã thu xử lý theo policy).
 - Khoang được giải phóng: `StorageUnit.status -> Available`.
 - `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
@@ -458,8 +458,8 @@ Các bước:
 | `PROPOSAL_REJECTED` | Khách từ chối proposal | `ProposalFeedback` | Customer |
 | `PROPOSAL_REPROPOSED` | FM đề xuất khoang khác | `ProposalFeedback` | FM |
 | `PROPOSAL_CANCELED` | Proposal bị huỷ do khoang hết khả dụng lúc khách đồng ý hoặc đơn bị huỷ | `ProposalFeedback` | Customer/System |
-| `INVOICE_CREATED` | Hệ thống tạo hóa đơn cọc | `Invoice` | System |
-| `INVOICE_CANCELED` | Hóa đơn bị vô hiệu hóa | `Invoice` | System |
+| `INVOICE_CREATED` | Hệ thống tạo hóa đơn cọc | `Invoice` | Customer/FM |
+| `INVOICE_CANCELED` | Hóa đơn bị vô hiệu hóa | `Invoice` | Customer/FM |
 | `PAYMENT_SUCCEEDED` | Thanh toán được xác nhận | `PaymentTransaction` | System/IPN |
 | `PAYMENT_FAILED` | Thanh toán thất bại | `PaymentTransaction` | System/IPN |
 | `RENTAL_ORDER_DEPOSITED` | Đơn chuyển sang đã đặt cọc | `RentalOrder` | System |
@@ -559,5 +559,8 @@ Các bước:
 | `HANDOVER_OVERDUE` | Cron đóng biên bản quá `due_at` khi khách đã đến, nội dung có link đặt lịch mới | Customer |
 | `RENTAL_ORDER_EXPIRING_SOON` | Cron nhắc trước khi `RentalOrder` hết hạn, nội dung gồm mã đơn, hạn đơn và số ngày còn lại | Customer |
 | `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy hoặc quá hạn, title theo `cancel_reason` (xem Cancellation Cascade) | Customer, FM |
+| `UNIT_CHANGE_PAYMENT_REQUIRED` | Khách đổi khoang sau cọc và cần thanh toán phần thiếu để giữ khoang mới | Customer |
+| `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau cọc dư — FM cần hoàn tiền | FM |
+| `DEPOSIT_REFUND_PENDING` | Cọc dư sẽ được hoàn | Customer |
 | `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
 | `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |

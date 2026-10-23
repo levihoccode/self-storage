@@ -15,7 +15,7 @@ Khách bấm "Từ chối" trên một proposal `Pending`, body `{ "note": "..."
 - Thiếu / trống `note` → 400, không đổi gì.
 - Khoá proposal + khoá đơn, đếm số proposal `Rejected` của đơn **trước khi** ghi.
 - Chưa chạm ngưỡng: proposal `Rejected` + note, AuditLog `PROPOSAL_REJECTED`, FM nhận `PROPOSAL_REJECTED`;
-  `orderCanceled = false`.
+  `orderCanceled = false`. Đơn đã cọc: bật `needs_reproposal` để FM re-propose tiếp.
 - Chạm ngưỡng (`số Rejected + 1 >= proposal.max_rejection_count`): ghi `Rejected` rồi chạy
   Cancellation Cascade — đơn `Canceled` với lý do "Từ chối quá số khoang cho phép", proposal
   `Pending`/`Agreed` → `Canceled`, hoá đơn `Unpaid` → `Canceled`, khoang `Reserved` → `Available` **chỉ khi
