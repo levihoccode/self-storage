@@ -105,6 +105,16 @@ public class NotificationTemplateCatalog {
         put(NotificationType.RENTAL_ORDER_CANCELED, NotificationRecipient.FM,
                 "Đơn thuê kho {{outcome}}",
                 "Đơn {{orderCode}} {{outcome}}. Lý do: {{reason}}.");
+        put(NotificationType.DEPOSIT_REFUND_REQUIRED, NotificationRecipient.FM,
+                "Cần hoàn cọc thủ công",
+                "Đơn {{orderCode}} đổi sang khoang có cọc thấp hơn. Số tiền cần hoàn: {{refundAmount}}.");
+        put(NotificationType.DEPOSIT_SUPPLEMENT_REQUIRED, NotificationRecipient.CUSTOMER,
+                "Có hoá đơn cọc bổ sung",
+                "Đơn {{orderCode}}: cần thanh toán thêm {{amount}} tiền cọc cho khoang mới. "
+                        + "Xem hoá đơn trong mục Hoá đơn.");
+        put(NotificationType.DEPOSIT_REFUND_PENDING, NotificationRecipient.CUSTOMER,
+                "Cọc dư sẽ được hoàn",
+                "Đơn {{orderCode}}: cọc dư {{refundAmount}} sẽ được cơ sở hoàn lại.");
         put(NotificationType.HANDOVER_COMPLETED, NotificationRecipient.CUSTOMER,
                 "Bàn giao kho hoàn tất",
                 "Đơn {{orderCode}} đã bàn giao khoang {{unitCode}}. Xem biên bản tại {{handoverLink}}.");

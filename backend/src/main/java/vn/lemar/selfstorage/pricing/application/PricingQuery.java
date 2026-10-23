@@ -26,6 +26,14 @@ public class PricingQuery {
         return Integer.parseInt(value.strip());
     }
 
+    /** Tham số tiền tệ theo key (vd {@code fee.unit_change}); thiếu key là lỗi cấu hình seed. */
+    @Transactional(readOnly = true)
+    public BigDecimal decimalPolicy(String key) {
+        String value = pricingRepository.findPolicyValue(key)
+                .orElseThrow(() -> new IllegalStateException("Thiếu tham số policies." + key));
+        return new BigDecimal(value.strip());
+    }
+
     /** Giá thuê tháng hiệu lực của khoang: giá riêng của khoang nếu có, không thì giá của loại khoang. */
     @Transactional(readOnly = true)
     public BigDecimal effectiveMonthlyPrice(Long unitId) {

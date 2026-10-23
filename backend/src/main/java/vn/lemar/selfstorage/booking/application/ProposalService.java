@@ -1,5 +1,8 @@
 package vn.lemar.selfstorage.booking.application;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +48,7 @@ public class ProposalService {
     static final String PERMISSION_REPROPOSE = "proposal_feedback.repropose";
     static final String PERMISSION_OVERRIDE = "proposal_feedback.override";
     static final String POLICY_MAX_REJECTION = "proposal.max_rejection_count";
+    static final String POLICY_UNIT_CHANGE = "fee.unit_change";
     static final String CANCEL_REASON_TOO_MANY_REJECTIONS = "Từ chối quá số khoang cho phép";
 
     private final ProposalFeedbackRepository proposalRepository;
@@ -85,8 +89,10 @@ public class ProposalService {
     @Transactional
     public AgreeResult agree(Long proposalId, Long customerAccountId) {
         ProposalFeedback proposal = lockPendingProposalOf(proposalId, customerAccountId);
-        RentalOrder order = orderRepository.findById(proposal.getOrderId())
+        // Khoá đơn vì agree đọc/ghi tiền (hoá đơn cọc, chênh lệch cọc) và trạng thái đơn.
+        RentalOrder order = orderRepository.findByIdForUpdate(proposal.getOrderId())
                 .orElseThrow(RentalOrderNotFoundException::new);
+        requireAgreeable(order);
         StorageUnitView unit = storageUnitQuery.lock(proposal.getUnitId())
                 .orElseThrow(StorageUnitNotFoundException::new);
 
@@ -107,8 +113,51 @@ public class ProposalService {
                 String.valueOf(proposal.getId()), Map.of("status", ProposalStatus.PENDING.dbValue()),
                 Map.of("status", proposal.getStatus().dbValue(), "unitId", proposal.getUnitId()), null,
                 customerAccountId));
-        Invoice invoice = depositInvoiceIssuer.issue(order, unit, customerAccountId);
-        return new AgreeResult(AgreeResult.Outcome.AGREED, ProposalView.of(proposal), InvoiceView.of(invoice));
+        Invoice invoice = issueDeposit(order, unit, customerAccountId);
+        return new AgreeResult(AgreeResult.Outcome.AGREED, ProposalView.of(proposal),
+                invoice == null ? null : InvoiceView.of(invoice));
+    }
+
+    /**
+     * Đơn chưa cọc: hoá đơn cọc đầy đủ. Đơn đã cọc (đổi khoang sau khi cọc, behavior-gap #165): so chênh
+     * lệch với tiền cọc đã thu — thiếu thì hoá đơn bổ sung, dư thì báo FM hoàn thủ công, bằng thì không tạo gì.
+     */
+    private Invoice issueDeposit(RentalOrder order, StorageUnitView unit, Long actorAccountId) {
+        if (!order.holdsUnit()) {
+            return depositInvoiceIssuer.issue(order, unit, actorAccountId);
+        }
+        BigDecimal paidDeposit = invoiceRepository.sumAmount(order.getId(), InvoiceType.DEPOSIT,
+                InvoiceStatus.PAID);
+        BigDecimal required = depositInvoiceIssuer.depositAmount(unit)
+                .add(pricingQuery.decimalPolicy(POLICY_UNIT_CHANGE));
+        BigDecimal delta = required.subtract(paidDeposit).setScale(2, RoundingMode.HALF_UP);
+        if (delta.signum() > 0) {
+            Invoice supplemental = depositInvoiceIssuer.issueSupplemental(order, unit, delta, actorAccountId);
+            orderNotifier.notifyCustomer(order, NotificationType.DEPOSIT_SUPPLEMENT_REQUIRED,
+                    Map.of("orderCode", OrderNotifier.orderCode(order), "amount", delta.toPlainString()));
+            return supplemental;
+        }
+        if (delta.signum() < 0) {
+            BigDecimal refund = delta.abs();
+            auditRecorder.record(new AuditEntry(AuditAction.DEPOSIT_REFUND_REQUIRED, AuditEntityType.RENTAL_ORDER,
+                    String.valueOf(order.getId()), Map.of("depositPaid", paidDeposit),
+                    Map.of("refundAmount", refund), "Đổi khoang sau khi đã cọc", actorAccountId));
+            orderNotifier.notifyFacilityManager(order.getId(), NotificationType.DEPOSIT_REFUND_REQUIRED,
+                    Map.of("orderCode", OrderNotifier.orderCode(order), "refundAmount", refund.toPlainString()));
+            orderNotifier.notifyCustomer(order, NotificationType.DEPOSIT_REFUND_PENDING,
+                    Map.of("orderCode", OrderNotifier.orderCode(order), "refundAmount", refund.toPlainString()));
+        }
+        return null;
+    }
+
+    /** Guard trạng thái đơn khi khách đồng ý (behavior-gap #165). */
+    private void requireAgreeable(RentalOrder order) {
+        if (order.getStatus().isClosed()) {
+            throw new ProposalConflictException("Đơn thuê đã đóng, không thể đồng ý khoang");
+        }
+        if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(Instant.now())) {
+            throw new ProposalConflictException("Đơn thuê đã hết hạn, không thể đồng ý khoang");
+        }
     }
 
     /**
@@ -188,6 +237,8 @@ public class ProposalService {
 
         cancelUnpaidDepositInvoices(order, actorAccountId);
         ProposalFeedback proposal = proposalRepository.save(ProposalFeedback.propose(order, unitId));
+        // Chốt: cờ chỉ dùng cho gate đề xuất lại, clear ngay khi proposal mới được tạo.
+        order.clearNeedsReproposal();
         auditRecorder.record(new AuditEntry(AuditAction.PROPOSAL_REPROPOSED, AuditEntityType.PROPOSAL_FEEDBACK,
                 String.valueOf(proposal.getId()), null,
                 Map.of("status", proposal.getStatus().dbValue(), "unitId", unitId, "orderId", orderId), reason,
