@@ -86,12 +86,14 @@ class MigrationTest {
             assertThat(count(connection, "facilities")).isEqualTo(2);
             assertThat(count(connection, "unit_types")).isEqualTo(3);
             assertThat(count(connection, "storage_units")).isEqualTo(8);
-            // 8 = 6 key baseline + order.expiry_days (V5) + invoice.deposit_months (chốt #113).
-            assertThat(count(connection, "policies")).isEqualTo(8);
+            // 9 = 6 key baseline + order.expiry_days (V5) + invoice.deposit_months (V8) + fee.unit_change (V9).
+            assertThat(count(connection, "policies")).isEqualTo(9);
             // V5 (bug #130): policy key B2 đọc khi tạo RentalOrder.
             assertThat(countWhere(connection, "policies", "key = 'order.expiry_days'")).isEqualTo(1);
             // V8: hệ số tiền cọc của Flow 1.3.
             assertThat(countWhere(connection, "policies", "key = 'invoice.deposit_months'")).isEqualTo(1);
+            // V9: phí đổi khoang sau khi cọc.
+            assertThat(countWhere(connection, "policies", "key = 'fee.unit_change'")).isEqualTo(1);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
             // V3: permission catalog + mapping mặc định (A3b, #57).
             assertThat(count(connection, "permissions")).isEqualTo(24);

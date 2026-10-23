@@ -171,6 +171,84 @@ class ProposalServiceIntegrationTest {
     }
 
     @Test
+    void agreeOnDepositedOrderIssuesOnlyTheDepositDifference() {
+        depositedOrder();
+        paidDeposit(new BigDecimal("500000.00"));
+        long proposalId = proposal("A-02", "Pending");
+        jdbc.update("update storage_units set monthly_price = 900000 where code = 'A-02'");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice()).isNotNull();
+        assertThat(result.invoice().amount()).isEqualByComparingTo("400000.00");
+        assertThat(result.invoice().title()).isEqualTo("Bổ sung cọc khoang chứa A-02");
+        assertThat(result.invoice().status()).isEqualTo("Unpaid");
+        assertThat(notificationsOf(customerId)).extracting(row -> row.get("type"))
+                .contains("DEPOSIT_SUPPLEMENT_REQUIRED");
+    }
+
+    @Test
+    void unitChangeFeeIsAddedToTheSupplementalDeposit() {
+        jdbc.update("update policies set value = '50000' where key = 'fee.unit_change'");
+        depositedOrder();
+        paidDeposit(new BigDecimal("500000.00"));
+        long proposalId = proposal("A-02", "Pending");
+        jdbc.update("update storage_units set monthly_price = 900000 where code = 'A-02'");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice().amount()).isEqualByComparingTo("450000.00");
+    }
+
+    @Test
+    void agreeOnDepositedOrderWithEqualDepositIssuesNoInvoice() {
+        depositedOrder();
+        paidDeposit(SMALL_MONTHLY_PRICE);
+        long proposalId = proposal("A-02", "Pending");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice()).isNull();
+    }
+
+    @Test
+    void agreeOnDepositedOrderWithSurplusAsksFmForManualRefund() {
+        depositedOrder();
+        paidDeposit(new BigDecimal("1000000.00"));
+        long proposalId = proposal("A-02", "Pending");
+
+        AgreeResult result = service.agree(proposalId, customerId);
+
+        assertThat(result.invoice()).isNull();
+        assertThat(auditActions("RentalOrder", orderId)).contains("DEPOSIT_REFUND_REQUIRED");
+        assertThat(notificationsOf(fmId)).extracting(row -> row.get("type"))
+                .contains("DEPOSIT_REFUND_REQUIRED");
+        assertThat(notificationsOf(customerId)).extracting(row -> row.get("type"))
+                .contains("DEPOSIT_REFUND_PENDING");
+    }
+
+    @Test
+    void agreeOnCanceledOrderConflicts() {
+        jdbc.update("update rental_orders set status = 'Canceled', cancel_reason = 'Khách không còn nhu cầu' "
+                + "where id = ?", orderId);
+        long proposalId = proposal("A-01", "Pending");
+
+        assertThatThrownBy(() -> service.agree(proposalId, customerId))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("đã đóng");
+    }
+
+    @Test
+    void agreeOnExpiredOrderConflicts() {
+        jdbc.update("update rental_orders set expires_at = now() - interval '1 day' where id = ?", orderId);
+        long proposalId = proposal("A-01", "Pending");
+
+        assertThatThrownBy(() -> service.agree(proposalId, customerId))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("hết hạn");
+    }
+
+    @Test
     void agreeByAnotherCustomerIsForbidden() {
         long proposalId = proposal("A-01", "Pending");
 
@@ -251,6 +329,8 @@ class ProposalServiceIntegrationTest {
         long pendingId = proposal("A-01", "Pending");
         jdbc.update("update storage_units set status = 'Reserved' where code = 'B-01'");
         jdbc.update("update rental_orders set unit_id = ? where id = ?", unitId("B-01"), orderId);
+        // Đơn đang giữ khoang Reserved phải đã qua cọc (spec 1.4).
+        jdbc.update("update rental_orders set status = 'Deposited' where id = ?", orderId);
         long invoiceId = jdbc.queryForObject("""
                 insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
                 values (?, ?, 'INV-DEP-Q7-TEST-000001', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Unpaid', 900000,
@@ -266,6 +346,26 @@ class ProposalServiceIntegrationTest {
         assertThat(auditActions("ProposalFeedback", agreedEarlier)).containsExactly("RENTAL_ORDER_CANCELED");
         assertThat(auditActions("Invoice", invoiceId)).containsExactly("INVOICE_CANCELED");
         assertThat(auditActions("StorageUnit", unitId("B-01"))).containsExactly("RENTAL_ORDER_CANCELED");
+    }
+
+    @Test
+    void cancelingOrderThatDoesNotHoldUnitKeepsAnotherOrdersReservation() {
+        // Đơn A đã đồng ý A-01 nhưng chưa cọc; đơn B đã cọc nên A-01 Reserved thuộc về B.
+        proposal("A-03", "Rejected");
+        proposal("A-04", "Rejected");
+        long pendingId = proposal("A-01", "Pending");
+        jdbc.update("update rental_orders set unit_id = ? where id = ?", unitId("A-01"), orderId);
+        long depositedOrder = secondOrder("Deposited", unitId("A-01"));
+        jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId("A-01"));
+
+        service.reject(pendingId, customerId, "Không cần nữa");
+
+        assertThat(orderStatus()).isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select status from rental_orders where id = ?", String.class, depositedOrder))
+                .isEqualTo("Deposited");
+        assertThat(jdbc.queryForObject("select status from storage_units where id = ?", String.class, unitId("A-01")))
+                .isEqualTo("Reserved");
+        assertThat(auditActions("StorageUnit", unitId("A-01"))).isEmpty();
     }
 
     @Test
@@ -406,6 +506,9 @@ class ProposalServiceIntegrationTest {
         ProposalView view = service.repropose(orderId, unitId("A-02"), null, fmId);
 
         assertThat(view.status()).isEqualTo("Pending");
+        entityManager.flush();
+        assertThat(jdbc.queryForObject("select needs_reproposal from rental_orders where id = ?", Boolean.class,
+                orderId)).isFalse();
     }
 
     @Test
@@ -503,6 +606,30 @@ class ProposalServiceIntegrationTest {
                 insert into proposal_feedbacks (order_id, customer_id, unit_id, status, note)
                 values (?, ?, ?, ?, ?) returning id""", Long.class,
                 orderId, customerId, unitId(unitCode), status, "Rejected".equals(status) ? "Không hợp" : null);
+    }
+
+    private void depositedOrder() {
+        jdbc.update("update rental_orders set status = 'Deposited' where id = ?", orderId);
+    }
+
+    private void paidDeposit(BigDecimal amount) {
+        jdbc.update("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, ?, 'Đặt cọc khoang chứa A-01', 'Deposit', 'Paid', ?, now() - interval '1 day')""",
+                orderId, customerId, "INV-DEP-Q7-PAID-" + System.nanoTime(), amount);
+    }
+
+    private long secondOrder(String status, long unitId) {
+        Long smallType = jdbc.queryForObject("select id from unit_types where name = 'Small'", Long.class);
+        Long requestId = jdbc.queryForObject("""
+                insert into rental_requests (facility_id, customer_name, normalized_customer_email, customer_phone,
+                    unit_type_id, start_date, period, unit_id, status)
+                values (?, 'Khách Khác', 'unverified@lemar.vn', '0900000001', ?, current_date + 7, 3, ?, 'Converted')
+                returning id""", Long.class, facilityId, smallType, unitId);
+        return jdbc.queryForObject("""
+                insert into rental_orders (request_id, customer_id, status, unit_id, expires_at)
+                values (?, ?, ?, ?, now() + interval '30 days') returning id""",
+                Long.class, requestId, otherCustomerId, status, unitId);
     }
 
     private long accountId(String email) {
