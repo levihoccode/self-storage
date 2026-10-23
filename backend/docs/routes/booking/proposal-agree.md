@@ -14,7 +14,7 @@ Khách bấm "Đồng ý" trên một proposal `Pending`.
 ## Luồng / hành vi
 
 - Một transaction: khoá row proposal (bấm đúp / 2 tab → request sau nhận 409), khoá row đơn
-  (`findByIdForUpdate`, vì đọc/ghi tiền), khoá row khoang theo `unit_id`.
+  (`findByIdForUpdate`, vì đọc/ghi tiền), khoá row khoang cũ + khoang mới theo thứ tự id.
 - Guard trạng thái đơn: đơn `Canceled`/`Done` → 409; `expires_at < now` → 409.
 - Khoang còn `Available`, đơn chưa cọc: proposal `Agreed`, `RentalOrder.unit_id` = khoang đó, tạo `Invoice`
   `Deposit`/`Unpaid`, AuditLog `PROPOSAL_AGREED` (payload có `unitId`) + `INVOICE_CREATED`.
