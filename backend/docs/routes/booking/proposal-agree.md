@@ -20,7 +20,7 @@ Khách bấm "Đồng ý" trên một proposal `Pending`.
   `Deposit`/`Unpaid`, AuditLog `PROPOSAL_AGREED` (payload có `unitId`) + `INVOICE_CREATED`.
 - Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED`, FM nhận
   `PROPOSAL_REPROPOSAL_REQUIRED`, response 409 — các thay đổi này **vẫn được commit** (service trả kết quả,
-  không ném exception).
+  không ném exception). Đơn đã cọc: bật lại `needs_reproposal` để FM re-propose tiếp.
 
 ### Đổi khoang sau khi đã cọc
 
@@ -44,7 +44,8 @@ delta       = required − paidDeposit
   `DEPOSIT_REFUND_REQUIRED` cho FM, khách nhận `DEPOSIT_REFUND_PENDING`. Việc ghi nhận hoàn tiền thuộc
   Flow 2/4: trước B4, FM hoàn thủ công; B4 chuyển sang hoàn tự động về thẻ đã liên kết.
 - `delta = 0`: không tạo gì.
-- Response 200: `invoice = null` khi `delta ≤ 0`; khi `delta > 0` là hoá đơn bổ sung.
+- Response 200: `invoice = null` khi `delta ≤ 0` (message "Đã cập nhật khoang mới cho đơn thuê"); khi
+  `delta > 0` là hoá đơn bổ sung (message "Đã đồng ý khoang. Vui lòng thanh toán hoá đơn đặt cọc").
 
 ## Ghi chú nghiệp vụ
 
