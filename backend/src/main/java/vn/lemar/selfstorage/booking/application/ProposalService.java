@@ -106,6 +106,9 @@ public class ProposalService {
                     String.valueOf(proposal.getId()), Map.of("status", ProposalStatus.PENDING.dbValue()),
                     Map.of("status", proposal.getStatus().dbValue(), "unitStatus", unit.status()),
                     "Khoang " + unit.code() + " không còn khả dụng", customerAccountId));
+            if (order.holdsUnit()) {
+                order.requireReproposal();
+            }
             orderNotifier.notifyFacilityManager(order.getId(), NotificationType.PROPOSAL_REPROPOSAL_REQUIRED,
                     Map.of("orderCode", OrderNotifier.orderCode(order), "unitCode", unit.code()));
             return new AgreeResult(AgreeResult.Outcome.UNIT_UNAVAILABLE, ProposalView.of(proposal), null);
@@ -222,6 +225,9 @@ public class ProposalService {
         if (reachesLimit) {
             orderCancellation.cancel(order, CANCEL_REASON_TOO_MANY_REJECTIONS, customerAccountId);
             return new RejectResult(ProposalView.of(proposal), true);
+        }
+        if (order.holdsUnit()) {
+            order.requireReproposal();
         }
         orderNotifier.notifyFacilityManager(order.getId(), NotificationType.PROPOSAL_REJECTED,
                 Map.of("unitCode", unitCode, "reason", proposal.getNote()));

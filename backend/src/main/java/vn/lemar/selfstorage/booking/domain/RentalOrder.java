@@ -81,6 +81,11 @@ public class RentalOrder {
         this.needsReproposal = false;
     }
 
+    /** Khách từ chối/không nhận được khoang trên đơn đã cọc — FM cần đề xuất lại. */
+    public void requireReproposal() {
+        this.needsReproposal = true;
+    }
+
     /**
      * Đơn đang thực sự giữ khoang {@code unit_id}: khách đã đặt cọc và đơn chưa đóng. Đơn {@code Pending} chỉ mới
      * gán khoang khi đồng ý đề xuất (chưa cọc) nên không giữ — nhiều đơn có thể cùng trỏ một khoang.

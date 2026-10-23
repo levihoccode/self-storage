@@ -537,9 +537,43 @@ class ProposalServiceIntegrationTest {
         ProposalView view = service.repropose(orderId, unitId("A-02"), null, fmId);
 
         assertThat(view.status()).isEqualTo("Pending");
-        entityManager.flush();
-        assertThat(jdbc.queryForObject("select needs_reproposal from rental_orders where id = ?", Boolean.class,
-                orderId)).isFalse();
+        assertThat(needsReproposal()).isFalse();
+    }
+
+    @Test
+    void rejectingTheReproposedUnitKeepsTheOrderReproposable() {
+        depositedOrder();
+        jdbc.update("update rental_orders set unit_id = ?, needs_reproposal = true where id = ?",
+                unitId("A-01"), orderId);
+        paidDeposit(SMALL_MONTHLY_PRICE);
+        loginAs("fm1@lemar.vn");
+        ProposalView reproposed = service.repropose(orderId, unitId("A-02"), null, fmId);
+        assertThat(needsReproposal()).isFalse();
+
+        RejectResult rejected = service.reject(reproposed.id(), customerId, "Không hợp khoang này");
+
+        assertThat(rejected.orderCanceled()).isFalse();
+        assertThat(needsReproposal()).isTrue();
+        assertThat(service.repropose(orderId, unitId("A-03"), null, fmId).status()).isEqualTo("Pending");
+    }
+
+    @Test
+    void unavailableReproposedUnitKeepsTheOrderReproposable() {
+        depositedOrder();
+        jdbc.update("update rental_orders set unit_id = ?, needs_reproposal = true where id = ?",
+                unitId("A-01"), orderId);
+        paidDeposit(SMALL_MONTHLY_PRICE);
+        jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId("A-01"));
+        loginAs("fm1@lemar.vn");
+        ProposalView reproposed = service.repropose(orderId, unitId("A-02"), null, fmId);
+        jdbc.update("update storage_units set status = 'Maintenance' where id = ?", unitId("A-02"));
+        entityManager.clear();
+
+        AgreeResult result = service.agree(reproposed.id(), customerId);
+
+        assertThat(result.outcome()).isEqualTo(AgreeResult.Outcome.UNIT_UNAVAILABLE);
+        assertThat(needsReproposal()).isTrue();
+        assertThat(service.repropose(orderId, unitId("A-03"), null, fmId).status()).isEqualTo("Pending");
     }
 
     @Test
@@ -648,6 +682,11 @@ class ProposalServiceIntegrationTest {
                 insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
                 values (?, ?, ?, 'Đặt cọc khoang chứa A-01', 'Deposit', 'Paid', ?, now() - interval '1 day')""",
                 orderId, customerId, "INV-DEP-Q7-PAID-" + System.nanoTime(), amount);
+    }
+
+    private boolean needsReproposal() {
+        entityManager.flush();
+        return jdbc.queryForObject("select needs_reproposal from rental_orders where id = ?", Boolean.class, orderId);
     }
 
     private long accountId(String email) {
