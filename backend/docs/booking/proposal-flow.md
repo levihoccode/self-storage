@@ -52,6 +52,8 @@ flowchart TB
     R6 --> R7["200 orderCanceled = true"]
 ```
 
+Cascade chi tiết: [flows/cancellation-cascade.md](../flows/cancellation-cascade.md).
+
 ## FM đề xuất lại — `POST /api/rental-orders/{id}/proposals`
 
 ```mermaid

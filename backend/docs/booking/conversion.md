@@ -10,6 +10,29 @@ code và các module khác theo trang này.
 Luồng convert **không có endpoint HTTP riêng**. Chạy bên trong hai endpoint có sẵn:
 `POST /api/fm/rental-requests/{id}/approve` và `POST /api/auth/verify-email`.
 
+## Sơ đồ
+
+```mermaid
+flowchart TB
+    subgraph TRIGGERS["Hai trigger"]
+        T1["FM duyệt request<br/>(email đã verified)"]
+        T2["Khách verify email<br/>→ EmailVerified"]
+    end
+    T1 --> C0["Khoá email (advisory)<br/>+ pre-check trùng"]
+    T2 --> C0
+    C0 --> C1{"Request Approved<br/>và chưa quá expires_at?"}
+    C1 -- không --> X1["NOT_CONVERTIBLE"]
+    C1 -- có --> C2{"Account verified,<br/>không bị chặn?"}
+    C2 -- không --> X2["NO_VERIFIED_ACCOUNT<br/>request giữ Approved"]
+    C2 -- có --> C3{"Đã có proposal Pending/Agreed<br/>cho khoang này?"}
+    C3 -- có --> X3["DUPLICATE_UNIT<br/>duyệt: 409 + rollback<br/>claim: giữ Approved"]
+    C3 -- không --> C4["Tạo RentalOrder Pending<br/>+ ProposalFeedback Pending"]
+    C4 --> C5["Request → Converted<br/>+ audit + notification + email"]
+```
+
+> Claim chỉ chạy khi account đã verified; `NO_VERIFIED_ACCOUNT` chỉ xảy ra ở trigger duyệt.
+> Trigger duyệt join transaction của request; claim chạy `REQUIRES_NEW` sau khi verify commit.
+
 ## Khi nào convert
 
 | Trigger | Điểm nối | Hàm | Transaction |

@@ -62,6 +62,10 @@ controller.
 - Changed config/env, seed data, migrations, run/test commands → update the matching section in
   `docs/index.md`.
 - Removed route → remove it from `docs/routes.md` and delete its detail file.
+- Multi-step flow with states, money, permissions or cross-module effects → add a flow page under
+  `docs/<module>/` (or `docs/flows/` when cross-module) with a Mermaid diagram, a state table and the
+  invariants; link it from `docs/index.md`. Keep it as-built and update the diagram in the same PR as
+  the behavior change. Simple CRUD/lookup routes do not need a diagram.
 
 Examples inside docs must be **real output from a running app**, never invented. If a change
 genuinely needs no docs update, state that explicitly in the PR body with the reason.
