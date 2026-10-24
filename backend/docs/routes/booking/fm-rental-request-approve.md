@@ -44,7 +44,7 @@ FM duyệt `RentalRequest` đang `Pending` bằng cách gán một khoang cụ t
     `Converted`, notification + email `RENTAL_REQUEST_APPROVED`; convert lỗi thì duyệt rollback.
     Nếu convert phát hiện trùng khoang (race hiếm — request khác vừa convert) → **409**
     `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt, request giữ `Pending`
-    ([booking-conversion.md](../../booking-conversion.md)).
+    ([booking/conversion.md](../../booking/conversion.md)).
 11. Mail duyệt nhánh chưa-có-account theo template `draft.md:156` (after-commit, lỗi chỉ log);
     với verify-first, email đang pending registration chưa có account nên vẫn nhận mail này;
     account legacy chưa xác minh không nhận mail — claim + notification sau khi xác minh.

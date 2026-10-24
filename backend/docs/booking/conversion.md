@@ -35,7 +35,7 @@ và rollback cả transaction duyệt — request giữ `Pending`, không có ca
 | `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này | Luồng duyệt: trả **409** `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt — request giữ `Pending`. Claim sau xác minh: request giữ `Approved` |
 
 Account `BANNED` không vào convert: luồng duyệt từ chối request, gửi mail và trả `Rejected`
-([route duyệt](routes/booking/fm-rental-request-approve.md)); claim sau xác minh không tạo gì.
+([route duyệt](../routes/booking/fm-rental-request-approve.md)); claim sau xác minh không tạo gì.
 
 `claimForVerifiedAccount` trả danh sách `ConversionResult` cho từng request `Approved` còn hạn khớp
 email (rỗng = Case B, hoặc email chưa có account — pending/không tồn tại).
@@ -53,7 +53,7 @@ Trong một transaction:
    rollback cả transaction duyệt (request giữ `Pending`); trùng ở claim thì request giữ `Approved`.
 4. Notification `RENTAL_REQUEST_APPROVED` cho customer, gắn `OrderNotification(order_id)`; email
    cùng nội dung gửi **sau commit**. Lỗi SMTP chỉ log, không rollback (xem
-   [index.md › Gửi email](index.md#gửi-email-module-notification)). Link trong body:
+   [index.md › Gửi email](../index.md#gửi-email-module-notification)). Link trong body:
    `<FRONTEND_URL>/proposals`.
 5. Audit: trigger duyệt ghi `RENTAL_REQUEST_CONVERTED` (System) + `RENTAL_ORDER_CREATED` +
    `PROPOSAL_CREATED`; trigger claim ghi `RENTAL_REQUEST_CLAIMED` (customer) + order/proposal created.
