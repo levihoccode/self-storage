@@ -14,8 +14,11 @@ flowchart TB
     A1 -- có --> AX["409"]
     A1 -- không --> A2["Lock khoang cũ + mới<br/>(thứ tự id tăng dần)"]
     A2 --> A3{"Khoang mới Available?"}
-    A3 -- không --> A4["Proposal Canceled<br/>audit PROPOSAL_CANCELED<br/>notify FM<br/>đơn đã cọc → bật needs_reproposal"]
-    A4 --> AX
+    A3 -- không --> A4["Proposal Canceled<br/>audit PROPOSAL_CANCELED<br/>notify FM"]
+    A4 --> A4H{"Đơn đã cọc?"}
+    A4H -- có --> A4F["bật needs_reproposal<br/>(đơn đã qua Pending)"]
+    A4H -- không --> AX["409"]
+    A4F --> AX
     A3 -- có --> A5["Proposal Agreed<br/>order.unit_id = khoang mới<br/>audit PROPOSAL_AGREED"]
     A5 --> A6{"Đơn đã cọc?"}
     A6 -- chưa --> A7["Invoice Deposit / Unpaid<br/>amount = giá × deposit_months<br/>due = min(now + 3d, expires_at)"]
@@ -29,6 +32,10 @@ flowchart TB
     A14 --> A15["200, invoice = null"]
     A11 -- "= 0" --> A15
 ```
+
+> `đơn đã cọc?` xuất hiện hai lần vì cùng điều kiện `holdsUnit` dùng cho hai quyết định:
+> nhánh khoang không Available cần bật `needs_reproposal`; nhánh thành công chọn hoá đơn đầy đủ
+> hay chênh lệch.
 
 ## Khách từ chối — `POST /api/proposals/{id}/reject`
 
