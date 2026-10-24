@@ -17,7 +17,7 @@ flowchart TB
     A3 -- không --> A4["Proposal Canceled<br/>audit PROPOSAL_CANCELED<br/>notify FM"]
     A4 --> A4H{"Đơn đã cọc?"}
     A4H -- có --> A4F["bật needs_reproposal<br/>(đơn đã qua Pending)"]
-    A4H -- không --> AX["409"]
+    A4H -- không --> AX
     A4F --> AX
     A3 -- có --> A5["Proposal Agreed<br/>order.unit_id = khoang mới<br/>audit PROPOSAL_AGREED"]
     A5 --> A6{"Đơn đã cọc?"}
