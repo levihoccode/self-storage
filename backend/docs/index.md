@@ -21,7 +21,7 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
 và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `media` upload file
 (ảnh/PDF) lên Cloudinary; `booking` có luồng nội bộ convert request đã duyệt thành đơn + proposal
-([booking-conversion.md](booking-conversion.md)).
+([booking/conversion.md](booking/conversion.md)).
 
 Layout trong một module:
 
@@ -76,10 +76,10 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
+| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` / `{{proposalLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 | `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
-| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{proposalLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 
 Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
@@ -91,7 +91,7 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V7__audit_convert_actions.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V10__unit_change_release_audit.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -99,13 +99,28 @@ Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 
 (chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
-Policy `order.expiry_days` (luồng convert cần) seed ở migration V5 — không cần thêm tay khi chạy local.
-V6 thu hẹp CHECK `rental_orders.status` còn 6 giá trị (bỏ `Expired` — spec gộp vào `Canceled`).
-V7 thêm 4 action vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVERTED`, `RENTAL_REQUEST_EXPIRED`
-(chờ cron chuyển request hết hạn), `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED`.
+Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main có V7):
 
-> ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
-> rồi `docker compose up -d` trước khi chạy lại.
+- Cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; Flow 1.3 chỉ đọc:
+  FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
+- CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
+  hoặc đơn bị huỷ theo Cancellation Cascade); dòng `Expired` cũ (nếu có) được chuyển sang `Canceled`.
+- Audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
+- Seed policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
+  (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
+- V9 seed `fee.unit_change = 0` (Flow 4 chốt giá trị) và thêm audit action `DEPOSIT_REFUND_REQUIRED`
+  cho trường hợp đổi khoang sau khi cọc dư — trước B4, FM hoàn thủ công; B4 hoàn tự động về thẻ đã liên kết.
+- V10 thêm audit action `UNIT_CHANGE_RELEASED` — nhả khoang cũ khi khách đổi khoang sau khi đã cọc;
+  khoang mới chưa reserve cho tới khi thanh toán (B4); trường hợp `delta ≤ 0` cần follow-up reserve riêng.
+- V11 thêm type `DepositSupplement` cho hoá đơn chênh lệch cọc và 2 partial unique index: một `Deposit`
+  active (Unpaid/Paid) + một `DepositSupplement` Unpaid trên mỗi đơn.
+
+Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
+`rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
+CHECK `audit_logs.action`.
+
+Seed V2 chưa có đơn thuê/proposal (do luồng convert tạo). Muốn thử Flow 1.3 trên DB local thì
+chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.
 
 ## Gửi email (module notification)
 
@@ -141,7 +156,7 @@ V7 thêm 4 action vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVERTED`, `R
   rollback theo.
 - Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
   hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
-- `AuditAction` (45 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
+- `AuditAction` (48 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
   (`specs/db-table-draft.md` › AuditLog); action không khớp entity → `IllegalStateException`
   (lỗi lập trình, 500).
 - Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =
@@ -218,7 +233,9 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
-| [booking-conversion.md](booking-conversion.md) | Convert request → đơn + proposal, claim sau xác minh |
+| [booking/conversion.md](booking/conversion.md) | Convert request → đơn + proposal, claim sau xác minh |
+| [booking/proposal-flow.md](booking/proposal-flow.md) | Đồng ý / từ chối đề xuất khoang, đề xuất lại: sơ đồ, state, invariant |
+| [flows/cancellation-cascade.md](flows/cancellation-cascade.md) | Cascade huỷ đơn: entity, khoang, audit, notification |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |

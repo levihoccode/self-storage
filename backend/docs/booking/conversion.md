@@ -10,6 +10,29 @@ code và các module khác theo trang này.
 Luồng convert **không có endpoint HTTP riêng**. Chạy bên trong hai endpoint có sẵn:
 `POST /api/fm/rental-requests/{id}/approve` và `POST /api/auth/verify-email`.
 
+## Sơ đồ
+
+```mermaid
+flowchart TB
+    subgraph TRIGGERS["Hai trigger"]
+        T1["FM duyệt request<br/>(email đã verified)"]
+        T2["Khách verify email<br/>→ EmailVerified"]
+    end
+    T1 --> C0["Khoá email (advisory)<br/>+ pre-check trùng"]
+    T2 --> C0
+    C0 --> C1{"Request Approved<br/>và chưa quá expires_at?"}
+    C1 -- không --> X1["NOT_CONVERTIBLE"]
+    C1 -- có --> C2{"Account verified,<br/>không bị chặn?"}
+    C2 -- không --> X2["NO_VERIFIED_ACCOUNT<br/>request giữ Approved"]
+    C2 -- có --> C3{"Đã có proposal Pending/Agreed<br/>cho khoang này?"}
+    C3 -- có --> X3["DUPLICATE_UNIT<br/>duyệt: 409 + rollback<br/>claim: giữ Approved"]
+    C3 -- không --> C4["Tạo RentalOrder Pending<br/>+ ProposalFeedback Pending"]
+    C4 --> C5["Request → Converted<br/>+ audit + notification + email"]
+```
+
+> Claim chỉ chạy khi account đã verified; `NO_VERIFIED_ACCOUNT` chỉ xảy ra ở trigger duyệt.
+> Trigger duyệt join transaction của request; claim chạy `REQUIRES_NEW` sau khi verify commit.
+
 ## Khi nào convert
 
 | Trigger | Điểm nối | Hàm | Transaction |
@@ -35,7 +58,7 @@ và rollback cả transaction duyệt — request giữ `Pending`, không có ca
 | `DUPLICATE_UNIT` | Account đã có đơn/proposal đang hoạt động cho khoang này | Luồng duyệt: trả **409** `RentalRequestDuplicateUnitException`, rollback cả transaction duyệt — request giữ `Pending`. Claim sau xác minh: request giữ `Approved` |
 
 Account `BANNED` không vào convert: luồng duyệt từ chối request, gửi mail và trả `Rejected`
-([route duyệt](routes/booking/fm-rental-request-approve.md)); claim sau xác minh không tạo gì.
+([route duyệt](../routes/booking/fm-rental-request-approve.md)); claim sau xác minh không tạo gì.
 
 `claimForVerifiedAccount` trả danh sách `ConversionResult` cho từng request `Approved` còn hạn khớp
 email (rỗng = Case B, hoặc email chưa có account — pending/không tồn tại).
@@ -53,13 +76,13 @@ Trong một transaction:
    rollback cả transaction duyệt (request giữ `Pending`); trùng ở claim thì request giữ `Approved`.
 4. Notification `RENTAL_REQUEST_APPROVED` cho customer, gắn `OrderNotification(order_id)`; email
    cùng nội dung gửi **sau commit**. Lỗi SMTP chỉ log, không rollback (xem
-   [index.md › Gửi email](index.md#gửi-email-module-notification)). Link trong body:
+   [index.md › Gửi email](../index.md#gửi-email-module-notification)). Link trong body:
    `<FRONTEND_URL>/proposals`.
 5. Audit: trigger duyệt ghi `RENTAL_REQUEST_CONVERTED` (System) + `RENTAL_ORDER_CREATED` +
    `PROPOSAL_CREATED`; trigger claim ghi `RENTAL_REQUEST_CLAIMED` (customer) + order/proposal created.
    Luồng duyệt vẫn ghi `RENTAL_REQUEST_APPROVED` trước khi convert.
 
-`order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PolicyQueryService`, không fallback.
+`order.expiry_days` đọc từ bảng `policies` qua `pricing::application` `PricingQuery`, không fallback.
 Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi cấu hình: convert ném
 `IllegalStateException` và rollback.
 
@@ -98,6 +121,6 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 | Nối trigger | `booking/application/RentalRequestService.java` (approve), `booking/application/EmailVerifiedClaimListener.java`, `identity/application/EmailVerified.java`, `identity/application/RegistrationService.java` |
 | Khoá + kiểm trùng | `booking/repository/ConversionGuardRepository.java` |
 | Request | `booking/domain/RentalRequest.java`, `booking/repository/RentalRequestRepository.java` (`convertIfApproved`, `findClaimableForUpdate`) |
-| Đọc policy | `pricing/application/PolicyQueryService.java` |
+| Đọc policy | `pricing/application/PricingQuery.java` |
 | Account đã xác minh, không bị chặn | `identity/application/AccountQueryService.java` (`findVerifiedByEmail`, `findVerifiedById` — lọc `isLoginAllowed`) |
 | Test | `src/test/.../booking/RentalRequestConversionIntegrationTest.java` (Testcontainers) |

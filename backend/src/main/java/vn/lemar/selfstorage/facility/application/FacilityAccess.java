@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage.facility.application;
 
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.facility.repository.FacilityAccessRepository;
@@ -22,5 +23,17 @@ public class FacilityAccess {
     @Transactional(readOnly = true)
     public boolean exists(Long facilityId) {
         return facilityAccessRepository.exists(facilityId);
+    }
+
+    /** Mã cơ sở ({@code facilities.code}, vd {@code Q7}) — dùng trong mã hoá đơn. */
+    @Transactional(readOnly = true)
+    public Optional<String> code(Long facilityId) {
+        return facilityAccessRepository.findCode(facilityId);
+    }
+
+    /** FM phụ trách cơ sở ({@code facilities.fm_account_id}); rỗng nếu chưa gán FM. */
+    @Transactional(readOnly = true)
+    public Optional<Long> managerAccountId(Long facilityId) {
+        return facilityAccessRepository.findManagerAccountId(facilityId);
     }
 }

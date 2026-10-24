@@ -19,7 +19,7 @@ import vn.lemar.selfstorage.booking.application.dto.RentalRequestPageResponse;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
-import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
+import vn.lemar.selfstorage.pricing.application.PricingQuery;
 import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,7 +35,7 @@ class RentalRequestQueueTest {
     private UnitTypeQueryService unitTypeQueryService;
 
     @Mock
-    private PolicyQueryService policyQueryService;
+    private PricingQuery pricingQuery;
 
     @InjectMocks
     private RentalRequestService service;

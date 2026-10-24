@@ -22,6 +22,10 @@ public interface ProposalFeedbackRepository extends JpaRepository<ProposalFeedba
 
     boolean existsByOrderIdAndStatus(Long orderId, ProposalStatus status);
 
+    long countByOrderIdAndStatus(Long orderId, ProposalStatus status);
+
+    List<ProposalFeedback> findByOrderIdAndStatusIn(Long orderId, List<ProposalStatus> statuses);
+
     /** Các khoang khách đã từ chối trong cùng đơn — mặc định không được đề xuất lại. */
     @Query("select distinct p.unitId from ProposalFeedback p where p.orderId = :orderId and p.status = :status")
     List<Long> findUnitIdsByOrderIdAndStatus(@Param("orderId") Long orderId, @Param("status") ProposalStatus status);

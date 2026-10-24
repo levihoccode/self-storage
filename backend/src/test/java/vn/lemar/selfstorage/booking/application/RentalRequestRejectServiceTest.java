@@ -36,7 +36,7 @@ import vn.lemar.selfstorage.booking.domain.RentalRequestRejectReason;
 import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
-import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
+import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
@@ -46,7 +46,7 @@ import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationTemplateCatalog;
 import vn.lemar.selfstorage.notification.application.NotificationType;
-import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
+import vn.lemar.selfstorage.pricing.application.PricingQuery;
 import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 
 /**
@@ -64,7 +64,7 @@ class RentalRequestRejectServiceTest {
     private FacilityAccess facilityAccess;
 
     @Mock
-    private StorageUnitQueryService storageUnitQueryService;
+    private StorageUnitQuery storageUnitQuery;
 
     @Mock
     private Access access;
@@ -85,7 +85,7 @@ class RentalRequestRejectServiceTest {
     private UnitTypeQueryService unitTypeQueryService;
 
     @Mock
-    private PolicyQueryService policyQueryService;
+    private PricingQuery pricingQuery;
 
     @Mock
     private AuditRecorder auditRecorder;
