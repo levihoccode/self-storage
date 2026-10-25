@@ -2,39 +2,39 @@
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · Maven wrapper · Postgres · Redis
 
-> Read the root [`AGENTS.md`](../AGENTS.md) first. The evidence rules, the spec-gap gate and the
-> issue ↔ PR workflow apply here too.
+> Read the root [`AGENTS.md`](../AGENTS.md) first. The evidence rules, the behavior-decision gate
+> and the issue ↔ PR workflow apply here too.
 
-## Spec is the contract — hard gate
+## Module docs are the contract — hard gate
 
-Code is a 1:1 transfer of `specs/` into working software. Everything the spec defines — states,
-transitions, fields, money rules, deadlines, permissions — must match it **exactly**. No
-"improvements", no renamed states, no extra flags, no silent defaults.
+Code implements the behavior defined in `backend/docs/` — states, transitions, fields, money rules,
+deadlines, permissions — **exactly**. No "improvements", no renamed states, no extra flags, no
+silent defaults.
 
-This covers spec-visible behavior only. Package names, DTO field casing, log wording and other
+This covers behavior the docs define. Package names, DTO field casing, log wording and other
 code-internal choices are yours to make.
 
 When you hit any of the following, **stop and open an issue**:
 
-- an edge case or path the spec does not cover,
-- a spec that contradicts itself, or contradicts `db-table-draft.md`,
-- a change you want to make to spec-defined behavior,
+- an edge case or path the docs do not cover,
+- docs that contradict each other, or contradict the code,
+- a change you want to make to documented behavior,
 - something you cannot implement as written (missing table/field, ambiguous rule).
 
-**No issue → no implementation of that behavior.** Do not improvise a fix, do not leave a TODO and
-keep going, do not silently pick one reading of the spec.
+**No approved decision → no implementation of that behavior.** Do not improvise a fix, do not
+leave a TODO and keep going, do not silently pick one reading of the docs.
 
 Issue requirements:
 
-- Title `spec-gap: <module> — <one line>`, label `spec-gap`, assignee `@levihoccode`.
-- Body: exact spec section (`specs/draft.md` / `specs/db-table-draft.md` + heading), a quote of
-  what the spec says, what is undefined or contradictory, the options with trade-offs, and what
-  stays blocked. The UI form is `.github/ISSUE_TEMPLATE/spec-gap.yml`; if you open the issue with
+- Title `behavior-gap: <module> — <one line>`, label `behavior-gap`, assignee `@levihoccode`.
+- Body: the module doc (`backend/docs/...` + heading) and, when useful, the flow reference in
+  `specs/`; what is undefined or contradictory; the options with trade-offs; and what stays
+  blocked. The UI form is `.github/ISSUE_TEMPLATE/behavior-gap.yml`; if you open the issue with
   `gh issue create` instead, fill those same fields.
 - Approval = a comment from `@levihoccode` on that issue. Check it before continuing:
   `gh issue view <n> --repo levihoccode/self-storage --json state,comments`.
-- Approved change → edit the spec and the code in the **same PR**, so the spec stays the source of
-  truth.
+- Approved change → update the module docs and the code in the **same PR**. Never edit
+  `specs/draft.md`; keep `specs/db-table-draft.md` in sync when the schema changes.
 - Report the issue number under "What was not verified".
 
 Only the ambiguous behavior is frozen. The rest of the task continues.
@@ -62,12 +62,17 @@ controller.
 - Changed config/env, seed data, migrations, run/test commands → update the matching section in
   `docs/index.md`.
 - Removed route → remove it from `docs/routes.md` and delete its detail file.
+- Multi-step flow with states, money, permissions or cross-module effects → add a flow page under
+  `docs/<module>/` (or `docs/flows/` when cross-module) with a Mermaid diagram, a state table and the
+  invariants; link it from `docs/index.md`. Keep it as-built and update the diagram in the same PR as
+  the behavior change. Simple CRUD/lookup routes do not need a diagram.
 
 Examples inside docs must be **real output from a running app**, never invented. If a change
 genuinely needs no docs update, state that explicitly in the PR body with the reason.
 
-`backend/docs/` is **as-built** documentation: behavior authority stays with `specs/` and the
-spec-gap gate above — docs never justify behavior the spec does not define.
+`backend/docs/` is the **behavior authority** and is kept **as-built**: behavior that is not
+written there is not a contract yet. The `behavior-gap` gate above decides anything ambiguous
+before it is implemented and recorded.
 
 ## Commands
 

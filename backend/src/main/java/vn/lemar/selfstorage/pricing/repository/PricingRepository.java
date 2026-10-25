@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** Đọc bảng {@code policies} và giá thuê — chưa có entity vì Flow 4 (quản lý giá/chính sách) chưa làm. */
+/** Đọc policy và giá thuê hiệu lực — chưa có entity vì Flow 4 (quản lý giá/chính sách) chưa làm. */
 @Repository
 public class PricingRepository {
 
@@ -15,6 +15,7 @@ public class PricingRepository {
         this.jdbc = jdbc;
     }
 
+    /** Giá trị policy thô theo key; rỗng nếu key chưa seed. */
     public Optional<String> findPolicyValue(String key) {
         return jdbc.query("select value from policies where key = ?", (rs, rowNum) -> rs.getString(1), key)
                 .stream().findFirst();

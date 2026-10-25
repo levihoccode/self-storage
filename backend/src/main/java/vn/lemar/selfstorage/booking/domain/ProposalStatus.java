@@ -3,7 +3,7 @@ package vn.lemar.selfstorage.booking.domain;
 /**
  * Trạng thái đề xuất khoang ({@code specs/db-table-draft.md} › ProposalFeedback).
  *
- * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code proposal_feedbacks} (V1); quy đổi qua
+ * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code proposal_feedbacks}; quy đổi qua
  * {@link ProposalStatusConverter}.
  *
  * <p>{@code Canceled} thay cho {@code Expired} của spec (chốt #113): proposal không có TTL, chỉ bị huỷ

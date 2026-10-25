@@ -11,12 +11,19 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.identity.domain.Account;
+import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 @Component
 public class AccountJwtAuthenticationConverter implements Converter<Jwt, JwtAuthenticationToken> {
 
     private static final String ACTIVE_ACCOUNT_AUTHORITY = "ACCOUNT_ACTIVE";
+
+    /**
+     * Marker cho account `ACTIVE` nhưng chưa xác minh email — không cấp quyền, chỉ để
+     * {@link vn.lemar.selfstorage.JsonAccessDeniedHandler} phân biệt message 403 với `BANNED`.
+     */
+    public static final String ACCOUNT_UNVERIFIED_AUTHORITY = "ACCOUNT_UNVERIFIED";
 
     private final AccountRepository accountRepository;
 
@@ -39,6 +46,8 @@ public class AccountJwtAuthenticationConverter implements Converter<Jwt, JwtAuth
         if (account.isLoginAllowed()) {
             authorities.add(new SimpleGrantedAuthority(ACTIVE_ACCOUNT_AUTHORITY));
             authorities.add(new SimpleGrantedAuthority("ROLE_" + account.getRole().getName()));
+        } else if (account.getStatus() == AccountStatus.ACTIVE) {
+            authorities.add(new SimpleGrantedAuthority(ACCOUNT_UNVERIFIED_AUTHORITY));
         }
 
         return new JwtAuthenticationToken(jwt, authorities, account.getEmail());

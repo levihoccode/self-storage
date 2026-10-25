@@ -1,5 +1,5 @@
 name: FE — màn hình / luồng
-description: Một màn hoặc một luồng trong frontend, theo page spec
+description: Một màn hoặc một luồng trong frontend, theo flow reference
 title: "FE <khu vực>: "
 labels: ["enhancement", "fe"]
 body:
@@ -38,8 +38,8 @@ body:
   - type: input
     id: page_spec
     attributes:
-      label: Page spec
-      description: File trong specs/fe-pages (nhánh specs/fe-pages)
+      label: Flow reference
+      description: File trong fe-pages/ (tham khảo flow, không phải docs module)
       placeholder: "fe-pages/customer/07-nhan-khoa.md — hoặc: chưa có"
     validations:
       required: true
@@ -118,5 +118,5 @@ body:
       options:
         - label: Không tự suy luận nghiệp vụ — trạng thái và action lấy từ dữ liệu API trả về.
           required: true
-        - label: Page spec thiếu hoặc lệch flow mới thì mở issue "Spec gap", không tự quyết giao diện.
+        - label: Flow reference thiếu hoặc lệch flow mới thì mở issue "behavior-gap", không tự quyết giao diện.
           required: true

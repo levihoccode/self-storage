@@ -1,13 +1,13 @@
 name: Bug
-description: Hành vi chạy sai so với spec
+description: Hành vi chạy sai so với docs module
 title: "bug: <module hoặc màn> — "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Bug ở đây nghĩa là **chạy khác spec**. Nếu spec không nói gì về hành vi đó thì đây không phải bug —
-        mở issue **Spec gap**.
+        Bug ở đây nghĩa là **chạy khác docs module**. Nếu docs không nói gì về hành vi đó thì đây không phải bug —
+        mở issue **behavior-gap**.
 
   - type: dropdown
     id: layer
@@ -24,9 +24,9 @@ body:
   - type: input
     id: spec_ref
     attributes:
-      label: Spec quy định hành vi đúng
-      description: File + heading + trích đoạn. Sai so với spec ở đâu.
-      placeholder: "specs/draft.md › §2.4 — khách xác nhận biên bản là bước bắt buộc"
+      label: Docs quy định hành vi đúng
+      description: File + heading + trích đoạn. Sai so với docs ở đâu.
+      placeholder: "backend/docs/… › §… — hành vi đúng"
     validations:
       required: true
 

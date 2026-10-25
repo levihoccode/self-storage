@@ -25,7 +25,7 @@ jobs:
 
           required_sections=(
             "## Việc gì"
-            "## Căn cứ trong spec"
+            "## Căn cứ trong docs module"
             "## Đã đổi gì"
             "## Đã chạy gì"
             "## Chưa kiểm chứng"

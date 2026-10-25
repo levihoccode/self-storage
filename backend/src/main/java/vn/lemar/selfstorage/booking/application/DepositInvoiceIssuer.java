@@ -15,6 +15,7 @@ import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceType;
 import vn.lemar.selfstorage.booking.domain.RentalOrder;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
@@ -26,7 +27,8 @@ import vn.lemar.selfstorage.pricing.application.PricingQuery;
  * Lập hoá đơn đặt cọc khi khách đồng ý proposal ({@code specs/draft.md} › 1.3 › Đồng ý).
  *
  * <p>Số tiền theo chốt #113: giá thuê hiệu lực × {@code invoice.deposit_months}. Hạn thanh toán
- * {@code due_date = min(now + invoice.deposit_due_days, RentalOrder.expires_at)}.
+ * {@code due_date = min(now + invoice.deposit_due_days, RentalOrder.expires_at)}. Đổi khoang sau khi đã cọc
+ * dùng {@link #issueSupplemental} cho phần chênh lệch (behavior-gap #165).
  */
 @Component
 class DepositInvoiceIssuer {
@@ -56,20 +58,40 @@ class DepositInvoiceIssuer {
         this.auditRecorder = auditRecorder;
     }
 
-    Invoice issue(RentalOrder order, StorageUnitView unit, Long actorAccountId) {
-        BigDecimal amount = pricingQuery.effectiveMonthlyPrice(unit.id())
+    /** Tiền cọc đầy đủ của khoang: giá thuê hiệu lực × {@code invoice.deposit_months}. */
+    BigDecimal depositAmount(StorageUnitView unit) {
+        return pricingQuery.effectiveMonthlyPrice(unit.id())
                 .multiply(BigDecimal.valueOf(pricingQuery.intPolicy(POLICY_DEPOSIT_MONTHS)))
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    Invoice issue(RentalOrder order, StorageUnitView unit, Long actorAccountId) {
+        return create(order, unit, depositAmount(unit), InvoiceType.DEPOSIT,
+                "Đặt cọc khoang chứa " + unit.code(),
+                "Thanh toán đặt cọc khoang chứa " + unit.code() + " để đảm bảo giữ chỗ.",
+                actorAccountId);
+    }
+
+    /** Hoá đơn bổ sung phần cọc còn thiếu khi đổi khoang sau khi đã cọc. */
+    Invoice issueSupplemental(RentalOrder order, StorageUnitView unit, BigDecimal amount, Long actorAccountId) {
+        return create(order, unit, amount, InvoiceType.DEPOSIT_SUPPLEMENT,
+                "Bổ sung cọc khoang chứa " + unit.code(),
+                "Thanh toán phần chênh lệch cọc khi đổi sang khoang chứa " + unit.code() + ".",
+                actorAccountId);
+    }
+
+    private Invoice create(RentalOrder order, StorageUnitView unit, BigDecimal amount, InvoiceType type,
+                           String title, String description, Long actorAccountId) {
         Instant now = Instant.now();
         Instant dueDate = now.plus(Duration.ofDays(pricingQuery.intPolicy(POLICY_DEPOSIT_DUE_DAYS)));
         if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(dueDate)) {
             dueDate = order.getExpiresAt();
         }
 
-        Invoice invoice = invoiceRepository.save(Invoice.deposit(order, code(order, now),
-                "Đặt cọc khoang chứa " + unit.code(),
-                "Thanh toán đặt cọc khoang chứa " + unit.code() + " để đảm bảo giữ chỗ.",
-                amount, dueDate));
+        Invoice invoice = type == InvoiceType.DEPOSIT
+                ? Invoice.deposit(order, code(order, now), title, description, amount, dueDate)
+                : Invoice.depositSupplement(order, code(order, now), title, description, amount, dueDate);
+        invoiceRepository.save(invoice);
         auditRecorder.record(new AuditEntry(AuditAction.INVOICE_CREATED, AuditEntityType.INVOICE,
                 String.valueOf(invoice.getId()), null,
                 Map.of("code", invoice.getCode(), "type", invoice.getType().dbValue(),

@@ -14,7 +14,10 @@ permissions:
 jobs:
   backend:
     name: Backend CI
-    runs-on: ubuntu-latest
+    # Pin 24.04: runner 26.04 hiện không có Docker endpoint cho Testcontainers →
+    # toàn bộ integration test bị skip (disabledWithoutDocker), kéo diff-cover xuống.
+    # Bỏ pin khi Testcontainers/docker-java hoặc image runner hỗ trợ lại.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
         with:

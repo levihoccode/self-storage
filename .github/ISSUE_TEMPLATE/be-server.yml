@@ -48,9 +48,9 @@ body:
   - type: input
     id: spec_refs
     attributes:
-      label: Căn cứ trong spec
+      label: Căn cứ trong docs module
       description: File + heading, kèm mục Scheduled Jobs nếu là cron
-      placeholder: "specs/draft.md › Scheduled Jobs"
+      placeholder: "backend/docs/… › Scheduled Jobs"
     validations:
       required: true
 
@@ -106,5 +106,5 @@ body:
       options:
         - label: Mọi thay đổi trạng thái / tiền / quyền sở hữu đều ghi AuditLog, một bản ghi cho mỗi entity.
           required: true
-        - label: Spec mơ hồ ở phần này thì mở issue "Spec gap" và dừng đúng phần đó, không tự chọn cách hiểu.
+        - label: Docs mơ hồ ở phần này thì mở issue "behavior-gap" và dừng đúng phần đó, không tự chọn cách hiểu.
           required: true

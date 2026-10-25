@@ -8,6 +8,7 @@ package vn.lemar.selfstorage.booking.domain;
  */
 public enum InvoiceType {
     DEPOSIT("Deposit"),
+    DEPOSIT_SUPPLEMENT("DepositSupplement"),
     RENTAL("Rental"),
     EXTENSION("Extension"),
     PENALTY("Penalty"),

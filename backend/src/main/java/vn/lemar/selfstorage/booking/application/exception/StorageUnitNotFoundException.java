@@ -1,9 +1,12 @@
 package vn.lemar.selfstorage.booking.application.exception;
 
-/** 404 — khoang không tồn tại hoặc không thuộc cơ sở của đơn. */
+/**
+ * Khoang không tồn tại hoặc không thuộc cơ sở của đơn/request — 404.
+ * Thuộc cơ sở khác cũng trả về cùng lỗi để không lộ tài nguyên ngoài phạm vi FM.
+ */
 public class StorageUnitNotFoundException extends RuntimeException {
 
     public StorageUnitNotFoundException() {
-        super("Không tìm thấy khoang tại cơ sở của đơn");
+        super("Không tìm thấy khoang");
     }
 }

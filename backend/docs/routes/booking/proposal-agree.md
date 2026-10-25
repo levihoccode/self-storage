@@ -13,20 +13,47 @@ Khách bấm "Đồng ý" trên một proposal `Pending`.
 
 ## Luồng / hành vi
 
-- Một transaction: khoá row proposal (bấm đúp / 2 tab → request sau nhận 409), khoá row khoang theo
-  `unit_id`.
-- Khoang còn `Available`: proposal `Agreed`, `RentalOrder.unit_id` = khoang đó, tạo `Invoice`
+- Một transaction: khoá row proposal (bấm đúp / 2 tab → request sau nhận 409), khoá row đơn
+  (`findByIdForUpdate`, vì đọc/ghi tiền), khoá row khoang cũ + khoang mới theo thứ tự id.
+- Guard trạng thái đơn: đơn `Canceled`/`Done` → 409; `expires_at < now` → 409.
+- Khoang còn `Available`, đơn chưa cọc: proposal `Agreed`, `RentalOrder.unit_id` = khoang đó, tạo `Invoice`
   `Deposit`/`Unpaid`, AuditLog `PROPOSAL_AGREED` (payload có `unitId`) + `INVOICE_CREATED`.
-- Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED` (chốt PR #136), FM nhận
+- Khoang `Reserved`/`Maintenance`: proposal `Canceled`, AuditLog `PROPOSAL_CANCELED`, FM nhận
   `PROPOSAL_REPROPOSAL_REQUIRED`, response 409 — các thay đổi này **vẫn được commit** (service trả kết quả,
-  không ném exception).
+  không ném exception). Đơn đã cọc: bật lại `needs_reproposal` để FM re-propose tiếp.
+
+### Đổi khoang sau khi đã cọc
+
+Đơn đã giữ khoang (`Deposited`/`Scheduled`/`InProgress`) và đang có proposal `Pending` — proposal này chỉ
+sinh ra từ nhánh FM đề xuất lại sau khi khách từ chối khoang tại check-in (Flow 2):
+
+- Khoang cũ được nhả ngay (`Reserved → Available`, AuditLog `UNIT_CHANGE_RELEASED`); `order.unit_id` đổi
+  sang khoang mới.
+- Khoang mới **chưa được reserve** ở bước này — B4 sẽ reserve sau khi khách thanh toán đủ (hoặc follow-up
+  riêng cho trường hợp `delta ≤ 0`).
+
+```text
+paidDeposit = tổng Invoice Deposit + DepositSupplement đã Paid của đơn
+required    = giá thuê hiệu lực(khoang mới) × invoice.deposit_months + fee.unit_change
+delta       = required − paidDeposit
+```
+
+- `delta > 0`: tạo `Invoice` `DepositSupplement`/`Unpaid` cho phần chênh lệch, title "Bổ sung cọc khoang chứa {mã}",
+  hạn như hoá đơn cọc thường; khách nhận `UNIT_CHANGE_PAYMENT_REQUIRED` ("thanh toán để giữ khoang mới").
+- `delta < 0`: không tạo hoá đơn; AuditLog `DEPOSIT_REFUND_REQUIRED` + notification
+  `DEPOSIT_REFUND_REQUIRED` cho FM, khách nhận `DEPOSIT_REFUND_PENDING`. Việc ghi nhận hoàn tiền thuộc
+  Flow 2/4: trước B4, FM hoàn thủ công; B4 chuyển sang hoàn tự động về thẻ đã liên kết.
+- `delta = 0`: không tạo gì.
+- Response 200: `invoice = null` khi `delta ≤ 0` (message "Đã cập nhật khoang mới cho đơn thuê"); khi
+  `delta > 0` là hoá đơn bổ sung (message "Đã đồng ý khoang. Vui lòng thanh toán hoá đơn đặt cọc").
 
 ## Ghi chú nghiệp vụ
 
 - Hoá đơn: code `INV-DEP-{facility_code}-{YYMMDD}-{rand 6 ký tự}`, title "Đặt cọc khoang chứa {mã}",
-  amount = giá thuê hiệu lực × `invoice.deposit_months` (chốt #113, seed 1), `due_date` =
+  amount = giá thuê hiệu lực × `invoice.deposit_months` (seed 1), `due_date` =
   min(now + `invoice.deposit_due_days`, `RentalOrder.expires_at`).
-- `Canceled` thay `Expired` của spec (chốt #113); spec sẽ cập nhật sau review.
+- `fee.unit_change` seed bằng V9, mặc định 0; Flow 4 chốt giá trị thật.
+- Proposal bị huỷ dùng `Canceled` thay `Expired` của spec (proposal không có TTL).
 
 ## Ví dụ
 
