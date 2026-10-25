@@ -76,6 +76,16 @@ public class RentalOrder {
         return !status.isClosed() && (status == RentalOrderStatus.PENDING || needsReproposal);
     }
 
+    /** FM đã tạo proposal mới thay cho khoang bị từ chối — cờ chỉ dùng cho gate đề xuất lại. */
+    public void clearNeedsReproposal() {
+        this.needsReproposal = false;
+    }
+
+    /** Khách từ chối/không nhận được khoang trên đơn đã cọc — FM cần đề xuất lại. */
+    public void requireReproposal() {
+        this.needsReproposal = true;
+    }
+
     /**
      * Đơn đang thực sự giữ khoang {@code unit_id}: khách đã đặt cọc và đơn chưa đóng. Đơn {@code Pending} chỉ mới
      * gán khoang khi đồng ý đề xuất (chưa cọc) nên không giữ — nhiều đơn có thể cùng trỏ một khoang.
@@ -87,9 +97,9 @@ public class RentalOrder {
 
     /** Spec 1.3: {@code RentalOrder.unit_id} = {@code unit_id} của proposal {@code Agreed} mới nhất. */
     /**
-     * Đã thu cọc (B4 — Flow 1.4). Chỉ đổi trạng thái: {@code expires_at} là hạn hoàn thành đơn,
-     * spec `db-table-draft.md` › RentalOrder ghi "set một lần khi tạo đơn", và hạn giữ kho là
-     * phần còn lại của chính hạn đó — không gia hạn thêm khi cọc.
+     * Đã thu cọc (Flow 1.4). Chỉ đổi trạng thái: `expires_at` là hạn hoàn thành đơn,
+     * `db-table-draft.md` › RentalOrder ghi "set một lần khi tạo đơn", và hạn giữ kho là phần
+     * còn lại của chính hạn đó — cọc không gia hạn thêm.
      */
     public void markDeposited() {
         this.status = RentalOrderStatus.DEPOSITED;

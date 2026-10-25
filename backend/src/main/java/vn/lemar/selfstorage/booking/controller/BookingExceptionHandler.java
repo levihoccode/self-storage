@@ -32,21 +32,24 @@ import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailable
 @RestControllerAdvice
 public class BookingExceptionHandler {
 
-    /** Không tồn tại và không phải của mình trả về như nhau — không lộ sự tồn tại của hóa đơn. */
-    @ExceptionHandler(InvoiceNotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(InvoiceNotFoundException ex) {
+    @ExceptionHandler({ProposalNotFoundException.class, RentalOrderNotFoundException.class})
+    public ResponseEntity<ApiError> handleNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(EmailNotVerifiedException.class)
-    public ResponseEntity<ApiError> handleUnverified(EmailNotVerifiedException ex) {
+    @ExceptionHandler(ProposalForbiddenException.class)
+    public ResponseEntity<ApiError> handleForbidden(ProposalForbiddenException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
     }
 
-    /** 409: hóa đơn hợp lệ nhưng hoàn cảnh hiện tại không cho thanh toán. */
-    @ExceptionHandler(DepositNotAllowedException.class)
-    public ResponseEntity<ApiError> handleConflict(DepositNotAllowedException ex) {
+    @ExceptionHandler(ProposalConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(ProposalConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProposalValidationException.class)
+    public ResponseEntity<ApiError> handleProposalValidation(ProposalValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.now(ex.getMessage()));
     }
 
     @ExceptionHandler(RentalRequestValidationException.class)
@@ -88,26 +91,22 @@ public class BookingExceptionHandler {
     public ResponseEntity<ApiError> handleUnitUnavailable(StorageUnitUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
     }
-    // ---- Flow 1.3: đồng ý / từ chối / đề xuất lại / FM xem, huỷ đơn
 
-    @ExceptionHandler({ProposalNotFoundException.class, RentalOrderNotFoundException.class})
-    public ResponseEntity<ApiError> handleProposalNotFound(RuntimeException ex) {
+    /** Không tồn tại và không phải của mình trả về như nhau — không lộ sự tồn tại của hóa đơn. */
+    @ExceptionHandler(InvoiceNotFoundException.class)
+    public ResponseEntity<ApiError> handleInvoiceNotFound(InvoiceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(ProposalForbiddenException.class)
-    public ResponseEntity<ApiError> handleProposalForbidden(ProposalForbiddenException ex) {
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiError> handleUnverified(EmailNotVerifiedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(ProposalConflictException.class)
-    public ResponseEntity<ApiError> handleProposalConflict(ProposalConflictException ex) {
+    /** 409: hóa đơn hợp lệ nhưng hoàn cảnh hiện tại không cho thanh toán (Flow 1.4). */
+    @ExceptionHandler(DepositNotAllowedException.class)
+    public ResponseEntity<ApiError> handleDepositNotAllowed(DepositNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
-    }
-
-    @ExceptionHandler(ProposalValidationException.class)
-    public ResponseEntity<ApiError> handleProposalValidation(ProposalValidationException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.now(ex.getMessage()));
     }
 }
 

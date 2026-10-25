@@ -153,6 +153,8 @@
 - expires_at (nullable)
   - Hạn hoàn thành của đơn, set một lần khi tạo đơn (`now + order.expiry_days`); quá hạn mà chưa `Done` → `Canceled`
   - Mọi hạn con gắn với đơn (hóa đơn, lịch hẹn, `due_at`) không được vượt `expires_at`
+- needs_reproposal (BOOLEAN, default false): Flow 2 bật khi khách từ chối khoang tại check-in; gate đề xuất lại
+  của Flow 1.3 đọc cờ này và clear khi proposal mới được tạo
 
 ## Cancellation Cascade
 
@@ -173,7 +175,7 @@ Mọi nhánh chuyển `RentalOrder` sang `Canceled` đều chạy các bước d
 
 Các bước:
 - `RentalOrder.status -> Canceled`, ghi `cancel_reason`.
-- `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Expired`.
+- `ProposalFeedback` đang `Pending` hoặc `Agreed` chuyển sang `Canceled`.
 - `RentalContract` đang `Draft`/`Signed` chuyển `Canceled`; `Invoice` `Unpaid` gắn đơn chuyển `Canceled` (trừ invoice đã `Expired` theo cron, giữ nguyên; khoản đã thu xử lý theo policy).
 - Khoang được giải phóng: `StorageUnit.status -> Available`.
 - `HandoverRecord` đang mở (`IN_PROGRESS`) chuyển `CANCELED`.
@@ -244,7 +246,7 @@ Các bước:
       + INV-RNT-TD-261001-K312: Hóa đơn tiền thuê định kỳ (RNT), chi nhánh Thủ Đức.
       + INV-EXT-Q7-260915-091B: Hóa đơn dịch vụ ngoài / sự cố khóa (EXT).
 - title
-- type (Deposit/Rental/Extension/Penalty/Service) - xác định nguồn gốc hóa đơn
+- type (Deposit/DepositSupplement/Rental/Extension/Penalty/Service) - xác định nguồn gốc hóa đơn
 - description
 - status:
   - Unpaid: Hóa đơn chưa được thanh toán
@@ -254,6 +256,11 @@ Các bước:
 - amount - snapshot của giá hiệu lực tại thời điểm tạo hóa đơn.
 - created_at
 - due_date
+
+**Constraints**
+- Một `RentalOrder` tối đa một hoá đơn `Deposit` còn hiệu lực (`Unpaid`/`Paid`).
+- Một `RentalOrder` tối đa một hoá đơn `DepositSupplement` `Unpaid`.
+- Hoá đơn bổ sung dùng type `DepositSupplement`, không dùng lại `Deposit`.
 
 **Service Code:**
 - DEP: đặt cọc khoang chứa
@@ -270,7 +277,7 @@ Các bước:
 - order_id (N - 1: RentalOrder)
 - customer_id (N - 1: Account)
 - unit_id (N - 1: StorageUnit)
-- status (Pending/Agreed/Rejected/Expired)
+- status (Pending/Agreed/Rejected/Canceled)
 - note
 - created_at
 
@@ -455,13 +462,15 @@ Các bước:
 | `PROPOSAL_AGREED` | Khách đồng ý proposal | `ProposalFeedback` | Customer |
 | `PROPOSAL_REJECTED` | Khách từ chối proposal | `ProposalFeedback` | Customer |
 | `PROPOSAL_REPROPOSED` | FM đề xuất khoang khác | `ProposalFeedback` | FM |
-| `INVOICE_CREATED` | Hệ thống tạo hóa đơn cọc | `Invoice` | System |
-| `INVOICE_CANCELED` | Hóa đơn bị vô hiệu hóa | `Invoice` | System |
+| `PROPOSAL_CANCELED` | Proposal bị huỷ do khoang hết khả dụng lúc khách đồng ý hoặc đơn bị huỷ | `ProposalFeedback` | Customer/System |
+| `INVOICE_CREATED` | Hệ thống tạo hóa đơn cọc | `Invoice` | Customer/FM |
+| `INVOICE_CANCELED` | Hóa đơn bị vô hiệu hóa | `Invoice` | Customer/FM |
 | `PAYMENT_SUCCEEDED` | Thanh toán được xác nhận | `PaymentTransaction` | System/IPN |
 | `PAYMENT_FAILED` | Thanh toán thất bại | `PaymentTransaction` | System/IPN |
 | `RENTAL_ORDER_DEPOSITED` | Đơn chuyển sang đã đặt cọc | `RentalOrder` | System |
 | `STORAGE_UNIT_RESERVED` | Khoang chuyển sang Reserved | `StorageUnit` | System |
 | `MANUAL_REFUND_RECORDED` | Ghi nhận hoàn tiền thủ công | `PaymentTransaction` | Admin/FM |
+| `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau khi cọc dư — cần hoàn tiền | `RentalOrder` | Customer |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in | `Appointment` | System |
 | `FS_ASSIGNED` | FM phân công FS | `Appointment` | FM |
 | `APPOINTMENT_RESCHEDULED` | Lịch hẹn được đặt lại | `Appointment` | Customer/FM |
@@ -489,6 +498,7 @@ Các bước:
 | `CONTRACT_ENDED` | Hợp đồng đóng sau khi trả kho | `RentalContract` | System |
 | `STORAGE_UNIT_MAINTENANCE` | Khoang chuyển `Maintenance` sau trả kho | `StorageUnit` | System |
 | `STORAGE_UNIT_AVAILABLE` | Cron mở lại khoang sau bảo trì hoặc giải phóng khoang khi đơn bị hủy | `StorageUnit` | System |
+| `UNIT_CHANGE_RELEASED` | Nhả khoang cũ khi khách đổi khoang sau khi đã cọc | `StorageUnit` | Customer |
 | `ACCOUNT_REGISTERED` | Tạo tài khoản mới | `Account` | Customer/Admin |
 
 - Xác minh email không tạo `AuditLog`; bản ghi là `Account.email_verified_at`. Nếu sau này có đường
@@ -554,5 +564,8 @@ Các bước:
 | `HANDOVER_OVERDUE` | Cron đóng biên bản quá `due_at` khi khách đã đến, nội dung có link đặt lịch mới | Customer |
 | `RENTAL_ORDER_EXPIRING_SOON` | Cron nhắc trước khi `RentalOrder` hết hạn, nội dung gồm mã đơn, hạn đơn và số ngày còn lại | Customer |
 | `RENTAL_ORDER_CANCELED` | Đơn thuê bị hủy hoặc quá hạn, title theo `cancel_reason` (xem Cancellation Cascade) | Customer, FM |
+| `UNIT_CHANGE_PAYMENT_REQUIRED` | Khách đổi khoang sau cọc và cần thanh toán phần thiếu để giữ khoang mới | Customer |
+| `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau cọc dư — FM cần hoàn tiền | FM |
+| `DEPOSIT_REFUND_PENDING` | Cọc dư sẽ được hoàn | Customer |
 | `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
 | `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |

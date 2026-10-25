@@ -22,7 +22,7 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidatio
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
-import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
+import vn.lemar.selfstorage.pricing.application.PricingQuery;
 import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,7 +40,7 @@ class RentalRequestServiceTest {
     private UnitTypeQueryService unitTypeQueryService;
 
     @Mock
-    private PolicyQueryService policyQueryService;
+    private PricingQuery pricingQuery;
 
     @InjectMocks
     private RentalRequestService service;
@@ -50,7 +50,7 @@ class RentalRequestServiceTest {
         when(facilityAccess.exists(1L)).thenReturn(true);
         when(unitTypeQueryService.exists(2L)).thenReturn(true);
         when(unitTypeQueryService.existsForFacility(1L, 2L)).thenReturn(true);
-        when(policyQueryService.valueOf("request.pending_expiry_days"))
+        when(pricingQuery.valueOf("request.pending_expiry_days"))
                 .thenReturn(Optional.of("7"));
         when(repository.save(any(RentalRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

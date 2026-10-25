@@ -3,9 +3,10 @@
 
 -- 1. Proposal bị huỷ dùng `Canceled` thay `Expired`: proposal không có TTL, chỉ bị huỷ khi khoang hết
 --    Available lúc khách đồng ý hoặc khi đơn chạy Cancellation Cascade.
-UPDATE proposal_feedbacks SET status = 'Canceled' WHERE status = 'Expired';
-
+--    Bỏ CHECK cũ trước khi UPDATE: CHECK đang chặn `Canceled` nên DB có row `Expired` sẽ fail.
 ALTER TABLE proposal_feedbacks DROP CONSTRAINT proposal_feedbacks_status_check;
+
+UPDATE proposal_feedbacks SET status = 'Canceled' WHERE status = 'Expired';
 
 ALTER TABLE proposal_feedbacks ADD CONSTRAINT proposal_feedbacks_status_check
     CHECK (status IN ('Pending', 'Agreed', 'Rejected', 'Canceled'));

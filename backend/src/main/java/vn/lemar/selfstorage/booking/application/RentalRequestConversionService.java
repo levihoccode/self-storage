@@ -30,7 +30,7 @@ import vn.lemar.selfstorage.identity.application.VerifiedAccount;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationType;
-import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
+import vn.lemar.selfstorage.pricing.application.PricingQuery;
 
 /**
  * B2 — convert {@code RentalRequest} đã duyệt sang {@code RentalOrder(Pending)} +
@@ -61,7 +61,7 @@ public class RentalRequestConversionService {
     private final ConversionGuardRepository conversionGuard;
     private final AccountQueryService accountQueryService;
     private final StorageUnitQuery storageUnitQuery;
-    private final PolicyQueryService policyQueryService;
+    private final PricingQuery pricingQuery;
     private final NotificationService notificationService;
     private final AuditRecorder auditRecorder;
     private final String frontendUrl;
@@ -71,7 +71,7 @@ public class RentalRequestConversionService {
                                           ProposalFeedbackRepository proposalRepository,
                                           ConversionGuardRepository conversionGuard,
                                           AccountQueryService accountQueryService,
-                                          StorageUnitQuery storageUnitQuery, PolicyQueryService policyQueryService,
+                                          StorageUnitQuery storageUnitQuery, PricingQuery pricingQuery,
                                           NotificationService notificationService, AuditRecorder auditRecorder,
                                           @Value("${app.frontend-url}") String frontendUrl) {
         this.requestRepository = requestRepository;
@@ -80,7 +80,7 @@ public class RentalRequestConversionService {
         this.conversionGuard = conversionGuard;
         this.accountQueryService = accountQueryService;
         this.storageUnitQuery = storageUnitQuery;
-        this.policyQueryService = policyQueryService;
+        this.pricingQuery = pricingQuery;
         this.notificationService = notificationService;
         this.auditRecorder = auditRecorder;
         this.frontendUrl = frontendUrl.replaceAll("/+$", "");
@@ -201,7 +201,7 @@ public class RentalRequestConversionService {
      * hình (bug #130), convert rollback.
      */
     private int orderExpiryDays() {
-        String value = policyQueryService.valueOf(ORDER_EXPIRY_DAYS)
+        String value = pricingQuery.valueOf(ORDER_EXPIRY_DAYS)
                 .orElseThrow(() -> new IllegalStateException("Thiếu policy '" + ORDER_EXPIRY_DAYS + "'"));
         try {
             return Integer.parseInt(value.trim());

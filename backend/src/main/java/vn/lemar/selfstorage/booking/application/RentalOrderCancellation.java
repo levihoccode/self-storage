@@ -51,8 +51,7 @@ class RentalOrderCancellation {
      */
     void cancel(RentalOrder order, String reason, Long actorAccountId) {
         String oldStatus = order.getStatus().dbValue();
-        // Đọc trước khi đổi status: chỉ đơn đã đặt cọc mới thực sự giữ khoang. Đơn Pending chỉ gán unit_id lúc
-        // khách đồng ý — khoang có thể đang Reserved cho đơn khác đã cọc trước, không được nhả.
+        // Chụp trước khi đổi status: đơn chỉ giữ khoang khi đang ở Deposited/Scheduled/InProgress.
         boolean heldUnit = order.holdsUnit();
         order.cancel(reason);
         record(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER, order.getId(),
@@ -75,13 +74,19 @@ class RentalOrderCancellation {
                     reason, actorAccountId);
         }
 
-        if (heldUnit && order.getUnitId() != null && storageUnitService.releaseIfReserved(order.getUnitId())) {
+        // Chỉ nhả khoang khi đơn thực sự đang giữ nó: nhiều đơn có thể cùng unit_id (đã đồng ý, chưa cọc),
+        // trả khoang của đơn khác đã cọc là sai.
+        if (heldUnit && order.getUnitId() != null
+                && storageUnitService.releaseIfReserved(order.getUnitId())) {
             record(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.STORAGE_UNIT, order.getUnitId(),
                     Map.of("status", "Reserved"), Map.of("status", "Available"), reason, actorAccountId);
         }
 
+        // Khách tự chịu rủi ro mất cọc khi huỷ do quá ngưỡng từ chối (behavior-gap #172).
+        String notifyReason = ProposalService.CANCEL_REASON_TOO_MANY_REJECTIONS.equals(reason)
+                ? reason + ". Tiền cọc không được hoàn" : reason;
         Map<String, String> values = Map.of("orderCode", OrderNotifier.orderCode(order),
-                "outcome", OUTCOME_CANCELED, "reason", reason);
+                "outcome", OUTCOME_CANCELED, "reason", notifyReason);
         orderNotifier.notifyCustomer(order, NotificationType.RENTAL_ORDER_CANCELED, values);
         orderNotifier.notifyFacilityManager(order.getId(), NotificationType.RENTAL_ORDER_CANCELED, values);
     }

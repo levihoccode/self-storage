@@ -12,20 +12,19 @@ import vn.lemar.selfstorage.pricing.repository.PricingRepository;
 
 class PricingQueryTest {
 
-    private final PolicyQueryService policies = mock(PolicyQueryService.class);
     private final PricingRepository repository = mock(PricingRepository.class);
-    private final PricingQuery query = new PricingQuery(policies, repository);
+    private final PricingQuery query = new PricingQuery(repository);
 
     @Test
     void parsesIntegerPolicy() {
-        when(policies.valueOf("invoice.deposit_months")).thenReturn(Optional.of(" 2 "));
+        when(repository.findPolicyValue("invoice.deposit_months")).thenReturn(Optional.of(" 2 "));
 
         assertThat(query.intPolicy("invoice.deposit_months")).isEqualTo(2);
     }
 
     @Test
     void missingPolicyIsAConfigurationError() {
-        when(policies.valueOf("x")).thenReturn(Optional.empty());
+        when(repository.findPolicyValue("x")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> query.intPolicy("x")).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("policies.x");

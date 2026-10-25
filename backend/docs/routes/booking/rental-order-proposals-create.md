@@ -15,6 +15,7 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
 ## Luồng / hành vi
 
 - Thiếu `unitId` → 400.
+- Đơn đã quá `expires_at` → 409.
 - Điều kiện được đề xuất lại: đơn chưa đóng **và** không có proposal `Pending` **và** đơn đang
   `Pending` hoặc `needs_reproposal = true`. Sai một trong ba → 409 với câu tương ứng.
 - Khoá đơn, khoá khoang; khoang khác cơ sở → 404, khoang không `Available` → 409.
@@ -26,8 +27,11 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
 
 ## Ghi chú nghiệp vụ
 
-- `needs_reproposal` do Flow 2 bật/tắt (vd khách từ chối khoang tại check-in); luồng đề xuất lại chỉ đọc cờ này.
-- Đơn còn proposal `Pending` (khách chưa phản hồi): giữ 409 — FM liên hệ khách ngoài hệ thống.
+- `needs_reproposal` do Flow 2 bật (vd khách từ chối khoang tại check-in) hoặc B3 bật lại khi khách từ
+  chối/không nhận được khoang trên đơn đã cọc; cờ được **clear ngay khi proposal mới tạo thành công** — chỉ
+  dùng cho gate đề xuất lại, không phải điều kiện để khách đồng ý.
+- Đơn còn proposal `Pending` (khách chưa phản hồi): giữ 409 — FM liên hệ khách ngoài hệ thống, không được thì
+  huỷ đơn qua endpoint FM huỷ đơn (chưa triển khai).
 
 ## Ví dụ
 

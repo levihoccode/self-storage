@@ -62,13 +62,13 @@ public class Invoice {
     @Column(name = "due_date")
     private Instant dueDate;
 
-    private Invoice(RentalOrder order, String code, String title, String description, BigDecimal amount,
-                    Instant dueDate) {
+    private Invoice(RentalOrder order, InvoiceType type, String code, String title, String description,
+                    BigDecimal amount, Instant dueDate) {
         this.orderId = order.getId();
         this.customerId = order.getCustomerId();
         this.code = code;
         this.title = title;
-        this.type = InvoiceType.DEPOSIT;
+        this.type = type;
         this.description = description;
         this.status = InvoiceStatus.UNPAID;
         this.amount = amount;
@@ -79,11 +79,17 @@ public class Invoice {
     /** Spec 1.3 — khách đồng ý proposal: hoá đơn đặt cọc {@code Deposit}/{@code Unpaid} cho đơn. */
     public static Invoice deposit(RentalOrder order, String code, String title, String description,
                                   BigDecimal amount, Instant dueDate) {
-        return new Invoice(order, code, title, description, amount, dueDate);
+        return new Invoice(order, InvoiceType.DEPOSIT, code, title, description, amount, dueDate);
+    }
+
+    /** Đổi khoang sau khi đã cọc — hoá đơn bổ sung phần chênh lệch. */
+    public static Invoice depositSupplement(RentalOrder order, String code, String title, String description,
+                                            BigDecimal amount, Instant dueDate) {
+        return new Invoice(order, InvoiceType.DEPOSIT_SUPPLEMENT, code, title, description, amount, dueDate);
     }
 
     /** Cancellation Cascade: chỉ hoá đơn {@code Unpaid} chuyển {@code Canceled}; đã {@code Expired} giữ nguyên. */
-    /** Cổng thanh toán đã xác nhận thu tiền (B4 — Flow 1.4). */
+    /** Cổng thanh toán đã xác nhận thu tiền (Flow 1.4). */
     public void markPaid() {
         this.status = InvoiceStatus.PAID;
     }
