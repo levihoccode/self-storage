@@ -31,7 +31,7 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
   chối/không nhận được khoang trên đơn đã cọc; cờ được **clear ngay khi proposal mới tạo thành công** — chỉ
   dùng cho gate đề xuất lại, không phải điều kiện để khách đồng ý.
 - Đơn còn proposal `Pending` (khách chưa phản hồi): giữ 409 — FM liên hệ khách ngoài hệ thống, không được thì
-  huỷ đơn qua endpoint FM huỷ đơn (chưa triển khai).
+  huỷ đơn qua [FM huỷ đơn](fm-rental-order-cancel.md).
 
 ## Ví dụ
 

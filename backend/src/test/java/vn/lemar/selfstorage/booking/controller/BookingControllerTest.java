@@ -34,6 +34,8 @@ import vn.lemar.selfstorage.booking.application.ProposalQueryService;
 import vn.lemar.selfstorage.booking.application.ProposalService;
 import vn.lemar.selfstorage.booking.application.ProposalView;
 import vn.lemar.selfstorage.booking.application.RejectResult;
+import vn.lemar.selfstorage.booking.application.RentalOrderService;
+import vn.lemar.selfstorage.booking.application.RentalOrderView;
 import vn.lemar.selfstorage.booking.application.dto.CustomerProposalResponse;
 import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderResponse;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
@@ -51,7 +53,7 @@ import vn.lemar.selfstorage.identity.domain.AccountStatus;
 import vn.lemar.selfstorage.identity.domain.Role;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
-/** HTTP contract của 5 route Flow 1.3: guard role theo namespace + đổi exception thành status code. */
+/** HTTP contract route Flow 1.3 + FM huỷ đơn (#142): guard role theo namespace + đổi exception thành status code. */
 @WebMvcTest(controllers = {ProposalController.class, FmRentalOrderController.class,
     RentalOrderProposalController.class})
 @Import({SecurityConfig.class, JwtConfiguration.class, AccountJwtAuthenticationConverter.class})
@@ -70,6 +72,8 @@ class BookingControllerTest {
     private ProposalService proposalService;
     @MockBean
     private ProposalQueryService proposalQueryService;
+    @MockBean
+    private RentalOrderService rentalOrderService;
     @MockBean
     private AccountQueryService accountQueryService;
     @MockBean
@@ -269,6 +273,44 @@ class BookingControllerTest {
         mockMvc.perform(as(post("/api/rental-orders/1/proposals"), FM).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":98}"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void fmCancelReturnsCanceledOrder() throws Exception {
+        authenticate(FM, "FM");
+        when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
+        when(rentalOrderService.cancelByFacilityManager(1L, 3L))
+                .thenReturn(new RentalOrderView(1L, 6L, 2L, "Canceled", "Khách không còn nhu cầu"));
+
+        mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), FM))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value(FmRentalOrderController.CANCEL_MESSAGE))
+                .andExpect(jsonPath("$.data.status").value("Canceled"))
+                .andExpect(jsonPath("$.data.cancelReason").value("Khách không còn nhu cầu"));
+    }
+
+    @Test
+    void fmCancelMapsBusinessErrorsToStatusCodes() throws Exception {
+        authenticate(FM, "FM");
+        when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
+        when(rentalOrderService.cancelByFacilityManager(9L, 3L)).thenThrow(new RentalOrderNotFoundException());
+        when(rentalOrderService.cancelByFacilityManager(8L, 3L))
+                .thenThrow(new ForbiddenException("Bạn không được gán vào cơ sở này"));
+        when(rentalOrderService.cancelByFacilityManager(7L, 3L))
+                .thenThrow(new ProposalConflictException("Đơn thuê đã đóng, không thể huỷ"));
+
+        mockMvc.perform(as(post("/api/fm/rental-orders/9/cancel"), FM)).andExpect(status().isNotFound());
+        mockMvc.perform(as(post("/api/fm/rental-orders/8/cancel"), FM)).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/fm/rental-orders/7/cancel"), FM))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Đơn thuê đã đóng, không thể huỷ"));
+    }
+
+    @Test
+    void fmCancelRejectsCustomers() throws Exception {
+        authenticate(CUSTOMER, "CUSTOMER");
+
+        mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), CUSTOMER)).andExpect(status().isForbidden());
     }
 
     // ---------------------------------------------------------------- helpers
