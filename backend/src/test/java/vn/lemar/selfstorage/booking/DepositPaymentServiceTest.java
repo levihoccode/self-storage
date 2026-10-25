@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,12 +23,13 @@ import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedExcep
 import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceStatus;
+import vn.lemar.selfstorage.booking.domain.InvoiceType;
 import vn.lemar.selfstorage.booking.domain.RentalOrder;
-import vn.lemar.selfstorage.booking.domain.StorageUnit;
-import vn.lemar.selfstorage.booking.domain.StorageUnitStatus;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
-import vn.lemar.selfstorage.booking.repository.StorageUnitRepository;
+import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
+import vn.lemar.selfstorage.facility.application.StorageUnitView;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentSessionQuery;
@@ -37,8 +37,7 @@ import vn.lemar.selfstorage.payment.application.PaymentSessionQuery;
 /**
  * Năm nhánh kiểm của spec Flow 1.4, cộng hai cửa trước là sở hữu hóa đơn và xác minh email.
  *
- * <p>Thứ tự nhánh cũng là thứ tự được kiểm: mỗi test dựng đúng một điều kiện hỏng và xác nhận
- * service dừng ở đó, không đi tiếp xuống nhánh sau.
+ * <p>Mỗi test dựng đúng một điều kiện hỏng và xác nhận service dừng ở đó, không đi tiếp.
  */
 class DepositPaymentServiceTest {
 
@@ -51,7 +50,7 @@ class DepositPaymentServiceTest {
 
     private final InvoiceRepository invoices = mock(InvoiceRepository.class);
     private final RentalOrderRepository orders = mock(RentalOrderRepository.class);
-    private final StorageUnitRepository units = mock(StorageUnitRepository.class);
+    private final StorageUnitQuery units = mock(StorageUnitQuery.class);
     private final PaymentService payments = mock(PaymentService.class);
     private final PaymentSessionQuery sessions = mock(PaymentSessionQuery.class);
     private final CurrentAccountProvider currentAccount = mock(CurrentAccountProvider.class);
@@ -60,7 +59,10 @@ class DepositPaymentServiceTest {
     private DepositPaymentService service;
     private Invoice invoice;
     private RentalOrder order;
-    private StorageUnit unit;
+
+    private static StorageUnitView unit(String status) {
+        return new StorageUnitView(UNIT_ID, "A-01", FACILITY_ID, 1L, status);
+    }
 
     @BeforeEach
     void setUp() {
@@ -74,26 +76,19 @@ class DepositPaymentServiceTest {
         when(invoice.getId()).thenReturn(INVOICE_ID);
         when(invoice.getOrderId()).thenReturn(ORDER_ID);
         when(invoice.getCustomerId()).thenReturn(CUSTOMER_ID);
-        when(invoice.belongsTo(CUSTOMER_ID)).thenReturn(true);
-        when(invoice.isUnpaid()).thenReturn(true);
-        when(invoice.getType()).thenReturn("Deposit");
+        when(invoice.getStatus()).thenReturn(InvoiceStatus.UNPAID);
+        when(invoice.getType()).thenReturn(InvoiceType.DEPOSIT);
         when(invoice.getAmount()).thenReturn(new BigDecimal("10000.00"));
         when(invoice.getTitle()).thenReturn("Dat coc khoang A");
 
         order = mock(RentalOrder.class);
         when(order.getId()).thenReturn(ORDER_ID);
         when(order.getUnitId()).thenReturn(UNIT_ID);
-        when(order.isExpiredAt(any())).thenReturn(false);
-
-        unit = mock(StorageUnit.class);
-        when(unit.getId()).thenReturn(UNIT_ID);
-        when(unit.getCode()).thenReturn("A-01");
-        when(unit.getFacilityId()).thenReturn(FACILITY_ID);
-        when(unit.getStatus()).thenReturn(StorageUnitStatus.AVAILABLE);
+        when(order.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
 
         when(invoices.findById(INVOICE_ID)).thenReturn(Optional.of(invoice));
         when(orders.findById(ORDER_ID)).thenReturn(Optional.of(order));
-        when(units.findByIdForUpdate(UNIT_ID)).thenReturn(Optional.of(unit));
+        when(units.lock(UNIT_ID)).thenReturn(Optional.of(unit("Available")));
         when(orders.findByUnitId(UNIT_ID)).thenReturn(List.of(order));
         when(invoices.findByOrderIdIn(List.of(ORDER_ID))).thenReturn(List.of(invoice));
         when(sessions.hasOpenSession(anyCollection())).thenReturn(false);
@@ -109,9 +104,8 @@ class DepositPaymentServiceTest {
     void amountComesFromTheInvoiceNotTheCaller() {
         service.startDeposit(INVOICE_ID, "1.2.3.4");
 
-        verify(payments).startPayment(eq(INVOICE_ID),
-                org.mockito.ArgumentMatchers.argThat(
-                        request -> request.amount().compareTo(new BigDecimal("10000.00")) == 0));
+        verify(payments).startPayment(eq(INVOICE_ID), org.mockito.ArgumentMatchers.argThat(
+                request -> request.amount().compareTo(new BigDecimal("10000.00")) == 0));
     }
 
     @Test
@@ -125,7 +119,7 @@ class DepositPaymentServiceTest {
 
     @Test
     void someoneElsesInvoiceLooksLikeItDoesNotExist() {
-        when(invoice.belongsTo(CUSTOMER_ID)).thenReturn(false);
+        when(invoice.getCustomerId()).thenReturn(999L);
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(InvoiceNotFoundException.class);
@@ -133,19 +127,18 @@ class DepositPaymentServiceTest {
 
     @Test
     void branch1ExpiredOrderIsRejectedBeforeTouchingUnit() {
-        when(order.isExpiredAt(any())).thenReturn(true);
+        when(order.getExpiresAt()).thenReturn(Instant.now().minusSeconds(60));
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
                 .hasMessageContaining("Đơn thuê kho đã hết hạn");
-        // Chưa đụng tới khoang nên hóa đơn phải còn nguyên hiệu lực.
         verifyNoInteractions(invoiceVoiding);
         verifyNoInteractions(units);
     }
 
     @Test
-    void branch2ReservedUnitVoidsInvoiceAndNotifiesManager() {
-        when(unit.getStatus()).thenReturn(StorageUnitStatus.RESERVED);
+    void branch2ReservedUnitVoidsInvoiceAndRefuses() {
+        when(units.lock(UNIT_ID)).thenReturn(Optional.of(unit("Reserved")));
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
@@ -156,8 +149,8 @@ class DepositPaymentServiceTest {
     }
 
     @Test
-    void branch3MaintenanceUnitVoidsInvoiceAndNotifiesManager() {
-        when(unit.getStatus()).thenReturn(StorageUnitStatus.MAINTENANCE);
+    void branch3MaintenanceUnitVoidsInvoiceAndRefuses() {
+        when(units.lock(UNIT_ID)).thenReturn(Optional.of(unit("Maintenance")));
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
@@ -168,7 +161,10 @@ class DepositPaymentServiceTest {
 
     @Test
     void branch4OpenSessionOnUnitBlocksWithoutSideEffects() {
-        when(sessions.hasOpenSession(List.of(INVOICE_ID))).thenReturn(true);
+        Invoice otherInvoice = mock(Invoice.class);
+        when(otherInvoice.getId()).thenReturn(101L);
+        when(invoices.findByOrderIdIn(List.of(ORDER_ID))).thenReturn(List.of(invoice, otherInvoice));
+        when(sessions.hasOpenSession(List.of(101L))).thenReturn(true);
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
@@ -176,6 +172,17 @@ class DepositPaymentServiceTest {
 
         verifyNoInteractions(invoiceVoiding);
         verifyNoInteractions(payments);
+    }
+
+    /**
+     * Khách bấm back rồi bấm lại không phải "khách hàng khác" — phiên của chính hóa đơn này phải
+     * bị loại khỏi phép kiểm, nếu không khách bị chặn 15 phút trên đơn của chính mình.
+     */
+    @Test
+    void customersOwnOpenSessionDoesNotBlockThemselves() {
+        assertThat(service.startDeposit(INVOICE_ID, "1.2.3.4")).isEqualTo(PAY_URL);
+
+        verify(sessions).hasOpenSession(List.of());
     }
 
     @Test
@@ -190,13 +197,12 @@ class DepositPaymentServiceTest {
 
         service.startDeposit(INVOICE_ID, "1.2.3.4");
 
-        // Hóa đơn của khách khác trên cùng khoang cũng phải nằm trong phép kiểm phiên.
-        verify(sessions).hasOpenSession(List.of(INVOICE_ID, 101L));
+        verify(sessions).hasOpenSession(List.of(101L));
     }
 
     @Test
     void paidInvoiceDoesNotOpenANewSession() {
-        when(invoice.isUnpaid()).thenReturn(false);
+        when(invoice.getStatus()).thenReturn(InvoiceStatus.PAID);
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
@@ -206,7 +212,7 @@ class DepositPaymentServiceTest {
 
     @Test
     void nonDepositInvoiceIsRejected() {
-        when(invoice.getType()).thenReturn("Rental");
+        when(invoice.getType()).thenReturn(InvoiceType.RENTAL);
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class);
@@ -215,8 +221,7 @@ class DepositPaymentServiceTest {
 
     @Test
     void orderWithoutAnExistingUnitIsRejected() {
-        when(order.getUnitId()).thenReturn(UNIT_ID);
-        when(units.findByIdForUpdate(UNIT_ID)).thenReturn(Optional.empty());
+        when(units.lock(UNIT_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
@@ -233,16 +238,9 @@ class DepositPaymentServiceTest {
     }
 
     @Test
-    void expiryIsEvaluatedAgainstThePassedInInstant() {
-        RentalOrder realOrder = mock(RentalOrder.class);
-        when(realOrder.isExpiredAt(any())).thenAnswer(call -> {
-            Instant now = call.getArgument(0);
-            return now.isAfter(Instant.now().minus(1, ChronoUnit.MINUTES));
-        });
-        when(realOrder.getUnitId()).thenReturn(UNIT_ID);
-        when(orders.findById(ORDER_ID)).thenReturn(Optional.of(realOrder));
+    void orderWithoutADeadlineIsNotTreatedAsExpired() {
+        when(order.getExpiresAt()).thenReturn(null);
 
-        assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
-                .isInstanceOf(DepositNotAllowedException.class);
+        assertThat(service.startDeposit(INVOICE_ID, "1.2.3.4")).isEqualTo(PAY_URL);
     }
 }

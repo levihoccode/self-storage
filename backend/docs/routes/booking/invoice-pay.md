@@ -38,10 +38,16 @@ Thanh toán thất bại không cần gỡ khóa: giao dịch chuyển `Failed` 
 ## Nhánh thành công — chốt khi IPN về, không chốt ở đây
 
 Endpoint này **không bao giờ** ghi nhận đã thu tiền. `DepositPaymentListener` nghe
-`PaymentSucceeded` rồi trong một transaction: `Invoice=Paid` · `RentalOrder=Deposited` với
-`expires_at = now + order.deposit_expiry_days` · `StorageUnit=Reserved` · notify khách
-`DEPOSIT_PAYMENT_SUCCEEDED` · ghi 2 bản ghi audit (`RENTAL_ORDER_DEPOSITED`,
-`STORAGE_UNIT_RESERVED`).
+`PaymentSucceeded` rồi trong một transaction: `Invoice=Paid` · `RentalOrder=Deposited` ·
+`StorageUnit=Reserved` · notify khách `DEPOSIT_PAYMENT_SUCCEEDED` · ghi 2 bản ghi audit
+(`RENTAL_ORDER_DEPOSITED`, `STORAGE_UNIT_RESERVED`).
+
+Hạn đơn **không đổi**: `db-table-draft.md` › RentalOrder ghi `expires_at` "set một lần khi tạo
+dơn", và hạn giữ kho là phần còn lại của chính hạn đó.
+
+Khoang chỉ chuyển `Reserved` khi vẫn còn `Available` tại thời điểm xác nhận — cổng có thể gọi lại
+tới 10 lần trong 50 phút, đủ lâu để khách khác cọc trước. Khoang đã đổi chủ thì đơn giữ nguyên
+trạng thái và tiền phải hoàn thủ công.
 
 Listener bắt buộc `@TransactionalEventListener(AFTER_COMMIT)` **và**
 `@Transactional(REQUIRES_NEW)` — xem `payment.md` › Quy tắc bất biến. `AuditRecorder` dùng
@@ -49,18 +55,20 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 
 ## Ghi chú nghiệp vụ
 
-- **Số tiền đọc từ `Invoice` trong DB**, không nhận từ client. Đây là chỗ đóng `TODO(invoice)`
-  mà A6 để lại.
-- `vnp_TxnRef` dạng `INV{invoiceId}T{yyyyMMddHHmmss}` GMT+7 — chữ và số, không trùng trong ngày.
+- **Số tiền đọc từ `Invoice` trong DB**, không nhận từ client — cổng đối chiếu `vnp_Amount` với
+  chính con số đó khi xác nhận.
+- `vnp_TxnRef` dạng `INV{invoiceId}T{yyyyMMddHHmmss}` GMT+7 kèm hậu tố ngẫu nhiên: mốc thời gian
+  chỉ tới giây nên hai lần bấm trong cùng một giây sẽ trùng mã và vỡ unique constraint.
+- Phiên đang mở **của chính hóa đơn này** không chặn khách: bấm back rồi bấm lại không phải
+  "khách hàng khác". Chỉ phiên của hóa đơn khác trên cùng khoang mới chặn.
 - Hóa đơn không tồn tại và hóa đơn của người khác trả **cùng một** 404.
 - Cơ sở chưa gán FM thì vẫn hủy hóa đơn, chỉ bỏ qua thông báo — thiếu người nhận không được chặn
   nghiệp vụ.
 - `PAYMENT_SUCCEEDED` audit thuộc module `payment` (entity `PaymentTransaction`), không ghi ở đây.
 
-## Chưa có trong PR này
+## Chưa có trong luồng này
 
-- Cron hủy đơn quá hạn thanh toán + đối soát phiên bằng `querydr` — chờ spec-gap #117.
-- Hóa đơn cọc do B3 tạo; hiện test bằng invoice seed tay.
+- Cron hủy đơn quá hạn thanh toán và đối soát phiên bằng `querydr`.
 
 ## Liên quan
 

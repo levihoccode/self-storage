@@ -3,7 +3,7 @@ package vn.lemar.selfstorage.booking.domain;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
-/** Quy đổi enum viết HOA trong Java sang giá trị CHECK constraint yêu cầu. */
+/** Quy đổi giữa enum viết HOA trong Java và giá trị PascalCase mà CHECK constraint yêu cầu. */
 @Converter
 public class InvoiceStatusConverter implements AttributeConverter<InvoiceStatus, String> {
 

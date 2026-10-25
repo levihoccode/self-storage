@@ -1,10 +1,10 @@
 package vn.lemar.selfstorage.booking.domain;
 
 /**
- * Trạng thái hóa đơn.
+ * Trạng thái hoá đơn ({@code specs/db-table-draft.md} › Invoice).
  *
- * <p>Giá trị lưu xuống DB viết hoa chữ đầu theo CHECK constraint của bảng {@code invoices}
- * (xem {@code V1__baseline_schema.sql}); quy đổi do {@link InvoiceStatusConverter} lo.
+ * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code invoices} (V1); quy đổi qua
+ * {@link InvoiceStatusConverter}.
  */
 public enum InvoiceStatus {
     UNPAID("Unpaid"),
@@ -23,11 +23,11 @@ public enum InvoiceStatus {
     }
 
     public static InvoiceStatus fromDbValue(String value) {
-        for (InvoiceStatus status : values()) {
-            if (status.dbValue.equals(value)) {
-                return status;
+        for (InvoiceStatus item : values()) {
+            if (item.dbValue.equals(value)) {
+                return item;
             }
         }
-        throw new IllegalArgumentException("Giá trị không hợp lệ cho InvoiceStatus: " + value);
+        throw new IllegalArgumentException("Giá trị không hợp lệ: " + value);
     }
 }

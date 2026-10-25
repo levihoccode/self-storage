@@ -9,17 +9,21 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
- * Hóa đơn. Nguồn số tiền tin cậy khi thu tiền — cổng thanh toán đối chiếu `vnp_Amount` với
- * {@code amount} ở đây chứ không tin tham số caller truyền vào.
+ * Hoá đơn ({@code specs/db-table-draft.md} › Invoice). B3 chỉ tạo hoá đơn {@code Deposit} gắn đơn thuê
+ * và huỷ hoá đơn {@code Unpaid} trong Cancellation Cascade; thanh toán thuộc B4.
  *
- * <p>Chỉ map những cột Flow 1.4 dùng tới; cột khác để module sở hữu hóa đơn bổ sung khi cần.
- * {@code orderId}/{@code customerId} để kiểu {@code Long} cho nhất quán với cách
- * {@code PaymentTransaction} tham chiếu hóa đơn.
+ * <p>Cột {@code contract_id} không map: hoá đơn cọc gắn {@code order_id}, CHECK của V1 buộc đúng một
+ * trong hai FK được set.
  */
 @Entity
 @Table(name = "invoices")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Invoice {
 
     @Id
@@ -32,83 +36,62 @@ public class Invoice {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, unique = true, length = 50)
     private String code;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String title;
 
+    @Convert(converter = InvoiceTypeConverter.class)
     @Column(nullable = false, length = 20)
-    private String type;
+    private InvoiceType type;
+
+    @Column
+    private String description;
 
     @Convert(converter = InvoiceStatusConverter.class)
     @Column(nullable = false, length = 20)
-    private InvoiceStatus status = InvoiceStatus.UNPAID;
+    private InvoiceStatus status;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt = Instant.now();
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
 
     @Column(name = "due_date")
     private Instant dueDate;
 
-    protected Invoice() {
-        // JPA
+    private Invoice(RentalOrder order, String code, String title, String description, BigDecimal amount,
+                    Instant dueDate) {
+        this.orderId = order.getId();
+        this.customerId = order.getCustomerId();
+        this.code = code;
+        this.title = title;
+        this.type = InvoiceType.DEPOSIT;
+        this.description = description;
+        this.status = InvoiceStatus.UNPAID;
+        this.amount = amount;
+        this.createdAt = Instant.now();
+        this.dueDate = dueDate;
     }
 
-    public boolean isUnpaid() {
-        return status == InvoiceStatus.UNPAID;
+    /** Spec 1.3 — khách đồng ý proposal: hoá đơn đặt cọc {@code Deposit}/{@code Unpaid} cho đơn. */
+    public static Invoice deposit(RentalOrder order, String code, String title, String description,
+                                  BigDecimal amount, Instant dueDate) {
+        return new Invoice(order, code, title, description, amount, dueDate);
     }
 
-    public boolean belongsTo(Long accountId) {
-        return customerId != null && customerId.equals(accountId);
-    }
-
-    /** Hóa đơn hết hiệu lực vì khoang không còn dùng được — Flow 1.4 nhánh Reserved / Maintenance. */
-    public void cancel() {
-        this.status = InvoiceStatus.CANCELED;
-    }
-
-    /** Chỉ gọi từ listener khi cổng đã xác nhận thu tiền. */
+    /** Cancellation Cascade: chỉ hoá đơn {@code Unpaid} chuyển {@code Canceled}; đã {@code Expired} giữ nguyên. */
+    /** Cổng thanh toán đã xác nhận thu tiền (B4 — Flow 1.4). */
     public void markPaid() {
         this.status = InvoiceStatus.PAID;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getOrderId() {
-        return orderId;
-    }
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public InvoiceStatus getStatus() {
-        return status;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public Instant getDueDate() {
-        return dueDate;
+    public void cancel() {
+        if (status != InvoiceStatus.UNPAID) {
+            throw new IllegalStateException("Hoá đơn " + id + " không huỷ được ở trạng thái " + status);
+        }
+        this.status = InvoiceStatus.CANCELED;
     }
 }

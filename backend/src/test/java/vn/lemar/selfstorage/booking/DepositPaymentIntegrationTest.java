@@ -111,6 +111,8 @@ class DepositPaymentIntegrationTest {
 
     @Test
     void depositFlowFromEndpointThroughIpnUpdatesEverything() throws Exception {
+        java.time.Instant deadlineBeforePaying = jdbc.queryForObject(
+                "SELECT expires_at FROM rental_orders WHERE id = ?", java.time.Instant.class, orderId);
         String txnRef = openSessionAndReadTxnRef();
 
         // Phiên mở ra phải để lại dấu vết đối soát trước khi khách rời đi.
@@ -123,10 +125,11 @@ class DepositPaymentIntegrationTest {
         assertThat(statusOf("invoices", invoiceId)).isEqualTo("Paid");
         assertThat(statusOf("rental_orders", orderId)).isEqualTo("Deposited");
         assertThat(statusOf("storage_units", unitId)).isEqualTo("Reserved");
+        // Spec `db-table-draft.md` › RentalOrder: hạn đơn "set một lần khi tạo đơn"; › StorageUnit:
+        // hạn giữ kho là phần còn lại của chính hạn đó. Cọc xong không được gia hạn thêm.
         assertThat(jdbc.queryForObject(
-                "SELECT expires_at > now() + interval '20 days' FROM rental_orders WHERE id = ?",
-                Boolean.class, orderId))
-                .as("expires_at phải nhảy sang hạn giữ kho sau cọc").isTrue();
+                "SELECT expires_at FROM rental_orders WHERE id = ?", java.time.Instant.class, orderId))
+                .as("cọc không được dời hạn đơn").isEqualTo(deadlineBeforePaying);
     }
 
     @Test
@@ -137,14 +140,15 @@ class DepositPaymentIntegrationTest {
                 .containsExactly("PAYMENT_SUCCEEDED", "RENTAL_ORDER_DEPOSITED", "STORAGE_UNIT_RESERVED");
     }
 
+    /**
+     * Khách bấm back rồi bấm lại hóa đơn của chính mình: phiên cũ không được coi là "khách khác"
+     * (review #137 mục 6, chốt phương án A).
+     */
     @Test
-    void openSessionBlocksASecondAttemptOnTheSameUnit() throws Exception {
+    void retryingTheSameInvoiceIsNotBlocked() throws Exception {
         openSessionAndReadTxnRef();
 
-        mockMvc.perform(payAs(CUSTOMER_EMAIL))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value(
-                        org.hamcrest.Matchers.containsString("đang trong quá trình xử lý thanh toán")));
+        mockMvc.perform(payAs(CUSTOMER_EMAIL)).andExpect(status().isOk());
     }
 
     @Test

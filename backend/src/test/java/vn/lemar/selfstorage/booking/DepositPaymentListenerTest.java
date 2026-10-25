@@ -2,6 +2,8 @@ package vn.lemar.selfstorage.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,76 +25,86 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.booking.application.DepositPaymentListener;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceStatus;
+import vn.lemar.selfstorage.booking.domain.InvoiceType;
 import vn.lemar.selfstorage.booking.domain.RentalOrder;
-import vn.lemar.selfstorage.booking.domain.StorageUnit;
-import vn.lemar.selfstorage.booking.domain.StorageUnitStatus;
+import vn.lemar.selfstorage.booking.domain.RentalOrderStatus;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
-import vn.lemar.selfstorage.booking.repository.PolicyReader;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
-import vn.lemar.selfstorage.booking.repository.StorageUnitRepository;
+import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
+import vn.lemar.selfstorage.facility.application.StorageUnitService;
+import vn.lemar.selfstorage.facility.application.StorageUnitView;
+import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationType;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
 
-/** Nhánh "Thành công" của spec Flow 1.4, và hai annotation giữ cho nó chạy đúng chỗ. */
+/** Nhánh "Thành công" của spec Flow 1.4, và các ca cổng xác nhận về khi hoàn cảnh đã đổi. */
 class DepositPaymentListenerTest {
 
     private static final Long INVOICE_ID = 100L;
     private static final Long ORDER_ID = 200L;
     private static final Long UNIT_ID = 300L;
     private static final Long CUSTOMER_ID = 7L;
+    private static final String CUSTOMER_EMAIL = "customer1@lemar.vn";
 
     private final InvoiceRepository invoices = mock(InvoiceRepository.class);
     private final RentalOrderRepository orders = mock(RentalOrderRepository.class);
-    private final StorageUnitRepository units = mock(StorageUnitRepository.class);
+    private final StorageUnitQuery unitQuery = mock(StorageUnitQuery.class);
+    private final StorageUnitService units = mock(StorageUnitService.class);
     private final NotificationService notifications = mock(NotificationService.class);
-    private final PolicyReader policies = mock(PolicyReader.class);
+    private final AccountQueryService accounts = mock(AccountQueryService.class);
     private final AuditRecorder audit = mock(AuditRecorder.class);
 
     private DepositPaymentListener listener;
     private Invoice invoice;
     private RentalOrder order;
-    private StorageUnit unit;
 
     @BeforeEach
     void setUp() {
-        listener = new DepositPaymentListener(invoices, orders, units, notifications, policies, audit);
+        listener = new DepositPaymentListener(invoices, orders, unitQuery, units, notifications,
+                accounts, audit);
 
         invoice = mock(Invoice.class);
         when(invoice.getId()).thenReturn(INVOICE_ID);
         when(invoice.getOrderId()).thenReturn(ORDER_ID);
         when(invoice.getCustomerId()).thenReturn(CUSTOMER_ID);
-        when(invoice.isUnpaid()).thenReturn(true);
+        when(invoice.getStatus()).thenReturn(InvoiceStatus.UNPAID);
+        when(invoice.getType()).thenReturn(InvoiceType.DEPOSIT);
 
         order = mock(RentalOrder.class);
         when(order.getId()).thenReturn(ORDER_ID);
         when(order.getUnitId()).thenReturn(UNIT_ID);
-
-        unit = mock(StorageUnit.class);
-        when(unit.getId()).thenReturn(UNIT_ID);
-        when(unit.getCode()).thenReturn("A-01");
-        when(unit.getStatus()).thenReturn(StorageUnitStatus.AVAILABLE);
+        when(order.getStatus()).thenReturn(RentalOrderStatus.PENDING);
 
         when(invoices.findById(INVOICE_ID)).thenReturn(Optional.of(invoice));
-        when(orders.findById(ORDER_ID)).thenReturn(Optional.of(order));
-        when(units.findById(UNIT_ID)).thenReturn(Optional.of(unit));
-        when(policies.intValue(eq("order.deposit_expiry_days"), any(Integer.class).intValue()))
-                .thenReturn(30);
+        when(orders.findByIdForUpdate(ORDER_ID)).thenReturn(Optional.of(order));
+        when(units.reserveIfAvailable(UNIT_ID)).thenReturn(true);
+        when(accounts.requireEmailById(CUSTOMER_ID)).thenReturn(CUSTOMER_EMAIL);
     }
 
     private PaymentSucceeded succeeded() {
-        return new PaymentSucceeded(INVOICE_ID, "INV100T20261013120000",
+        return new PaymentSucceeded(INVOICE_ID, "INV100T20261025120000ABCDE",
                 new BigDecimal("10000.00"), Instant.now());
     }
 
     @Test
-    void successUpdatesInvoiceOrderAndUnitTogether() {
+    void successMarksInvoicePaidDepositsOrderAndReservesUnit() {
         listener.onPaymentSucceeded(succeeded());
 
         verify(invoice).markPaid();
-        verify(order).markDeposited(any(Instant.class));
-        verify(unit).reserve();
+        verify(order).markDeposited();
+        verify(units).reserveIfAvailable(UNIT_ID);
+    }
+
+    /** Hạn đơn set một lần khi tạo đơn (`db-table-draft.md` › RentalOrder) — cọc không gia hạn. */
+    @Test
+    void depositDoesNotMoveTheOrderDeadline() {
+        listener.onPaymentSucceeded(succeeded());
+
+        verify(order).markDeposited();
+        verify(order, never()).getExpiresAt();
     }
 
     @Test
@@ -104,35 +116,62 @@ class DepositPaymentListenerTest {
     }
 
     @Test
-    void successNotifiesTheCustomer() {
+    void successNotifiesTheCustomerWithAnEmailAddress() {
         listener.onPaymentSucceeded(succeeded());
 
-        verify(notifications).notify(eq(CUSTOMER_ID), any(), any(),
-                eq(NotificationType.DEPOSIT_PAYMENT_SUCCEEDED), any(), eq(ORDER_ID));
+        verify(notifications).notify(eq(CUSTOMER_ID), eq(CUSTOMER_EMAIL), any(),
+                eq(NotificationType.DEPOSIT_PAYMENT_SUCCEEDED), anyMap(), eq(ORDER_ID));
+    }
+
+    /**
+     * VNPay retry tới 10 lần × 5 phút, nên IPN có thể về sau khi khoang đã thuộc về khách khác.
+     * Đơn thứ hai không được chuyển {@code Deposited} — tiền phải hoàn tay.
+     */
+    @Test
+    void lateConfirmationOnATakenUnitDoesNotDepositTheOrder() {
+        when(units.reserveIfAvailable(UNIT_ID)).thenReturn(false);
+        when(unitQuery.lock(UNIT_ID)).thenReturn(
+                Optional.of(new StorageUnitView(UNIT_ID, "A-01", 400L, 1L, "Reserved")));
+
+        listener.onPaymentSucceeded(succeeded());
+
+        verify(order, never()).markDeposited();
+        verify(invoice, never()).markPaid();
+        verifyNoInteractions(audit);
+        verifyNoInteractions(notifications);
     }
 
     @Test
-    void holdDeadlineComesFromPolicy() {
-        when(policies.intValue(eq("order.deposit_expiry_days"), any(Integer.class).intValue()))
-                .thenReturn(1);
-        Instant before = Instant.now();
-
-        listener.onPaymentSucceeded(succeeded());
-
-        org.mockito.ArgumentCaptor<Instant> captor = org.mockito.ArgumentCaptor.forClass(Instant.class);
-        verify(order).markDeposited(captor.capture());
-        assertThat(captor.getValue()).isAfter(before).isBefore(before.plusSeconds(2 * 24 * 3600));
-    }
-
-    @Test
-    void alreadyPaidInvoiceIsLeftAlone() {
-        when(invoice.isUnpaid()).thenReturn(false);
+    void repeatedConfirmationOnAPaidInvoiceChangesNothing() {
+        when(invoice.getStatus()).thenReturn(InvoiceStatus.PAID);
 
         listener.onPaymentSucceeded(succeeded());
 
         verify(invoice, never()).markPaid();
+        verifyNoInteractions(units);
         verifyNoInteractions(audit);
-        verifyNoInteractions(notifications);
+    }
+
+    /** Tiền vào một hoá đơn đã huỷ là tình huống phải có người xử lý, không phải chuyện thường. */
+    @Test
+    void confirmationOnACanceledInvoiceIsNotSilentlyIgnored() {
+        when(invoice.getStatus()).thenReturn(InvoiceStatus.CANCELED);
+
+        listener.onPaymentSucceeded(succeeded());
+
+        verify(invoice, never()).markPaid();
+        verifyNoInteractions(units);
+    }
+
+    /** Hoá đơn thuê gắn contract_id, order_id null — đi tiếp sẽ nổ ở orders.findByIdForUpdate. */
+    @Test
+    void nonDepositInvoiceIsIgnoredBeforeTouchingTheOrder() {
+        when(invoice.getType()).thenReturn(InvoiceType.RENTAL);
+
+        listener.onPaymentSucceeded(succeeded());
+
+        verifyNoInteractions(orders);
+        verifyNoInteractions(units);
     }
 
     @Test
@@ -155,9 +194,9 @@ class DepositPaymentListenerTest {
     }
 
     /**
-     * Hai annotation này là điều kiện sống còn, không phải trang trí: thiếu AFTER_COMMIT thì
-     * listener đọc state chưa commit và exception của nó rollback luôn giao dịch IPN; thiếu
-     * REQUIRES_NEW thì AuditRecorder (propagation MANDATORY) ném lỗi vì không có transaction.
+     * Hai annotation này là điều kiện sống còn: thiếu AFTER_COMMIT thì listener đọc state chưa
+     * commit và exception của nó rollback luôn giao dịch IPN; thiếu REQUIRES_NEW thì AuditRecorder
+     * và API facility (đều propagation MANDATORY) ném lỗi vì không có transaction.
      */
     @Test
     void successListenerRunsAfterCommitInItsOwnTransaction() throws Exception {
@@ -168,5 +207,12 @@ class DepositPaymentListenerTest {
                 .isEqualTo(TransactionPhase.AFTER_COMMIT);
         assertThat(method.getAnnotation(Transactional.class).propagation())
                 .isEqualTo(Propagation.REQUIRES_NEW);
+    }
+
+    @Test
+    void customerEmailIsResolvedThroughIdentityNotGuessed() {
+        listener.onPaymentSucceeded(succeeded());
+
+        verify(accounts).requireEmailById(anyLong());
     }
 }

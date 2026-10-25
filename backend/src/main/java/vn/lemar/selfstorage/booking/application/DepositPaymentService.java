@@ -10,11 +10,13 @@ import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedExcep
 import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceStatus;
+import vn.lemar.selfstorage.booking.domain.InvoiceType;
 import vn.lemar.selfstorage.booking.domain.RentalOrder;
-import vn.lemar.selfstorage.booking.domain.StorageUnit;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.booking.repository.RentalOrderRepository;
-import vn.lemar.selfstorage.booking.repository.StorageUnitRepository;
+import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
+import vn.lemar.selfstorage.facility.application.StorageUnitView;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentSessionQuery;
@@ -33,8 +35,6 @@ import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 @Service
 public class DepositPaymentService {
 
-    private static final String DEPOSIT_TYPE = "Deposit";
-
     private static final DateTimeFormatter TXN_SUFFIX =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
@@ -45,6 +45,8 @@ public class DepositPaymentService {
     // Nguyên văn spec §1.4 — FE hiển thị thẳng cho khách nên không được diễn đạt lại.
     private static final String ORDER_EXPIRED =
             "Đơn thuê kho đã hết hạn. Vui lòng liên hệ cơ sở để được hỗ trợ.";
+    private static final String MAINTENANCE_STATUS = "Maintenance";
+
     private static final String UNIT_TAKEN =
             "Khoang chứa đã được đặt cọc bởi khách hàng khác. Hóa đơn này đã hết hiệu lực.";
     private static final String UNIT_MAINTENANCE =
@@ -56,14 +58,14 @@ public class DepositPaymentService {
 
     private final InvoiceRepository invoices;
     private final RentalOrderRepository orders;
-    private final StorageUnitRepository units;
+    private final StorageUnitQuery units;
     private final PaymentService payments;
     private final PaymentSessionQuery sessions;
     private final CurrentAccountProvider currentAccount;
     private final InvoiceVoidingService invoiceVoiding;
 
     public DepositPaymentService(InvoiceRepository invoices, RentalOrderRepository orders,
-            StorageUnitRepository units, PaymentService payments, PaymentSessionQuery sessions,
+            StorageUnitQuery units, PaymentService payments, PaymentSessionQuery sessions,
             CurrentAccountProvider currentAccount, InvoiceVoidingService invoiceVoiding) {
         this.invoices = invoices;
         this.orders = orders;
@@ -89,10 +91,10 @@ public class DepositPaymentService {
         Long actorId = currentAccount.getCurrentAccountId();
 
         Invoice invoice = invoices.findById(invoiceId)
-                .filter(found -> found.belongsTo(actorId))
+                .filter(found -> actorId.equals(found.getCustomerId()))
                 .orElseThrow(InvoiceNotFoundException::new);
 
-        if (!invoice.isUnpaid() || !DEPOSIT_TYPE.equals(invoice.getType())) {
+        if (invoice.getStatus() != InvoiceStatus.UNPAID || invoice.getType() != InvoiceType.DEPOSIT) {
             // Hóa đơn đã thanh toán/hủy, hoặc không phải hóa đơn cọc — không có đường đi tiếp.
             throw new DepositNotAllowedException("Hóa đơn này không ở trạng thái chờ thanh toán cọc.");
         }
@@ -101,32 +103,27 @@ public class DepositPaymentService {
                 .orElseThrow(InvoiceNotFoundException::new);
 
         // (1) Đơn quá hạn — chặn trước khi đụng tới khoang.
-        if (order.isExpiredAt(Instant.now())) {
+        if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(Instant.now())) {
             throw new DepositNotAllowedException(ORDER_EXPIRED);
         }
 
-        // Khoá khoang trước mọi phép kiểm liên quan tới nó — xem javadoc findByIdForUpdate.
-        StorageUnit unit = units.findByIdForUpdate(order.getUnitId())
+        // Khoá row khoang trước mọi phép kiểm phụ thuộc trạng thái của nó. Khoang thuộc module
+        // facility nên đi qua public API của họ, không map entity thứ hai lên cùng một bảng.
+        StorageUnitView unit = units.lock(order.getUnitId())
                 .orElseThrow(() -> new DepositNotAllowedException(UNIT_MAINTENANCE));
 
         // (2)(3) Khoang không còn dùng được — hóa đơn hết hiệu lực, FM phải đề xuất khoang khác.
-        switch (unit.getStatus()) {
-            case RESERVED, RENTED -> {
-                voidInvoice(invoice, unit, actorId);
-                throw new DepositNotAllowedException(UNIT_TAKEN);
-            }
-            case MAINTENANCE -> {
-                voidInvoice(invoice, unit, actorId);
-                throw new DepositNotAllowedException(UNIT_MAINTENANCE);
-            }
-            default -> {
-                // Available — đi tiếp.
-            }
+        if (!unit.isAvailable()) {
+            voidInvoice(invoice, unit, actorId);
+            throw new DepositNotAllowedException(
+                    MAINTENANCE_STATUS.equals(unit.status()) ? UNIT_MAINTENANCE : UNIT_TAKEN);
         }
 
-        // (4) Khoang đang có phiên thanh toán khác còn mở. Kiểm theo khoang, không theo hóa đơn:
-        // hai khách khác nhau trả cho hai hóa đơn khác nhau vẫn tranh cùng một khoang.
-        if (sessions.hasOpenSession(invoiceIdsOnUnit(unit.getId()))) {
+        // (4) Khoang đang có phiên thanh toán của NGƯỜI KHÁC còn mở. Kiểm theo khoang chứ không
+        // theo hóa đơn, vì hai khách trả cho hai hóa đơn khác nhau vẫn tranh cùng một khoang —
+        // nhưng phải trừ chính hóa đơn này ra: khách bấm back rồi bấm lại không phải "khách khác",
+        // chặn họ 15 phút là sai.
+        if (sessions.hasOpenSession(otherInvoicesOnUnit(unit.id(), invoice.getId()))) {
             throw new DepositNotAllowedException(UNIT_BUSY);
         }
 
@@ -137,17 +134,21 @@ public class DepositPaymentService {
     }
 
     /** Uỷ cho bean riêng để bản ghi `Canceled` commit độc lập với việc ném 409. */
-    private void voidInvoice(Invoice invoice, StorageUnit unit, Long actorId) {
+    private void voidInvoice(Invoice invoice, StorageUnitView unit, Long actorId) {
         invoiceVoiding.voidForUnavailableUnit(
-                invoice.getId(), unit.getCode(), unit.getFacilityId(), actorId);
+                invoice.getId(), unit.code(), unit.facilityId(), actorId);
     }
 
-    private List<Long> invoiceIdsOnUnit(Long unitId) {
+    /** Hóa đơn của mọi đơn trỏ vào khoang này, trừ hóa đơn đang được thanh toán. */
+    private List<Long> otherInvoicesOnUnit(Long unitId, Long currentInvoiceId) {
         List<Long> orderIds = orders.findByUnitId(unitId).stream().map(RentalOrder::getId).toList();
         if (orderIds.isEmpty()) {
             return List.of();
         }
-        return invoices.findByOrderIdIn(orderIds).stream().map(Invoice::getId).toList();
+        return invoices.findByOrderIdIn(orderIds).stream()
+                .map(Invoice::getId)
+                .filter(id -> !id.equals(currentInvoiceId))
+                .toList();
     }
 
     /**

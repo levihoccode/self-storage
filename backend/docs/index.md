@@ -76,6 +76,7 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
+| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 | `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
@@ -103,6 +104,19 @@ Policy `order.expiry_days` (luồng convert cần) seed ở migration V5 — kh�
 V6 thu hẹp CHECK `rental_orders.status` còn 6 giá trị (bỏ `Expired` — spec gộp vào `Canceled`).
 V7 thêm 4 action vào CHECK `audit_logs.action`: `RENTAL_REQUEST_CONVERTED`, `RENTAL_REQUEST_EXPIRED`
 (chờ cron chuyển request hết hạn), `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED`.
+V8 (khách đồng ý / từ chối đề xuất, FM đề xuất lại):
+
+- CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
+  hoặc đơn bị huỷ theo Cancellation Cascade); dòng `Expired` cũ (nếu có) được chuyển sang `Canceled`.
+- Thêm cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; Flow 1.3 chỉ
+  đọc: FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
+- Thêm action `PROPOSAL_CANCELED` vào CHECK `audit_logs.action` (proposal bị huỷ vì khoang hết khả dụng lúc
+  khách đồng ý).
+- Seed policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực (`storage_units.monthly_price`,
+  trống thì `unit_types.monthly_price`) × số tháng này.
+
+Muốn thử luồng đồng ý / từ chối trên DB local khi chưa có đơn từ luồng convert thì chạy tay
+`backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.
 
 > ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
 > rồi `docker compose up -d` trước khi chạy lại.

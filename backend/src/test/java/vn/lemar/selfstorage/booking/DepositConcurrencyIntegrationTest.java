@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +51,8 @@ class DepositConcurrencyIntegrationTest {
     private JdbcTemplate jdbc;
 
     private Long invoiceId;
+    private Long rivalInvoiceId;
+    private String rivalEmail;
     private Long unitId;
 
     @BeforeEach
@@ -81,16 +84,37 @@ class DepositConcurrencyIntegrationTest {
                 "INSERT INTO rental_orders (request_id, customer_id, unit_id, status, expires_at)"
                         + " VALUES (?, ?, ?, 'Pending', now() + interval '3 days') RETURNING id",
                 Long.class, requestId, customerId, unitId);
-        invoiceId = jdbc.queryForObject(
+        invoiceId = seedInvoice(orderId, customerId, "INV-DEP-RACE-A");
+
+        // Khách thứ hai, đơn thứ hai, nhưng cùng khoang — đây mới là ca nhánh 4 phải chặn.
+        Long rivalId = jdbc.queryForObject(
+                "SELECT id FROM accounts WHERE email <> ? AND email_verified_at IS NOT NULL"
+                        + " ORDER BY id LIMIT 1", Long.class, CUSTOMER_EMAIL);
+        rivalEmail = jdbc.queryForObject("SELECT email FROM accounts WHERE id = ?", String.class, rivalId);
+        Long rivalRequestId = jdbc.queryForObject(
+                "INSERT INTO rental_requests (facility_id, customer_name, normalized_customer_email,"
+                        + " customer_phone, unit_type_id, start_date, period, status)"
+                        + " VALUES (?, 'Tran Thi B', 'rival@test.local', '0900000001', ?, CURRENT_DATE,"
+                        + " 1, 'Approved') RETURNING id",
+                Long.class, facilityId, unitTypeId);
+        Long rivalOrderId = jdbc.queryForObject(
+                "INSERT INTO rental_orders (request_id, customer_id, unit_id, status, expires_at)"
+                        + " VALUES (?, ?, ?, 'Pending', now() + interval '3 days') RETURNING id",
+                Long.class, rivalRequestId, rivalId, unitId);
+        rivalInvoiceId = seedInvoice(rivalOrderId, rivalId, "INV-DEP-RACE-B");
+    }
+
+    private Long seedInvoice(Long orderId, Long customerId, String code) {
+        return jdbc.queryForObject(
                 "INSERT INTO invoices (order_id, customer_id, code, title, type, status, amount, due_date)"
-                        + " VALUES (?, ?, 'INV-DEP-RACE', 'Dat coc khoang chua', 'Deposit', 'Unpaid',"
+                        + " VALUES (?, ?, ?, 'Dat coc khoang chua', 'Deposit', 'Unpaid',"
                         + " 10000.00, now() + interval '3 days') RETURNING id",
-                Long.class, orderId, customerId);
+                Long.class, orderId, customerId, code);
     }
 
     @Test
-    void twoParallelAttemptsOnTheSameUnitOpenExactlyOneSession() throws Exception {
-        List<Outcome> outcomes = callInParallel(2);
+    void twoCustomersRacingForTheSameUnitOpenExactlyOneSession() throws Exception {
+        List<Outcome> outcomes = callInParallel();
 
         assertThat(outcomes).filteredOn(Outcome::opened)
                 .as("đúng một luồng được mở phiên: %s", outcomes)
@@ -104,17 +128,19 @@ class DepositConcurrencyIntegrationTest {
                 .as("chỉ được một giao dịch Pending cho một khoang").isEqualTo(1);
     }
 
-    private List<Outcome> callInParallel(int threads) throws Exception {
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
+    private List<Outcome> callInParallel() throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch startLine = new CountDownLatch(1);
         try {
             List<Callable<Outcome>> calls = new ArrayList<>();
-            for (int i = 0; i < threads; i++) {
+            for (Map.Entry<Long, String> target
+                    : Map.of(invoiceId, CUSTOMER_EMAIL, rivalInvoiceId, rivalEmail).entrySet()) {
                 calls.add(() -> {
-                    authenticateCurrentThread();
+                    // SecurityContext là ThreadLocal; mỗi luồng đăng nhập bằng chủ hóa đơn của nó.
+                    authenticateCurrentThread(target.getValue());
                     startLine.await();
                     try {
-                        service.startDeposit(invoiceId, "1.2.3.4");
+                        service.startDeposit(target.getKey(), "1.2.3.4");
                         return new Outcome(true, null);
                     } catch (DepositNotAllowedException e) {
                         return new Outcome(false, e.getMessage());
@@ -137,9 +163,9 @@ class DepositConcurrencyIntegrationTest {
     }
 
     /** SecurityContext là ThreadLocal nên mỗi luồng phải tự đặt, không kế thừa từ luồng test. */
-    private void authenticateCurrentThread() {
+    private void authenticateCurrentThread(String email) {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(CUSTOMER_EMAIL, null,
+                new UsernamePasswordAuthenticationToken(email, null,
                         List.of(new SimpleGrantedAuthority("ACCOUNT_ACTIVE"))));
     }
 

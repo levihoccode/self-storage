@@ -11,10 +11,15 @@ import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedExcep
 import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
+import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenException;
+import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.ProposalValidationException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -83,4 +88,26 @@ public class BookingExceptionHandler {
     public ResponseEntity<ApiError> handleUnitUnavailable(StorageUnitUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
     }
+    // ---- Flow 1.3: đồng ý / từ chối / đề xuất lại / FM xem, huỷ đơn
+
+    @ExceptionHandler({ProposalNotFoundException.class, RentalOrderNotFoundException.class})
+    public ResponseEntity<ApiError> handleProposalNotFound(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProposalForbiddenException.class)
+    public ResponseEntity<ApiError> handleProposalForbidden(ProposalForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProposalConflictException.class)
+    public ResponseEntity<ApiError> handleProposalConflict(ProposalConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ProposalValidationException.class)
+    public ResponseEntity<ApiError> handleProposalValidation(ProposalValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.now(ex.getMessage()));
+    }
 }
+

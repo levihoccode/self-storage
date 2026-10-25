@@ -14,6 +14,7 @@ import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.domain.Invoice;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
+import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationType;
@@ -36,13 +37,15 @@ public class InvoiceVoidingService {
     private final InvoiceRepository invoices;
     private final NotificationService notifications;
     private final FacilityAccess facilities;
+    private final AccountQueryService accounts;
     private final AuditRecorder audit;
 
     public InvoiceVoidingService(InvoiceRepository invoices, NotificationService notifications,
-            FacilityAccess facilities, AuditRecorder audit) {
+            FacilityAccess facilities, AccountQueryService accounts, AuditRecorder audit) {
         this.invoices = invoices;
         this.notifications = notifications;
         this.facilities = facilities;
+        this.accounts = accounts;
         this.audit = audit;
     }
 
@@ -57,14 +60,17 @@ public class InvoiceVoidingService {
                 String.valueOf(invoice.getId()), Map.of("status", "Unpaid"),
                 Map.of("status", "Canceled"), "Khoang " + unitCode + " không còn khả dụng", actorId));
 
-        Optional<Long> manager = facilities.findManagerAccountId(facilityId);
+        Optional<Long> manager = facilities.managerAccountId(facilityId);
         if (manager.isEmpty()) {
             // Thiếu người nhận không được chặn việc vô hiệu hóa đơn.
             LOG.warn("Cơ sở {} chưa gán FM, bỏ qua thông báo re-propose cho hóa đơn {}",
                     facilityId, invoiceId);
             return;
         }
-        notifications.notify(manager.get(), null, NotificationRecipient.FM,
+        // recipientEmail bắt buộc, thiếu thì SmtpEmailSender bỏ qua gửi mail — backend/AGENTS.md
+        // yêu cầu cả email lẫn thông báo trong app.
+        notifications.notify(manager.get(), accounts.requireEmailById(manager.get()),
+                NotificationRecipient.FM,
                 NotificationType.PROPOSAL_REPROPOSAL_REQUIRED,
                 Map.of("orderCode", String.valueOf(invoice.getOrderId()), "unitCode", unitCode),
                 invoice.getOrderId());
