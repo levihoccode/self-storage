@@ -56,9 +56,10 @@ Cọc bổ sung **không** chuyển trạng thái đơn lần hai và **không**
 đơn đã `Deposited` từ lần cọc đầu (`booking/proposal-flow.md` › Ranh giới). Khoang mới chưa được
 reserve ở luồng đổi khoang, nên bước thu tiền này mới là chỗ giữ nó (cùng file › Invariants).
 
-**Thứ tự khóa: đơn → hóa đơn → khoang.** B3 khóa row đơn ở mọi đường ghi, nên B4 phải khóa cùng
-thứ tự; khác thứ tự là deadlock, không khóa là B3 đọc được hóa đơn nửa chừng. Để lấy `order_id`
-mà chưa nạp entity hóa đơn, dùng projection `InvoiceRepository.findOrderIdById`.
+**Thứ tự khóa: đơn → hóa đơn → khoang.** Luồng đề xuất khoang
+(`booking/proposal-flow.md`) khóa row đơn ở mọi đường ghi, nên luồng thu cọc phải khóa cùng thứ
+tự; khác thứ tự là deadlock, không khóa thì luồng kia đọc được hóa đơn nửa chừng. Để lấy
+`order_id` mà chưa nạp entity hóa đơn, dùng projection `InvoiceRepository.findOrderIdById`.
 
 Hạn đơn **không đổi**: `expires_at` set một lần khi tạo đơn (`specs/db-table-draft.md` ›
 RentalOrder), và hạn giữ kho là phần còn lại của chính hạn đó.
