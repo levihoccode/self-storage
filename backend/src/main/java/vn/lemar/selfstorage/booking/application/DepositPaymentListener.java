@@ -73,46 +73,57 @@ public class DepositPaymentListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onPaymentSucceeded(PaymentSucceeded event) {
-        Optional<Invoice> found = invoices.findById(event.invoiceId());
-        if (found.isEmpty()) {
+        // Khoá row đơn TRƯỚC, rồi mới tới hoá đơn — cùng thứ tự với B3 (ProposalService khoá đơn
+        // ở mọi đường ghi). Khác thứ tự là deadlock; không khoá là B3 đọc được hoá đơn nửa chừng.
+        Optional<Long> orderId = invoices.findOrderIdById(event.invoiceId());
+        if (orderId.isEmpty()) {
             LOG.error("Thanh toán thành công nhưng không tìm thấy hóa đơn {} (vnp_TxnRef={})"
                     + " — cần đối soát tay", event.invoiceId(), event.vnpTxnRef());
             return;
         }
-        Invoice invoice = found.get();
+        RentalOrder order = orders.findByIdForUpdate(orderId.get()).orElseThrow();
+        Invoice invoice = invoices.findByIdForUpdate(event.invoiceId()).orElseThrow();
 
-        // Listener này chỉ chốt hóa đơn cọc. Hóa đơn thuê/gia hạn gắn contract_id, không có
-        // order_id — đi tiếp sẽ ném lỗi ở orders.findById(null).
-        if (invoice.getType() != InvoiceType.DEPOSIT) {
+        if (!isDepositKind(invoice.getType())) {
+            // Hoá đơn thuê/gia hạn thuộc luồng khác; chúng gắn contract_id chứ không gắn đơn.
             return;
         }
-
         if (invoice.getStatus() != InvoiceStatus.UNPAID) {
             reportAlreadySettled(invoice, event);
             return;
         }
 
-        RentalOrder order = orders.findByIdForUpdate(invoice.getOrderId()).orElseThrow();
-
-        // Khoang có thể đã đổi chủ trong lúc phiên còn mở: VNPay retry tới 10 lần × 5 phút, nên
-        // IPN có thể về sau khi khách khác đã cọc xong khoang này.
+        // Khoang có thể đã đổi chủ trong lúc phiên còn mở: cổng retry tới 10 lần × 5 phút.
         if (!units.reserveIfAvailable(order.getUnitId())) {
             reportUnitNoLongerAvailable(invoice, order, event);
             return;
         }
 
         invoice.markPaid();
+        audit.record(new AuditEntry(AuditAction.STORAGE_UNIT_RESERVED, AuditEntityType.STORAGE_UNIT,
+                String.valueOf(order.getUnitId()), Map.of("status", "Available"),
+                Map.of("status", "Reserved"), null, null));
+
+        if (invoice.getType() == InvoiceType.DEPOSIT_SUPPLEMENT) {
+            // Đổi khoang sau khi đã cọc: đơn đã `Deposited` từ lần cọc đầu, chỉ giữ khoang mới.
+            // Không mark lại, không gửi lại "Đặt cọc thành công".
+            LOG.info("Đã thu cọc bổ sung cho hóa đơn {}, giữ khoang {} cho đơn {}",
+                    invoice.getId(), order.getUnitId(), order.getId());
+            return;
+        }
 
         RentalOrderStatus previousStatus = order.getStatus();
         order.markDeposited();
         audit.record(new AuditEntry(AuditAction.RENTAL_ORDER_DEPOSITED, AuditEntityType.RENTAL_ORDER,
                 String.valueOf(order.getId()), Map.of("status", previousStatus.dbValue()),
                 Map.of("status", RentalOrderStatus.DEPOSITED.dbValue()), null, null));
-        audit.record(new AuditEntry(AuditAction.STORAGE_UNIT_RESERVED, AuditEntityType.STORAGE_UNIT,
-                String.valueOf(order.getUnitId()), Map.of("status", "Available"),
-                Map.of("status", "Reserved"), null, null));
 
         notifyCustomer(invoice, order);
+    }
+
+    /** Cọc đầu và cọc bổ sung đều do B4 thu; khác nhau ở chỗ có chuyển trạng thái đơn hay không. */
+    private static boolean isDepositKind(InvoiceType type) {
+        return type == InvoiceType.DEPOSIT || type == InvoiceType.DEPOSIT_SUPPLEMENT;
     }
 
     /**

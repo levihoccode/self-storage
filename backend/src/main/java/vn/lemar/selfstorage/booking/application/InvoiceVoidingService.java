@@ -12,6 +12,7 @@ import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.domain.Invoice;
+import vn.lemar.selfstorage.booking.domain.InvoiceStatus;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
@@ -52,9 +53,15 @@ public class InvoiceVoidingService {
     /** Hóa đơn mất hiệu lực; FM nhận thông báo để đề xuất khoang khác. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void voidForUnavailableUnit(Long invoiceId, String unitCode, Long facilityId, Long actorId) {
-        Invoice invoice = invoices.findById(invoiceId).orElseThrow();
+        // Khoá row: IPN có thể đang đánh `Paid` cùng lúc. Kiểm trạng thái trong bộ nhớ rồi ghi đè
+        // là không đủ — hoá đơn đã thu tiền mà bị huỷ thì tiền thành mồ côi.
+        Invoice invoice = invoices.findByIdForUpdate(invoiceId).orElseThrow();
+        if (invoice.getStatus() != InvoiceStatus.UNPAID) {
+            LOG.warn("Hóa đơn {} không còn Unpaid ({}), bỏ qua việc huỷ",
+                    invoiceId, invoice.getStatus().dbValue());
+            return;
+        }
         invoice.cancel();
-        invoices.save(invoice);
 
         audit.record(new AuditEntry(AuditAction.INVOICE_CANCELED, AuditEntityType.INVOICE,
                 String.valueOf(invoice.getId()), Map.of("status", "Unpaid"),

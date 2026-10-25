@@ -1,9 +1,12 @@
 package vn.lemar.selfstorage.booking.repository;
 
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.lemar.selfstorage.booking.domain.Invoice;
@@ -26,4 +29,19 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     /** Hóa đơn của một nhóm đơn — dùng để hỏi payment xem khoang có phiên nào đang mở. */
     List<Invoice> findByOrderIdIn(List<Long> orderIds);
+
+    /** Chỉ lấy đơn của hoá đơn, không nạp entity — để khoá row đơn trước khi đụng tới hoá đơn. */
+    @Query("select i.orderId from Invoice i where i.id = :id")
+    Optional<Long> findOrderIdById(@Param("id") Long id);
+
+    /**
+     * Khoá row hoá đơn ({@code SELECT ... FOR UPDATE}).
+     *
+     * <p>Huỷ hoá đơn và ghi nhận thanh toán là hai luồng khác nhau cùng sửa một dòng: B3 huỷ khi
+     * đề xuất lại, IPN đánh {@code Paid}. Kiểm trạng thái trong bộ nhớ rồi ghi đè là không đủ —
+     * phải khoá. Luôn khoá <strong>sau</strong> row đơn để cùng thứ tự với B3, tránh deadlock.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from Invoice i where i.id = :id")
+    Optional<Invoice> findByIdForUpdate(@Param("id") Long id);
 }

@@ -94,7 +94,9 @@ public class DepositPaymentService {
                 .filter(found -> actorId.equals(found.getCustomerId()))
                 .orElseThrow(InvoiceNotFoundException::new);
 
-        if (invoice.getStatus() != InvoiceStatus.UNPAID || invoice.getType() != InvoiceType.DEPOSIT) {
+        boolean depositKind = invoice.getType() == InvoiceType.DEPOSIT
+                || invoice.getType() == InvoiceType.DEPOSIT_SUPPLEMENT;
+        if (invoice.getStatus() != InvoiceStatus.UNPAID || !depositKind) {
             // Hóa đơn đã thanh toán/hủy, hoặc không phải hóa đơn cọc — không có đường đi tiếp.
             throw new DepositNotAllowedException("Hóa đơn này không ở trạng thái chờ thanh toán cọc.");
         }

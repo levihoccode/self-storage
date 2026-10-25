@@ -78,7 +78,8 @@ class DepositPaymentListenerTest {
         when(order.getUnitId()).thenReturn(UNIT_ID);
         when(order.getStatus()).thenReturn(RentalOrderStatus.PENDING);
 
-        when(invoices.findById(INVOICE_ID)).thenReturn(Optional.of(invoice));
+        when(invoices.findOrderIdById(INVOICE_ID)).thenReturn(Optional.of(ORDER_ID));
+        when(invoices.findByIdForUpdate(INVOICE_ID)).thenReturn(Optional.of(invoice));
         when(orders.findByIdForUpdate(ORDER_ID)).thenReturn(Optional.of(order));
         when(units.reserveIfAvailable(UNIT_ID)).thenReturn(true);
         when(accounts.requireEmailById(CUSTOMER_ID)).thenReturn(CUSTOMER_EMAIL);
@@ -163,20 +164,25 @@ class DepositPaymentListenerTest {
         verifyNoInteractions(units);
     }
 
-    /** Hoá đơn thuê gắn contract_id, order_id null — đi tiếp sẽ nổ ở orders.findByIdForUpdate. */
+    /**
+     * Hoá đơn thuê/gia hạn thuộc luồng khác. Row đơn vẫn bị khoá trước (thứ tự khoá phải khớp B3)
+     * nhưng không được đổi gì.
+     */
     @Test
-    void nonDepositInvoiceIsIgnoredBeforeTouchingTheOrder() {
+    void nonDepositInvoiceChangesNothing() {
         when(invoice.getType()).thenReturn(InvoiceType.RENTAL);
 
         listener.onPaymentSucceeded(succeeded());
 
-        verifyNoInteractions(orders);
+        verify(order, never()).markDeposited();
+        verify(invoice, never()).markPaid();
         verifyNoInteractions(units);
+        verifyNoInteractions(audit);
     }
 
     @Test
     void missingInvoiceDoesNotThrowSoTheIpnStaysConfirmed() {
-        when(invoices.findById(INVOICE_ID)).thenReturn(Optional.empty());
+        when(invoices.findOrderIdById(INVOICE_ID)).thenReturn(Optional.empty());
 
         listener.onPaymentSucceeded(succeeded());
 
@@ -191,6 +197,36 @@ class DepositPaymentListenerTest {
         verifyNoInteractions(invoices);
         verifyNoInteractions(units);
         verifyNoInteractions(audit);
+    }
+
+    /**
+     * Đổi khoang sau khi đã cọc (#172): đơn đã `Deposited` từ lần cọc đầu. Thu cọc bổ sung chỉ
+     * giữ khoang mới — không chuyển trạng thái đơn lần hai, không gửi lại thông báo cọc thành công.
+     */
+    @Test
+    void supplementReservesTheNewUnitWithoutDepositingAgain() {
+        when(invoice.getType()).thenReturn(InvoiceType.DEPOSIT_SUPPLEMENT);
+
+        listener.onPaymentSucceeded(succeeded());
+
+        verify(invoice).markPaid();
+        verify(units).reserveIfAvailable(UNIT_ID);
+        verify(order, never()).markDeposited();
+        verifyNoInteractions(notifications);
+        verify(audit, times(1)).record(any());
+    }
+
+    /**
+     * B3 khoá row đơn ở mọi đường ghi. B4 phải khoá cùng thứ tự — đơn trước, hoá đơn sau — nếu
+     * không thì hoặc deadlock, hoặc B3 đọc được hoá đơn nửa chừng.
+     */
+    @Test
+    void theOrderRowIsLockedBeforeTheInvoice() {
+        listener.onPaymentSucceeded(succeeded());
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(orders, invoices);
+        inOrder.verify(orders).findByIdForUpdate(ORDER_ID);
+        inOrder.verify(invoices).findByIdForUpdate(INVOICE_ID);
     }
 
     /**
