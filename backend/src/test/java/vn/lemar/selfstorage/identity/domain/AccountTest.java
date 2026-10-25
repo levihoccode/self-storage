@@ -7,13 +7,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AccountTest {
 
     @Test
-    void newAccountNormalizesEmailAndDefaultsToActive() {
+    void newAccountNormalizesEmailAndCannotLoginUntilVerified() {
         Account account = new Account(" Customer@Example.com ", "hash", new Role("CUSTOMER"));
 
         assertThat(account.getEmail()).isEqualTo("customer@example.com");
         assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(account.isVerified()).isFalse();
-        assertThat(account.isLoginAllowed()).isTrue();
+        assertThat(account.isLoginAllowed()).isFalse();
     }
 
     @Test
@@ -30,6 +30,7 @@ class AccountTest {
         assertThat(account.isVerified()).isTrue();
         assertThat(account.getEmailVerifiedAt()).isNotNull();
         assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(account.isLoginAllowed()).isTrue();
     }
 
     @Test

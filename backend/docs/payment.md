@@ -29,7 +29,7 @@ Khách trả tiền trên cổng VNPay
          kiểm chữ ký để hiển thị validSignature — không ghi DB, không bắn event
    ▼
 Module sở hữu Invoice nghe PaymentSucceeded → chuyển Invoice sang Paid
-   (chưa nối — chờ flow B2/B3/B4)
+   (chưa nối — chờ các luồng đơn hàng tương ứng)
 ```
 
 ## Hành vi
@@ -78,9 +78,9 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 
 ## Trạng thái hiện tại
 
-- Gateway + IPN + Return + entity: có (PR #62 — A6).
+- Gateway + IPN + Return + entity: có (VNPay).
 - **Endpoint khởi tạo thanh toán `POST /api/invoices/{invoiceId}/pay`: chưa có** — FE nút thanh toán
-  đang chạy chế độ demo khi chưa cấu hình `VITE_API_BASE_URL`; endpoint thật thuộc B4 (#114).
-- **Chưa có ai nghe `PaymentSucceeded`/`PaymentFailed`** — invoice/booking chưa có code (B2/B3/B4).
-- **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc B4 (#114).
-- **Chặn hủy đơn khi phiên thanh toán còn mở: chờ duyệt spec-gap #117** — spec + code sẽ vào cùng PR.
+  đang chạy chế độ demo khi chưa cấu hình `VITE_API_BASE_URL`; endpoint thật thuộc luồng đặt cọc.
+- **Chưa có ai nghe `PaymentSucceeded`/`PaymentFailed`** — invoice/booking chưa có code (các luồng đơn hàng).
+- **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc luồng đặt cọc.
+- **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.

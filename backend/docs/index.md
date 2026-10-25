@@ -14,13 +14,14 @@ endpoint nằm trong thư mục [`routes/`](routes.md) — file này chỉ ghi q
 
 Spring Boot 3.3.5 · Java 17 · Spring Modulith · PostgreSQL 16 · Redis · MailHog (mail dev).
 
-Kiến trúc **modular monolith** theo issue #15: `vn.lemar.selfstorage` là package gốc,
+Kiến trúc **modular monolith**: `vn.lemar.selfstorage` là package gốc,
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại
 và FM phụ trách facility; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `media` upload file
-(ảnh/PDF) lên Cloudinary.
+(ảnh/PDF) lên Cloudinary; `booking` có luồng nội bộ convert request đã duyệt thành đơn + proposal
+([booking/conversion.md](booking/conversion.md)).
 
 Layout trong một module:
 
@@ -65,11 +66,17 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `JWT_SECRET` | Khóa ký JWT, Base64, ≥ 32 byte sau decode | — (bắt buộc) |
 | `JWT_ACCESS_TOKEN_TTL` | TTL access token (ISO-8601 duration) | `PT15M` |
 | `BCRYPT_STRENGTH` | Bcrypt cost (log2 rounds), OWASP khuyến nghị ≥ 10 | `10` |
+| `EMAIL_VERIFICATION_TTL` | TTL mã xác minh email (ISO-8601 duration) | `PT10M` |
+| `EMAIL_VERIFICATION_MAX_ATTEMPTS` | Số lần nhập sai tối đa cho mỗi mã xác minh | `5` |
+| `EMAIL_VERIFICATION_RESEND_COOLDOWN` | Cooldown giữa hai lần gửi lại mã | `PT60S` |
+| `LOGIN_RATE_LIMIT_EMAIL_MAX` | Số lần đăng nhập sai tối đa theo email / window | `5` |
+| `LOGIN_RATE_LIMIT_IP_MAX` | Số lần đăng nhập sai tối đa theo IP / window | `20` |
+| `LOGIN_RATE_LIMIT_WINDOW` | Cửa sổ đếm lần đăng nhập sai | `PT15M` |
 | `VNPAY_TMN_CODE` | Mã website đăng ký trên VNPay | — (bắt buộc) |
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
 | `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc) |
-| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
+| `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` / `{{proposalLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 | `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_KEY` | API key Cloudinary | — (bắt buộc) |
 | `CLOUDINARY_SECRET` | API secret Cloudinary | — (bắt buộc) |
@@ -84,40 +91,45 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql`, `V2__baseline_seed.sql`,
-`V3__rbac_permissions_seed.sql`. V1/V2 có mirror ở `backend/sql/` — sửa thì sửa cả hai nơi
-(CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V10__unit_change_release_audit.sql`.
+V1/V2 có mirror ở `backend/sql/`
+— sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
-(chưa xác minh, vẫn login được) và `banned` (403), mật khẩu `Test@1234`.
+(chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
 
-Chốt #113 (spec sẽ cập nhật sau review, tạm lệch có chủ đích):
+Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main có V7):
 
-- CHECK `rental_orders.status` **không còn `Expired`** (#87) — quá hạn cũng là `Canceled` + `cancel_reason`.
-- CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
-  hoặc đơn bị huỷ theo Cancellation Cascade).
-- Seed thêm policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
-  (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
-
-Chốt PR #136 (sửa thẳng V1 tương tự):
-
-- Thêm cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; B3 chỉ đọc:
+- Cột `rental_orders.needs_reproposal BOOLEAN NOT NULL DEFAULT FALSE` — Flow 2 bật/tắt; Flow 1.3 chỉ đọc:
   FM được đề xuất lại khi đơn chưa đóng, không có proposal `Pending`, và đơn `Pending` hoặc cờ này bật.
-- Thêm audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
+- CHECK `proposal_feedbacks.status` đổi `Expired` → **`Canceled`** (khoang hết khả dụng khi khách đồng ý,
+  hoặc đơn bị huỷ theo Cancellation Cascade); dòng `Expired` cũ (nếu có) được chuyển sang `Canceled`.
+- Audit action `PROPOSAL_CANCELED` (proposal bị huỷ vì khoang hết khả dụng lúc khách đồng ý).
+- Seed policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
+  (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
+- V9 seed `fee.unit_change = 0` (Flow 4 chốt giá trị) và thêm audit action `DEPOSIT_REFUND_REQUIRED`
+  cho trường hợp đổi khoang sau khi cọc dư — trước B4, FM hoàn thủ công; B4 hoàn tự động về thẻ đã liên kết.
+- V10 thêm audit action `UNIT_CHANGE_RELEASED` — nhả khoang cũ khi khách đổi khoang sau khi đã cọc;
+  khoang mới chưa reserve cho tới khi thanh toán (B4); trường hợp `delta ≤ 0` cần follow-up reserve riêng.
+- V11 thêm type `DepositSupplement` cho hoá đơn chênh lệch cọc và 2 partial unique index: một `Deposit`
+  active (Unpaid/Paid) + một `DepositSupplement` Unpaid trên mỗi đơn.
 
-Các thay đổi CHECK/cột sửa thẳng V1 (baseline còn disposable) → DB dev cũ phải `docker compose down -v`.
+Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
+`rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
+CHECK `audit_logs.action`.
 
-Seed V2 chưa có đơn thuê/proposal (do luồng convert B2 tạo). Muốn thử Flow 1.3 trên DB local thì
+Seed V2 chưa có đơn thuê/proposal (do luồng convert tạo). Muốn thử Flow 1.3 trên DB local thì
 chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.
-
-> ⚠️ Sửa migration đã áp dụng → DB dev cũ lệch checksum Flyway, phải `docker compose down -v`
-> rồi `docker compose up -d` trước khi chạy lại.
 
 ## Gửi email (module notification)
 
 - Module khác inject `vn.lemar.selfstorage.notification.EmailSender` và gọi
   `send(to, subject, body)` (văn bản thuần) hoặc `sendHtml(to, subject, htmlBody)`.
+- Module `identity` **không** gọi trực tiếp `EmailSender` (notification đã phụ thuộc ngược lại
+  identity — cycle): identity phát event `VerificationEmailRequested`, listener
+  `VerificationEmailListener` trong notification gửi email. Dùng pattern này khi module nguồn
+  không thể phụ thuộc notification.
 - Gửi lỗi chỉ log, không ném exception → không rollback nghiệp vụ của caller; `true` = đã gửi
   hoặc đã xếp lịch, `false` = không gửi được (thiếu recipient/lỗi).
 - Đang trong transaction → email được xếp lịch gửi **sau commit**; rollback thì không gửi.
@@ -131,7 +143,7 @@ chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration
   - Gửi best-effort, không retry/outbox. Process chết sau commit nhưng trước khi gửi xong thì
     email mất, không dấu vết. Gửi lỗi trả `false` và không thử lại.
   - Gửi đồng bộ trên thread caller, kể cả nhánh afterCommit — SMTP chậm làm chậm response.
-    Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker, cần đổi spec trước.
+    Chưa có `@Async`. Muốn bền (không mất mail, retry được) phải làm outbox + worker — cần chốt và ghi vào docs trước.
   - Layout HTML là mẫu cố định dùng chung; nội dung theo `(type, recipient)` do
     `NotificationTemplateCatalog` render (placeholder `{{key}}`).
 - Việc còn lại của module (caller nghiệp vụ, cron dedup, pagination): [follow-up.md](follow-up.md).
@@ -144,22 +156,24 @@ chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration
   rollback theo.
 - Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
   hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
-- `AuditAction` (41 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
+- `AuditAction` (48 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
   (`specs/db-table-draft.md` › AuditLog); action không khớp entity → `IllegalStateException`
   (lỗi lập trình, 500).
 - Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =
   hệ thống/cron/IPN. Bảng `audit_logs` append-only.
 - Hợp đồng tích hợp đầy đủ cho module gọi (checklist, ví dụ, call site hiện có):
   [audit-log.md](audit-log.md).
-- **Chưa có caller nghiệp vụ nào nối** (B1–B4/A3a nối ở PR của flow tương ứng) — xem
-  [follow-up.md](follow-up.md).
+- Caller nghiệp vụ hiện có: đăng ký (`ACCOUNT_REGISTERED`), duyệt/từ chối request
+  (`RENTAL_REQUEST_APPROVED`/`REJECTED`), convert (`RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`,
+  `PROPOSAL_CREATED`), claim (`RENTAL_REQUEST_CLAIMED`) — bảng call site ở
+  [audit-log.md](audit-log.md#call-site-hiện-có).
 
 ## Upload file (module media)
 
 - FE upload qua `POST /api/media/uploads` (multipart, field `file`) → `{url, publicId, bytes, format}`;
   URL dùng lại khi submit flow (ảnh hiện trạng, scan hợp đồng, ảnh giấy tờ).
 - Validate JPEG/PNG/WebP/PDF ≤ 10MB (khớp cap free plan Cloudinary); sai → 400 message cụ thể.
-- Storage sau interface `FileStorage` (#15 §6, impl Cloudinary) — đổi provider chỉ thay impl.
+- Storage sau interface `FileStorage` (impl Cloudinary) — đổi provider chỉ thay impl.
 - File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
 - Creds `CLOUDINARY_NAME/KEY/SECRET` để `@NotBlank` — thiếu là app chết lúc boot; test/CI dùng
   giá trị giả, không gọi mạng.
@@ -219,6 +233,9 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
+| [booking/conversion.md](booking/conversion.md) | Convert request → đơn + proposal, claim sau xác minh |
+| [booking/proposal-flow.md](booking/proposal-flow.md) | Đồng ý / từ chối đề xuất khoang, đề xuất lại: sơ đồ, state, invariant |
+| [flows/cancellation-cascade.md](flows/cancellation-cascade.md) | Cascade huỷ đơn: entity, khoang, audit, notification |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
 | [routes/auth/login.md](routes/auth/login.md) | `POST /api/auth/login` |

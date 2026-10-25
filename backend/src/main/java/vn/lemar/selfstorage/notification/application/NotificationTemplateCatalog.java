@@ -59,6 +59,10 @@ public class NotificationTemplateCatalog {
         put(NotificationType.RENTAL_REQUEST_REJECTED, NotificationRecipient.CUSTOMER,
                 "Yêu cầu thuê kho bị từ chối",
                 "Yêu cầu thuê kho của bạn đã bị từ chối. Lý do: {{reason}}.");
+        put(NotificationType.RENTAL_REQUEST_REJECTED_BANNED, NotificationRecipient.CUSTOMER,
+                "Yêu cầu thuê kho bị từ chối",
+                "Tài khoản của bạn hiện đang bị chặn, nên yêu cầu đặt kho của bạn đã bị từ chối. "
+                        + "Vui lòng liên hệ CSKH nếu có sai sót.");
         put(NotificationType.PROPOSAL_REJECTED, NotificationRecipient.FM,
                 "Khách hàng đã từ chối đề xuất",
                 "Khách đã từ chối khoang {{unitCode}}, lý do: {{reason}}.");
@@ -101,6 +105,16 @@ public class NotificationTemplateCatalog {
         put(NotificationType.RENTAL_ORDER_CANCELED, NotificationRecipient.FM,
                 "Đơn thuê kho {{outcome}}",
                 "Đơn {{orderCode}} {{outcome}}. Lý do: {{reason}}.");
+        put(NotificationType.DEPOSIT_REFUND_REQUIRED, NotificationRecipient.FM,
+                "Cần hoàn cọc thủ công",
+                "Đơn {{orderCode}} đổi sang khoang có cọc thấp hơn. Số tiền cần hoàn: {{refundAmount}}.");
+        put(NotificationType.UNIT_CHANGE_PAYMENT_REQUIRED, NotificationRecipient.CUSTOMER,
+                "Thanh toán để giữ khoang mới",
+                "Đơn {{orderCode}}: cần thanh toán thêm {{amount}} để giữ khoang mới. "
+                        + "Khoang chỉ được giữ sau khi thanh toán; xem hoá đơn trong mục Hoá đơn.");
+        put(NotificationType.DEPOSIT_REFUND_PENDING, NotificationRecipient.CUSTOMER,
+                "Cọc dư sẽ được hoàn",
+                "Đơn {{orderCode}}: cọc dư {{refundAmount}} sẽ được cơ sở hoàn lại.");
         put(NotificationType.HANDOVER_COMPLETED, NotificationRecipient.CUSTOMER,
                 "Bàn giao kho hoàn tất",
                 "Đơn {{orderCode}} đã bàn giao khoang {{unitCode}}. Xem biên bản tại {{handoverLink}}.");

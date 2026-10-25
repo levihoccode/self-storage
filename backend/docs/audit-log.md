@@ -5,8 +5,8 @@ purpose: Hợp đồng tích hợp AuditLog cho module gọi — gọi ở đâu
 
 Module `audit` (`backend/src/main/java/vn/lemar/selfstorage/audit/`) là hạ tầng ghi vết;
 module nghiệp vụ chịu trách nhiệm gọi đúng chỗ. Trang này là checklist khi nối audit ở PR của
-flow. Catalog action/entity là nguồn sự thật ở spec — **không chép lại ở đây**:
-`specs/db-table-draft.md` › AuditLog (catalog + CONSTRAINTS + NOTES).
+flow. Catalog action/entity đầy đủ để tham khảo flow ở `specs/db-table-draft.md` › AuditLog;
+trang này ghi các action **đã nối trong code** ở bảng call site bên dưới.
 
 ## Module gọi làm gì
 
@@ -21,20 +21,20 @@ flow. Catalog action/entity là nguồn sự thật ở spec — **không chép 
    `IllegalStateException` (lỗi lập trình, 500), đã có unit test.
 6. `entityId`: truyền id dạng chuỗi, không rỗng — `String.valueOf(id)`.
 7. `actorAccountId`: account thực hiện; `null` khi do hệ thống/cron/IPN.
-8. `reason`: bắt buộc với thao tác override theo spec (nhập lý do); các case khác để null.
+8. `reason`: bắt buộc với thao tác override (nhập lý do); các case khác để null.
 9. `oldValue`/`newValue`: Map/POJO trạng thái trước–sau (serialize thành JSONB); null khi
    không có giá trị tương ứng (ví dụ tạo mới).
 10. Không đưa vào audit: mật khẩu, secret, số thẻ, raw payment payload; không audit thao tác
-    đọc; xác minh email không ghi audit — dùng `Account.email_verified_at` (spec-gap #75).
+    đọc; xác minh email không ghi audit — dùng `Account.email_verified_at`.
 
 Hạ tầng append-only: không có API sửa/xóa bản ghi; module gọi chỉ ghi thêm.
 
 ## Gọi trông như thế nào
 
 ```java
-// Tối giản — tạo tài khoản (A3a)
-auditRecorder.record(AuditEntry.of(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
-        String.valueOf(accountId)));
+// Tạo tài khoản — actor là chính account vừa được tạo
+auditRecorder.record(new AuditEntry(AuditAction.ACCOUNT_REGISTERED, AuditEntityType.ACCOUNT,
+        String.valueOf(account.getId()), null, null, null, account.getId()));
 
 // Thao tác nhiều entity, có old/new + lý do + actor (ví dụ hủy đơn — Flow 6)
 auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER,
@@ -53,10 +53,18 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 
 | Module | Action | Entity | Nối ở |
 |---|---|---|---|
-| — | — | — | Chưa có caller nào — nối ở PR của flow thì thêm một dòng vào bảng này |
+| `identity` | `ACCOUNT_REGISTERED` | `Account` | `identity/application/RegistrationService.verifyEmail` — tạo account sau khi xác minh |
+| `booking` | `RENTAL_REQUEST_APPROVED`, `RENTAL_REQUEST_REJECTED` | `RentalRequest` | `booking/application/RentalRequestService.approve/reject` |
+| `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` — actor = customer vừa xác minh; claim cũng ghi `RENTAL_ORDER_CREATED` + `PROPOSAL_CREATED` (System) |
+| `booking` | `RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED` | `RentalRequest`, `RentalOrder`, `ProposalFeedback` | `booking/application/RentalRequestConversionService.convert` — trigger duyệt (`CONVERTED` chỉ nhánh duyệt); order/proposal tạo ở cả hai trigger; actor = System |
+| `booking` | `PROPOSAL_AGREED`, `PROPOSAL_REJECTED`, `PROPOSAL_REPROPOSED`, `PROPOSAL_CANCELED` | `ProposalFeedback` | `booking/application/ProposalService.agree/reject/repropose` — actor = customer/FM, một bản ghi mỗi lần đổi trạng thái |
+| `booking` | `INVOICE_CREATED`, `INVOICE_CANCELED` | `Invoice` | `booking/application/DepositInvoiceIssuer`, `ProposalService.cancelUnpaidDepositInvoices` và `RentalOrderCancellation` — actor = customer/FM |
+| `booking` | `RENTAL_ORDER_CANCELED` | `RentalOrder`, `ProposalFeedback`, `StorageUnit` | `booking/application/RentalOrderCancellation.cancel` — một bản ghi mỗi entity, cùng lý do huỷ |
+| `booking` | `DEPOSIT_REFUND_REQUIRED` | `RentalOrder` | `booking/application/ProposalService.issueDeposit` — đổi khoang sau khi cọc dư; actor = customer, FM nhận notification hoàn tiền thủ công (B4: hoàn tự động về thẻ đã liên kết) |
+| `booking` | `UNIT_CHANGE_RELEASED` | `StorageUnit` | `booking/application/ProposalService.releaseReplacedUnit` — nhả khoang cũ khi khách đồng ý khoang mới sau khi đã cọc; actor = customer |
 
 ## Xem thêm
 
 - Catalog + constraint + quy tắc "một bản ghi mỗi entity": `specs/db-table-draft.md` › AuditLog.
 - API + known limitation: [index.md](index.md#ghi-audit-module-audit).
-- Việc còn lại (AOP interceptor theo #15 §7): [follow-up.md](follow-up.md).
+- Việc còn lại (AOP interceptor): [follow-up.md](follow-up.md).

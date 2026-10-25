@@ -38,6 +38,8 @@ public class ProposalController {
 
     static final String LIST_MESSAGE = "Lấy danh sách đề xuất khoang thành công";
     static final String AGREE_MESSAGE = "Đã đồng ý khoang. Vui lòng thanh toán hoá đơn đặt cọc";
+    /** Đổi khoang sau cọc mà không phát sinh hoá đơn (delta ≤ 0). */
+    static final String AGREE_NO_INVOICE_MESSAGE = "Đã cập nhật khoang mới cho đơn thuê";
     static final String REJECT_MESSAGE = "Đã từ chối đề xuất khoang";
     static final String REJECT_CANCELED_MESSAGE =
             "Đã từ chối đề xuất khoang. Đơn đã bị huỷ do từ chối quá số khoang cho phép";
@@ -76,18 +78,19 @@ public class ProposalController {
     }
 
     @Operation(summary = "Đồng ý đề xuất khoang",
-            description = "Kiểm khoang còn `Available` (khoá theo `unit_id`). Còn: proposal `Agreed`, gán khoang "
-                    + "vào đơn, tạo hoá đơn `Deposit`/`Unpaid` (số tiền = giá thuê hiệu lực × "
-                    + "`invoice.deposit_months`; hạn = min(now + `invoice.deposit_due_days`, hạn đơn)). Không còn: "
+            description = "Kiểm trạng thái đơn (đóng / quá hạn) và khoang "
+                    + "còn `Available` (khoá theo `unit_id`). Đơn chưa cọc: proposal `Agreed`, gán khoang, tạo "
+                    + "hoá đơn `Deposit`/`Unpaid` đầy đủ. Đơn đã cọc (đổi khoang): tạo hoá đơn bổ sung phần chênh "
+                    + "lệch (thiếu), hoặc báo FM hoàn thủ công (dư), hoặc không tạo gì (bằng). Khoang không còn: "
                     + "proposal chuyển `Canceled`, FM nhận `PROPOSAL_REPROPOSAL_REQUIRED`, trả 409 — thay đổi này "
                     + "vẫn được lưu.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Đã đồng ý, kèm hoá đơn cọc"),
+            @ApiResponse(responseCode = "200", description = "Đã đồng ý; `invoice` chỉ có khi cần thanh toán thêm"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
             @ApiResponse(responseCode = "403", description = "Không phải chủ proposal"),
             @ApiResponse(responseCode = "404", description = "Proposal không tồn tại"),
-            @ApiResponse(responseCode = "409", description = "Proposal không còn Pending, hoặc khoang không còn "
-                    + "khả dụng (\"Khoang đã có người đặt cọc / không khả dụng\")")
+            @ApiResponse(responseCode = "409", description = "Proposal không còn Pending; đơn đã đóng / hết hạn; "
+                    + "hoặc khoang không còn khả dụng (\"Khoang đã có người đặt cọc / không khả dụng\")")
     })
     @PostMapping("/{proposalId}/agree")
     public ResponseEntity<?> agree(Authentication authentication, @PathVariable Long proposalId) {
@@ -95,8 +98,8 @@ public class ProposalController {
         if (result.outcome() == AgreeResult.Outcome.UNIT_UNAVAILABLE) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(UNIT_UNAVAILABLE_MESSAGE));
         }
-        return ResponseEntity.ok(ApiEnvelope.ok(AGREE_MESSAGE,
-                new AgreeResponse(result.proposal(), result.invoice())));
+        String message = result.invoice() == null ? AGREE_NO_INVOICE_MESSAGE : AGREE_MESSAGE;
+        return ResponseEntity.ok(ApiEnvelope.ok(message, new AgreeResponse(result.proposal(), result.invoice())));
     }
 
     @Operation(summary = "Từ chối đề xuất khoang",
@@ -109,7 +112,7 @@ public class ProposalController {
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
             @ApiResponse(responseCode = "403", description = "Không phải chủ proposal"),
             @ApiResponse(responseCode = "404", description = "Proposal không tồn tại"),
-            @ApiResponse(responseCode = "409", description = "Proposal không còn Pending")
+            @ApiResponse(responseCode = "409", description = "Proposal không còn Pending, hoặc đơn đã đóng")
     })
     @PostMapping("/{proposalId}/reject")
     public ResponseEntity<ApiEnvelope<RejectResult>> reject(

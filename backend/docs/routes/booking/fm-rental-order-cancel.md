@@ -4,7 +4,7 @@ purpose: FM huỷ đơn thuê khi khách không phản hồi proposal và không
 ---
 # POST /api/fm/rental-orders/{orderId}/cancel
 
-Không body. Lý do cố định "Khách không còn nhu cầu" (#142).
+Không body. Lý do cố định "Khách không còn nhu cầu".
 
 - **Actor / quyền:** role FM (namespace `/api/fm/**`) + permission `rental_order.cancel` theo cơ sở của đơn
   (seed V3, scope `FACILITY`). FM cơ sở khác → 403.
@@ -21,7 +21,7 @@ Không body. Lý do cố định "Khách không còn nhu cầu" (#142).
 ## Ghi chú nghiệp vụ
 
 - Spec `draft.md` › 1.3 nhánh "Khách không phản hồi proposal": FM liên hệ khách ngoài hệ thống, không được thì
-  huỷ đơn. Lý do khác "Khách không còn nhu cầu" để bàn sau (#142).
+  huỷ đơn. Lý do luôn là "Khách không còn nhu cầu", FM không nhập lý do khác.
 - Cascade chưa xử lý `RentalContract`, `HandoverRecord`, `Appointment` và hoàn cọc (Flow 2/4 chưa có code).
 
 ## Ví dụ

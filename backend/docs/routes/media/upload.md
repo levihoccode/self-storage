@@ -29,7 +29,7 @@ FE upload ảnh hiện trạng / scan hợp đồng / ảnh giấy tờ trước
 ## Ghi chú nghiệp vụ
 
 - Giới hạn 10MB khớp cap upload của Cloudinary free plan.
-- Ảnh giấy tờ sẽ cần chế độ private — chờ spec-gap #133 (chưa chốt cơ chế delivery).
+- Ảnh giấy tờ cần chế độ private — hiện chưa có cơ chế delivery riêng (đang dùng URL public).
 - File mồ côi chưa có job dọn — xem [follow-up.md](../follow-up.md).
 
 ## Ví dụ
