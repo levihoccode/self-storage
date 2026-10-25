@@ -13,6 +13,7 @@ import { MyStoragePage } from "./pages/MyStoragePage";
 import { ContractDetailPage } from "./pages/ContractDetailPage";
 import { ProposalsPage } from "./pages/ProposalsPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
+import { PaymentResultPage } from "./pages/PaymentResultPage";
 import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { RentalRequestQueuePage } from "./pages/fm/RentalRequestQueuePage";
@@ -115,6 +116,7 @@ function App() {
     view === "contract-detail" ||
     view === "proposals" ||
     view === "invoices" ||
+    view === "payment-result" ||
     view === "appointments" ||
     (view === "request" && !!session);
   const isFmView =
@@ -191,6 +193,7 @@ function App() {
           {view === "contract-detail" && <ContractDetailPage navigate={navigate} />}
           {view === "proposals" && <ProposalsPage navigate={navigate} />}
           {view === "invoices" && <InvoicesPage navigate={navigate} />}
+          {view === "payment-result" && <PaymentResultPage navigate={navigate} />}
           {view === "appointments" && <AppointmentBookingPage navigate={navigate} />}
           {view === "notifications" && <NotificationsPage navigate={navigate} />}
           {view === "request" && <RequestPage navigate={navigate} embedded />}
