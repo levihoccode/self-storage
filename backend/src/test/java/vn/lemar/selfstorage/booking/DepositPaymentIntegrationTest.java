@@ -80,6 +80,7 @@ class DepositPaymentIntegrationTest {
         jdbc.update("DELETE FROM audit_logs");
         jdbc.update("DELETE FROM payment_transactions");
         jdbc.update("DELETE FROM invoices");
+        jdbc.update("DELETE FROM proposal_feedbacks");
         jdbc.update("DELETE FROM rental_orders");
         jdbc.update("DELETE FROM rental_requests");
         jdbc.update("UPDATE storage_units SET status = 'Available' WHERE status = 'Reserved'");
@@ -150,6 +151,27 @@ class DepositPaymentIntegrationTest {
         openSessionAndReadTxnRef();
 
         mockMvc.perform(payAs(CUSTOMER_EMAIL)).andExpect(status().isOk());
+    }
+
+    /**
+     * IPN đã ghi PAY/Success nhưng listener chưa chạy/lỗi: invoice vẫn Unpaid. Không được mở
+     * phiên mới, nếu không khách trả lần hai và giao dịch đầu không có đường tự chốt.
+     */
+    @Test
+    void aSuccessfulPaymentWithoutTheListenerBlocksAnotherSession() throws Exception {
+        jdbc.update("INSERT INTO payment_transactions"
+                + " (invoice_id, vnp_txn_ref, amount, direction, status, paid_at)"
+                + " VALUES (?, 'INV-ALREADY-SUCCESS', 10000.00, 'PAY', 'Success', now())", invoiceId);
+
+        mockMvc.perform(payAs(CUSTOMER_EMAIL))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                        "đã được thanh toán thành công")));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM payment_transactions", Integer.class))
+                .as("không được tạo thêm giao dịch").isEqualTo(1);
+        assertThat(statusOf("invoices", invoiceId)).isEqualTo("Unpaid");
     }
 
     @Test
@@ -239,6 +261,12 @@ class DepositPaymentIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action <> 'PAYMENT_SUCCEEDED'",
                 Integer.class))
                 .as("audit của booking phải rollback theo").isZero();
+
+        // IPN đã ghi Success nhưng listener rollback: /pay lần nữa phải bị chặn, không mở phiên mới.
+        mockMvc.perform(payAs(CUSTOMER_EMAIL))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                        "đã được thanh toán thành công")));
     }
 
     /** Token thật do JwtEncoder của app ký — đi qua đúng đường xác thực mà request thường đi. */

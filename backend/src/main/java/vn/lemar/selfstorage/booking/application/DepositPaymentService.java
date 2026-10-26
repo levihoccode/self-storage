@@ -55,6 +55,8 @@ public class DepositPaymentService {
             "Khoang chứa này hiện đang trong quá trình xử lý thanh toán (đặt cọc / gia hạn) "
                     + "bởi một khách hàng khác. Vui lòng quay lại thử lại sau ít phút "
                     + "hoặc chọn khoang chứa khác!";
+    private static final String PAYMENT_ALREADY_SUCCEEDED =
+            "Hóa đơn này đã được thanh toán thành công. Vui lòng chờ hệ thống xác nhận.";
 
     private final InvoiceRepository invoices;
     private final RentalOrderRepository orders;
@@ -113,6 +115,13 @@ public class DepositPaymentService {
                 || invoice.getStatus() != InvoiceStatus.UNPAID
                 || !isDepositKind(invoice.getType())) {
             throw new DepositNotAllowedException("Hóa đơn này không ở trạng thái chờ thanh toán cọc.");
+        }
+
+        // IPN đã ghi PAY/Success nhưng listener AFTER_COMMIT chưa chạy/lỗi: invoice vẫn Unpaid.
+        // Không mở phiên mới và không huỷ hoá đơn — khách sẽ trả lần hai, còn giao dịch đầu không
+        // có đường tự chốt. Đối soát/querydr xử lý phần còn lại.
+        if (sessions.hasSuccessfulPayment(invoice.getId())) {
+            throw new DepositNotAllowedException(PAYMENT_ALREADY_SUCCEEDED);
         }
 
         // (1) Đơn quá hạn — chặn trước khi đụng tới khoang.

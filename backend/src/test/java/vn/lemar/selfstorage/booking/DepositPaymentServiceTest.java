@@ -95,12 +95,25 @@ class DepositPaymentServiceTest {
         when(orders.findByUnitId(UNIT_ID)).thenReturn(List.of(order));
         when(invoices.findByOrderIdIn(List.of(ORDER_ID))).thenReturn(List.of(invoice));
         when(sessions.hasOpenSession(anyCollection())).thenReturn(false);
+        when(sessions.hasSuccessfulPayment(INVOICE_ID)).thenReturn(false);
         when(payments.startPayment(eq(INVOICE_ID), any())).thenReturn(PAY_URL);
     }
 
     @Test
     void branch5ClearPathReturnsPaymentUrl() {
         assertThat(service.startDeposit(INVOICE_ID, "1.2.3.4")).isEqualTo(PAY_URL);
+    }
+
+    @Test
+    void successfulPaymentAlreadyRecordedRefusesANewSession() {
+        when(sessions.hasSuccessfulPayment(INVOICE_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
+                .isInstanceOf(DepositNotAllowedException.class)
+                .hasMessageContaining("đã được thanh toán thành công");
+
+        verifyNoInteractions(payments);
+        verifyNoInteractions(invoiceVoiding);
     }
 
     @Test

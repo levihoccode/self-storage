@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import vn.lemar.selfstorage.payment.application.PaymentSessionQueryService;
+import vn.lemar.selfstorage.payment.domain.PaymentDirection;
 import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 
@@ -34,6 +35,14 @@ class PaymentSessionQueryServiceTest {
                 anyCollection(), any(PaymentStatus.class), any(Instant.class))).thenReturn(true);
 
         assertThat(service.hasOpenSession(List.of(1L, 2L))).isTrue();
+    }
+
+    @Test
+    void successfulPaymentIsReportedForTheInvoice() {
+        when(repository.existsByInvoiceIdAndDirectionAndStatus(
+                1L, PaymentDirection.PAY, PaymentStatus.SUCCESS)).thenReturn(true);
+
+        assertThat(service.hasSuccessfulPayment(1L)).isTrue();
     }
 
     @Test

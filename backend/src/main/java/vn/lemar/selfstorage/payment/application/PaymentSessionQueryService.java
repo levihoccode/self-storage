@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Collection;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.lemar.selfstorage.payment.domain.PaymentDirection;
 import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 
@@ -25,5 +26,12 @@ public class PaymentSessionQueryService implements PaymentSessionQuery {
         }
         return repository.existsByInvoiceIdInAndStatusAndCreatedAtAfter(
                 invoiceIds, PaymentStatus.PENDING, Instant.now().minus(PaymentSession.WINDOW));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasSuccessfulPayment(Long invoiceId) {
+        return repository.existsByInvoiceIdAndDirectionAndStatus(
+                invoiceId, PaymentDirection.PAY, PaymentStatus.SUCCESS);
     }
 }

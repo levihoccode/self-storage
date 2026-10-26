@@ -15,4 +15,11 @@ public interface PaymentSessionQuery {
 
     /** Có ít nhất một phiên còn mở trong nhóm hóa đơn này không. Danh sách rỗng trả {@code false}. */
     boolean hasOpenSession(Collection<Long> invoiceIds);
+
+    /**
+     * Đã có giao dịch {@code PAY/Success} cho hoá đơn chưa. IPN ghi giao dịch trước khi listener
+     * booking chạy, nên invoice có thể còn {@code Unpaid} trong lúc tiền đã vào — chặn mở phiên
+     * mới để khách không trả lần hai.
+     */
+    boolean hasSuccessfulPayment(Long invoiceId);
 }

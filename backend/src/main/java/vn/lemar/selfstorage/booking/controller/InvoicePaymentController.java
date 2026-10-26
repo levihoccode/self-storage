@@ -51,7 +51,7 @@ public class InvoicePaymentController {
             @ApiResponse(responseCode = "409",
                     description = "Các nhánh từ chối: đơn quá hạn · khoang đã được đặt cọc · khoang "
                             + "đang bảo trì · khoang đang có phiên thanh toán khác · hoá đơn không còn "
-                            + "chờ thanh toán cọc",
+                            + "chờ thanh toán cọc · hoá đơn đã có giao dịch thành công nhưng chưa chốt",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class),
                             examples = {

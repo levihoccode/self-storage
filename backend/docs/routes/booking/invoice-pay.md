@@ -26,6 +26,10 @@ toán và trả URL VNPay để FE chuyển hướng.
 Trước năm nhánh, hoá đơn không còn `Unpaid` hoặc không phải `Deposit`/`DepositSupplement` cũng trả
 409 "Hóa đơn này không ở trạng thái chờ thanh toán cọc."
 
+Hoá đơn còn `Unpaid` nhưng đã có `PaymentTransaction(PAY/Success)` (IPN đã ghi, listener chưa
+chạy/lỗi) cũng trả 409 "Hóa đơn này đã được thanh toán thành công. Vui lòng chờ hệ thống xác nhận."
+— không mở phiên mới và không huỷ hoá đơn; đối soát xử lý tiếp.
+
 Thứ tự quan trọng: đơn quá hạn chặn **trước** khi đụng tới khoang (không vô hiệu hóa đơn của một
 khoang vẫn còn tốt), còn khóa phiên kiểm **sau cùng** (không báo "đang xử lý" cho khoang thật ra
 đã `Reserved`).
