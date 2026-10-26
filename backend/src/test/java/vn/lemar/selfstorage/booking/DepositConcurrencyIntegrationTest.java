@@ -1,6 +1,9 @@
 package vn.lemar.selfstorage.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,15 +18,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.booking.application.DepositPaymentService;
+import vn.lemar.selfstorage.booking.application.InvoiceVoidingService;
 import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
 
 /**
@@ -49,6 +56,12 @@ class DepositConcurrencyIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @MockBean
+    private InvoiceVoidingService invoiceVoiding;
 
     private Long invoiceId;
     private Long rivalInvoiceId;
@@ -126,6 +139,84 @@ class DepositConcurrencyIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM payment_transactions WHERE status = 'Pending'", Integer.class))
                 .as("chỉ được một giao dịch Pending cho một khoang").isEqualTo(1);
+    }
+
+    /**
+     * Regression cho thứ tự khoá: một transaction khác đang giữ row order thì `startDeposit` phải
+     * đứng chờ ở khoá order, không được chạy tiếp tới invoice/khoang. Nếu nó bỏ qua khoá order
+     * (bản cũ), request này sẽ huỷ invoice trong lúc order đang bị giữ — đúng cái đảo thứ tự từng
+     * gây deadlock với IPN listener.
+     */
+    @Test
+    void startDepositWaitsForTheOrderRowBeforeTouchingTheInvoice() throws Exception {
+        jdbc.update("UPDATE rental_orders SET status = 'Deposited' WHERE id = ?", orderId());
+        jdbc.update("UPDATE invoices SET type = 'DepositSupplement' WHERE id = ?", invoiceId);
+        jdbc.update("UPDATE storage_units SET status = 'Maintenance' WHERE id = ?", unitId);
+
+        CountDownLatch orderLocked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch voidReached = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            voidReached.countDown();
+            return null;
+        }).when(invoiceVoiding).voidForUnavailableUnit(anyLong(), anyString(), anyLong(), anyLong());
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> holder = pool.submit(() -> new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(status -> {
+                        jdbc.queryForObject(
+                                "SELECT id FROM rental_orders WHERE id = ? FOR UPDATE",
+                                Long.class, orderId());
+                        orderLocked.countDown();
+                        try {
+                            release.await(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }));
+            assertThat(orderLocked.await(5, TimeUnit.SECONDS)).isTrue();
+
+            CountDownLatch depositStarted = new CountDownLatch(1);
+            Future<Outcome> deposit = pool.submit(() -> {
+                authenticateCurrentThread(CUSTOMER_EMAIL);
+                depositStarted.countDown();
+                try {
+                    service.startDeposit(invoiceId, "1.2.3.4");
+                    return new Outcome(true, null);
+                } catch (DepositNotAllowedException e) {
+                    return new Outcome(false, e.getMessage());
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            });
+            assertThat(depositStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            // Bản cũ không khoá order nên sẽ chạm void trong lúc order đang bị giữ; bản mới
+            // đứng chờ ở khoá order nên void chưa được gọi.
+            assertThat(voidReached.await(2, TimeUnit.SECONDS))
+                    .as("startDeposit phải chờ row order trước khi gọi void")
+                    .isFalse();
+            assertThat(jdbc.queryForObject(
+                    "SELECT status FROM invoices WHERE id = ?", String.class, invoiceId))
+                    .isEqualTo("Unpaid");
+
+            release.countDown();
+            Outcome outcome = deposit.get(10, TimeUnit.SECONDS);
+            holder.get(10, TimeUnit.SECONDS);
+
+            assertThat(outcome.opened()).isFalse();
+            assertThat(outcome.message()).contains("hiện không khả dụng");
+            org.mockito.Mockito.verify(invoiceVoiding)
+                    .voidForUnavailableUnit(anyLong(), anyString(), anyLong(), anyLong());
+        } finally {
+            release.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    private Long orderId() {
+        return jdbc.queryForObject(
+                "SELECT order_id FROM invoices WHERE id = ?", Long.class, invoiceId);
     }
 
     private List<Outcome> callInParallel() throws Exception {
