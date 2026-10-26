@@ -99,9 +99,9 @@ public class PaymentService {
             return IpnResponse.orderNotFound();
         }
 
-        // TODO(invoice): hiện neo vào transaction.amount, mà giá trị đó do caller truyền vào lúc
-        // startPayment. Khi module invoice có entity thật thì phải đọc amount từ invoice trong DB —
-        // không tin tham số của caller cho một bước đối chiếu tiền.
+        // Số tiền neo vào transaction.amount do caller truyền lúc startPayment. Caller phải đọc từ
+        // Invoice trong DB — luồng đặt cọc làm vậy; payment không import booking nên không tự đọc
+        // lại. Đối chiếu vnp_Amount với đúng con số đã dùng để dựng URL thanh toán.
         if (!amountMatches(params.get("vnp_Amount"), transaction.getAmount())) {
             return IpnResponse.invalidAmount();
         }

@@ -109,9 +109,9 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
 - Seed policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
   (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
 - V9 seed `fee.unit_change = 0` (Flow 4 chốt giá trị) và thêm audit action `DEPOSIT_REFUND_REQUIRED`
-  cho trường hợp đổi khoang sau khi cọc dư — trước B4, FM hoàn thủ công; B4 hoàn tự động về thẻ đã liên kết.
+  cho trường hợp đổi khoang sau khi cọc dư — hiện FM hoàn thủ công; hoàn tự động thuộc Flow 4, chưa có trong code.
 - V10 thêm audit action `UNIT_CHANGE_RELEASED` — nhả khoang cũ khi khách đổi khoang sau khi đã cọc;
-  khoang mới chưa reserve cho tới khi thanh toán (B4); trường hợp `delta ≤ 0` cần follow-up reserve riêng.
+  khoang mới chưa reserve cho tới khi thanh toán cọc bổ sung; trường hợp `delta ≤ 0` cần follow-up reserve riêng.
 - V11 thêm type `DepositSupplement` cho hoá đơn chênh lệch cọc và 2 partial unique index: một `Deposit`
   active (Unpaid/Paid) + một `DepositSupplement` Unpaid trên mỗi đơn.
 

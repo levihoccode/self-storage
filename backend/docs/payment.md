@@ -28,8 +28,8 @@ Khách trả tiền trên cổng VNPay
    └─► GET /api/payments/vnpay/return     (redirect trình duyệt; CHỈ hiển thị)
          kiểm chữ ký để hiển thị validSignature — không ghi DB, không bắn event
    ▼
-Module sở hữu Invoice nghe PaymentSucceeded → chuyển Invoice sang Paid
-   (chưa nối — chờ các luồng đơn hàng tương ứng)
+Module sở hữu Invoice (booking) nghe PaymentSucceeded → chuyển Invoice sang Paid,
+chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md › Nhánh thành công)
 ```
 
 ## Hành vi
@@ -60,8 +60,8 @@ Module sở hữu Invoice nghe PaymentSucceeded → chuyển Invoice sang Paid
   → `vnp_Amount` (`04`) → guard trạng thái (`02`) → OK (`00`). Sai chữ ký thì không để lộ gì về
   giao dịch.
 - **Số tiền:** cổng nhận `amount × 100`; đối chiếu khi IPN về. Nguồn số tiền tin cậy là **hóa đơn
-  trong DB** — caller phải truyền đúng từ đó (chưa có entity invoice: TODO(invoice) trong
-  `PaymentService`).
+  trong DB** — caller đọc `Invoice` rồi truyền amount vào `startPayment`; `payment` không import
+  `booking` nên không tự đọc lại.
 - **Ranh giới module:** `PaymentTransaction.invoiceId` là `Long`, không quan hệ JPA với bảng
   `invoices`; module khác giao tiếp qua event, không import chéo.
 - **Listener event bắt buộc `AFTER_COMMIT`.** `PaymentSucceeded`/`PaymentFailed` được publish
@@ -79,8 +79,10 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 ## Trạng thái hiện tại
 
 - Gateway + IPN + Return + entity: có (VNPay).
-- **Endpoint khởi tạo thanh toán `POST /api/invoices/{invoiceId}/pay`: chưa có** — FE nút thanh toán
-  đang chạy chế độ demo khi chưa cấu hình `VITE_API_BASE_URL`; endpoint thật thuộc luồng đặt cọc.
-- **Chưa có ai nghe `PaymentSucceeded`/`PaymentFailed`** — invoice/booking chưa có code (các luồng đơn hàng).
+- **Endpoint khởi tạo thanh toán `POST /api/invoices/{invoiceId}/pay`: có** — mở phiên cho hoá đơn
+  `Deposit`/`DepositSupplement`; contract ở `routes/booking/invoice-pay.md`.
+- **`PaymentSucceeded`/`PaymentFailed`: `booking` đã nghe** — `DepositPaymentListener` chốt hoá đơn,
+  đơn và khoang khi `PaymentSucceeded`; `PaymentFailed` chỉ ghi log vì khoá phiên tự hết hạn. Chi
+  tiết ở `routes/booking/invoice-pay.md`.
 - **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc luồng đặt cọc.
 - **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.

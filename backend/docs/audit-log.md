@@ -58,9 +58,12 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | `booking` | `RENTAL_REQUEST_CLAIMED` | `RentalRequest` | `booking/application/RentalRequestConversionService.claimForVerifiedAccount` — actor = customer vừa xác minh; claim cũng ghi `RENTAL_ORDER_CREATED` + `PROPOSAL_CREATED` (System) |
 | `booking` | `RENTAL_REQUEST_CONVERTED`, `RENTAL_ORDER_CREATED`, `PROPOSAL_CREATED` | `RentalRequest`, `RentalOrder`, `ProposalFeedback` | `booking/application/RentalRequestConversionService.convert` — trigger duyệt (`CONVERTED` chỉ nhánh duyệt); order/proposal tạo ở cả hai trigger; actor = System |
 | `booking` | `PROPOSAL_AGREED`, `PROPOSAL_REJECTED`, `PROPOSAL_REPROPOSED`, `PROPOSAL_CANCELED` | `ProposalFeedback` | `booking/application/ProposalService.agree/reject/repropose` — actor = customer/FM, một bản ghi mỗi lần đổi trạng thái |
-| `booking` | `INVOICE_CREATED`, `INVOICE_CANCELED` | `Invoice` | `booking/application/DepositInvoiceIssuer`, `ProposalService.cancelUnpaidDepositInvoices` và `RentalOrderCancellation` — actor = customer/FM |
+| `booking` | `INVOICE_CREATED`, `INVOICE_CANCELED` | `Invoice` | `booking/application/DepositInvoiceIssuer`, `ProposalService.cancelUnpaidDepositInvoices`, `RentalOrderCancellation` và `InvoiceVoidingService.voidForUnavailableUnit` — actor = customer/FM |
+| `booking` | `RENTAL_ORDER_DEPOSITED` | `RentalOrder` | `booking/application/DepositPaymentListener.onPaymentSucceeded` — cọc đầu; actor = System (IPN) |
+| `booking` | `STORAGE_UNIT_RESERVED` | `StorageUnit` | `booking/application/DepositPaymentListener.onPaymentSucceeded` — cọc đầu và cọc bổ sung; actor = System (IPN) |
+| `payment` | `PAYMENT_SUCCEEDED`, `PAYMENT_FAILED` | `PaymentTransaction` | `payment/application/PaymentService.handleIpn` — ghi trong transaction IPN; actor = System (IPN) |
 | `booking` | `RENTAL_ORDER_CANCELED` | `RentalOrder`, `ProposalFeedback`, `StorageUnit` | `booking/application/RentalOrderCancellation.cancel` — một bản ghi mỗi entity, cùng lý do huỷ |
-| `booking` | `DEPOSIT_REFUND_REQUIRED` | `RentalOrder` | `booking/application/ProposalService.issueDeposit` — đổi khoang sau khi cọc dư; actor = customer, FM nhận notification hoàn tiền thủ công (B4: hoàn tự động về thẻ đã liên kết) |
+| `booking` | `DEPOSIT_REFUND_REQUIRED` | `RentalOrder` | `booking/application/ProposalService.issueDeposit` — đổi khoang sau khi cọc dư; actor = customer, FM nhận notification hoàn tiền thủ công — hoàn tự động thuộc Flow 4, chưa có trong code |
 | `booking` | `UNIT_CHANGE_RELEASED` | `StorageUnit` | `booking/application/ProposalService.releaseReplacedUnit` — nhả khoang cũ khi khách đồng ý khoang mới sau khi đã cọc; actor = customer |
 
 ## Xem thêm
