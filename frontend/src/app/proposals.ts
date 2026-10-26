@@ -2,6 +2,7 @@ import { apiRequest } from "./api";
 import { authGateway } from "./auth";
 import type {
   AgreeProposalResult,
+  CancelRentalOrderResult,
   CustomerProposal,
   FmRentalOrder,
   ProposalSnapshot,
@@ -54,6 +55,17 @@ export function reproposeUnit(
   return apiRequest<ProposalSnapshot>(`/api/rental-orders/${orderId}/proposals`, {
     method: "POST",
     body: { unitId, overrideReason: overrideReason || undefined },
+    accessToken: accessToken(),
+  });
+}
+
+/**
+ * FM huỷ đơn khi khách không phản hồi và không liên hệ được. Không body; lý do cố định do BE ghi.
+ * 409 khi đơn đã đóng, 403 khi FM không thuộc cơ sở của đơn.
+ */
+export function cancelRentalOrder(orderId: number): Promise<CancelRentalOrderResult> {
+  return apiRequest<CancelRentalOrderResult>(`/api/fm/rental-orders/${orderId}/cancel`, {
+    method: "POST",
     accessToken: accessToken(),
   });
 }

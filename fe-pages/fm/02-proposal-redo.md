@@ -19,14 +19,17 @@ Khi khách từ chối khoang được đề xuất, hoặc khoang bị người
 
 ## Actions
 - Chọn `unit_id` mới → [Đề xuất lại] → tạo `ProposalFeedback(status=Pending)` mới
+- [Huỷ đơn] — chỉ hiện khi đơn chưa đóng (`Canceled`/`Done`). Dùng khi khách không phản hồi proposal và FM không liên hệ được. Bấm mở ConfirmDialog (tone danger) ghi rõ lý do cố định "Khách không còn nhu cầu" và hệ quả (huỷ proposal đang chờ, huỷ hoá đơn chưa trả, trả khoang; cọc đã trả chưa hoàn tự động). Xác nhận → `POST /api/fm/rental-orders/{id}/cancel`
 
 ## States / UI trạng thái
 - Cảnh báo khi đã đạt ngưỡng tối đa lần từ chối — hệ thống tự chuyển `RentalOrder.status = Canceled`, FM chỉ xem lịch sử, không đề xuất tiếp được
+- Sau khi huỷ đơn thành công: hiện thông báo "Đã huỷ đơn", đơn chuyển trạng thái đã đóng và khoá form đề xuất. Lỗi 409 (đơn đã đóng ở nơi khác): hiện nguyên câu của BE và tải lại đơn
 - Trigger nguồn gốc khác nhau cần phân biệt trên UI: do khách chủ động từ chối (1.3) hay do khách từ chối tại chỗ lúc check-in (Flow 2, `HandoverRecord.Rejected`)
 
 ## API liên quan
 - `GET /api/fm/rental-orders/{id}`
 - `POST /api/fm/rental-orders/{id}/re-propose` (body: `unit_id`)
+- `POST /api/fm/rental-orders/{id}/cancel` (không body)
 
 ## Edge case / Lưu ý UX
 - Đổi khoang sau khi khách đã cọc (trigger từ Flow 2) cần tính thêm chênh lệch mức cọc cũ/mới + phí đổi khoang (`Policy.fee.unit_change`) — hiển thị rõ số tiền chênh lệch cho FM biết trước khi gửi đề xuất, dù việc thu/hoàn tiền thực hiện ở bước sau

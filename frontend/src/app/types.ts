@@ -76,6 +76,15 @@ export type AgreeProposalResult = { proposal: ProposalSnapshot; invoice: Deposit
 export type RejectProposalResult = { proposal: ProposalSnapshot; orderCanceled: boolean };
 
 /** Chi tiết đơn cho màn "Đề xuất lại khoang" — `GET /api/fm/rental-orders/{id}`. */
+/** Kết quả `POST /api/fm/rental-orders/{id}/cancel`. */
+export type CancelRentalOrderResult = {
+  id: number;
+  customerId: number;
+  unitId: number | null;
+  status: string;
+  cancelReason: string | null;
+};
+
 export type FmRentalOrder = {
   id: number;
   status: string;

@@ -1,9 +1,16 @@
-import { AlertTriangle, ArrowLeft, Check, History, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Check, History, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ApiError } from "../../app/api";
-import { fetchRentalOrder, formatDate, formatMoney, reproposeUnit } from "../../app/proposals";
+import {
+  cancelRentalOrder,
+  fetchRentalOrder,
+  formatDate,
+  formatMoney,
+  reproposeUnit,
+} from "../../app/proposals";
 import type { FmRentalOrder, Navigate, ProposalSnapshot, ProposalStatus } from "../../app/types";
 import { Button } from "../../components/ui/Button";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 
@@ -59,6 +66,10 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [sent, setSent] = useState<{ proposal: ProposalSnapshot; unitCode: string } | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+  const [canceled, setCanceled] = useState(false);
 
   // setState chỉ chạy sau await; `active` chặn cập nhật khi đã rời trang.
   useEffect(() => {
@@ -148,8 +159,48 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
     }
   }
 
+  async function confirmCancel() {
+    setIsCanceling(true);
+    setCancelError("");
+    try {
+      const result = await cancelRentalOrder(order.id);
+      // Kết quả huỷ chỉ có trạng thái đơn; tải lại để lịch sử đề xuất cũng hiện đúng (Pending → Canceled).
+      const next = await loadOrder(orderId);
+      setState(
+        next.kind === "ready"
+          ? next
+          : {
+              kind: "ready",
+              order: { ...order, status: result.status, cancelReason: result.cancelReason },
+            },
+      );
+      setCanceled(true);
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : "Không huỷ được đơn.");
+      // 409: đơn đã đóng ở nơi khác — tải lại để màn hình khớp trạng thái thật.
+      if (error instanceof ApiError && error.status === 409) {
+        const next = await loadOrder(orderId);
+        if (next.kind === "ready") setState(next);
+      }
+    } finally {
+      setIsCanceling(false);
+      setConfirmingCancel(false);
+    }
+  }
+
   return (
     <main>
+      {confirmingCancel && (
+        <ConfirmDialog
+          title="Huỷ đơn thuê này?"
+          description='Lý do ghi nhận: "Khách không còn nhu cầu". Hệ thống sẽ huỷ các đề xuất đang chờ, huỷ hoá đơn chưa thanh toán và trả lại khoang đang giữ. Khách và FM đều nhận thông báo. Tiền cọc đã thanh toán (nếu có) chưa được hoàn tự động. Thao tác này không thể hoàn tác.'
+          confirmLabel="Huỷ đơn"
+          cancelLabel="Giữ đơn"
+          isPending={isCanceling}
+          onConfirm={() => void confirmCancel()}
+          onCancel={() => setConfirmingCancel(false)}
+        />
+      )}
       <button
         className="mb-6 inline-flex items-center gap-2 border-0 bg-transparent p-0 text-[12px] font-bold text-muted hover:text-brand"
         onClick={backToQueue}
@@ -167,6 +218,19 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
           {formatDate(order.requested.startDate)}
         </p>
       </div>
+
+      {canceled && (
+        <div className="mb-6">
+          <DemoNotice tone="success">
+            Đã huỷ đơn. Khách và FM đã nhận thông báo; form đề xuất khoang được khoá.
+          </DemoNotice>
+        </div>
+      )}
+      {cancelError && (
+        <div className="mb-6">
+          <DemoNotice tone="error">{cancelError}</DemoNotice>
+        </div>
+      )}
 
       <div className="grid grid-cols-[1fr_360px] gap-8 max-[980px]:grid-cols-1">
         <div className="grid gap-6">
@@ -296,6 +360,22 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
             <span className="font-mono text-[10px] uppercase text-muted">Trạng thái đơn</span>
             <strong>{order.status}</strong>
           </div>
+          {!isClosed && (
+            <div className="mt-2 grid gap-2 border-t border-border pt-4">
+              <p className="m-0 text-[12px] text-muted">
+                Khách không phản hồi và không liên hệ được? Huỷ đơn để trả khoang.
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCancelError("");
+                  setConfirmingCancel(true);
+                }}
+              >
+                <Ban size={16} /> Huỷ đơn
+              </Button>
+            </div>
+          )}
         </aside>
       </div>
     </main>
