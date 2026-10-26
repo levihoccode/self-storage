@@ -3,6 +3,7 @@ package vn.lemar.selfstorage.payment.application;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -57,7 +58,7 @@ public class VnPayGateway implements PaymentGateway {
         params.put("vnp_Amount", request.amount().multiply(AMOUNT_SCALE).toBigInteger().toString());
         params.put("vnp_CurrCode", CURRENCY);
         params.put("vnp_TxnRef", request.txnRef());
-        params.put("vnp_OrderInfo", request.orderInfo());
+        params.put("vnp_OrderInfo", asciiFold(request.orderInfo()));
         params.put("vnp_OrderType", ORDER_TYPE);
         params.put("vnp_Locale", LOCALE);
         params.put("vnp_ReturnUrl", properties.returnUrl());
@@ -80,6 +81,18 @@ public class VnPayGateway implements PaymentGateway {
         signed.remove(HASH_TYPE_FIELD);
 
         return constantTimeEquals(sign(toSignedQuery(signed)), received);
+    }
+
+    /**
+     * VNPay chỉ hiển thị được ASCII: chuỗi có dấu bị encode US-ASCII thành {@code ?} và khách thấy
+     * "??t c?c khoang ch?a A-01". Bỏ dấu trước khi ký để chuỗi ký và chuỗi hiển thị khớp nhau.
+     */
+    private static String asciiFold(String value) {
+        if (value == null) {
+            return null;
+        }
+        String folded = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
+        return folded.replace('đ', 'd').replace('Đ', 'D');
     }
 
     /** Ghép tham số đã sắp xếp thành chuỗi url-encoded — đây chính là dữ liệu đem ký. */

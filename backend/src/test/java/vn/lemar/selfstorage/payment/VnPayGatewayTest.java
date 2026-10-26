@@ -87,6 +87,16 @@ class VnPayGatewayTest {
     }
 
     @Test
+    void orderInfoIsAsciiFoldedBeforeSigning() {
+        String url = gateway.buildPaymentUrl(new PaymentRequest(
+                "TXN003", new BigDecimal("500000"), "Đặt cọc khoang chứa A-01", "127.0.0.1"));
+
+        Map<String, String> params = queryOf(url);
+        assertThat(params).containsEntry("vnp_OrderInfo", "Dat coc khoang chua A-01");
+        assertThat(gateway.verifySignature(params)).isTrue();
+    }
+
+    @Test
     void paymentUrlSelfSignedVerifiesBack() {
         String url = gateway.buildPaymentUrl(
                 new PaymentRequest("TXN002", new BigDecimal("250000"), "Thanh toan don TXN002", "127.0.0.1"));
