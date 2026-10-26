@@ -56,7 +56,7 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
       <div className="grid grid-cols-[minmax(0,1fr)_312px] items-start gap-8 max-[1100px]:grid-cols-1">
         <section>
           <div className="mb-2 flex items-center justify-between gap-4">
-            <h2 className="flex items-center gap-2 text-section text-ink">
+            <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
               <span className="h-2 w-2 bg-brand" aria-hidden="true" />
               Hợp đồng đang hoạt động
             </h2>
@@ -84,7 +84,7 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
                       {storage.district}
                     </span>
                   </div>
-                  <div className="whitespace-nowrap text-small text-ink max-[1100px]:hidden">
+                  <div className="whitespace-nowrap text-label text-ink max-[1100px]:hidden">
                     <span className="block text-label text-muted">Thời hạn</span>
                     {storage.startDate} → {storage.endDate}
                   </div>
@@ -108,7 +108,7 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
                     </span>
                     <Button
                       variant="secondary"
-                      className="min-h-[30px] px-3 text-small"
+                      size="sm"
                       onClick={() => navigate(`/my-storage/${storage.id}`)}
                     >
                       Xem
@@ -123,7 +123,7 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
         <aside className="grid gap-4">
           <div className="bg-surface-subtle p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 text-section text-ink">
+              <h2 className="flex items-center gap-2 text-small font-semibold text-ink">
                 <span className="h-2 w-2 bg-brand" aria-hidden="true" />
                 Việc cần làm
               </h2>
@@ -166,7 +166,7 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
           </div>
 
           <div className="bg-[var(--dark)] p-4 text-[var(--on-dark-ink)]">
-            <h2 className="text-section">Hỗ trợ nhanh</h2>
+            <h2 className="text-small font-semibold">Hỗ trợ nhanh</h2>
             <p className="mt-1.5 text-small text-[rgba(233,234,230,.7)]">
               Báo sự cố khoang, khoá truy cập hoặc yêu cầu hỗ trợ tại cơ sở.
             </p>

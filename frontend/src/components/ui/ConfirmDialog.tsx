@@ -43,7 +43,7 @@ export function ConfirmDialog({
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="text-title text-ink">
+        <h2 id={titleId} className="text-section text-ink">
           {title}
         </h2>
         {description && <p className="mt-2 text-small leading-relaxed text-muted">{description}</p>}

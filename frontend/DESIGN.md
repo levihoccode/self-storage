@@ -123,10 +123,17 @@ components:
     rounded: "{rounded.none}"
     padding: "12px 16px"
     height: "42px"
+  button-small:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.none}"
+    padding: "0 12px"
+    height: "32px"
   field:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
-    typography: "{typography.body}"
+    typography: "{typography.small}"
     rounded: "{rounded.field}"
     padding: "0 12px"
     height: "42px"
@@ -280,14 +287,15 @@ The hazard stripe (alternating ink and signal yellow) is a single signature devi
 
 ### Buttons
 
-- **Shape:** square (0px radius), 2px border, 42px minimum height.
+- **Shape:** square (0px radius), 2px border. Default height 42px with 14px text.
+- **Small action:** row actions use 32px height and 12px label text; never shrink a primary action to this size.
 - **Primary:** signal yellow fill, ink text. Hover uses signal-strong. One primary per decision area.
 - **Secondary:** transparent fill, ink border and ink text. Light theme hover inverts to ink fill with concrete text; dark theme hover uses a translucent light wash and a slightly brighter border, never a white border.
 - **Ghost:** text only; hover uses signal-soft. **Danger:** danger border and text; hover uses danger-soft.
 
 ### Fields
 
-- **Style:** 42px height, surface background, 2px radius, 1px rule-strong border.
+- **Style:** 42px height, 13px text, surface background, 2px radius, 1px rule-strong border.
 - **Focus:** signal border plus a 3px signal-soft halo. **Error:** danger border and an inline error message; never colour alone.
 - **Labels:** sentence case, above the field, linked with `htmlFor`.
 
@@ -299,7 +307,7 @@ The hazard stripe (alternating ink and signal yellow) is a single signature devi
 ### List Items
 
 - **Style:** surface block, 16px padding, 8px gap between items, no divider.
-- **Structure:** index or code, primary label, secondary metadata, trailing action. Hover changes the block to surface-muted; it does not add a border.
+- **Structure:** index or code, primary label, secondary metadata, trailing action. Codes use 16px Saira 500; metadata uses 12px. Hover changes the block to surface-muted; it does not add a border.
 
 ### Tables
 

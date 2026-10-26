@@ -286,11 +286,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
                   {STATUS_LABEL[request.status]}
                 </span>
                 <div className="flex justify-end">
-                  <Button
-                    variant="secondary"
-                    className="min-h-[32px] px-3 text-small"
-                    onClick={() => openDetails(request)}
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => openDetails(request)}>
                     {request.status === "Pending" ? "Đề xuất" : "Xem"}
                   </Button>
                 </div>
@@ -346,7 +342,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
               <label className="mt-6 grid gap-1.5 text-label font-semibold text-ink">
                 Chọn khoang phù hợp
                 <select
-                  className="rounded-[2px] border border-rule-strong bg-surface px-3 py-2.5 text-body text-ink"
+                  className="rounded-[2px] border border-rule-strong bg-surface px-3 py-2.5 text-small text-ink"
                   value={selectedUnitId}
                   onChange={(event) => setSelectedUnitId(event.target.value)}
                 >
@@ -384,7 +380,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
               <label className="grid gap-1.5 text-label font-semibold text-ink">
                 Lý do từ chối
                 <textarea
-                  className="min-h-[80px] rounded-[2px] border border-rule-strong bg-surface p-2.5 text-body font-normal text-ink"
+                  className="min-h-[80px] rounded-[2px] border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
                   value={rejectReason}
                   onChange={(event) => setRejectReason(event.target.value)}
                   placeholder="Cho khách biết vì sao yêu cầu chưa phù hợp…"

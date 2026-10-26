@@ -69,7 +69,7 @@ export function AuthPage({
             </div>
           </section>
 
-          <section className="border border-[var(--container-border)] bg-surface p-8 max-[760px]:p-5">
+          <section className="self-start border border-[var(--container-border)] bg-surface p-8 max-[760px]:p-5">
             {mode === "login" && <LoginForm navigate={navigate} />}
             {mode === "register" && <RegisterForm navigate={navigate} />}
             {mode === "verify" && <VerifyPanel navigate={navigate} />}

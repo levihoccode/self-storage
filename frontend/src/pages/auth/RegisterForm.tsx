@@ -24,7 +24,7 @@ export function RegisterForm({ navigate }: { navigate: Navigate }) {
   return (
     <>
       <div className="mb-6">
-        <h1 className="m-0 text-title text-ink">Tạo tài khoản</h1>
+        <h1 className="m-0 text-section text-ink">Tạo tài khoản</h1>
         <p className="mt-2 text-small text-muted">
           Đăng ký Customer để theo dõi nhu cầu lưu trữ, hợp đồng và hoá đơn.
         </p>

@@ -30,7 +30,7 @@ export function ComingSoonDialog({ onClose }: { onClose: () => void }) {
           <X size={18} />
         </button>
         <p className="text-label text-muted">Đang hoàn thiện</p>
-        <h2 id={titleId} className="mb-3 mt-2 max-w-[300px] text-title text-ink">
+        <h2 id={titleId} className="mb-3 mt-2 max-w-[300px] text-section text-ink">
           Chức năng đang được hoàn thiện
         </h2>
         <p className="mb-6 text-small text-muted">

@@ -58,7 +58,7 @@ export function LoginForm({ navigate }: { navigate: Navigate }) {
   return (
     <>
       <div className="mb-6">
-        <h1 className="m-0 text-title text-ink">Đăng nhập</h1>
+        <h1 className="m-0 text-section text-ink">Đăng nhập</h1>
         <p className="mt-2 text-small text-muted">Quản lý nhu cầu lưu trữ của bạn tại Kho Mộc.</p>
       </div>
       <form className="grid gap-0" onSubmit={submit}>

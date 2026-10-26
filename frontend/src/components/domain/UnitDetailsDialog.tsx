@@ -43,7 +43,7 @@ export function UnitDetailsDialog({
           <X size={19} />
         </button>
         <span className="text-label text-muted">Phương án lưu trữ</span>
-        <h2 id="unit-dialog-title" className="mt-1 pr-10 text-title text-ink">
+        <h2 id="unit-dialog-title" className="mt-1 pr-10 text-section text-ink">
           {unit.name}
         </h2>
 

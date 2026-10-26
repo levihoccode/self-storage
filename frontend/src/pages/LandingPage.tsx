@@ -306,7 +306,8 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                 <span className="text-small text-ink">{unitRange(facility.availableUnitIds)}</span>
                 <Button
                   variant="secondary"
-                  className="min-h-[34px] whitespace-nowrap px-3 text-small"
+                  size="sm"
+                  className="whitespace-nowrap"
                   onClick={() => navigate(`/units?facility=${facility.id}`)}
                 >
                   Xem khoang

@@ -78,7 +78,7 @@ export function NotificationDetailDialog({
         <p className="mb-1 mt-0 text-label text-muted">
           {formatNotificationTime(notification.createdAt)}
         </p>
-        <h2 id={titleId} className="mb-3 mt-0 text-title text-ink">
+        <h2 id={titleId} className="mb-3 mt-0 text-section text-ink">
           {notification.title}
         </h2>
         {isLoading ? (

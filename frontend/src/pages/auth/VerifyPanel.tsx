@@ -8,7 +8,7 @@ export function VerifyPanel({ navigate }: { navigate: Navigate }) {
       <span className="mx-auto mb-5 grid h-14 w-14 place-items-center bg-brand text-signal-ink">
         <Mail size={26} aria-hidden="true" />
       </span>
-      <h1 className="m-0 text-title text-ink">
+      <h1 className="m-0 text-section text-ink">
         Kiểm tra hộp thư
         <br />
         của bạn nhé.

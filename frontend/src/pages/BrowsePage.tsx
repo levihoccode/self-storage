@@ -141,11 +141,7 @@ export function BrowsePage({ navigate }: { navigate: Navigate }) {
                       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
                       Còn trống
                     </span>
-                    <Button
-                      variant="secondary"
-                      className="min-h-[30px] px-3 text-small"
-                      onClick={() => setSelectedUnit(unit)}
-                    >
+                    <Button variant="secondary" size="sm" onClick={() => setSelectedUnit(unit)}>
                       Xem
                     </Button>
                   </div>

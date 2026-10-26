@@ -41,7 +41,7 @@ export function DetailPanel({
         <header className="flex items-start justify-between gap-4 p-5">
           <div>
             {eyebrow && <p className="text-label text-muted">{eyebrow}</p>}
-            <h2 id={titleId} className="mt-1 text-title text-ink">
+            <h2 id={titleId} className="mt-1 text-section text-ink">
               {title}
             </h2>
           </div>
