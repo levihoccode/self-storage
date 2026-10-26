@@ -81,41 +81,57 @@ public class DepositPaymentService {
      *
      * @throws InvoiceNotFoundException   hóa đơn không tồn tại hoặc không thuộc người gọi
      * @throws EmailNotVerifiedException  khách chưa xác minh email
-     * @throws DepositNotAllowedException rơi vào một trong bốn nhánh từ chối của spec §1.4
+     * @throws DepositNotAllowedException rơi vào một trong các nhánh từ chối của spec §1.4
      */
-    @Transactional
+    @Transactional(noRollbackFor = DepositNotAllowedException.class)
     public String startDeposit(Long invoiceId, String clientIp) {
         if (!currentAccount.isCurrentAccountVerified()) {
             throw new EmailNotVerifiedException();
         }
         Long actorId = currentAccount.getCurrentAccountId();
 
-        Invoice invoice = invoices.findById(invoiceId)
-                .filter(found -> actorId.equals(found.getCustomerId()))
-                .orElseThrow(InvoiceNotFoundException::new);
-
-        boolean depositKind = invoice.getType() == InvoiceType.DEPOSIT
-                || invoice.getType() == InvoiceType.DEPOSIT_SUPPLEMENT;
-        if (invoice.getStatus() != InvoiceStatus.UNPAID || !depositKind) {
-            // Hóa đơn đã thanh toán/hủy, hoặc không phải hóa đơn cọc — không có đường đi tiếp.
-            throw new DepositNotAllowedException("Hóa đơn này không ở trạng thái chờ thanh toán cọc.");
+        // Lấy order_id bằng projection để khoá đơn TRƯỚC khi nạp entity hoá đơn — nạp trước là
+        // quay lại đúng thứ tự khoá sai. Hoá đơn không tồn tại/không thuộc khách/không gắn đơn
+        // (hoá đơn thuê) rơi vào nhánh dưới, đọc không khoá chỉ để trả đúng 404/409.
+        Long orderId = invoices.findOrderIdByIdAndCustomerId(invoiceId, actorId).orElse(null);
+        if (orderId == null) {
+            Invoice snapshot = invoices.findById(invoiceId)
+                    .filter(found -> actorId.equals(found.getCustomerId()))
+                    .orElseThrow(InvoiceNotFoundException::new);
+            if (snapshot.getStatus() != InvoiceStatus.UNPAID || !isDepositKind(snapshot.getType())) {
+                throw new DepositNotAllowedException("Hóa đơn này không ở trạng thái chờ thanh toán cọc.");
+            }
+            throw new InvoiceNotFoundException();
         }
 
-        RentalOrder order = orders.findById(invoice.getOrderId())
+        // Khoá đơn TRƯỚC hoá đơn và khoang — cùng thứ tự với listener IPN và cascade, tránh deadlock.
+        RentalOrder order = orders.findByIdForUpdate(orderId)
                 .orElseThrow(InvoiceNotFoundException::new);
+        Invoice invoice = invoices.findByIdForUpdate(invoiceId)
+                .orElseThrow(InvoiceNotFoundException::new);
+        if (!actorId.equals(invoice.getCustomerId())
+                || invoice.getStatus() != InvoiceStatus.UNPAID
+                || !isDepositKind(invoice.getType())) {
+            throw new DepositNotAllowedException("Hóa đơn này không ở trạng thái chờ thanh toán cọc.");
+        }
 
         // (1) Đơn quá hạn — chặn trước khi đụng tới khoang.
         if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(Instant.now())) {
             throw new DepositNotAllowedException(ORDER_EXPIRED);
         }
 
-        // Khoá row khoang trước mọi phép kiểm phụ thuộc trạng thái của nó. Khoang thuộc module
-        // facility nên đi qua public API của họ, không map entity thứ hai lên cùng một bảng.
+        // Khoá khoang sau đơn và hoá đơn — cùng thứ tự với listener IPN và cascade. Khoang thuộc
+        // module facility nên đi qua public API của họ, không map entity thứ hai lên cùng bảng.
         StorageUnitView unit = units.lock(order.getUnitId())
                 .orElseThrow(() -> new DepositNotAllowedException(UNIT_MAINTENANCE));
 
         // (2)(3) Khoang không còn dùng được — hóa đơn hết hiệu lực, FM phải đề xuất khoang khác.
+        // Đơn đang giữ khoang (Deposited/Scheduled/InProgress) phải bật cờ, nếu không FM bị gate
+        // repropose chặn dù notification bảo họ đề xuất lại.
         if (!unit.isAvailable()) {
+            if (order.holdsUnit()) {
+                order.requireReproposal();
+            }
             voidInvoice(invoice, unit, actorId);
             throw new DepositNotAllowedException(
                     MAINTENANCE_STATUS.equals(unit.status()) ? UNIT_MAINTENANCE : UNIT_TAKEN);
@@ -135,10 +151,18 @@ public class DepositPaymentService {
         return payments.startPayment(invoice.getId(), request);
     }
 
-    /** Uỷ cho bean riêng để bản ghi `Canceled` commit độc lập với việc ném 409. */
+    /**
+     * Huỷ hoá đơn trong cùng transaction. Phần ghi này sống sót qua 409 nhờ
+     * {@code noRollbackFor = DepositNotAllowedException.class} ở {@link #startDeposit}.
+     */
     private void voidInvoice(Invoice invoice, StorageUnitView unit, Long actorId) {
         invoiceVoiding.voidForUnavailableUnit(
                 invoice.getId(), unit.code(), unit.facilityId(), actorId);
+    }
+
+    /** Cọc đầu và cọc bổ sung đều mở phiên ở đây; khác nhau ở listener lúc chốt. */
+    private static boolean isDepositKind(InvoiceType type) {
+        return type == InvoiceType.DEPOSIT || type == InvoiceType.DEPOSIT_SUPPLEMENT;
     }
 
     /** Hóa đơn của mọi đơn trỏ vào khoang này, trừ hóa đơn đang được thanh toán. */

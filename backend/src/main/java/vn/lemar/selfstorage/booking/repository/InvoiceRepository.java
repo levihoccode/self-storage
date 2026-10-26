@@ -34,6 +34,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("select i.orderId from Invoice i where i.id = :id")
     Optional<Long> findOrderIdById(@Param("id") Long id);
 
+    /** Như trên nhưng lọc đúng khách — endpoint khách không khoá row đơn của người khác. */
+    @Query("select i.orderId from Invoice i where i.id = :id and i.customerId = :customerId")
+    Optional<Long> findOrderIdByIdAndCustomerId(@Param("id") Long id, @Param("customerId") Long customerId);
+
     /**
      * Khoá row hoá đơn ({@code SELECT ... FOR UPDATE}).
      *

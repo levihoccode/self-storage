@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import vn.lemar.selfstorage.booking.application.DepositPaymentService;
 import vn.lemar.selfstorage.booking.application.InvoiceVoidingService;
 import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
@@ -87,7 +88,9 @@ class DepositPaymentServiceTest {
         when(order.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
 
         when(invoices.findById(INVOICE_ID)).thenReturn(Optional.of(invoice));
-        when(orders.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(invoices.findOrderIdByIdAndCustomerId(INVOICE_ID, CUSTOMER_ID)).thenReturn(Optional.of(ORDER_ID));
+        when(invoices.findByIdForUpdate(INVOICE_ID)).thenReturn(Optional.of(invoice));
+        when(orders.findByIdForUpdate(ORDER_ID)).thenReturn(Optional.of(order));
         when(units.lock(UNIT_ID)).thenReturn(Optional.of(unit("Available")));
         when(orders.findByUnitId(UNIT_ID)).thenReturn(List.of(order));
         when(invoices.findByOrderIdIn(List.of(ORDER_ID))).thenReturn(List.of(invoice));
@@ -119,6 +122,7 @@ class DepositPaymentServiceTest {
 
     @Test
     void someoneElsesInvoiceLooksLikeItDoesNotExist() {
+        when(invoices.findOrderIdByIdAndCustomerId(INVOICE_ID, CUSTOMER_ID)).thenReturn(Optional.empty());
         when(invoice.getCustomerId()).thenReturn(999L);
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
@@ -157,6 +161,29 @@ class DepositPaymentServiceTest {
                 .hasMessageContaining("hiện không khả dụng");
 
         verify(invoiceVoiding).voidForUnavailableUnit(INVOICE_ID, "A-01", FACILITY_ID, CUSTOMER_ID);
+    }
+
+    @Test
+    void unavailableUnitOnAnOrderThatHoldsItMarksItForReproposal() {
+        when(order.holdsUnit()).thenReturn(true);
+        when(units.lock(UNIT_ID)).thenReturn(Optional.of(unit("Reserved")));
+
+        assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
+                .isInstanceOf(DepositNotAllowedException.class)
+                .hasMessageContaining("đã được đặt cọc bởi khách hàng khác");
+
+        verify(order).requireReproposal();
+        verify(invoiceVoiding).voidForUnavailableUnit(INVOICE_ID, "A-01", FACILITY_ID, CUSTOMER_ID);
+    }
+
+    @Test
+    void locksTheOrderThenTheInvoiceThenTheUnit() {
+        service.startDeposit(INVOICE_ID, "1.2.3.4");
+
+        InOrder order = org.mockito.Mockito.inOrder(orders, invoices, units);
+        order.verify(orders).findByIdForUpdate(ORDER_ID);
+        order.verify(invoices).findByIdForUpdate(INVOICE_ID);
+        order.verify(units).lock(UNIT_ID);
     }
 
     @Test

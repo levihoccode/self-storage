@@ -18,18 +18,23 @@ toán và trả URL VNPay để FE chuyển hướng.
 | # | Điều kiện | Kết quả |
 |---|---|---|
 | 1 | `RentalOrder.expires_at < now` | 409 "Đơn thuê kho đã hết hạn…" — không đổi gì |
-| 2 | khoang `Reserved`/`Rented` | 409 + `Invoice=Canceled` + audit `INVOICE_CANCELED` + notify FM `PROPOSAL_REPROPOSAL_REQUIRED` |
-| 3 | khoang `Maintenance` | 409 + `Invoice=Canceled` + audit `INVOICE_CANCELED` + notify FM `PROPOSAL_REPROPOSAL_REQUIRED` |
+| 2 | khoang `Reserved`/`Rented` | 409 + `Invoice=Canceled` + audit `INVOICE_CANCELED` + notify FM `PROPOSAL_REPROPOSAL_REQUIRED`; đơn đang giữ khoang thì bật `needs_reproposal` |
+| 3 | khoang `Maintenance` | 409 + `Invoice=Canceled` + audit `INVOICE_CANCELED` + notify FM `PROPOSAL_REPROPOSAL_REQUIRED`; đơn đang giữ khoang thì bật `needs_reproposal` |
 | 4 | khoang đang có phiên thanh toán khác | 409 "…đang trong quá trình xử lý thanh toán…" — không đổi gì |
 | 5 | không vướng gì | `PaymentTransaction(Pending)` + trả `paymentUrl` |
+
+Trước năm nhánh, hoá đơn không còn `Unpaid` hoặc không phải `Deposit`/`DepositSupplement` cũng trả
+409 "Hóa đơn này không ở trạng thái chờ thanh toán cọc."
 
 Thứ tự quan trọng: đơn quá hạn chặn **trước** khi đụng tới khoang (không vô hiệu hóa đơn của một
 khoang vẫn còn tốt), còn khóa phiên kiểm **sau cùng** (không báo "đang xử lý" cho khoang thật ra
 đã `Reserved`).
 
-Việc hủy hóa đơn ở nhánh 2/3 chạy trong transaction riêng (`REQUIRES_NEW`) vì nó vừa phải ghi
-`Canceled` vừa phải ném 409: ghi rồi ném trong cùng transaction thì bản ghi bị rollback. Nó khóa
-row hóa đơn và bỏ qua nếu hóa đơn không còn `Unpaid` — IPN có thể đang đánh `Paid` cùng lúc.
+Việc huỷ hoá đơn ở nhánh 2/3 phải commit dù endpoint trả 409. `startDeposit` khai
+`noRollbackFor = DepositNotAllowedException.class`; `InvoiceVoidingService` chạy trong cùng
+transaction (`MANDATORY`) nên `Canceled` + `needs_reproposal` được ghi trước khi exception ra
+handler. Nó khoá row hoá đơn và bỏ qua nếu hoá đơn không còn `Unpaid` — IPN có thể đang đánh `Paid`
+cùng lúc.
 
 ## Khóa giao dịch ngắn hạn
 
@@ -58,8 +63,10 @@ reserve ở luồng đổi khoang, nên bước thu tiền này mới là chỗ 
 
 **Thứ tự khóa: đơn → hóa đơn → khoang.** Luồng đề xuất khoang
 (`booking/proposal-flow.md`) khóa row đơn ở mọi đường ghi, nên luồng thu cọc phải khóa cùng thứ
-tự; khác thứ tự là deadlock, không khóa thì luồng kia đọc được hóa đơn nửa chừng. Để lấy
-`order_id` mà chưa nạp entity hóa đơn, dùng projection `InvoiceRepository.findOrderIdById`.
+tự; khác thứ tự là deadlock, không khóa thì luồng kia đọc được hóa đơn nửa chừng. `startDeposit`
+lấy `order_id` bằng projection (`findOrderIdByIdAndCustomerId`), khoá đơn trước, rồi khoá hoá đơn
+và đọc trạng thái, rồi mới khoá khoang. Listener IPN dùng `findOrderIdById` cùng mục đích: khoá
+đơn mà chưa nạp entity hoá đơn.
 
 Hạn đơn **không đổi**: `expires_at` set một lần khi tạo đơn (`specs/db-table-draft.md` ›
 RentalOrder), và hạn giữ kho là phần còn lại của chính hạn đó.

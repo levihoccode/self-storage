@@ -23,12 +23,11 @@ import vn.lemar.selfstorage.notification.application.NotificationType;
 /**
  * Vô hiệu hóa đơn khi khoang không còn dùng được — spec Flow 1.4 nhánh `Reserved`/`Maintenance`.
  *
- * <p><strong>Vì sao tách bean riêng và REQUIRES_NEW:</strong> hai nhánh đó vừa phải <em>từ chối</em>
- * giao dịch (ném exception → 409) vừa phải <em>ghi</em> hóa đơn sang `Canceled`. Nếu ghi trong
- * cùng transaction rồi ném, Spring rollback và mất luôn bản ghi — đúng lỗi mà
- * {@code DepositPaymentIntegrationTest} bắt được. Transaction riêng commit độc lập với việc
- * từ chối. Tách sang bean khác vì gọi nội bộ trong cùng bean không đi qua proxy nên
- * {@code REQUIRES_NEW} sẽ không có tác dụng.
+ * <p><strong>Chạy trong transaction của caller ({@code MANDATORY}):</strong> nhánh từ chối ở
+ * {@link DepositPaymentService} khai {@code noRollbackFor = DepositNotAllowedException.class},
+ * nên phần huỷ hoá đơn (và cờ `needs_reproposal`) commit trước khi 409 trả về. Tách bean để giữ
+ * audit + notify tách khỏi service mở phiên; không mở transaction riêng vì làm vậy sẽ khoá invoice
+ * trong lúc transaction ngoài đang giữ khoang — đảo thứ tự khoá và có thể deadlock.
  */
 @Service
 public class InvoiceVoidingService {
@@ -51,7 +50,7 @@ public class InvoiceVoidingService {
     }
 
     /** Hóa đơn mất hiệu lực; FM nhận thông báo để đề xuất khoang khác. */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.MANDATORY)
     public void voidForUnavailableUnit(Long invoiceId, String unitCode, Long facilityId, Long actorId) {
         // Khoá row: IPN có thể đang đánh `Paid` cùng lúc. Kiểm trạng thái trong bộ nhớ rồi ghi đè
         // là không đủ — hoá đơn đã thu tiền mà bị huỷ thì tiền thành mồ côi.

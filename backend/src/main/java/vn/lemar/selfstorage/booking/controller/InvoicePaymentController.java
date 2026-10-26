@@ -49,8 +49,9 @@ public class InvoicePaymentController {
                                     {"message":"Không tìm thấy hóa đơn",
                                     "timestamp":"2026-10-13T08:14:28.048550698Z"}"""))),
             @ApiResponse(responseCode = "409",
-                    description = "Bốn nhánh từ chối của spec Flow 1.4: đơn quá hạn · khoang đã được "
-                            + "đặt cọc · khoang đang bảo trì · khoang đang có phiên thanh toán khác",
+                    description = "Các nhánh từ chối: đơn quá hạn · khoang đã được đặt cọc · khoang "
+                            + "đang bảo trì · khoang đang có phiên thanh toán khác · hoá đơn không còn "
+                            + "chờ thanh toán cọc",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiError.class),
                             examples = {

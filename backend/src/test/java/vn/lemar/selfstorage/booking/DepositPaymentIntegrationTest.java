@@ -23,6 +23,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -160,8 +161,44 @@ class DepositPaymentIntegrationTest {
 
         assertThat(statusOf("invoices", invoiceId)).isEqualTo("Canceled");
         assertThat(jdbc.queryForObject(
+                "SELECT needs_reproposal FROM rental_orders WHERE id = ?", Boolean.class, orderId))
+                .as("đơn Pending chưa giữ khoang nên không cần cờ repropose")
+                .isFalse();
+        assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM audit_logs WHERE action = 'INVOICE_CANCELED'", Integer.class))
                 .isEqualTo(1);
+    }
+
+    /**
+     * Cọc bổ sung rơi nhánh 2/3: đơn đã `Deposited`, khoang mới bị lấy trước khi trả. Huỷ hoá đơn
+     * phải commit cùng cờ `needs_reproposal`, nếu không FM bị gate repropose chặn.
+     */
+    @Test
+    void supplementWithTakenUnitVoidsInvoiceAndUnblocksReproposal() throws Exception {
+        jdbc.update("UPDATE rental_orders SET status = 'Deposited' WHERE id = ?", orderId);
+        jdbc.update("UPDATE invoices SET type = 'DepositSupplement' WHERE id = ?", invoiceId);
+        jdbc.update("UPDATE storage_units SET status = 'Reserved' WHERE id = ?", unitId);
+
+        Long nextUnitId = jdbc.queryForObject(
+                "SELECT id FROM storage_units WHERE status = 'Available'"
+                        + " AND facility_id = (SELECT facility_id FROM storage_units WHERE id = ?)"
+                        + " ORDER BY id LIMIT 1",
+                Long.class, unitId);
+
+        mockMvc.perform(payAs(CUSTOMER_EMAIL))
+                .andExpect(status().isConflict());
+
+        assertThat(statusOf("invoices", invoiceId)).isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject(
+                "SELECT needs_reproposal FROM rental_orders WHERE id = ?", Boolean.class, orderId))
+                .isTrue();
+
+        // Cờ đã commit nên FM đề xuất lại được thay vì nhận 409.
+        mockMvc.perform(post("/api/rental-orders/{orderId}/proposals", orderId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"unitId\":" + nextUnitId + "}"))
+                .andExpect(status().isOk());
     }
 
     @Test
