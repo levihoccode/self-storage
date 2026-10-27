@@ -50,14 +50,15 @@ async function loadDay(facilityId: number, date: string): Promise<DayState> {
   }
 }
 
-/** Chỉ phân công được lịch check-in còn chờ và đơn đang chờ phân công (BE vẫn kiểm lại). */
+/**
+ * Phân công được lịch check-in còn chờ: lần đầu khi đơn `Scheduled`, đổi FS khi lịch đã có FS và đơn
+ * `InProgress` (BE vẫn kiểm lại).
+ */
 function canAssign(appointment: FmAppointment) {
-  return (
-    appointment.type === "CHECKIN" &&
-    appointment.status === "Pending" &&
-    appointment.staffId === null &&
-    appointment.orderStatus === "Scheduled"
-  );
+  if (appointment.type !== "CHECKIN" || appointment.status !== "Pending") return false;
+  return appointment.staffId === null
+    ? appointment.orderStatus === "Scheduled"
+    : appointment.orderStatus === "InProgress";
 }
 
 export function AppointmentSchedulePage() {
@@ -94,6 +95,8 @@ export function AppointmentSchedulePage() {
   const items = day.kind === "ready" ? day.items : [];
   const list = items.filter((item) => !unassignedOnly || item.staffId === null);
   const openAppointment = items.find((item) => item.id === openId) ?? null;
+  // Đổi FS thì loại FS đang phụ trách khỏi danh sách chọn.
+  const assignableStaff = staff.filter((member) => member.id !== openAppointment?.staffId);
 
   // setState ở event handler, không phải trong effect.
   function changeDate(next: string) {
@@ -132,8 +135,9 @@ export function AppointmentSchedulePage() {
     setActionError(null);
     try {
       replaceItem(await assignAppointmentStaff(appointment.id, Number(selectedStaffId)));
+      setSelectedStaffId("");
     } catch (error) {
-      // 409 (đã có FS, không còn chờ, đơn không Scheduled), 400 (FS khác cơ sở), 403, 404: câu của BE.
+      // 409 (đã do FS này phụ trách, không còn chờ, đơn sai trạng thái), 400 (FS khác cơ sở), 403, 404: câu của BE.
       setActionError(
         error instanceof ApiError ? error.message : "Không phân công được, thử lại sau.",
       );
@@ -157,8 +161,8 @@ export function AppointmentSchedulePage() {
 
       <div className="mb-6">
         <DemoNotice tone="pending">
-          Chỉ phân công FS cho lịch <strong>check-in</strong> đang chờ. Lịch trả kho được phân công
-          từ hàng chờ yêu cầu trả kho — ở đây chỉ xem.
+          Phân công hoặc đổi FS cho lịch <strong>check-in</strong> đang chờ. Lịch trả kho được phân
+          công từ hàng chờ yêu cầu trả kho — ở đây chỉ xem.
         </DemoNotice>
       </div>
 
@@ -282,32 +286,35 @@ export function AppointmentSchedulePage() {
             </div>
           )}
 
-          {openAppointment.staffEmail ? (
+          {openAppointment.staffEmail && (
             <div className="mt-6">
               <DemoNotice tone="success">
-                Đã phân công {openAppointment.staffEmail} phụ trách lịch hẹn này.
+                Đang do {openAppointment.staffEmail} phụ trách lịch hẹn này.
               </DemoNotice>
             </div>
-          ) : canAssign(openAppointment) ? (
+          )}
+          {canAssign(openAppointment) ? (
             <>
               <label className="mt-6 grid gap-1.5 text-[12px] font-bold text-ink">
-                Chọn nhân viên FS
+                {openAppointment.staffId === null ? "Chọn nhân viên FS" : "Đổi sang nhân viên FS"}
                 <select
                   className="rounded-sm border border-border bg-surface-subtle px-3 py-2.5 text-[13px] text-ink"
                   value={selectedStaffId}
                   onChange={(event) => setSelectedStaffId(event.target.value)}
                 >
                   <option value="">— Chọn nhân viên —</option>
-                  {staff.map((member) => (
+                  {assignableStaff.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.email}
                     </option>
                   ))}
                 </select>
               </label>
-              {staff.length === 0 && (
+              {assignableStaff.length === 0 && (
                 <p className="mb-0 mt-2 text-[12px] text-danger">
-                  Cơ sở chưa có nhân viên FS đang hoạt động.
+                  {openAppointment.staffId === null
+                    ? "Cơ sở chưa có nhân viên FS đang hoạt động."
+                    : "Cơ sở không còn FS đang hoạt động nào khác để đổi."}
                 </p>
               )}
               <div className="mt-5">
@@ -317,17 +324,19 @@ export function AppointmentSchedulePage() {
                   onClick={() => void assign(openAppointment)}
                 >
                   {busyId !== openAppointment.id && <Check size={16} />}
-                  Phân công
+                  {openAppointment.staffId === null ? "Phân công" : "Đổi FS"}
                 </Button>
               </div>
             </>
           ) : (
-            <div className="mt-6">
-              <DemoNotice tone="pending">
-                Lịch này không ở trạng thái chờ phân công (lịch {openAppointment.status}, đơn{" "}
-                {openAppointment.orderStatus ?? "—"}).
-              </DemoNotice>
-            </div>
+            !openAppointment.staffEmail && (
+              <div className="mt-6">
+                <DemoNotice tone="pending">
+                  Lịch này không ở trạng thái chờ phân công (lịch {openAppointment.status}, đơn{" "}
+                  {openAppointment.orderStatus ?? "—"}).
+                </DemoNotice>
+              </div>
+            )
           )}
         </DetailPanel>
       )}
