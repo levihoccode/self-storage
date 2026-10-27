@@ -65,17 +65,17 @@ public class Appointment {
     }
 
     /**
-     * Spec 1.5: FM chỉ định FS phụ trách ca tiếp đón. Chỉ lịch {@code Pending} chưa có FS — đổi FS đã gán chưa
-     * được docs định nghĩa nên không cho phép.
+     * Spec 1.5: FM chỉ định FS phụ trách ca tiếp đón. Chỉ lịch {@code Pending}; lịch đã có FS thì thay bằng FS mới.
+     *
+     * @return FS phụ trách trước đó, {@code null} nếu đây là lần gán đầu tiên
      */
-    public void assignStaff(Long staffAccountId) {
+    public Long assignStaff(Long staffAccountId) {
         if (status != AppointmentStatus.Pending) {
             throw new IllegalStateException("Lịch hẹn " + id + " không còn Pending: " + status);
         }
-        if (staffId != null) {
-            throw new IllegalStateException("Lịch hẹn " + id + " đã có FS phụ trách");
-        }
+        Long previousStaffId = this.staffId;
         this.staffId = staffAccountId;
         this.updatedAt = Instant.now();
+        return previousStaffId;
     }
 }

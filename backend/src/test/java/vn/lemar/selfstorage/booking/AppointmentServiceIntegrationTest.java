@@ -117,13 +117,65 @@ class AppointmentServiceIntegrationTest {
     }
 
     @Test
-    void appointmentWithStaffCannotBeAssignedAgain() {
+    void assigningTheSameStaffAgainConflicts() {
         loginAs("fm1@lemar.vn");
         service.assignStaff(appointmentId, fsId, fmId);
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, fmId))
                 .isInstanceOf(AppointmentConflictException.class)
-                .hasMessage("Lịch hẹn đã có FS phụ trách");
+                .hasMessage("Lịch hẹn đã do FS này phụ trách");
+        assertThat(auditActions()).containsExactly("FS_ASSIGNED");
+    }
+
+    @Test
+    void pendingAppointmentCanBeReassignedKeepingOrderInProgress() {
+        long newFsId = secondStaffOfQ7();
+        loginAs("fm1@lemar.vn");
+        service.assignStaff(appointmentId, fsId, fmId);
+
+        FmAppointmentResponse result = service.assignStaff(appointmentId, newFsId, fmId);
+
+        assertThat(result.staffId()).isEqualTo(newFsId);
+        assertThat(result.staffEmail()).isEqualTo("fs2@lemar.vn");
+        assertThat(orderStatus()).isEqualTo("InProgress");
+        assertThat(auditActions()).containsExactly("FS_ASSIGNED", "FS_ASSIGNED");
+        Map<String, Object> reassigned = jdbc.queryForMap("""
+                select old_value ->> 'staffId' as old_staff, new_value ->> 'staffId' as new_staff,
+                       new_value ->> 'orderStatus' as order_status, actor_account_id
+                from audit_logs where entity_type = 'Appointment' and entity_id = ? order by id desc limit 1""",
+                String.valueOf(appointmentId));
+        assertThat(reassigned.get("old_staff")).isEqualTo(String.valueOf(fsId));
+        assertThat(reassigned.get("new_staff")).isEqualTo(String.valueOf(newFsId));
+        assertThat(reassigned.get("order_status")).isNull();
+        assertThat(reassigned.get("actor_account_id")).isEqualTo(fmId);
+        assertThat(notificationTypes(newFsId)).containsExactly("FS_ASSIGNED");
+        assertThat(notificationTypes(fsId)).containsExactly("FS_ASSIGNED", "FS_REASSIGNED");
+    }
+
+    @Test
+    void reassignWhenOrderIsNoLongerInProgressConflicts() {
+        long newFsId = secondStaffOfQ7();
+        loginAs("fm1@lemar.vn");
+        service.assignStaff(appointmentId, fsId, fmId);
+        entityManager.flush();
+        jdbc.update("update rental_orders set status = 'Canceled' where id = ?", orderId);
+        entityManager.clear();
+
+        assertThatThrownBy(() -> service.assignStaff(appointmentId, newFsId, fmId))
+                .isInstanceOf(AppointmentConflictException.class)
+                .hasMessage("Đơn thuê không ở trạng thái đang tiếp đón");
+        assertThat(notificationTypes(newFsId)).isEmpty();
+    }
+
+    @Test
+    void reassigningToAccountOutsideTheFacilityIsRejected() {
+        loginAs("fm1@lemar.vn");
+        service.assignStaff(appointmentId, fsId, fmId);
+
+        assertThatThrownBy(() -> service.assignStaff(appointmentId, fmId, fmId))
+                .isInstanceOf(AppointmentValidationException.class)
+                .hasMessage("Nhân viên không phải FS của cơ sở này");
+        assertThat(notificationTypes(fsId)).containsExactly("FS_ASSIGNED");
     }
 
     @Test
@@ -218,6 +270,22 @@ class AppointmentServiceIntegrationTest {
 
     private long accountId(String email) {
         return jdbc.queryForObject("select id from accounts where email = ?", Long.class, email);
+    }
+
+    /** FS thứ hai của Q7 để thử đổi FS; seed chỉ có fs1. */
+    private long secondStaffOfQ7() {
+        long id = jdbc.queryForObject("""
+                insert into accounts (email, password_hash, email_verified_at, role_id, status)
+                values ('fs2@lemar.vn', (select password_hash from accounts where id = ?), now(),
+                        (select id from roles where name = 'FS'), 'ACTIVE') returning id""", Long.class, fsId);
+        jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, ?)", id, q7);
+        return id;
+    }
+
+    private List<String> notificationTypes(long accountId) {
+        entityManager.flush();
+        return jdbc.queryForList("select type from notifications where account_id = ? order by id", String.class,
+                accountId);
     }
 
     private String orderStatus() {

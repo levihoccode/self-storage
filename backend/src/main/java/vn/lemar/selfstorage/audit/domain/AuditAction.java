@@ -21,11 +21,17 @@ public enum AuditAction {
     PROPOSAL_REJECTED(AuditEntityType.PROPOSAL_FEEDBACK),
     PROPOSAL_REPROPOSED(AuditEntityType.PROPOSAL_FEEDBACK),
     PROPOSAL_CREATED(AuditEntityType.PROPOSAL_FEEDBACK),
+    /** Khoang hết Available lúc khách đồng ý → proposal Canceled (V8). */
+    PROPOSAL_CANCELED(AuditEntityType.PROPOSAL_FEEDBACK),
     INVOICE_CREATED(AuditEntityType.INVOICE),
     INVOICE_CANCELED(AuditEntityType.INVOICE),
     PAYMENT_SUCCEEDED(AuditEntityType.PAYMENT_TRANSACTION),
     PAYMENT_FAILED(AuditEntityType.PAYMENT_TRANSACTION),
     MANUAL_REFUND_RECORDED(AuditEntityType.PAYMENT_TRANSACTION),
+    /** Đổi khoang sau khi cọc dư — FM phải hoàn tiền thủ công (behavior-gap #165). */
+    DEPOSIT_REFUND_REQUIRED(AuditEntityType.RENTAL_ORDER),
+    /** Khách đồng ý khoang mới sau khi đã cọc — khoang cũ được nhả (behavior-gap #172). */
+    UNIT_CHANGE_RELEASED(AuditEntityType.STORAGE_UNIT),
     RENTAL_ORDER_DEPOSITED(AuditEntityType.RENTAL_ORDER),
     RENTAL_ORDER_CREATED(AuditEntityType.RENTAL_ORDER),
     STORAGE_UNIT_RESERVED(AuditEntityType.STORAGE_UNIT),

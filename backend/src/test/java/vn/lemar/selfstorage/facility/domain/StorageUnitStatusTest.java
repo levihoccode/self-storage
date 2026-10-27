@@ -27,6 +27,11 @@ class StorageUnitStatusTest {
     }
 
     @Test
+    void releaseIsANoOpUnlessUnitIsReserved() {
+        assertThat(new StorageUnit().releaseIfReserved()).isFalse();
+    }
+
+    @Test
     void onlyAvailableUnitIsAvailable() {
         assertThat(new StorageUnitView(1L, "A-01", 1L, 1L, "Available").isAvailable()).isTrue();
         assertThat(new StorageUnitView(1L, "A-01", 1L, 1L, "Reserved").isAvailable()).isFalse();

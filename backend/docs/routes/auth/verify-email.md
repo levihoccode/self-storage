@@ -39,7 +39,7 @@ Nhập mã 6 số nhận qua email để xác minh account (set `Account.email_v
   mark verified.
 - Sau khi xác minh: phát event `EmailVerified`; sau commit, luồng convert claim các `RentalRequest`
   `Approved` còn hạn khớp email trong transaction riêng — claim lỗi chỉ log, không ảnh hưởng kết quả
-  xác minh ([booking-conversion.md](../../booking-conversion.md)).
+  xác minh ([booking/conversion.md](../../booking/conversion.md)).
 
 ## Ví dụ
 

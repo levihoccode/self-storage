@@ -17,7 +17,7 @@ thì mở issue theo workflow; file này không thay thế issue.
 ## Notification
 
 - Caller nghiệp vụ đầu tiên: luồng convert gửi `RENTAL_REQUEST_APPROVED` (có `orderId`) —
-  [booking-conversion.md](booking-conversion.md). Handover/payment nối sau; khi nối flow, truyền
+  [booking/conversion.md](booking/conversion.md). Handover/payment nối sau; khi nối flow, truyền
   `orderId` để FE deep-link mở đơn.
 - `RENTAL_ORDER_CANCELED`: template dùng `{{outcome}}` — caller của Cancellation Cascade phải map
   `cancel_reason` → `"đã bị hủy"` / `"đã hết hạn"`; nên có một helper dùng chung khi làm cascade.

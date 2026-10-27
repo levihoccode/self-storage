@@ -4,7 +4,8 @@ package vn.lemar.selfstorage.booking.domain;
  * Trạng thái đơn thuê ({@code specs/db-table-draft.md} › RentalOrder).
  *
  * <p>DB lưu dạng PascalCase theo CHECK constraint của {@code rental_orders} (V6); quy đổi qua
- * {@link RentalOrderStatusConverter}.
+ * {@link RentalOrderStatusConverter}. Không có {@code Expired}: quá hạn cũng là {@code Canceled} kèm
+ * {@code cancel_reason}.
  */
 public enum RentalOrderStatus {
     PENDING("Pending"),

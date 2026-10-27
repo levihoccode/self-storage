@@ -35,7 +35,8 @@ import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
 import vn.lemar.selfstorage.booking.repository.ConversionGuardRepository;
 import vn.lemar.selfstorage.booking.repository.RentalRequestRepository;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
-import vn.lemar.selfstorage.facility.application.StorageUnitQueryService;
+import vn.lemar.selfstorage.facility.application.StorageUnitQuery;
+import vn.lemar.selfstorage.facility.application.StorageUnitView;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
@@ -45,7 +46,7 @@ import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationTemplateCatalog;
 import vn.lemar.selfstorage.notification.application.NotificationType;
-import vn.lemar.selfstorage.pricing.application.PolicyQueryService;
+import vn.lemar.selfstorage.pricing.application.PricingQuery;
 import vn.lemar.selfstorage.pricing.application.UnitTypeQueryService;
 
 /**
@@ -69,39 +70,39 @@ public class RentalRequestService {
 
     private final RentalRequestRepository repository;
     private final FacilityAccess facilityAccess;
-    private final StorageUnitQueryService storageUnitQueryService;
+    private final StorageUnitQuery storageUnitQuery;
     private final Access access;
     private final AccountQueryService accountQueryService;
     private final NotificationService notificationService;
     private final NotificationTemplateCatalog templateCatalog;
     private final EmailSender emailSender;
     private final UnitTypeQueryService unitTypeQueryService;
-    private final PolicyQueryService policyQueryService;
+    private final PricingQuery pricingQuery;
     private final AuditRecorder auditRecorder;
     private final CurrentAccountProvider currentAccountProvider;
     private final RentalRequestConversionService conversionService;
     private final ConversionGuardRepository conversionGuard;
 
     public RentalRequestService(RentalRequestRepository repository, FacilityAccess facilityAccess,
-                                StorageUnitQueryService storageUnitQueryService, Access access,
+                                StorageUnitQuery storageUnitQuery, Access access,
                                 AccountQueryService accountQueryService,
                                 NotificationService notificationService,
                                 NotificationTemplateCatalog templateCatalog, EmailSender emailSender,
                                 UnitTypeQueryService unitTypeQueryService,
-                                PolicyQueryService policyQueryService, AuditRecorder auditRecorder,
+                                PricingQuery pricingQuery, AuditRecorder auditRecorder,
                                 CurrentAccountProvider currentAccountProvider,
                                 RentalRequestConversionService conversionService,
                                 ConversionGuardRepository conversionGuard) {
         this.repository = repository;
         this.facilityAccess = facilityAccess;
-        this.storageUnitQueryService = storageUnitQueryService;
+        this.storageUnitQuery = storageUnitQuery;
         this.access = access;
         this.accountQueryService = accountQueryService;
         this.notificationService = notificationService;
         this.templateCatalog = templateCatalog;
         this.emailSender = emailSender;
         this.unitTypeQueryService = unitTypeQueryService;
-        this.policyQueryService = policyQueryService;
+        this.pricingQuery = pricingQuery;
         this.auditRecorder = auditRecorder;
         this.currentAccountProvider = currentAccountProvider;
         this.conversionService = conversionService;
@@ -183,12 +184,12 @@ public class RentalRequestService {
         if (accountQueryService.isBanned(request.getNormalizedCustomerEmail())) {
             return rejectBannedCustomer(requestId, request);
         }
-        StorageUnitQueryService.UnitInfo unit = storageUnitQueryService.findUnitInfo(unitId)
+        StorageUnitView unit = storageUnitQuery.find(unitId)
                 .orElseThrow(StorageUnitNotFoundException::new);
         if (!unit.facilityId().equals(request.getFacilityId())) {
             throw new StorageUnitNotFoundException();
         }
-        if (!unit.available()) {
+        if (!unit.isAvailable()) {
             throw new StorageUnitUnavailableException();
         }
         // Khoá advisory theo email khách trước pre-check trùng, giữ tới commit: hai FM duyệt cùng
@@ -369,7 +370,7 @@ public class RentalRequestService {
 
     private long policyDays(String key) {
         try {
-            return policyQueryService.valueOf(key).map(Long::parseLong).orElse(
+            return pricingQuery.valueOf(key).map(Long::parseLong).orElse(
                     EXPIRY_FALLBACK_DAYS);
         } catch (NumberFormatException ex) {
             return EXPIRY_FALLBACK_DAYS;

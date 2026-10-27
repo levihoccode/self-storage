@@ -87,6 +87,10 @@ public class NotificationTemplateCatalog {
         put(NotificationType.FS_ASSIGNED, NotificationRecipient.FS,
                 "Bạn được phân công lịch check-in",
                 "Đơn {{orderCode}}: lịch hẹn {{appointmentTime}} tại {{facilityAddress}}, khoang {{unitCode}}.");
+        put(NotificationType.FS_REASSIGNED, NotificationRecipient.FS,
+                "Lịch check-in đã được phân công cho người khác",
+                "Đơn {{orderCode}}: lịch hẹn {{appointmentTime}} tại {{facilityAddress}} đã được phân công cho nhân "
+                        + "viên khác. Bạn không cần phụ trách lịch này.");
         put(NotificationType.FS_ASSIGNMENT_REQUIRED, NotificationRecipient.FM,
                 "Lịch check-in chưa có nhân viên phụ trách",
                 "Đơn {{orderCode}}: lịch hẹn {{appointmentTime}} tại {{facilityAddress}} chưa có FS phụ trách.");
@@ -105,6 +109,16 @@ public class NotificationTemplateCatalog {
         put(NotificationType.RENTAL_ORDER_CANCELED, NotificationRecipient.FM,
                 "Đơn thuê kho {{outcome}}",
                 "Đơn {{orderCode}} {{outcome}}. Lý do: {{reason}}.");
+        put(NotificationType.DEPOSIT_REFUND_REQUIRED, NotificationRecipient.FM,
+                "Cần hoàn cọc thủ công",
+                "Đơn {{orderCode}} đổi sang khoang có cọc thấp hơn. Số tiền cần hoàn: {{refundAmount}}.");
+        put(NotificationType.UNIT_CHANGE_PAYMENT_REQUIRED, NotificationRecipient.CUSTOMER,
+                "Thanh toán để giữ khoang mới",
+                "Đơn {{orderCode}}: cần thanh toán thêm {{amount}} để giữ khoang mới. "
+                        + "Khoang chỉ được giữ sau khi thanh toán; xem hoá đơn trong mục Hoá đơn.");
+        put(NotificationType.DEPOSIT_REFUND_PENDING, NotificationRecipient.CUSTOMER,
+                "Cọc dư sẽ được hoàn",
+                "Đơn {{orderCode}}: cọc dư {{refundAmount}} sẽ được cơ sở hoàn lại.");
         put(NotificationType.HANDOVER_COMPLETED, NotificationRecipient.CUSTOMER,
                 "Bàn giao kho hoàn tất",
                 "Đơn {{orderCode}} đã bàn giao khoang {{unitCode}}. Xem biên bản tại {{handoverLink}}.");
