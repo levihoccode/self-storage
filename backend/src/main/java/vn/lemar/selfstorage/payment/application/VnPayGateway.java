@@ -5,6 +5,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -49,7 +50,12 @@ public class VnPayGateway implements PaymentGateway {
 
     @Override
     public String buildPaymentUrl(PaymentRequest request) {
-        LocalDateTime now = LocalDateTime.now(VNPAY_ZONE);
+        return buildPaymentUrl(request, Instant.now());
+    }
+
+    @Override
+    public String buildPaymentUrl(PaymentRequest request, Instant createdAt) {
+        LocalDateTime now = LocalDateTime.ofInstant(createdAt, VNPAY_ZONE);
 
         Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version", VERSION);

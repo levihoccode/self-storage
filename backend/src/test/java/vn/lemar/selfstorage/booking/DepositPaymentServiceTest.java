@@ -98,6 +98,7 @@ class DepositPaymentServiceTest {
         when(sessions.hasSuccessfulPayment(INVOICE_ID)).thenReturn(false);
         when(sessions.hasOpenSessionForInvoice(INVOICE_ID)).thenReturn(false);
         when(sessions.openPaymentUrl(INVOICE_ID)).thenReturn(Optional.empty());
+        when(payments.resumePayment(INVOICE_ID, "1.2.3.4")).thenReturn(Optional.empty());
         when(payments.startPayment(eq(INVOICE_ID), any())).thenReturn(PAY_URL);
     }
 
@@ -130,15 +131,25 @@ class DepositPaymentServiceTest {
     }
 
     @Test
+    void cacheMissResumesTheSameSession() {
+        when(sessions.hasOpenSessionForInvoice(INVOICE_ID)).thenReturn(true);
+        when(sessions.openPaymentUrl(INVOICE_ID)).thenReturn(Optional.empty());
+        when(payments.resumePayment(INVOICE_ID, "1.2.3.4"))
+                .thenReturn(Optional.of("https://pay/resumed"));
+
+        assertThat(service.startDeposit(INVOICE_ID, "1.2.3.4"))
+                .isEqualTo("https://pay/resumed");
+    }
+
+    @Test
     void pendingSessionWithoutCachedUrlIsRefused() {
         when(sessions.hasOpenSessionForInvoice(INVOICE_ID)).thenReturn(true);
         when(sessions.openPaymentUrl(INVOICE_ID)).thenReturn(Optional.empty());
+        when(payments.resumePayment(INVOICE_ID, "1.2.3.4")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.startDeposit(INVOICE_ID, "1.2.3.4"))
                 .isInstanceOf(DepositNotAllowedException.class)
                 .hasMessageContaining("hết hiệu lực");
-
-        verifyNoInteractions(payments);
     }
 
     @Test

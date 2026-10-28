@@ -200,6 +200,33 @@ class DepositPaymentIntegrationTest {
         assertThat(statusOf("invoices", invoiceId)).isEqualTo("Unpaid");
     }
 
+    /** Cache Redis mất nhưng phiên Pending còn hạn: dựng lại URL từ transaction, không mở phiên mới. */
+    @Test
+    void cacheMissRebuildsTheSameSession() throws Exception {
+        MvcResult first = mockMvc.perform(payAs(CUSTOMER_EMAIL))
+                .andExpect(status().isOk())
+                .andReturn();
+        String firstUrl = com.jayway.jsonpath.JsonPath.read(
+                first.getResponse().getContentAsString(), "$.data.paymentUrl");
+
+        redisTemplate.delete("payment:url:" + invoiceId);
+
+        MvcResult second = mockMvc.perform(payAs(CUSTOMER_EMAIL)
+                        .header("X-Forwarded-For", "203.0.113.9"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String secondUrl = com.jayway.jsonpath.JsonPath.read(
+                second.getResponse().getContentAsString(), "$.data.paymentUrl");
+
+        assertThat(queryParam(secondUrl, "vnp_TxnRef"))
+                .isEqualTo(queryParam(firstUrl, "vnp_TxnRef"));
+        assertThat(queryParam(secondUrl, "vnp_IpAddr")).isEqualTo("203.0.113.9");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM payment_transactions WHERE invoice_id = ? AND status = 'Pending'",
+                Integer.class, invoiceId))
+                .as("resume không được tạo giao dịch mới").isEqualTo(1);
+    }
+
     @Test
     void reservedUnitVoidsTheInvoiceAndRefuses() throws Exception {
         jdbc.update("UPDATE storage_units SET status = 'Reserved' WHERE id = ?", unitId);

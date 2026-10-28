@@ -96,8 +96,9 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 - `vnp_TxnRef` dạng `INV{invoiceId}T{yyyyMMddHHmmss}` GMT+7 kèm hậu tố ngẫu nhiên: mốc thời gian
   chỉ tới giây nên hai lần bấm trong cùng một giây sẽ trùng mã và vỡ unique constraint.
 - Phiên đang mở **của chính hóa đơn này**: `/pay` trả lại đúng URL cũ nếu cache Redis còn; cache
-  mất thì 409 "Phiên thanh toán trước đã hết hiệu lực…" cho tới khi phiên quá 15 phút. Không mở
-  phiên thứ hai.
+  mất thì dựng lại URL từ `PaymentTransaction(Pending)` — cùng `vnp_TxnRef`, `vnp_CreateDate`/
+  `vnp_ExpireDate` gốc, không tạo giao dịch mới. Không còn phiên Pending trong 15 phút thì 409
+  "Phiên thanh toán trước đã hết hiệu lực…".
 - Hóa đơn không tồn tại và hóa đơn của người khác trả **cùng một** 404.
 - Cơ sở chưa gán FM thì vẫn hủy hóa đơn, chỉ bỏ qua thông báo — thiếu người nhận không được chặn
   nghiệp vụ.

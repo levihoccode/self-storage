@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage.payment.application;
 
+import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,17 +27,27 @@ public class PaymentUrlCache {
 
     /** Ghi URL của phiên đang mở; lỗi Redis không được làm hỏng việc mở phiên. */
     public void put(Long invoiceId, String paymentUrl) {
+        put(invoiceId, paymentUrl, PaymentSession.WINDOW);
+    }
+
+    /** Ghi URL với TTL còn lại của phiên — dùng khi dựng lại URL từ transaction cũ. */
+    public void put(Long invoiceId, String paymentUrl, Duration ttl) {
+        if (paymentUrl == null || paymentUrl.isBlank()
+                || ttl == null || ttl.isNegative() || ttl.isZero()) {
+            return;
+        }
         try {
-            redis.opsForValue().set(key(invoiceId), paymentUrl, PaymentSession.WINDOW);
+            redis.opsForValue().set(key(invoiceId), paymentUrl, ttl);
         } catch (RuntimeException e) {
             LOG.warn("Không cache được URL thanh toán cho hóa đơn {}: {}", invoiceId, e.getMessage());
         }
     }
 
-    /** URL còn hạn của phiên cũ, nếu cache còn. */
+    /** URL còn hạn của phiên cũ, nếu cache còn. Giá trị rỗng/blank coi như mất cache. */
     public Optional<String> get(Long invoiceId) {
         try {
-            return Optional.ofNullable(redis.opsForValue().get(key(invoiceId)));
+            String value = redis.opsForValue().get(key(invoiceId));
+            return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
         } catch (RuntimeException e) {
             LOG.warn("Không đọc được URL thanh toán cho hóa đơn {}: {}", invoiceId, e.getMessage());
             return Optional.empty();

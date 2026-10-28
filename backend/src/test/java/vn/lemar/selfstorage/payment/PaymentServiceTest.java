@@ -14,6 +14,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -94,6 +96,28 @@ class PaymentServiceTest {
 
         assertThat(url).isEqualTo("https://pay/session");
         verify(urlCache).put(7L, "https://pay/session");
+    }
+
+    @Test
+    void resumeRebuildsTheUrlWithoutCreatingANewTransaction() {
+        when(repository.findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(PaymentStatus.class),
+                org.mockito.ArgumentMatchers.any(Instant.class)))
+                .thenReturn(Optional.of(transaction));
+        when(gateway.buildPaymentUrl(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(Instant.class))).thenReturn("https://pay/resumed");
+
+        assertThat(service.resumePayment(7L, "203.0.113.9")).contains("https://pay/resumed");
+
+        org.mockito.ArgumentCaptor<PaymentRequest> request =
+                org.mockito.ArgumentCaptor.forClass(PaymentRequest.class);
+        verify(gateway).buildPaymentUrl(request.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
+        assertThat(request.getValue().ipAddr()).isEqualTo("203.0.113.9");
+        verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+        verify(urlCache).put(org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq("https://pay/resumed"),
+                org.mockito.ArgumentMatchers.any(Duration.class));
     }
 
     @Test

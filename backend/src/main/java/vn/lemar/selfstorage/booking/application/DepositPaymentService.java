@@ -136,6 +136,7 @@ public class DepositPaymentService {
         // thay vì mở URL thứ hai và để khách trả hai lần.
         if (sessions.hasOpenSessionForInvoice(invoice.getId())) {
             return sessions.openPaymentUrl(invoice.getId())
+                    .or(() -> payments.resumePayment(invoice.getId(), clientIp))
                     .orElseThrow(() -> new DepositNotAllowedException(SESSION_LOST));
         }
 

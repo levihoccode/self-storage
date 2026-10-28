@@ -112,6 +112,14 @@ public class PaymentTransaction {
         return amount;
     }
 
+    public String getTransactionContent() {
+        return transactionContent;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public PaymentStatus getStatus() {
         return status;
     }

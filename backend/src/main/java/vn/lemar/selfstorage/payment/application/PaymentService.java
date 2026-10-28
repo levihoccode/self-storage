@@ -3,12 +3,14 @@ package vn.lemar.selfstorage.payment.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,6 +24,7 @@ import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
+import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.config.VnPayProperties;
 import vn.lemar.selfstorage.payment.domain.PaymentTransaction;
 import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
@@ -77,6 +80,34 @@ public class PaymentService {
         String paymentUrl = gateway.buildPaymentUrl(request);
         urlCache.put(invoiceId, paymentUrl);
         return paymentUrl;
+    }
+
+    /**
+     * Dựng lại URL của phiên Pending còn hạn khi cache URL bị mất. Không tạo giao dịch mới:
+     * cùng {@code vnp_TxnRef} và cùng {@code createdAt}, nên hạn phiên không bị kéo dài.
+     *
+     * @return URL nếu còn phiên trong 15 phút; rỗng nếu phiên đã hết hạn/không còn
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> resumePayment(Long invoiceId, String clientIp) {
+        Instant now = Instant.now();
+        Optional<PaymentTransaction> pending = repository
+                .findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+                        invoiceId, PaymentStatus.PENDING, now.minus(PaymentSession.WINDOW));
+        if (pending.isEmpty()) {
+            return Optional.empty();
+        }
+        PaymentTransaction transaction = pending.get();
+        Duration remaining = Duration.between(now, transaction.getCreatedAt().plus(PaymentSession.WINDOW));
+        if (remaining.isNegative() || remaining.isZero()) {
+            return Optional.empty();
+        }
+
+        PaymentRequest request = new PaymentRequest(transaction.getVnpTxnRef(), transaction.getAmount(),
+                transaction.getTransactionContent(), clientIp);
+        String paymentUrl = gateway.buildPaymentUrl(request, transaction.getCreatedAt());
+        urlCache.put(invoiceId, paymentUrl, remaining);
+        return Optional.of(paymentUrl);
     }
 
     /**

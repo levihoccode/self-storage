@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.time.Instant;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -93,6 +94,19 @@ class VnPayGatewayTest {
 
         Map<String, String> params = queryOf(url);
         assertThat(params).containsEntry("vnp_OrderInfo", "Dat coc khoang chua A-01");
+        assertThat(gateway.verifySignature(params)).isTrue();
+    }
+
+    @Test
+    void rebuildingKeepsTheOriginalCreateAndExpireTime() {
+        Instant createdAt = Instant.parse("2026-10-28T12:30:00Z");
+        String url = gateway.buildPaymentUrl(new PaymentRequest(
+                "TXN004", new BigDecimal("10000"), "Thanh toan", "127.0.0.1"), createdAt);
+
+        Map<String, String> params = queryOf(url);
+        assertThat(params)
+                .containsEntry("vnp_CreateDate", "20261028193000")
+                .containsEntry("vnp_ExpireDate", "20261028194500");
         assertThat(gateway.verifySignature(params)).isTrue();
     }
 
