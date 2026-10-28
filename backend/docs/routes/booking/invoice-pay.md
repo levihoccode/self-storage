@@ -106,7 +106,8 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 
 ## Chưa có trong luồng này
 
-- Cron hủy đơn quá hạn thanh toán và đối soát phiên bằng `querydr`.
+- Cron hủy đơn quá hạn thanh toán. Đối soát Pending nằm ở `payment.md` ›
+  `PaymentReconciliationJob`.
 - Thông báo cho khách sau khi thu xong cọc bổ sung — chưa có `NotificationType` nào được định cho
   ca này.
 - Hoàn tiền khi tiền đã vào mà khoang đã mất: thuộc Flow 4.

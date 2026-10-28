@@ -56,7 +56,8 @@ class PaymentServiceTest {
         audit = mock(AuditRecorder.class);
         urlCache = mock(PaymentUrlCache.class);
         service = new PaymentService(gateway, repository,
-                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
+                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return",
+                        "https://query"), events,
                 new ObjectMapper(), audit, urlCache);
 
         transaction = new PaymentTransaction(7L, TXN_REF, new BigDecimal("10000"), "Thanh toan");
@@ -89,7 +90,7 @@ class PaymentServiceTest {
 
     @Test
     void startPaymentCachesTheUrlForBackButton() {
-        when(gateway.buildPaymentUrl(any())).thenReturn("https://pay/session");
+        when(gateway.buildPaymentUrl(any(), any(Instant.class))).thenReturn("https://pay/session");
 
         String url = service.startPayment(7L, new PaymentRequest(
                 "TXN", new BigDecimal("10000"), "Thanh toan", "127.0.0.1"));
@@ -118,6 +119,35 @@ class PaymentServiceTest {
         verify(urlCache).put(org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq("https://pay/resumed"),
                 org.mockito.ArgumentMatchers.any(Duration.class));
+    }
+
+    @Test
+    void reconcileSuccessMarksAPendingTransaction() {
+        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(transaction));
+
+        assertThat(service.reconcileSuccess(1L, "GW-RECON", Instant.now(), "{}")).isTrue();
+
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        verify(events).publishEvent(any(PaymentSucceeded.class));
+    }
+
+    @Test
+    void reconcileFailureMarksAPendingTransaction() {
+        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(transaction));
+
+        assertThat(service.reconcileFailure(1L, "querydr: not found", "{}")).isTrue();
+
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        verify(events).publishEvent(any(PaymentFailed.class));
+    }
+
+    @Test
+    void reconcileSkipsATransactionTheIpnAlreadySettled() {
+        transaction.markSucceeded("GW-IPN", Instant.now(), "{}");
+        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(transaction));
+
+        assertThat(service.reconcileSuccess(1L, "GW-RECON", Instant.now(), "{}")).isFalse();
+        verify(events, never()).publishEvent(any(PaymentSucceeded.class));
     }
 
     @Test
@@ -158,7 +188,8 @@ class PaymentServiceTest {
         ObjectMapper failingMapper = mock(ObjectMapper.class);
         when(failingMapper.writeValueAsString(any())).thenThrow(new JsonGenerationException("boom"));
         PaymentService failingService = new PaymentService(gateway, repository,
-                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
+                new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return",
+                        "https://query"), events,
                 failingMapper, audit, urlCache);
         Map<String, String> params = ipn();
 
@@ -227,7 +258,7 @@ class PaymentServiceTest {
 
     @Test
     void savesPendingTransactionBeforeRedirect() {
-        when(gateway.buildPaymentUrl(any())).thenReturn("https://pay?x=1");
+        when(gateway.buildPaymentUrl(any(), any(Instant.class))).thenReturn("https://pay?x=1");
 
         String url = service.startPayment(7L,
                 new PaymentRequest("TXN999", new BigDecimal("250000"), "Thanh toan", "127.0.0.1"));

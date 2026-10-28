@@ -3,9 +3,13 @@ package vn.lemar.selfstorage.payment.repository;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import vn.lemar.selfstorage.payment.domain.PaymentDirection;
 import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.domain.PaymentTransaction;
@@ -40,4 +44,13 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     /** Phiên Pending còn hạn của invoice — dùng để dựng lại URL khi cache mất. */
     Optional<PaymentTransaction> findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
             Long invoiceId, PaymentStatus status, Instant since);
+
+    /** Khoá row khi job đối soát quyết định ghi trạng thái. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from PaymentTransaction t where t.id = :id")
+    Optional<PaymentTransaction> findByIdForUpdate(@Param("id") Long id);
+
+    /** Lô giao dịch Pending đủ cũ để đối soát. */
+    List<PaymentTransaction> findByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(
+            PaymentStatus status, Instant before, Pageable pageable);
 }

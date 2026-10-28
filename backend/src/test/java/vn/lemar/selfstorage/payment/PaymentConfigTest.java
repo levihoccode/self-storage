@@ -27,7 +27,8 @@ class PaymentConfigTest {
                         "vnpay.tmn-code=TESTTMN1",
                         "vnpay.hash-secret=TESTSECRET0123456789TESTSECRET01",
                         "vnpay.pay-url=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-                        "vnpay.return-url=http://localhost:8080/api/payments/vnpay/return")
+                        "vnpay.return-url=http://localhost:8080/api/payments/vnpay/return",
+                        "vnpay.query-dr-url=https://sandbox.vnpayment.vn/merchant_webapi/api/transaction")
                 .run(context -> {
                     assertThat(context).hasSingleBean(VnPayGateway.class);
                     assertThat(context.getBean(VnPayProperties.class).tmnCode()).isEqualTo("TESTTMN1");
