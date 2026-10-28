@@ -83,7 +83,7 @@ export const authGateway: AuthGateway = {
       const session: AuthSession = {
         user: {
           id: String(loginResponse.accountId),
-          name: currentUser.email,
+          name: currentUser.email.split("@")[0],
           email: currentUser.email,
           role: currentUser.role,
         },
@@ -124,7 +124,7 @@ export const authGateway: AuthGateway = {
       const session: AuthSession = {
         user: {
           id: cachedSession?.user.id ?? currentUser.email,
-          name: currentUser.email,
+          name: currentUser.email.split("@")[0],
           email: currentUser.email,
           role: currentUser.role,
         },

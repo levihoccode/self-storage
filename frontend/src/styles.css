@@ -141,6 +141,8 @@ a {
 }
 button {
   cursor: pointer;
+  border: 0;
+  background: transparent;
 }
 a {
   color: inherit;
