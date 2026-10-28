@@ -1,0 +1,4801 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kho Mộc — Đề xuất giao diện “Bãi kho”</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* BÃI KHO — standalone proposal mockup. Not imported by the app. */
+      :root {
+        color-scheme: light;
+        --paper: #e9eae6;
+        --paper-2: #dfe1dc;
+        --surface: #fff;
+        --surface-2: #f3f4f1;
+        --ink: #101413;
+        --ink-2: #333b38;
+        --muted: #5a625f;
+        --rule: #c9ccc6;
+        --rule-strong: #aeb3ac;
+        --signal-ink: #101413;
+        --signal: #f2c300;
+        --signal-strong: #d9ae00;
+        --container-border: #101413;
+        --bay-border: #101413;
+        --control-border: #101413;
+        --control-border-hover: #101413;
+        --control-bg-hover: #101413;
+        --control-hover-ink: #e9eae6;
+        --on-dark-border: rgba(238, 240, 236, 0.28);
+        --on-dark-border-hover: rgba(238, 240, 236, 0.55);
+        --on-dark-bg-hover: rgba(238, 240, 236, 0.1);
+        --on-dark-ink: #e9eae6;
+        --accent: #f2c300;
+        --accent-text: #1f5a66;
+        --accent-soft: rgba(242, 195, 0, 0.18);
+        --accent-bright: #ffd400;
+        --side-bg: #101413;
+        --side-ink: #e9eae6;
+        --side-muted: #9aa19c;
+        --cta-bg: #101413;
+        --cta-ink: #e9eae6;
+        --ok: #2f6b4f;
+        --ok-soft: #e4ece5;
+        --ok-line: #c2d2c5;
+        --warn: #7a5a00;
+        --warn-soft: #f7e9b0;
+        --warn-line: #e3cf85;
+        --bad: #b3261e;
+        --bad-soft: #f7e3e0;
+        --bad-line: #e0b9b4;
+        --info: #1f5a66;
+        --info-soft: #e3edee;
+        --info-line: #bfd3d5;
+        --font:
+          "Source Sans 3", "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+          sans-serif;
+        --display: "Saira Semi Condensed", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+        --mono: "Saira Semi Condensed", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --paper: #0e1211;
+        --paper-2: #151a18;
+        --surface: #1a201e;
+        --surface-2: #1f2623;
+        --ink: #eef0ec;
+        --ink-2: #c6ccc7;
+        --muted: #9aa19c;
+        --rule: #2b3330;
+        --rule-strong: #3f4945;
+        --signal-ink: #101413;
+        --signal: #ffd400;
+        --signal-strong: #e6bf00;
+        --container-border: rgba(238, 240, 236, 0.26);
+        --bay-border: rgba(238, 240, 236, 0.22);
+        --control-border: rgba(238, 240, 236, 0.28);
+        --control-border-hover: rgba(238, 240, 236, 0.5);
+        --control-bg-hover: rgba(238, 240, 236, 0.08);
+        --control-hover-ink: #eef0ec;
+        --accent: #ffd400;
+        --accent-text: #8fc4cc;
+        --accent-soft: rgba(255, 212, 0, 0.14);
+        --accent-bright: #ffd400;
+        --side-bg: #080b0a;
+        --side-ink: #eef0ec;
+        --side-muted: #9aa19c;
+        --cta-bg: #0a0f0d;
+        --cta-ink: #eef0ec;
+        --ok: #8cc6a2;
+        --ok-soft: #16261d;
+        --ok-line: #2d4636;
+        --warn: #e3c05c;
+        --warn-soft: #2a2410;
+        --warn-line: #4a3d1a;
+        --bad: #f08c7c;
+        --bad-soft: #2c1a17;
+        --bad-line: #4a2c27;
+        --info: #8fc4cc;
+        --info-soft: #142325;
+        --info-line: #2a4043;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--paper-2);
+        color: var(--ink);
+        font-family: var(--font);
+        font-size: 15px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      h1,
+      h2,
+      h3,
+      h4,
+      p,
+      ol,
+      ul,
+      figure {
+        margin: 0;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        font-family: var(--display);
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
+        box-shadow: 0 0 0 4px var(--accent);
+      }
+      ::selection {
+        background: var(--accent);
+        color: #fff;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .wrap {
+        width: min(1240px, calc(100% - 64px));
+        margin-inline: auto;
+      }
+      @media (max-width: 760px) {
+        .wrap {
+          width: min(100% - 32px, 600px);
+        }
+      }
+      .label {
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        line-height: 1.4;
+        color: var(--muted);
+      }
+      .mono,
+      .unit-code,
+      .contract .term,
+      .contract .money,
+      .stat strong,
+      .price strong,
+      .manifest-row .count,
+      .result-row .money,
+      .result-row .code,
+      .tr .when {
+        font-variant-numeric: tabular-nums;
+      }
+      .icon {
+        width: 18px;
+        height: 18px;
+        flex: none;
+      }
+      .mark {
+        width: 27px;
+        height: 27px;
+        flex: none;
+      }
+      .accent {
+        color: var(--accent-text);
+      }
+
+      /* proposal bar */
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        min-height: 58px;
+        padding: 0 22px;
+        background: var(--ink);
+        color: #e9eae6;
+        border-bottom: 1px solid #2b2f29;
+      }
+      [data-theme="dark"] .bar {
+        background: #070a07;
+      }
+      .bar-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: none;
+        padding-right: 18px;
+        text-transform: none;
+      }
+      .bar-brand .mark {
+        color: var(--accent-bright);
+      }
+      .bar-brand strong {
+        display: block;
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        line-height: 1.2;
+      }
+      .bar-brand small {
+        display: block;
+        margin-top: 2px;
+        font-family: var(--font);
+        font-size: 12px;
+        letter-spacing: 0;
+        color: rgba(233, 234, 230, 0.55);
+      }
+      .bar-tabs {
+        display: flex;
+        align-items: stretch;
+        gap: 2px;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .bar-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .bar-tab {
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: rgba(233, 234, 230, 0.6);
+        padding: 19px 11px 17px;
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition:
+          color 0.16s,
+          border-color 0.16s;
+      }
+      .bar-tab:hover {
+        color: #e9eae6;
+      }
+      .bar-tab[aria-selected="true"] {
+        color: #e9eae6;
+        border-bottom-color: var(--accent-bright);
+      }
+      .bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        flex: none;
+      }
+      .demo-note {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(233, 234, 230, 0.5);
+        border: 1px solid rgba(233, 234, 230, 0.18);
+        padding: 4px 7px;
+      }
+      .theme-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid rgba(233, 234, 230, 0.22);
+        background: transparent;
+        color: #e9eae6;
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 2px;
+      }
+      .theme-btn:hover {
+        border-color: var(--accent-bright);
+        color: var(--accent-bright);
+      }
+      .theme-btn .icon {
+        width: 15px;
+        height: 15px;
+      }
+      [data-theme="light"] .icon-moon,
+      [data-theme="dark"] .icon-sun {
+        display: none;
+      }
+      @media (max-width: 900px) {
+        .bar {
+          gap: 10px;
+          padding: 0 12px;
+        }
+        .bar-brand {
+          padding-right: 10px;
+        }
+        .bar-brand small,
+        .demo-note {
+          display: none;
+        }
+        .bar-actions {
+          gap: 6px;
+        }
+        .theme-btn span {
+          display: none;
+        }
+      }
+
+      /* document */
+      .screen-panel {
+        padding-bottom: 64px;
+      }
+      .doc {
+        padding-top: 56px;
+      }
+      .doc-head {
+        display: grid;
+        gap: 18px;
+        max-width: 920px;
+        padding-bottom: 44px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .doc-head h1 {
+        font-size: clamp(2.75rem, 6.4vw, 4.875rem);
+        font-weight: 700;
+        line-height: 0.94;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+      .doc-lede {
+        max-width: 62ch;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--ink-2);
+        text-wrap: pretty;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 4px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid var(--rule-strong);
+        background: var(--surface);
+        border-radius: 2px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ink-2);
+      }
+      .chip::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .doc-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 64px;
+        padding: 44px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .doc-grid h2,
+      .doc-grid h2,
+      .doc-block h2 {
+        font-family: var(--display);
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--ink);
+      }
+      .diag,
+      .moves {
+        list-style: none;
+        display: grid;
+        gap: 0;
+        counter-reset: item;
+        padding: 0;
+      }
+      .diag li,
+      .moves li {
+        counter-increment: item;
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 12px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--rule);
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--ink-2);
+      }
+      .diag li::before,
+      .moves li::before {
+        content: counter(item, decimal-leading-zero);
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent-text);
+        padding-top: 4px;
+      }
+      .diag li strong,
+      .moves li strong {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .doc-block {
+        padding: 44px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .doc-block-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      .doc-block-head p {
+        max-width: 52ch;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        border: 0;
+        background: transparent;
+      }
+      .swatch {
+        border: 0;
+        background: var(--surface);
+      }
+      .swatch:nth-child(4n) {
+        border-right: 0;
+      }
+      .swatch-color {
+        height: 82px;
+        border-bottom: 0;
+      }
+      .swatch-meta {
+        padding: 10px 12px 12px;
+      }
+      .swatch-meta strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .swatch-meta span {
+        display: block;
+        margin-top: 2px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.03em;
+      }
+      .type-spec {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        border-top: 1px solid var(--rule);
+      }
+      .type-spec > div {
+        padding: 18px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .type-spec > div:nth-child(odd) {
+        padding-right: 18px;
+      }
+      .type-spec .t-display {
+        font-family: var(--display);
+        font-size: 54px;
+        font-weight: 700;
+        line-height: 0.96;
+        letter-spacing: -0.02em;
+      }
+      .type-spec .t-title {
+        font-family: var(--display);
+        font-size: 29px;
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+      }
+      .type-spec .t-section {
+        font-family: var(--display);
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.25;
+        letter-spacing: 0;
+      }
+      .type-spec .t-body {
+        font-size: 15px;
+        color: var(--ink-2);
+        max-width: 58ch;
+      }
+      .type-spec .t-label {
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: var(--muted);
+      }
+      .type-spec .t-data {
+        font-family: var(--mono);
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+      .scope-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        border-top: 0;
+      }
+      .scope-col {
+        padding: 20px 22px 4px 0;
+        border-right: 1px solid var(--rule);
+      }
+      .scope-col:last-child {
+        border-right: 0;
+        padding-right: 0;
+      }
+      .scope-col h3 {
+        font-size: 16px;
+        margin-bottom: 12px;
+      }
+      .scope-col ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        padding: 0;
+      }
+      .scope-col li {
+        font-size: 13px;
+        color: var(--ink-2);
+        line-height: 1.45;
+        padding-left: 14px;
+        position: relative;
+      }
+      .scope-col li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.62em;
+        width: 5px;
+        height: 1px;
+        background: var(--accent);
+      }
+      .doc-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding-top: 22px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      @media (max-width: 900px) {
+        .doc-grid {
+          grid-template-columns: 1fr;
+          gap: 36px;
+        }
+        .swatch-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .swatch:nth-child(4n) {
+          border-right: 1px solid var(--rule);
+        }
+        .swatch:nth-child(2n) {
+          border-right: 0;
+        }
+        .type-spec {
+          grid-template-columns: 1fr;
+        }
+        .type-spec > div:nth-child(odd) {
+          padding-bottom: 0;
+          border-bottom: 0;
+        }
+        .scope-grid {
+          grid-template-columns: 1fr;
+        }
+        .scope-col {
+          border-right: 0;
+          border-bottom: 1px solid var(--rule);
+          padding: 20px 0;
+        }
+        .scope-col:last-child {
+          border-bottom: 0;
+        }
+        .doc-block-head {
+          display: block;
+        }
+        .doc-block-head p {
+          margin-top: 8px;
+        }
+      }
+
+      /* screen framing */
+      .screen-note {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-top: 26px;
+        padding-bottom: 10px;
+      }
+      .mock {
+        background: var(--paper);
+      }
+      .mock-app {
+        min-height: 860px;
+      }
+
+      /* shared UI */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 0 16px;
+        border: 2px solid transparent;
+        border-radius: 0;
+        font-family: var(--display);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+        transition:
+          background-color 0.16s,
+          color 0.16s,
+          border-color 0.16s;
+      }
+      .btn .icon {
+        width: 16px;
+        height: 16px;
+      }
+      .btn-primary {
+        background: var(--signal);
+        border-color: var(--signal);
+        color: var(--signal-ink);
+      }
+      .btn-primary:hover {
+        background: var(--signal-strong);
+        border-color: var(--signal-strong);
+        color: var(--signal-ink);
+      }
+      .btn-secondary {
+        background: transparent;
+        border-color: var(--ink);
+        color: var(--ink);
+      }
+      .btn-secondary:hover {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--ink);
+        padding-inline: 8px;
+        border-color: transparent;
+      }
+      .btn-ghost:hover {
+        color: var(--ink);
+        background: var(--accent-soft);
+        border-color: var(--accent);
+      }
+      .btn-danger {
+        background: transparent;
+        border-color: var(--bad-line);
+        color: var(--bad);
+      }
+      .btn-danger:hover {
+        background: var(--bad-soft);
+      }
+      .btn-sm {
+        min-height: 34px;
+        padding: 0 12px;
+        font-size: 13px;
+      }
+      .btn-block {
+        width: 100%;
+      }
+      .link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--accent-text);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .link .icon {
+        width: 15px;
+        height: 15px;
+        transition: transform 0.16s;
+      }
+      .link:hover .icon {
+        transform: translateX(3px);
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 25px;
+        padding: 0 8px;
+        border: 1px solid var(--rule-strong);
+        border-radius: 0;
+        background: var(--surface);
+        color: var(--ink-2);
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+      .tag::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        background: currentColor;
+        border-radius: 50%;
+      }
+      .tag-ok {
+        color: var(--ok);
+        background: var(--ok-soft);
+        border-color: var(--ok-line);
+      }
+      .tag-warn {
+        color: var(--warn);
+        background: var(--warn-soft);
+        border-color: var(--warn-line);
+      }
+      .tag-bad {
+        color: var(--bad);
+        background: var(--bad-soft);
+        border-color: var(--bad-line);
+      }
+      .tag-info {
+        color: var(--info);
+        background: var(--info-soft);
+        border-color: var(--info-line);
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+      .field > span {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .select,
+      .input {
+        position: relative;
+      }
+      .select select,
+      .input input {
+        width: 100%;
+        height: 42px;
+        padding: 0 34px 0 12px;
+        border: 1px solid var(--rule-strong);
+        border-radius: 2px;
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 13px;
+        appearance: none;
+      }
+      .input input {
+        padding-right: 12px;
+      }
+      .select .icon {
+        position: absolute;
+        right: 11px;
+        top: 50%;
+        width: 15px;
+        height: 15px;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: var(--muted);
+      }
+      .select select:hover,
+      .input input:hover {
+        border-color: var(--ink-2);
+      }
+      .field:focus-within select,
+      .field:focus-within input {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .field-error select,
+      .field-error input {
+        border-color: var(--bad);
+      }
+      .error-text {
+        font-size: 12px;
+        color: var(--bad);
+      }
+      .hint-text {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      /* landing */
+      .site-head {
+        border-bottom: 1px solid var(--rule);
+        background: var(--paper);
+      }
+      .site-head .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 36px;
+        height: 74px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        flex: none;
+      }
+      .brand .mark {
+        color: var(--ink);
+      }
+      .site-nav {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .site-nav a {
+        padding: 6px 0;
+        border-bottom: 1px solid transparent;
+      }
+      .site-nav a:hover {
+        color: var(--accent-text);
+        border-bottom-color: var(--accent);
+      }
+      .head-actions {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        flex: none;
+      }
+      .hero {
+        border-bottom: 1px solid var(--rule);
+        overflow: hidden;
+      }
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.18fr) minmax(350px, 0.82fr);
+        gap: clamp(40px, 7vw, 92px);
+        align-items: start;
+        padding-top: clamp(52px, 7vw, 92px);
+        padding-bottom: 56px;
+      }
+      .kicker {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .kicker::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        background: var(--accent);
+      }
+      .hero h1 {
+        margin-top: 20px;
+        max-width: 14ch;
+        font-size: clamp(44px, 6.4vw, 78px);
+        font-weight: 700;
+        line-height: 0.95;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+      .hero h1 span {
+        display: block;
+        color: var(--accent-text);
+      }
+      .hero .lede {
+        max-width: 46ch;
+        margin-top: 26px;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--ink-2);
+        text-wrap: pretty;
+      }
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 40px;
+        margin-top: 32px;
+        padding-top: 0;
+        border-top: 0;
+      }
+      .hero-meta div {
+        display: grid;
+        gap: 1px;
+      }
+      .hero-meta strong {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      .hero-meta span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .finder {
+        position: relative;
+        display: grid;
+        gap: 15px;
+        padding: 30px 24px 24px;
+        border: 2px solid var(--ink);
+        background: var(--surface);
+      }
+      .finder::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 8px;
+        background: repeating-linear-gradient(135deg, var(--ink) 0 11px, var(--signal) 11px 22px);
+      }
+      .finder-head {
+        display: grid;
+        gap: 5px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .finder-head h2 {
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+      .finder .btn {
+        margin-top: 3px;
+      }
+      .finder-note {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        padding-top: 2px;
+      }
+      .finder-note .icon {
+        width: 13px;
+        height: 13px;
+        color: var(--ok);
+      }
+      .manifest-head,
+      .manifest-row {
+        display: grid;
+        grid-template-columns:
+          38px minmax(0, 1.5fr) minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 0.9fr)
+          28px;
+        gap: 16px;
+        align-items: center;
+      }
+      .manifest-head {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--ink);
+      }
+      .manifest-row {
+        padding: 18px 12px;
+        margin-inline: -12px;
+        border-bottom: 1px solid var(--rule);
+        transition: background-color 0.16s;
+      }
+      .manifest-row:hover {
+        background: var(--surface);
+      }
+      .manifest-row:hover .idx {
+        color: var(--accent-text);
+      }
+      .manifest-row:hover .row-arrow {
+        color: var(--accent-text);
+        transform: translateX(3px);
+      }
+      .idx {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+        transition: color 0.16s;
+      }
+      .manifest-row .name {
+        display: block;
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .manifest-row .sub {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .manifest-row .count {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .manifest-row .count small {
+        display: block;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .row-arrow {
+        color: var(--muted);
+        transition:
+          color 0.16s,
+          transform 0.16s;
+      }
+      .row-arrow .icon {
+        width: 16px;
+        height: 16px;
+      }
+      .section {
+        padding: clamp(56px, 7.5vw, 92px) 0;
+        border-bottom: 0;
+      }
+      .section-head {
+        display: grid;
+        grid-template-columns: 1.18fr 0.82fr;
+        gap: 56px;
+        align-items: end;
+        margin-bottom: 40px;
+      }
+      .section-head h2 {
+        margin-top: 10px;
+        max-width: 17ch;
+        font-size: clamp(1.8125rem, 3.6vw, 2.75rem);
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+      .section-head p {
+        max-width: 42ch;
+        font-size: 13.5px;
+        line-height: 1.6;
+        color: var(--ink-2);
+      }
+      .size-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--ink);
+        border-bottom: 1px solid var(--ink);
+      }
+      .size-card {
+        display: grid;
+        gap: 16px;
+        padding: 24px;
+        border-right: 1px solid var(--rule);
+        background: var(--paper);
+      }
+      .size-card:last-child {
+        border-right: 0;
+      }
+      .size-visual {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        height: 154px;
+        padding: 14px;
+        border: 2px solid var(--ink);
+        background-color: var(--paper-2);
+        background-image:
+          linear-gradient(var(--rule) 1px, transparent 1px),
+          linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+        background-size: 16px 16px;
+        background-position: -1px -1px;
+      }
+      .size-visual .dim {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+      .size-box {
+        width: var(--s);
+        height: var(--s);
+        border: 2px solid var(--ink);
+        background: var(--signal);
+      }
+      .size-card h3 {
+        font-size: 18px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+      .size-card p {
+        min-height: 38px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+      .price {
+        display: flex;
+        align-items: baseline;
+        gap: 7px;
+        padding-top: 14px;
+        border-top: 1px solid var(--rule);
+      }
+      .price strong {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      .price span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border-top: 1px solid var(--ink);
+      }
+      .step {
+        padding: 22px 22px 0 0;
+        border-right: 1px solid var(--rule);
+      }
+      .step:last-child {
+        border-right: 0;
+        padding-right: 0;
+      }
+      .step .n {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent-text);
+        letter-spacing: 0.06em;
+      }
+      .step h3 {
+        margin: 14px 0 6px;
+        font-size: 16px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .step p {
+        max-width: 30ch;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+      .fac-head,
+      .fac-row {
+        display: grid;
+        grid-template-columns:
+          minmax(0, 1.25fr) minmax(0, 1.55fr) minmax(0, 0.95fr) minmax(0, 0.8fr)
+          104px;
+        gap: 20px;
+        align-items: center;
+      }
+      .fac-head {
+        padding: 10px 0;
+        border-top: 1px solid var(--ink);
+        border-bottom: 1px solid var(--rule);
+      }
+      .fac-row {
+        padding: 20px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .fac-row .name {
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .fac-row .sub {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .fac-row .value {
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .cta {
+        background: var(--cta-bg);
+        color: var(--cta-ink);
+        padding: clamp(48px, 7vw, 78px) 24px;
+      }
+      .cta .wrap {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 48px;
+      }
+      .cta .label {
+        color: rgba(233, 234, 230, 0.58);
+      }
+      .cta h2 {
+        margin-top: 10px;
+        max-width: 19ch;
+        font-size: 2.75rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+      .cta-actions {
+        display: flex;
+        gap: 10px;
+        flex: none;
+      }
+      .cta .btn-primary {
+        background: var(--signal);
+        border-color: var(--signal);
+        color: var(--signal-ink);
+      }
+      .cta .btn-primary:hover {
+        background: var(--signal-strong);
+        border-color: var(--signal-strong);
+        color: var(--signal-ink);
+      }
+      .cta .btn-secondary {
+        border-color: rgba(233, 234, 230, 0.4);
+        color: var(--cta-ink);
+      }
+      .cta .btn-secondary:hover {
+        border-color: var(--paper);
+        background: rgba(233, 234, 230, 0.08);
+      }
+      .foot {
+        background: var(--paper-2);
+        padding: 40px 0 28px;
+      }
+      .foot-grid {
+        display: grid;
+        grid-template-columns: 1.5fr repeat(3, 0.65fr);
+        gap: 36px;
+        padding-bottom: 30px;
+      }
+      .foot h3 {
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: var(--muted);
+      }
+      .foot a {
+        display: block;
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .foot a:hover {
+        color: var(--accent-text);
+      }
+      .foot-bottom {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding-top: 18px;
+        border-top: 1px solid var(--rule);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      @media (max-width: 1024px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+          gap: 40px;
+        }
+        .finder {
+          max-width: 480px;
+        }
+        .section-head {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .steps {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .step:nth-child(2) {
+          border-right: 0;
+        }
+        .step:nth-child(n + 3) {
+          border-top: 1px solid var(--rule);
+          margin-top: 22px;
+        }
+        .cta .wrap {
+          display: block;
+        }
+        .cta-actions {
+          margin-top: 28px;
+        }
+      }
+      @media (max-width: 760px) {
+        .site-nav,
+        .head-actions .btn-ghost {
+          display: none;
+        }
+        .site-head .wrap {
+          height: 64px;
+        }
+        .hero-grid {
+          padding-top: 42px;
+        }
+        .hero-meta {
+          gap: 24px;
+        }
+        .manifest-head {
+          display: none;
+        }
+        .manifest-row {
+          grid-template-columns: 28px 1fr auto;
+          gap: 10px;
+          padding: 16px 0;
+          margin-inline: 0;
+        }
+        .manifest-row .col-district,
+        .manifest-row .col-price {
+          display: none;
+        }
+        .manifest-row .count {
+          grid-column: 2;
+        }
+        .manifest-row .row-arrow {
+          grid-column: 3;
+          grid-row: 1 / span 2;
+        }
+        .size-grid {
+          grid-template-columns: 1fr;
+        }
+        .size-card {
+          border-right: 0;
+          border-bottom: 1px solid var(--rule);
+        }
+        .size-card:last-child {
+          border-bottom: 0;
+        }
+        .steps {
+          grid-template-columns: 1fr;
+        }
+        .step {
+          border-right: 0;
+          border-bottom: 1px solid var(--rule);
+          padding: 18px 0;
+        }
+        .step:nth-child(n + 3) {
+          margin-top: 0;
+          border-top: 0;
+        }
+        .step:last-child {
+          border-bottom: 0;
+        }
+        .fac-head {
+          display: none;
+        }
+        .fac-row {
+          grid-template-columns: 1fr auto;
+          gap: 8px 16px;
+          padding: 18px 0;
+        }
+        .fac-row .col-address,
+        .fac-row .col-hours {
+          grid-column: 1/-1;
+        }
+        .fac-row .col-size {
+          grid-column: 1;
+          grid-row: 2;
+        }
+        .fac-row .col-action {
+          grid-column: 2;
+          grid-row: 1 / span 2;
+          align-self: center;
+        }
+        .foot-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .foot-bottom {
+          display: block;
+        }
+      }
+
+      /* browse */
+      .browse {
+        padding-top: 40px;
+        padding-bottom: 64px;
+      }
+      .browse-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 32px;
+        padding-bottom: 22px;
+      }
+      .browse-head h1 {
+        margin-top: 8px;
+        font-size: clamp(1.8125rem, 4vw, 2.75rem);
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+      .browse-head p {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .browse-head .count {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .filters {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+        padding: 16px 0;
+        border-top: 1px solid var(--ink);
+        border-bottom: 1px solid var(--rule);
+      }
+      .filters .btn {
+        margin-bottom: 1px;
+      }
+      .results-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 16px 0 8px;
+      }
+      .results-head .label {
+        color: var(--ink-2);
+      }
+      .result-row {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr) 104px;
+        gap: 20px;
+        align-items: center;
+        padding: 18px 12px;
+        margin-inline: -12px;
+        border-bottom: 1px solid var(--rule);
+        transition: background-color 0.16s;
+      }
+      .result-row:hover {
+        background: var(--surface);
+      }
+      .result-row:first-of-type {
+        border-top: 1px solid var(--rule);
+      }
+      .unit-block {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 56px;
+        height: 56px;
+        border: 2px solid var(--ink);
+        background: var(--signal);
+        color: var(--signal-ink);
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .result-row .code {
+        display: block;
+        font-family: var(--mono);
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .result-row .place {
+        display: block;
+        margin-top: 2px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .result-row .meta {
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .result-row .meta small {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .result-row .money {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .result-row .money small {
+        display: block;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .empty-hint {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 32px;
+        padding: 18px 20px;
+        border: 1px solid var(--rule);
+        background: var(--surface);
+      }
+      .empty-hint p {
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      @media (max-width: 900px) {
+        .filters {
+          grid-template-columns: 1fr 1fr;
+        }
+        .filters .btn {
+          width: 100%;
+        }
+        .result-row {
+          grid-template-columns: 56px 1fr auto;
+          gap: 12px;
+        }
+        .result-row .meta {
+          grid-column: 2;
+        }
+        .result-row .money {
+          grid-column: 2;
+        }
+        .result-row .action {
+          grid-column: 3;
+          grid-row: 1 / span 3;
+          align-self: center;
+        }
+      }
+      @media (max-width: 600px) {
+        .filters {
+          grid-template-columns: 1fr;
+        }
+        .browse-head {
+          display: block;
+        }
+        .browse-head .count {
+          display: block;
+          margin-top: 10px;
+        }
+      }
+
+      /* app shell */
+      .app {
+        display: grid;
+        grid-template-columns: 236px minmax(0, 1fr);
+        min-height: 860px;
+        background: var(--paper);
+      }
+      .side {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: 18px 14px;
+        background: var(--side-bg);
+        color: var(--side-ink);
+      }
+      .side-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 8px 17px;
+        border-bottom: 1px solid rgba(233, 234, 230, 0.13);
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .side-brand .mark {
+        color: var(--accent-bright);
+      }
+      .side-label {
+        padding: 0 10px;
+        margin-bottom: 7px;
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: var(--side-muted);
+      }
+      .side-nav {
+        display: grid;
+        gap: 1px;
+      }
+      .side-nav a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 37px;
+        padding: 0 10px;
+        border-left: 3px solid transparent;
+        color: rgba(233, 234, 230, 0.72);
+        font-family: var(--display);
+        font-size: 13px;
+        font-weight: 500;
+        transition:
+          background-color 0.16s,
+          color 0.16s,
+          border-color 0.16s;
+      }
+      .side-nav a:hover {
+        background: rgba(233, 234, 230, 0.08);
+        color: var(--side-ink);
+      }
+      .side-nav a.active {
+        background: var(--accent);
+        border-left-color: var(--accent);
+        color: var(--signal-ink);
+      }
+      .side-nav a.active .icon {
+        opacity: 1;
+      }
+      .side-nav a .icon {
+        width: 16px;
+        height: 16px;
+        opacity: 0.82;
+      }
+      .side-nav .badge {
+        margin-left: auto;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: var(--signal-ink);
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 0;
+      }
+      .side-nav a.active .badge {
+        background: var(--signal-ink);
+        color: var(--accent);
+      }
+      .side-foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: auto;
+        padding: 14px 6px 0;
+        border-top: 1px solid rgba(233, 234, 230, 0.13);
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        flex: none;
+        border-radius: 50%;
+        background: var(--accent-bright);
+        color: #101413;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .side-foot strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .side-foot small {
+        display: block;
+        font-size: 12px;
+        color: var(--side-muted);
+      }
+      .main {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        height: 64px;
+        padding: 0 32px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--paper);
+      }
+      .crumb {
+        font-family: var(--display);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+      }
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .icon-btn {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--rule-strong);
+        border-radius: 2px;
+        background: var(--surface);
+        color: var(--ink-2);
+      }
+      .icon-btn:hover {
+        border-color: var(--ink);
+        color: var(--ink);
+      }
+      .icon-btn .icon {
+        width: 17px;
+        height: 17px;
+      }
+      .icon-btn .dot {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 2px var(--surface);
+      }
+      .user-chip {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding-left: 12px;
+        border-left: 1px solid var(--rule);
+      }
+      .user-chip strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .user-chip small {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mobile-menu {
+        display: none;
+      }
+      .content {
+        width: 100%;
+        max-width: 1320px;
+        margin-inline: auto;
+        padding: 30px 32px 48px;
+        display: grid;
+        gap: 26px;
+      }
+      .page-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .page-head h1 {
+        font-size: 29px;
+        font-weight: 700;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+      }
+      .page-head p {
+        margin-top: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--ink);
+        border-bottom: 1px solid var(--rule);
+      }
+      .stat {
+        padding: 15px 20px;
+        border-right: 1px solid var(--rule);
+      }
+      .stat:first-child {
+        padding-left: 0;
+      }
+      .stat:last-child {
+        border-right: 0;
+      }
+      .stat strong {
+        display: block;
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      .stat span {
+        display: block;
+        margin-top: 2px;
+        font-family: var(--display);
+        font-size: 12px;
+        letter-spacing: 0.01em;
+        color: var(--muted);
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 312px;
+        gap: 30px;
+        align-items: start;
+      }
+      .section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--ink);
+      }
+      .section-title h2 {
+        font-size: 15px;
+        font-weight: 650;
+        letter-spacing: -0.015em;
+      }
+      .contract {
+        display: grid;
+        grid-template-columns: 62px minmax(0, 1.4fr) minmax(0, 0.85fr) minmax(0, 0.95fr) auto;
+        gap: 18px;
+        align-items: center;
+        padding: 20px 10px;
+        margin-inline: -10px;
+        border-bottom: 1px solid var(--rule);
+        transition: background-color 0.16s;
+      }
+      .contract:hover {
+        background: var(--surface);
+      }
+      .unit-code {
+        font-family: var(--mono);
+        font-size: 16px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      .unit-code small {
+        display: block;
+        margin-top: 1px;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0;
+      }
+      .contract .facility {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .contract .address {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .contract .term {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .contract .term small {
+        display: block;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .contract .money {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .contract .money small {
+        display: block;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .contract .actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .progress {
+        display: block;
+        width: 112px;
+        height: 3px;
+        margin-top: 7px;
+        background: var(--rule);
+      }
+      .progress i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+      }
+      .panel {
+        border: 1px solid var(--rule);
+        background: var(--surface);
+        padding: 18px;
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--ink);
+      }
+      .panel-head h3 {
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .task {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr) 16px;
+        gap: 8px;
+        align-items: start;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .task:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+      .task .n {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent-text);
+        padding-top: 2px;
+      }
+      .task strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .task span {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .task .icon {
+        width: 15px;
+        height: 15px;
+        color: var(--muted);
+      }
+      .help-panel {
+        margin-top: 16px;
+        padding: 18px;
+        background: var(--cta-bg);
+        color: var(--cta-ink);
+      }
+      .help-panel h3 {
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .help-panel p {
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(233, 234, 230, 0.7);
+      }
+      .help-panel .btn {
+        margin-top: 14px;
+        border-color: rgba(233, 234, 230, 0.4);
+        color: var(--cta-ink);
+        background: transparent;
+      }
+      .help-panel .btn:hover {
+        background: rgba(233, 234, 230, 0.1);
+        border-color: var(--paper);
+      }
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: 204px minmax(0, 1fr);
+        }
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+        .content {
+          padding-inline: 24px;
+        }
+        .contract {
+          grid-template-columns: 56px 1.4fr 0.9fr auto;
+        }
+        .contract .term {
+          display: none;
+        }
+      }
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .side {
+          display: none;
+        }
+        .topbar {
+          padding: 0 16px;
+        }
+        .mobile-menu {
+          display: grid;
+        }
+        .crumb {
+          display: none;
+        }
+        .content {
+          padding: 22px 16px 40px;
+        }
+        .stats {
+          grid-template-columns: 1fr;
+        }
+        .stat {
+          padding: 12px 0;
+          border-right: 0;
+          border-bottom: 1px solid var(--rule);
+        }
+        .stat:last-child {
+          border-bottom: 0;
+        }
+        .contract {
+          grid-template-columns: 1fr auto;
+          gap: 8px 16px;
+        }
+        .contract .unit-code {
+          grid-column: 1;
+        }
+        .contract .actions {
+          grid-column: 2;
+          grid-row: 1 / span 3;
+        }
+        .contract .facility,
+        .contract .money {
+          grid-column: 1;
+        }
+      }
+      @media (max-width: 560px) {
+        .contract {
+          grid-template-columns: 1fr;
+        }
+        .contract .actions {
+          grid-column: 1;
+          grid-row: auto;
+          justify-content: flex-start;
+          margin-top: 6px;
+        }
+        .user-chip strong,
+        .user-chip small {
+          display: none;
+        }
+      }
+
+      /* FM queue */
+      .fm-tabs {
+        display: flex;
+        gap: 24px;
+        border-bottom: 1px solid var(--ink);
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .fm-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .fm-tab {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 0 11px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .fm-tab:hover {
+        color: var(--ink);
+      }
+      .fm-tab.active {
+        color: var(--ink);
+        border-bottom-color: var(--accent);
+      }
+      .fm-tab b {
+        padding: 1px 5px;
+        border: 1px solid var(--rule);
+        background: var(--paper-2);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .fm-tab.active b {
+        border-color: var(--accent);
+        color: var(--accent-text);
+        background: var(--accent-soft);
+      }
+      .fm-filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 0.8fr) auto;
+        gap: 12px;
+        align-items: end;
+        padding: 16px 0;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      .table {
+        min-width: 960px;
+        border-top: 1px solid var(--ink);
+      }
+      .tr {
+        display: grid;
+        grid-template-columns: 1.35fr 0.95fr 1.35fr 0.7fr 0.72fr 120px;
+        gap: 16px;
+        align-items: center;
+        padding: 13px 10px;
+        border-bottom: 1px solid var(--rule);
+        transition: background-color 0.16s;
+      }
+      .tr.head {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .tr.head span {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .tr:not(.head):hover {
+        background: var(--surface);
+      }
+      .tr .who strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .tr .who span {
+        display: block;
+        margin-top: 1px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tr .need {
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .tr .need small {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tr .note {
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .tr .when {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-2);
+      }
+      .tr .when small {
+        display: block;
+        font-family: var(--font);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tr .action {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .table-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-top: 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pager {
+        display: flex;
+        gap: 6px;
+      }
+      .pager button {
+        min-width: 28px;
+        height: 28px;
+        border: 1px solid var(--rule-strong);
+        background: transparent;
+        color: var(--ink-2);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .pager button:hover {
+        border-color: var(--ink);
+      }
+      .pager button.on {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: var(--paper);
+      }
+      @media (max-width: 900px) {
+        .fm-filters {
+          grid-template-columns: 1fr 1fr;
+        }
+        .fm-filters .btn {
+          width: 100%;
+        }
+      }
+
+      /* system */
+      .comp-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        border-top: 0;
+      }
+      .comp {
+        padding: 20px;
+        border: 0;
+        background: var(--surface);
+      }
+      .comp:nth-child(2n) {
+        padding-left: 24px;
+        padding-right: 0;
+        border-right: 0;
+      }
+      .comp h3 {
+        margin-bottom: 16px;
+        font-size: 16px;
+        font-weight: 650;
+      }
+      .comp-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .comp-stack {
+        display: grid;
+        gap: 13px;
+        max-width: 360px;
+      }
+      .table-sample {
+        border-top: 1px solid var(--ink);
+      }
+      .table-sample .tr {
+        grid-template-columns: 1fr 1.2fr 0.8fr 90px;
+        min-width: 0;
+        padding: 10px 0;
+      }
+      .table-sample .tr.head {
+        padding: 8px 0;
+      }
+      .state-box {
+        display: grid;
+        gap: 6px;
+        padding: 18px;
+        border: 2px solid var(--rule-strong);
+        text-align: center;
+        background: var(--surface-2);
+      }
+      .state-box .icon {
+        width: 22px;
+        height: 22px;
+        margin-inline: auto;
+        color: var(--muted);
+      }
+      .state-box strong {
+        font-size: 16px;
+      }
+      .state-box p {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .state-box .btn {
+        margin-top: 6px;
+        justify-self: center;
+      }
+      .skeleton {
+        display: grid;
+        gap: 7px;
+      }
+      .skeleton i {
+        display: block;
+        height: 10px;
+        background: var(--paper-2);
+        border: 1px solid var(--rule);
+      }
+      .skeleton i:nth-child(1) {
+        width: 38%;
+      }
+      .skeleton i:nth-child(2) {
+        width: 82%;
+      }
+      .skeleton i:nth-child(3) {
+        width: 64%;
+      }
+      .notif {
+        display: grid;
+        grid-template-columns: 8px 1fr;
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .notif:last-child {
+        border-bottom: 0;
+      }
+      .notif .pip {
+        width: 6px;
+        height: 6px;
+        margin-top: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .notif.read .pip {
+        background: var(--rule-strong);
+      }
+      .notif strong {
+        display: block;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .notif span {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .login-card {
+        display: grid;
+        gap: 13px;
+        max-width: 360px;
+        padding: 20px;
+        border: 1px solid var(--ink);
+        border-top: 3px solid var(--accent);
+        background: var(--surface);
+      }
+      .login-card h4 {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .login-card p {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .login-card .error-text {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .login-card .error-text .icon {
+        width: 13px;
+        height: 13px;
+      }
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--ink);
+      }
+      .note-col {
+        padding: 18px 22px 0 0;
+        border-right: 1px solid var(--rule);
+      }
+      .note-col:last-child {
+        border-right: 0;
+        padding-right: 0;
+      }
+      .note-col h3 {
+        font-size: 16px;
+        font-weight: 650;
+        margin-bottom: 6px;
+      }
+      .note-col p {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+      @media (max-width: 900px) {
+        .comp-grid,
+        .notes {
+          grid-template-columns: 1fr;
+        }
+        .comp,
+        .comp:nth-child(2n) {
+          padding: 20px 0;
+          border-right: 0;
+        }
+        .note-col {
+          border-right: 0;
+          border-bottom: 1px solid var(--rule);
+          padding: 16px 0;
+        }
+        .note-col:last-child {
+          border-bottom: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+
+      /* ---------- No-line pass ----------
+   Rule: lines belong to tables, not lists.
+   List items become their own surface block (padding + gap, no rule).
+   Section separation uses tone and spacing. */
+
+      .bar {
+        border-bottom: 0;
+      }
+      .bar-brand {
+        border-right: 0;
+      }
+      .site-head {
+        border-bottom: 0;
+        background: var(--surface);
+      }
+      .hero {
+        border-bottom: 0;
+      }
+      .section {
+        border-bottom: 0;
+      }
+      .section:nth-of-type(even) {
+        background: var(--surface-2);
+      }
+      .mock {
+        border-top: 0;
+      }
+      .topbar {
+        border-bottom: 0;
+        background: var(--surface);
+      }
+      .side-foot {
+        border-top: 0;
+        padding-top: 18px;
+      }
+      .foot-bottom {
+        border-top: 0;
+        padding-top: 22px;
+      }
+      .doc-head,
+      .doc-grid,
+      .doc-block {
+        border-bottom: 0;
+      }
+      .doc-head {
+        padding-bottom: 32px;
+      }
+      .doc-grid {
+        padding: 36px 0;
+      }
+      .doc-block {
+        padding: 36px 0;
+      }
+      .doc-grid h2,
+      .doc-block h2 {
+        border-bottom: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 0;
+      }
+      .doc-grid h2::before,
+      .doc-block h2::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        background: var(--signal);
+        flex: none;
+      }
+      .scope-grid {
+        border-top: 0;
+        gap: 8px;
+      }
+      .scope-col {
+        border-right: 0;
+        background: var(--surface);
+        padding: 18px 18px 6px;
+      }
+      .scope-col:last-child {
+        padding-right: 18px;
+      }
+      .swatch-grid {
+        border: 0;
+        gap: 8px;
+        background: transparent;
+      }
+      .swatch {
+        border: 0;
+        background: var(--surface);
+      }
+      .swatch-color {
+        border-bottom: 0;
+      }
+      .type-spec {
+        border-top: 0;
+        gap: 0 18px;
+      }
+      .type-spec > div {
+        border-bottom: 0;
+        padding: 10px 0;
+      }
+      .type-spec > div:nth-child(odd) {
+        padding-right: 0;
+      }
+      .doc-foot {
+        padding-top: 24px;
+      }
+      .refs {
+        display: grid;
+        gap: 8px;
+        list-style: none;
+        padding: 0;
+      }
+      .refs li {
+        background: var(--surface);
+        padding: 12px 14px;
+        display: grid;
+        gap: 2px;
+      }
+      .refs a {
+        color: var(--accent-text);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .refs span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* lists: independent blocks, no rules */
+      .manifest-head {
+        border-bottom: 0;
+        padding-bottom: 4px;
+      }
+      .manifest-row {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 16px;
+        margin: 0 0 8px;
+      }
+      .manifest-row:hover {
+        background: var(--surface-2);
+      }
+      .manifest-row:last-of-type {
+        margin-bottom: 0;
+      }
+      .fac-head {
+        border-top: 0;
+        border-bottom: 0;
+        padding: 8px 16px 4px;
+      }
+      .fac-row {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 16px;
+        margin-bottom: 8px;
+      }
+      .fac-row:last-of-type {
+        margin-bottom: 0;
+      }
+      .stats {
+        gap: 8px;
+        border-top: 0;
+        border-bottom: 0;
+      }
+      .stat {
+        border-right: 0;
+        background: var(--surface);
+        padding: 16px;
+      }
+      .stat:first-child {
+        padding-left: 16px;
+      }
+      .contract {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 18px 16px;
+        margin: 0 0 10px;
+      }
+      .contract:hover {
+        background: var(--surface-2);
+      }
+      .contract:last-of-type {
+        margin-bottom: 0;
+      }
+      .section-title {
+        border-bottom: 0;
+        padding-bottom: 4px;
+      }
+      .section-title h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-title h2::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        background: var(--signal);
+        flex: none;
+      }
+      .panel {
+        border: 0;
+        background: var(--surface-2);
+      }
+      .panel-head {
+        border-bottom: 0;
+        padding-bottom: 6px;
+      }
+      .panel-head h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .panel-head h3::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        background: var(--signal);
+        flex: none;
+      }
+      .task {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 12px;
+        margin-bottom: 8px;
+      }
+      .task:last-child {
+        margin-bottom: 0;
+        padding-bottom: 12px;
+      }
+
+      /* browse */
+      .filters {
+        border-top: 0;
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 16px;
+      }
+      .result-row {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 16px;
+        margin: 0 0 8px;
+      }
+      .result-row:first-of-type {
+        border-top: 0;
+      }
+      .result-row:hover {
+        background: var(--surface-2);
+      }
+      .results-head {
+        padding-bottom: 4px;
+      }
+
+      /* tabs: filled active state, not an underline */
+      .fm-tabs {
+        border-bottom: 0;
+        gap: 6px;
+      }
+      .fm-tab {
+        border-bottom: 0;
+        padding: 8px 10px;
+        color: var(--ink-2);
+      }
+      .fm-tab:hover {
+        background: var(--surface-2);
+      }
+      .fm-tab.active {
+        background: var(--signal);
+        color: var(--signal-ink);
+      }
+      .fm-tab b {
+        border: 0;
+        background: var(--surface-2);
+      }
+      .fm-tab.active b {
+        background: var(--signal-ink);
+        color: var(--signal);
+        border: 0;
+      }
+
+      /* the one legitimate rule set: a data table */
+      .table {
+        border-top: 2px solid var(--ink);
+      }
+      .tr {
+        border-bottom: 1px solid var(--rule);
+      }
+      .tr.head {
+        border-bottom: 2px solid var(--ink);
+      }
+      .table-sample {
+        border-top: 2px solid var(--ink);
+      }
+      .table-sample .tr {
+        border-bottom: 1px solid var(--rule);
+      }
+      .table-sample .tr.head {
+        border-bottom: 2px solid var(--ink);
+      }
+
+      /* tags become solid chips, no outlines */
+      .tag {
+        border: 0;
+        background: var(--surface-2);
+      }
+      .tag-ok {
+        background: var(--ok-soft);
+      }
+      .tag-warn {
+        background: var(--warn-soft);
+      }
+      .tag-bad {
+        background: var(--bad-soft);
+      }
+      .tag-info {
+        background: var(--info-soft);
+      }
+
+      /* ---------- No-line pass 2: remove remaining layout rules ---------- */
+      .hero-meta {
+        border-top: 0;
+        padding-top: 0;
+        margin-top: 32px;
+      }
+      .site-nav a {
+        border-bottom: 0;
+        padding: 6px 8px;
+      }
+      .site-nav a:hover {
+        background: var(--accent-soft);
+        border-bottom: 0;
+      }
+      .bar-tab {
+        border-bottom: 0;
+        padding: 15px 12px;
+        margin: 3px 0;
+      }
+      .bar-tab[aria-selected="true"] {
+        background: rgba(255, 212, 0, 0.16);
+        border-bottom: 0;
+      }
+      .side-brand {
+        border-bottom: 0;
+        padding-bottom: 10px;
+      }
+      .side-foot {
+        border-top: 0;
+        padding-top: 10px;
+      }
+      .empty-hint {
+        border: 0;
+        background: var(--surface);
+      }
+      .chip {
+        border: 0;
+        background: var(--surface);
+      }
+
+      /* size options: a stacked list, not three cards */
+      .size-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        border-top: 0;
+        border-bottom: 0;
+      }
+      .size-card {
+        grid-template-columns: 160px minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 6px 24px;
+        border-right: 0;
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 18px 20px;
+      }
+      .size-card .size-visual {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        width: 160px;
+        height: 118px;
+      }
+      .size-card h3 {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: end;
+      }
+      .size-card p {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: start;
+        min-height: 0;
+      }
+      .size-card .price {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: end;
+        border-top: 0;
+        padding-top: 0;
+      }
+      .size-card .link {
+        grid-column: 3;
+        grid-row: 2;
+        justify-self: end;
+        align-self: start;
+      }
+      @media (max-width: 760px) {
+        .size-card {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto;
+        }
+        .size-card .size-visual {
+          grid-column: 1;
+          grid-row: auto;
+          width: 100%;
+        }
+        .size-card h3,
+        .size-card p,
+        .size-card .price,
+        .size-card .link {
+          grid-column: 1;
+          grid-row: auto;
+          justify-self: start;
+        }
+        .size-card .price {
+          padding-top: 12px;
+        }
+      }
+
+      /* browse filter: no block edge */
+      .filters {
+        background: transparent;
+        padding: 16px 0;
+      }
+
+      /* FM queue: header block + item blocks, no row rules */
+      .table {
+        border-top: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .tr {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 12px 14px;
+      }
+      .tr.head {
+        background: #101413;
+        color: #e9eae6;
+        padding: 10px 14px;
+      }
+      .tr.head span {
+        color: rgba(233, 234, 230, 0.62);
+      }
+      .tr:not(.head):hover {
+        background: var(--surface-2);
+      }
+      .table-sample {
+        border-top: 0;
+        display: grid;
+        gap: 4px;
+      }
+      .table-sample .tr {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 8px 10px;
+      }
+      .table-sample .tr.head {
+        background: #101413;
+        color: #e9eae6;
+        padding: 6px 10px;
+      }
+      .table-sample .tr.head span {
+        color: rgba(233, 234, 230, 0.62);
+      }
+
+      /* system blocks */
+      .comp-grid {
+        border-top: 0;
+        gap: 8px;
+      }
+      .comp {
+        border-right: 0;
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 20px;
+      }
+      .comp:nth-child(2n) {
+        padding-left: 20px;
+      }
+      .notes {
+        border-top: 0;
+        gap: 8px;
+      }
+      .note-col {
+        border-right: 0;
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 16px;
+      }
+      .note-col:last-child {
+        padding: 16px;
+      }
+
+      /* dark-theme fixes for fixed yellow blocks */
+      .finder::before {
+        background: repeating-linear-gradient(135deg, #101413 0 11px, var(--signal) 11px 22px);
+      }
+      .size-box {
+        border-color: #101413;
+      }
+      .unit-block {
+        border-color: #101413;
+      }
+
+      /* ---------- No-line pass 3: text lists are blocks too ---------- */
+      .diag,
+      .moves {
+        gap: 6px;
+      }
+      .diag li,
+      .moves li {
+        border-bottom: 0;
+        background: var(--surface);
+        padding: 14px 16px;
+      }
+
+      /* ---------- No-line pass 4: last internal dividers ---------- */
+      .finder-head {
+        border-bottom: 0;
+        padding-bottom: 8px;
+      }
+      .steps {
+        gap: 8px;
+        border-top: 0;
+      }
+      .step {
+        border-right: 0;
+        background: var(--surface);
+        padding: 18px;
+      }
+      .step:nth-child(n + 3) {
+        border-top: 0;
+        margin-top: 0;
+      }
+      .step:last-child {
+        border-bottom: 0;
+        padding-right: 18px;
+      }
+      .tr.head,
+      .table-sample .tr.head {
+        border-bottom: 0;
+      }
+      .notif {
+        border-bottom: 0;
+        background: var(--surface-2);
+        padding: 12px;
+        margin-bottom: 6px;
+      }
+      .notif:last-child {
+        margin-bottom: 0;
+      }
+      .stat {
+        border-bottom: 0;
+      }
+      .login-card {
+        border-top: 1px solid var(--ink);
+      }
+      .login-card h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .login-card h4::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        background: var(--signal);
+        flex: none;
+      }
+      @media (max-width: 760px) {
+        .step {
+          border-bottom: 0;
+          padding: 16px;
+          margin-bottom: 8px;
+        }
+        .step:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      /* ---------- Border tone pass: no white borders in dark ---------- */
+      .finder {
+        border-color: var(--container-border);
+      }
+      .login-card {
+        border-color: var(--container-border);
+        border-top-color: var(--container-border);
+      }
+      .size-visual {
+        border-color: var(--bay-border);
+      }
+      .btn-secondary {
+        border-color: var(--control-border);
+      }
+      .btn-secondary:hover {
+        background: var(--control-bg-hover);
+        border-color: var(--control-border-hover);
+        color: var(--control-hover-ink);
+      }
+      .cta .btn-secondary {
+        border-color: var(--on-dark-border);
+        color: var(--on-dark-ink);
+      }
+      .cta .btn-secondary:hover {
+        border-color: var(--on-dark-border-hover);
+        background: var(--on-dark-bg-hover);
+        color: var(--on-dark-ink);
+      }
+      .help-panel .btn {
+        border-color: var(--on-dark-border);
+        color: var(--on-dark-ink);
+      }
+      .help-panel .btn:hover {
+        border-color: var(--on-dark-border-hover);
+        background: var(--on-dark-bg-hover);
+      }
+
+      .step::before {
+        content: "";
+        display: block;
+        width: 8px;
+        height: 8px;
+        background: var(--signal);
+        margin-bottom: 12px;
+      }
+      .step h3 {
+        margin: 0 0 6px;
+      }
+      .side-nav .badge {
+        min-width: 22px;
+        height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden">
+      <defs>
+        <symbol
+          id="i-arrow"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M5 12h13M13 6l6 6-6 6" />
+        </symbol>
+        <symbol
+          id="i-chev"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </symbol>
+        <symbol
+          id="i-search"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m16 16 4 4" />
+        </symbol>
+        <symbol
+          id="i-bell"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
+          <path d="M10 19a2 2 0 0 0 4 0" />
+        </symbol>
+        <symbol
+          id="i-box"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z" />
+          <path d="M4 7.5 12 11l8-3.5M12 11v9" />
+        </symbol>
+        <symbol
+          id="i-receipt"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
+          <path d="M9 8h6M9 12h6" />
+        </symbol>
+        <symbol
+          id="i-calendar"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="4" y="5" width="16" height="15" rx="1" />
+          <path d="M8 3v4M16 3v4M4 10h16" />
+        </symbol>
+        <symbol
+          id="i-life"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="3" />
+          <path d="m6.3 6.3 3.4 3.4M14.3 14.3l3.4 3.4M17.7 6.3l-3.4 3.4M9.7 14.3l-3.4 3.4" />
+        </symbol>
+        <symbol
+          id="i-warehouse"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 20V9l9-5 9 5v11" />
+          <path d="M7 20v-7h10v7M7 16h10" />
+        </symbol>
+        <symbol
+          id="i-users"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M17 15c2.5.4 4 2.4 4 5" />
+        </symbol>
+        <symbol
+          id="i-chart"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 20V11M10 20V5M16 20v-8M2 20h20" />
+        </symbol>
+        <symbol
+          id="i-clock"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 7v5l3 2" />
+        </symbol>
+        <symbol
+          id="i-logout"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" />
+          <path d="m16 17 5-5-5-5M21 12H9" />
+        </symbol>
+        <symbol
+          id="i-sun"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+          />
+        </symbol>
+        <symbol
+          id="i-moon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+        </symbol>
+        <symbol
+          id="i-check"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m4 12 5 5L20 6" />
+        </symbol>
+        <symbol
+          id="i-alert"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 3 2 21h20z" />
+          <path d="M12 9v5M12 18h.01" />
+        </symbol>
+        <symbol
+          id="i-plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol
+          id="i-menu"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </symbol>
+        <symbol
+          id="i-map"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z" />
+          <circle cx="12" cy="9" r="2.5" />
+        </symbol>
+        <symbol
+          id="i-filter"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <header class="bar">
+      <div class="bar-brand">
+        <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+          <rect x="2" y="5" width="24" height="4" fill="currentColor" />
+          <rect x="2" y="12" width="17" height="4" fill="currentColor" />
+          <rect x="9" y="19" width="17" height="4" fill="currentColor" />
+        </svg>
+        <div><strong>Kho Mộc</strong><small>Đề xuất giao diện · 26/10/2026</small></div>
+      </div>
+      <nav class="bar-tabs" role="tablist" aria-label="Các màn hình đề xuất">
+        <button class="bar-tab" data-tab="overview" role="tab" aria-selected="true">
+          Định hướng
+        </button>
+        <button class="bar-tab" data-tab="home" role="tab" aria-selected="false">Trang chủ</button>
+        <button class="bar-tab" data-tab="browse" role="tab" aria-selected="false">Tìm kho</button>
+        <button class="bar-tab" data-tab="customer" role="tab" aria-selected="false">
+          Kho của tôi
+        </button>
+        <button class="bar-tab" data-tab="fm" role="tab" aria-selected="false">
+          FM · Hàng chờ
+        </button>
+        <button class="bar-tab" data-tab="system" role="tab" aria-selected="false">Hệ thống</button>
+      </nav>
+      <div class="bar-actions">
+        <span class="demo-note">Dữ liệu minh hoạ</span>
+        <button
+          class="theme-btn"
+          id="themeToggle"
+          type="button"
+          aria-label="Đổi giao diện sáng tối"
+        >
+          <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun" /></svg>
+          <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon" /></svg>
+          <span>Sáng / Tối</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="screen-panel" data-panel="overview">
+        <div class="wrap doc">
+          <header class="doc-head">
+            <p class="label">Đề xuất giao diện · Tháng 10/2026</p>
+            <h1>Bãi kho<span class="accent">.</span></h1>
+            <p class="doc-lede">
+              Một hệ thống hình ảnh lấy từ bãi kho thật: bê tông lạnh, vạch kẻ an toàn, biển chỉ
+              dẫn. Không còn nền kem, cam cháy, nhãn mono in hoa hay đường kẻ giữa mọi item.
+            </p>
+            <div class="chips">
+              <span class="chip">Bê tông lạnh</span>
+              <span class="chip">Vàng hi-vis</span>
+              <span class="chip">Item là khối</span>
+              <span class="chip">Bảng mới có kẻ</span>
+              <span class="chip">Dark theme</span>
+            </div>
+          </header>
+
+          <div class="doc-grid">
+            <section>
+              <h2>Chẩn đoán</h2>
+              <ol class="diag">
+                <li>
+                  <span
+                    ><strong>Bản trước rơi vào cụm AI editorial.</strong> Kem + cam cháy + mono
+                    tracking + hairline: đúng bộ ba mà model nào cũng kéo về.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Dark-first trên màn vận hành.</strong> Bảng dày trên nền tối làm mỏi
+                    mắt và làm mọi surface trông giống nhau.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Lime trên teal</strong> đọc như công cụ developer, không như dịch vụ
+                    kho vật lý.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Nhãn 10px + mono + chữ hoa.</strong> Tiếng Việt có dấu bị nén, khó đọc
+                    ở khoảng cách màn hình thường.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Đường kẻ ở khắp nơi.</strong> Mỗi item là một dòng kẻ; mắt không phân
+                    biệt được container với dữ liệu.</span
+                  >
+                </li>
+              </ol>
+            </section>
+            <section>
+              <h2>Hướng mới</h2>
+              <ol class="moves">
+                <li>
+                  <span
+                    ><strong>Bê tông lạnh thay giấy ấm.</strong> Xám trung tính, mực gần đen, vàng
+                    hi-vis. Không kem, không cam cháy.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Saira Semi Condensed + Source Sans 3.</strong> Display signage, body
+                    humanist; bỏ mono khỏi vai trò trang trí.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Item là một khối, không phải một dòng kẻ.</strong> Nền surface,
+                    padding, gap 8px. Đường kẻ chỉ còn trong bảng dữ liệu.</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>Bỏ kicker in hoa và số thứ tự section.</strong> Tiêu đề tự đứng; nhãn
+                    phụ dùng câu thường.</span
+                  >
+                </li>
+              </ol>
+            </section>
+          </div>
+
+          <section class="doc-block">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Bảng màu</h2>
+              <p>
+                Cool concrete + một tín hiệu hi-vis. Màu không dùng để trang trí; vàng chỉ cho hành
+                động và điểm cần chú ý. Swatch là token light; dark đảo paper/ink, giữ vàng.
+              </p>
+            </div>
+            <div class="swatch-grid">
+              <div class="swatch">
+                <div class="swatch-color" style="background: #e9eae6"></div>
+                <div class="swatch-meta">
+                  <strong>Concrete</strong><span>#E9EAE6 · nền trang</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #fff"></div>
+                <div class="swatch-meta">
+                  <strong>Surface</strong><span>#FFFFFF · panel, item</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #101413"></div>
+                <div class="swatch-meta"><strong>Ink</strong><span>#101413 · chữ chính</span></div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #5a625f"></div>
+                <div class="swatch-meta"><strong>Steel</strong><span>#5A625F · chữ phụ</span></div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #c9ccc6"></div>
+                <div class="swatch-meta">
+                  <strong>Rule</strong><span>#C9CCC6 · chỉ trong bảng</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #f2c300"></div>
+                <div class="swatch-meta">
+                  <strong>Signal</strong><span>#F2C300 · action, hi-vis</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #1f5a66"></div>
+                <div class="swatch-meta">
+                  <strong>Link</strong><span>#1F5A66 · link, focus text</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #e4ece5"></div>
+                <div class="swatch-meta">
+                  <strong>Success</strong><span>#2F6B4F · nền #E4ECE5</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #f7e9b0"></div>
+                <div class="swatch-meta">
+                  <strong>Warning</strong><span>#7A5A00 · nền #F7E9B0</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #f7e3e0"></div>
+                <div class="swatch-meta">
+                  <strong>Danger</strong><span>#B3261E · nền #F7E3E0</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #e3edee"></div>
+                <div class="swatch-meta">
+                  <strong>Info</strong><span>#1F5A66 · nền #E3EDEE</span>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="swatch-color" style="background: #101413"></div>
+                <div class="swatch-meta">
+                  <strong>Sidebar</strong><span>#101413 · shell tối</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="doc-block">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Kiểu chữ</h2>
+              <p>
+                Saira Semi Condensed cho display/UI; Source Sans 3 cho body. Không mono trang trí,
+                không clamp trong bảng.
+              </p>
+            </div>
+            <div class="type-spec">
+              <div><span class="label">Display · Saira Semi Condensed 700</span></div>
+              <div><p class="t-display">Kho đúng cỡ.</p></div>
+              <div><span class="label">Page title · 29/1.05</span></div>
+              <div><p class="t-title">Kho của tôi</p></div>
+              <div><span class="label">Section · 18/1.25</span></div>
+              <div><p class="t-section">Hợp đồng đang hoạt động</p></div>
+              <div><span class="label">Body · 15/1.55 · Source Sans 3</span></div>
+              <div>
+                <p class="t-body">
+                  Chọn cơ sở, diện tích và thời hạn. Xem giá tham khảo trước khi gửi yêu cầu — không
+                  cần đăng nhập.
+                </p>
+              </div>
+              <div><span class="label">Label · Saira 11.5</span></div>
+              <div><p class="t-label">Mã khoang · Giá · Ngày</p></div>
+              <div><span class="label">Data · Saira 14 · tabular</span></div>
+              <div><p class="t-data">TD-205 · 7.900.000 đ · 26/10/2026</p></div>
+            </div>
+          </section>
+
+          <section class="doc-block">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Phạm vi</h2>
+              <p>
+                Đổi lớp trình bày, không đổi kiến trúc. Route, API client và cấu trúc thư mục giữ
+                nguyên.
+              </p>
+            </div>
+            <div class="scope-grid">
+              <div class="scope-col">
+                <h3>Đổi</h3>
+                <ul>
+                  <li>
+                    Token trong <span class="mono">src/styles.css</span>: màu, chữ, radius, focus.
+                  </li>
+                  <li>Sidebar, topbar, page header và bảng danh sách.</li>
+                  <li>Status tag, empty/loading/error state, form field.</li>
+                  <li>Landing hero và finder.</li>
+                </ul>
+              </div>
+              <div class="scope-col">
+                <h3>Giữ</h3>
+                <ul>
+                  <li>React 19 + TypeScript + Vite + Tailwind v4.</li>
+                  <li>Route table và <span class="mono">PAGE_CONTAINER 1200px</span>.</li>
+                  <li><span class="mono">apiRequest</span>, auth gateway, notification store.</li>
+                  <li>
+                    Cấu trúc <span class="mono">src/app</span>, <span class="mono">pages</span>,
+                    <span class="mono">components</span>, <span class="mono">mocks</span>.
+                  </li>
+                </ul>
+              </div>
+              <div class="scope-col">
+                <h3>Không làm</h3>
+                <ul>
+                  <li>Không thêm UI library hoặc data layer mới.</li>
+                  <li>Không đổi route hay contract API.</li>
+                  <li>Không bịa business rule, giá thật, testimonial.</li>
+                  <li>Không commit ảnh/asset không có nguồn.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="doc-block" style="border-bottom: 0">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Nguồn tham chiếu</h2>
+              <p>Dùng để chẩn đoán, không copy giao diện.</p>
+            </div>
+            <ul class="refs">
+              <li>
+                <a href="https://kylechayka.substack.com/p/the-generic-style-of-ai-web-design"
+                  >Kyle Chayka — The generic style of AI web design</a
+                ><span>Beige, cam gỉ, serif nghiêng, nhãn tracked-out.</span>
+              </li>
+              <li>
+                <a
+                  href="https://dev.to/hellomathieup/do-all-ai-generated-apps-look-the-same-i-measured-it-5h44"
+                  >Do all AI-generated apps look the same? I measured it</a
+                ><span
+                  >“Avoid clichés” đổi sang Fraunces / Space Grotesk / Syne / Bricolage; terracotta
+                  #C1440E.</span
+                >
+              </li>
+              <li>
+                <a href="https://precious.studio/journal/launching-slop-patterns"
+                  >Precious Studio — Slop Patterns</a
+                ><span
+                  >47% launch page 2026 có ít nhất một tell; tiny uppercase label là một tell.</span
+                >
+              </li>
+              <li>
+                <a href="https://sailop.com/blog/ai-slop-2026-state-of-the-ai-generated-web"
+                  >Sailop — AI Slop in 2026</a
+                ><span>Bỏ một bậc tự do khỏi default là cách thoát nhanh nhất.</span>
+              </li>
+            </ul>
+          </section>
+
+          <div class="doc-foot">
+            <span
+              >Dùng thanh tab phía trên để xem từng màn hình. Nút Sáng/Tối để kiểm tra theme.</span
+            >
+            <span class="mono">Mockup tĩnh · không kết nối API</span>
+          </div>
+        </div>
+      </section>
+      <section class="screen-panel" data-panel="home" hidden>
+        <div class="wrap screen-note">
+          <span class="label">Trang chủ</span>
+          <span class="label">1440px · Persuade</span>
+        </div>
+        <div class="mock">
+          <header class="site-head">
+            <div class="wrap">
+              <a class="brand" href="#">
+                <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+                  <rect x="2" y="5" width="24" height="4" fill="currentColor" />
+                  <rect x="2" y="12" width="17" height="4" fill="currentColor" />
+                  <rect x="9" y="19" width="17" height="4" fill="currentColor" />
+                </svg>
+                Kho Mộc
+              </a>
+              <nav class="site-nav" aria-label="Điều hướng chính">
+                <a href="#">Tìm kho</a><a href="#">Quy trình</a><a href="#">Cơ sở</a
+                ><a href="#">Hỗ trợ</a>
+              </nav>
+              <div class="head-actions">
+                <a class="btn btn-ghost" href="#">Đăng nhập</a>
+                <a class="btn btn-primary" href="#"
+                  >Gửi nhu cầu <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                ></a>
+              </div>
+            </div>
+          </header>
+
+          <section class="hero">
+            <div class="wrap hero-grid">
+              <div>
+                <p class="kicker label">Tự lưu trữ · TP. Hồ Chí Minh</p>
+                <h1>Kho đúng cỡ.<span>Hợp đồng rõ ràng.</span></h1>
+                <p class="lede">
+                  Chọn cơ sở, diện tích và thời hạn. Xem giá tham khảo trước khi gửi yêu cầu — không
+                  cần đăng nhập để bắt đầu.
+                </p>
+                <div class="hero-meta">
+                  <div><strong>03</strong><span>cơ sở đang mở</span></div>
+                  <div><strong>4–15 m²</strong><span>diện tích khoang</span></div>
+                  <div><strong>07:00–21:00</strong><span>giờ tiếp nhận</span></div>
+                </div>
+              </div>
+
+              <form class="finder" aria-label="Tìm khoang phù hợp">
+                <div class="finder-head">
+                  <span class="label">Bắt đầu từ điều bạn biết</span>
+                  <h2>Tìm khoang phù hợp</h2>
+                </div>
+                <label class="field"
+                  ><span>Cơ sở</span>
+                  <div class="select">
+                    <select>
+                      <option>Tất cả cơ sở</option>
+                      <option>Thảo Điền Hub · TP. Thủ Đức</option>
+                      <option>Tân Bình Hub · Tân Bình</option>
+                      <option>Quận 7 Hub · Quận 7</option></select
+                    ><svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+                ></label>
+                <label class="field"
+                  ><span>Diện tích</span>
+                  <div class="select">
+                    <select>
+                      <option>Tất cả diện tích</option>
+                      <option>4 m² · Kho cơ bản</option>
+                      <option>8 m² · Kho linh hoạt</option>
+                      <option>15 m² · Kho mở rộng</option></select
+                    ><svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+                ></label>
+                <button class="btn btn-primary btn-block" type="button">
+                  Xem khoang trống
+                  <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg>
+                </button>
+                <p class="finder-note">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg> Không cần đăng
+                  nhập · Giá tham khảo theo tháng
+                </p>
+              </form>
+            </div>
+          </section>
+
+          <section aria-label="Cơ sở đang mở">
+            <div class="wrap">
+              <div class="wrap" style="padding-top: 32px">
+                <span class="label">Cơ sở đang mở · giá tham khảo</span>
+              </div>
+              <a class="manifest-row" href="#">
+                <span class="idx">01</span>
+                <span
+                  ><span class="name">Thảo Điền Hub</span
+                  ><span class="sub">18 Xuân Thủy, Thảo Điền · 07:00–21:00</span></span
+                >
+                <span class="col-district" style="font-size: 13px">TP. Thủ Đức</span>
+                <span class="count col-price">4.900.000 đ<small>mỗi tháng</small></span>
+                <span class="count">05<small>khoang</small></span>
+                <span class="row-arrow"
+                  ><svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                ></span>
+              </a>
+              <a class="manifest-row" href="#">
+                <span class="idx">02</span>
+                <span
+                  ><span class="name">Tân Bình Hub</span
+                  ><span class="sub">42 Cộng Hòa, Phường 4 · 07:00–21:00</span></span
+                >
+                <span class="col-district" style="font-size: 13px">Tân Bình</span>
+                <span class="count col-price">7.900.000 đ<small>mỗi tháng</small></span>
+                <span class="count">03<small>khoang</small></span>
+                <span class="row-arrow"
+                  ><svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                ></span>
+              </a>
+              <a class="manifest-row" href="#">
+                <span class="idx">03</span>
+                <span
+                  ><span class="name">Quận 7 Hub</span
+                  ><span class="sub">09 Nguyễn Thị Thập, Tân Phú · 08:00–20:00</span></span
+                >
+                <span class="col-district" style="font-size: 13px">Quận 7</span>
+                <span class="count col-price">4.900.000 đ<small>mỗi tháng</small></span>
+                <span class="count">06<small>khoang</small></span>
+                <span class="row-arrow"
+                  ><svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                ></span>
+              </a>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="wrap">
+              <div class="section-head">
+                <div>
+                  <span class="label">Quy mô</span>
+                  <h2>Chọn theo diện tích thật.</h2>
+                </div>
+                <p>
+                  Ba khung tham chiếu, vẽ đúng tỷ lệ. Giá là giá niêm yết theo tháng, chưa gồm phí
+                  phát sinh nếu có.
+                </p>
+              </div>
+              <div class="size-grid">
+                <article class="size-card">
+                  <div class="size-visual">
+                    <span class="dim">4 m²</span>
+                    <div class="size-box" style="--s: 52px"></div>
+                  </div>
+                  <h3>Kho cơ bản</h3>
+                  <p>Lô hàng nhỏ, nhu cầu thử nghiệm hoặc lưu trữ ngắn hạn.</p>
+                  <div class="price"><strong>4.900.000</strong><span>đ / tháng</span></div>
+                  <a class="link" href="#"
+                    >Xem khoang <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                  ></a>
+                </article>
+                <article class="size-card">
+                  <div class="size-visual">
+                    <span class="dim">8 m²</span>
+                    <div class="size-box" style="--s: 74px"></div>
+                  </div>
+                  <h3>Kho linh hoạt</h3>
+                  <p>Hàng kinh doanh, nhập xuất định kỳ, cần dư địa thao tác.</p>
+                  <div class="price"><strong>7.900.000</strong><span>đ / tháng</span></div>
+                  <a class="link" href="#"
+                    >Xem khoang <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                  ></a>
+                </article>
+                <article class="size-card">
+                  <div class="size-visual">
+                    <span class="dim">15 m²</span>
+                    <div class="size-box" style="--s: 104px"></div>
+                  </div>
+                  <h3>Kho mở rộng</h3>
+                  <p>Khối lượng lớn, kế hoạch vận hành dài hơn, nhiều lô hàng.</p>
+                  <div class="price"><strong>12.900.000</strong><span>đ / tháng</span></div>
+                  <a class="link" href="#"
+                    >Xem khoang <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                  ></a>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="wrap">
+              <div class="section-head">
+                <div>
+                  <span class="label">Quy trình</span>
+                  <h2>Từ nhu cầu đến nhận kho.</h2>
+                </div>
+                <p>
+                  Bốn bước, không có bước ẩn. Mỗi bước cho bạn biết ai đang xử lý và bạn cần làm gì
+                  tiếp theo.
+                </p>
+              </div>
+              <div class="steps">
+                <div class="step">
+                  <h3>Gửi nhu cầu</h3>
+                  <p>Điền cơ sở, diện tích và thời hạn. Không cần tài khoản.</p>
+                </div>
+                <div class="step">
+                  <h3>Nhận đề xuất</h3>
+                  <p>FM kiểm tra khoang trống và gửi phương án cụ thể.</p>
+                </div>
+                <div class="step">
+                  <h3>Đặt cọc</h3>
+                  <p>Thanh toán cọc trong thời hạn để giữ khoang.</p>
+                </div>
+                <div class="step">
+                  <h3>Nhận kho</h3>
+                  <p>Chọn lịch bàn giao và nhận chìa khoá tại cơ sở.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="wrap">
+              <div class="section-head">
+                <div>
+                  <span class="label">Cơ sở</span>
+                  <h2>Xem nơi hàng đến.</h2>
+                </div>
+                <p>Địa chỉ, giờ tiếp nhận và diện tích đang có. Chọn cơ sở để xem khoang cụ thể.</p>
+              </div>
+              <div class="fac-head">
+                <span class="label">Cơ sở</span><span class="label">Địa chỉ</span
+                ><span class="label">Giờ tiếp nhận</span><span class="label">Diện tích</span
+                ><span></span>
+              </div>
+              <div class="fac-row">
+                <div>
+                  <span class="name">Thảo Điền Hub</span><span class="sub">TP. Thủ Đức</span>
+                </div>
+                <span class="value col-address">18 Xuân Thủy, Thảo Điền</span>
+                <span class="value col-hours">07:00–21:00</span>
+                <span class="value col-size">4–8 m²</span>
+                <div class="col-action">
+                  <a class="btn btn-secondary btn-sm" href="#">Xem khoang</a>
+                </div>
+              </div>
+              <div class="fac-row">
+                <div><span class="name">Tân Bình Hub</span><span class="sub">Tân Bình</span></div>
+                <span class="value col-address">42 Cộng Hòa, Phường 4</span>
+                <span class="value col-hours">07:00–21:00</span>
+                <span class="value col-size">8–15 m²</span>
+                <div class="col-action">
+                  <a class="btn btn-secondary btn-sm" href="#">Xem khoang</a>
+                </div>
+              </div>
+              <div class="fac-row">
+                <div><span class="name">Quận 7 Hub</span><span class="sub">Quận 7</span></div>
+                <span class="value col-address">09 Nguyễn Thị Thập, Tân Phú</span>
+                <span class="value col-hours">08:00–20:00</span>
+                <span class="value col-size">4–15 m²</span>
+                <div class="col-action">
+                  <a class="btn btn-secondary btn-sm" href="#">Xem khoang</a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="cta">
+            <div class="wrap">
+              <div>
+                <span class="label">Chưa chắc cần bao nhiêu?</span>
+                <h2>Gửi nhu cầu. FM sẽ đề xuất khoang phù hợp.</h2>
+              </div>
+              <div class="cta-actions">
+                <a class="btn btn-primary" href="#"
+                  >Gửi yêu cầu đặt kho
+                  <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                ></a>
+                <a class="btn btn-secondary" href="#">Xem khoang trống</a>
+              </div>
+            </div>
+          </section>
+
+          <footer class="foot">
+            <div class="wrap">
+              <div class="foot-grid">
+                <div>
+                  <a class="brand" href="#"
+                    ><svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+                      <rect x="2" y="5" width="24" height="4" fill="currentColor" />
+                      <rect x="2" y="12" width="17" height="4" fill="currentColor" />
+                      <rect x="9" y="19" width="17" height="4" fill="currentColor" />
+                    </svg>
+                    Kho Mộc</a
+                  >
+                  <p
+                    style="margin-top: 10px; font-size: 12px; color: var(--muted); max-width: 30ch"
+                  >
+                    Tự lưu trữ tại TP. Hồ Chí Minh. Prototype — dữ liệu minh hoạ.
+                  </p>
+                </div>
+                <div>
+                  <h3>Sản phẩm</h3>
+                  <a href="#">Tìm kho</a><a href="#">Quy trình</a><a href="#">Cơ sở</a>
+                </div>
+                <div>
+                  <h3>Hỗ trợ</h3>
+                  <a href="#">Liên hệ</a><a href="#">Câu hỏi thường gặp</a>
+                </div>
+                <div>
+                  <h3>Pháp lý</h3>
+                  <a href="#">Điều khoản</a><a href="#">Quyền riêng tư</a>
+                </div>
+              </div>
+              <div class="foot-bottom">
+                <span>© 2026 Kho Mộc. Bản xem trước giao diện.</span>
+                <span class="mono">DỮ LIỆU MINH HOẠ</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </section>
+      <section class="screen-panel" data-panel="browse" hidden>
+        <div class="wrap screen-note">
+          <span class="label">Tìm kho</span>
+          <span class="label">1440px · Operate</span>
+        </div>
+        <div class="mock">
+          <header class="site-head">
+            <div class="wrap">
+              <a class="brand" href="#"
+                ><svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+                  <rect x="2" y="5" width="24" height="4" fill="currentColor" />
+                  <rect x="2" y="12" width="17" height="4" fill="currentColor" />
+                  <rect x="9" y="19" width="17" height="4" fill="currentColor" />
+                </svg>
+                Kho Mộc</a
+              >
+              <nav class="site-nav" aria-label="Điều hướng chính">
+                <a href="#" style="background: var(--signal); color: var(--signal-ink)">Tìm kho</a
+                ><a href="#">Quy trình</a><a href="#">Cơ sở</a><a href="#">Hỗ trợ</a>
+              </nav>
+              <div class="head-actions">
+                <a class="btn btn-ghost" href="#">Đăng nhập</a>
+                <a class="btn btn-primary" href="#"
+                  >Gửi nhu cầu <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                ></a>
+              </div>
+            </div>
+          </header>
+
+          <div class="wrap browse">
+            <div class="browse-head">
+              <div>
+                <span class="label">Danh mục khoang</span>
+                <h1>Khoang đang trống</h1>
+                <p>Giá tham khảo theo tháng · Cập nhật từ dữ liệu minh hoạ</p>
+              </div>
+              <span class="count">12 khoang · 3 cơ sở</span>
+            </div>
+
+            <div class="filters">
+              <label class="field"
+                ><span>Cơ sở</span>
+                <div class="select">
+                  <select>
+                    <option>Tất cả cơ sở</option>
+                    <option>Thảo Điền Hub</option>
+                    <option>Tân Bình Hub</option>
+                    <option>Quận 7 Hub</option>
+                  </select>
+                  <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+              ></label>
+              <label class="field"
+                ><span>Diện tích</span>
+                <div class="select">
+                  <select>
+                    <option>Tất cả diện tích</option>
+                    <option>4 m²</option>
+                    <option>8 m²</option>
+                    <option>15 m²</option>
+                  </select>
+                  <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+              ></label>
+              <label class="field"
+                ><span>Sắp xếp</span>
+                <div class="select">
+                  <select>
+                    <option>Giá thấp → cao</option>
+                    <option>Giá cao → thấp</option>
+                    <option>Diện tích nhỏ → lớn</option>
+                  </select>
+                  <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+              ></label>
+              <button class="btn btn-secondary" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-filter" /></svg> Bộ lọc
+              </button>
+            </div>
+
+            <div class="results-head">
+              <span class="label">05 kết quả phù hợp</span>
+              <span class="label">Giá đã gồm VAT? Chưa xác định</span>
+            </div>
+
+            <a class="result-row" href="#">
+              <div class="unit-block">4 m²</div>
+              <div>
+                <span class="code">TD-101</span
+                ><span class="place">Thảo Điền Hub · Tầng trệt · Dãy A</span>
+              </div>
+              <div class="meta">Kho cơ bản<small>Phù hợp lô hàng nhỏ</small></div>
+              <div class="money">4.900.000 đ<small>/ tháng</small></div>
+              <div class="action"><span class="tag tag-ok">Còn trống</span></div>
+            </a>
+            <a class="result-row" href="#">
+              <div class="unit-block">8 m²</div>
+              <div>
+                <span class="code">TD-205</span
+                ><span class="place">Thảo Điền Hub · Tầng 2 · Dãy C</span>
+              </div>
+              <div class="meta">Kho linh hoạt<small>Nhập xuất định kỳ</small></div>
+              <div class="money">7.900.000 đ<small>/ tháng</small></div>
+              <div class="action"><span class="tag tag-ok">Còn trống</span></div>
+            </a>
+            <a class="result-row" href="#">
+              <div class="unit-block">15 m²</div>
+              <div>
+                <span class="code">TB-302</span
+                ><span class="place">Tân Bình Hub · Tầng 3 · Dãy D</span>
+              </div>
+              <div class="meta">Kho mở rộng<small>Khối lượng lớn</small></div>
+              <div class="money">12.900.000 đ<small>/ tháng</small></div>
+              <div class="action"><span class="tag tag-ok">Còn trống</span></div>
+            </a>
+            <a class="result-row" href="#">
+              <div class="unit-block">4 m²</div>
+              <div>
+                <span class="code">Q7-118</span
+                ><span class="place">Quận 7 Hub · Tầng trệt · Dãy B</span>
+              </div>
+              <div class="meta">Kho cơ bản<small>Gần lối nhận hàng</small></div>
+              <div class="money">4.900.000 đ<small>/ tháng</small></div>
+              <div class="action"><span class="tag tag-ok">Còn trống</span></div>
+            </a>
+            <a class="result-row" href="#">
+              <div class="unit-block">8 m²</div>
+              <div>
+                <span class="code">TB-210</span
+                ><span class="place">Tân Bình Hub · Tầng 2 · Dãy C</span>
+              </div>
+              <div class="meta">Kho linh hoạt<small>Có dư địa thao tác</small></div>
+              <div class="money">7.900.000 đ<small>/ tháng</small></div>
+              <div class="action"><span class="tag tag-ok">Còn trống</span></div>
+            </a>
+
+            <div class="empty-hint">
+              <p>Không thấy khoang phù hợp? Gửi nhu cầu để FM đề xuất phương án khác.</p>
+              <a class="btn btn-primary btn-sm" href="#">Gửi yêu cầu</a>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="screen-panel" data-panel="customer" hidden>
+        <div class="wrap screen-note">
+          <span class="label">Kho của tôi</span>
+          <span class="label">1440px · Operate</span>
+        </div>
+        <div class="mock mock-app">
+          <div class="app">
+            <aside class="side">
+              <div class="side-brand">
+                <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+                  <rect x="2" y="5" width="24" height="4" fill="currentColor" />
+                  <rect x="2" y="12" width="17" height="4" fill="currentColor" />
+                  <rect x="9" y="19" width="17" height="4" fill="currentColor" />
+                </svg>
+                Kho Mộc
+              </div>
+              <div>
+                <div class="side-label">Không gian của bạn</div>
+                <nav class="side-nav" aria-label="Điều hướng khách hàng">
+                  <a class="active" href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-box" /></svg> Kho của tôi</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-receipt" /></svg> Hoá đơn
+                    &amp; thanh toán</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-calendar" /></svg> Lịch
+                    hẹn</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-life" /></svg> Hỗ trợ</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-bell" /></svg> Thông báo
+                    <span class="badge">2</span></a
+                  >
+                </nav>
+              </div>
+              <div class="side-foot">
+                <span class="avatar">M</span>
+                <div><strong>Minh Anh</strong><small>Khách hàng</small></div>
+              </div>
+            </aside>
+
+            <div class="main">
+              <header class="topbar">
+                <div style="display: flex; align-items: center; gap: 12px">
+                  <button class="icon-btn mobile-menu" type="button" aria-label="Mở menu">
+                    <svg class="icon" aria-hidden="true"><use href="#i-menu" /></svg>
+                  </button>
+                  <span class="crumb">Không gian của bạn / Kho của tôi</span>
+                </div>
+                <div class="top-actions">
+                  <button class="icon-btn" type="button" aria-label="Thông báo">
+                    <svg class="icon" aria-hidden="true"><use href="#i-bell" /></svg
+                    ><span class="dot"></span>
+                  </button>
+                  <button class="icon-btn" type="button" aria-label="Đổi giao diện">
+                    <svg class="icon" aria-hidden="true"><use href="#i-moon" /></svg>
+                  </button>
+                  <div class="user-chip">
+                    <span class="avatar">M</span>
+                    <div><strong>Minh Anh</strong><small>Khách hàng</small></div>
+                  </div>
+                </div>
+              </header>
+
+              <div class="content">
+                <div class="page-head">
+                  <div>
+                    <h1>Kho của tôi</h1>
+                    <p>Theo dõi hợp đồng, thời hạn và việc cần làm tiếp theo.</p>
+                  </div>
+                  <a class="btn btn-primary" href="#"
+                    >Thuê thêm kho <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg
+                  ></a>
+                </div>
+
+                <div class="stats">
+                  <div class="stat"><strong>02</strong><span>Khoang đang thuê</span></div>
+                  <div class="stat"><strong>01</strong><span>Hoá đơn cần thanh toán</span></div>
+                  <div class="stat"><strong>14/11</strong><span>Lịch nhận kho</span></div>
+                </div>
+
+                <div class="two-col">
+                  <div>
+                    <div class="section-title">
+                      <h2>Hợp đồng đang hoạt động</h2>
+                      <a class="link" href="#"
+                        >Xem tất cả
+                        <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                      ></a>
+                    </div>
+
+                    <div class="contract">
+                      <div class="unit-code">A-208<small>6 m²</small></div>
+                      <div>
+                        <span class="facility">Kho Mộc — Nguyễn Văn Linh</span
+                        ><span class="address">Quận 7, TP. Hồ Chí Minh</span>
+                      </div>
+                      <div class="term">12/03/2025 → 12/03/2026<small>Còn 137 ngày</small></div>
+                      <div class="money">
+                        1.450.000 đ<small>Đã thanh toán đến 12/03/2026</small
+                        ><span class="progress"><i style="width: 78%"></i></span>
+                      </div>
+                      <div class="actions">
+                        <span class="tag tag-ok">Đang thuê</span
+                        ><button class="btn btn-secondary btn-sm" type="button">Xem</button>
+                      </div>
+                    </div>
+
+                    <div class="contract">
+                      <div class="unit-code">B-014<small>3 m²</small></div>
+                      <div>
+                        <span class="facility">Kho Mộc — Phạm Văn Đồng</span
+                        ><span class="address">Thủ Đức, TP. Hồ Chí Minh</span>
+                      </div>
+                      <div class="term">28/09/2025 → 28/12/2025<small>Còn 63 ngày</small></div>
+                      <div class="money">
+                        820.000 đ<small>Còn 18 ngày thanh toán</small
+                        ><span class="progress"
+                          ><i style="width: 92%; background: var(--warn)"></i
+                        ></span>
+                      </div>
+                      <div class="actions">
+                        <span class="tag tag-warn">Sắp đến hạn</span
+                        ><button class="btn btn-secondary btn-sm" type="button">Xem</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside>
+                    <div class="panel">
+                      <div class="panel-head">
+                        <h3>Việc cần làm</h3>
+                        <span class="tag tag-warn">02</span>
+                      </div>
+                      <a class="task" href="#"
+                        ><span class="n">01</span
+                        ><span
+                          ><strong>Thanh toán hoá đơn tháng 11</strong
+                          ><span>Hạn 05/11/2026 · 820.000 đ</span></span
+                        ><svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                      ></a>
+                      <a class="task" href="#"
+                        ><span class="n">02</span
+                        ><span
+                          ><strong>Chọn lịch nhận kho B-014</strong
+                          ><span>Chọn trong 7 ngày tới</span></span
+                        ><svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                      ></a>
+                    </div>
+                    <div class="help-panel">
+                      <h3>Hỗ trợ nhanh</h3>
+                      <p>Báo sự cố khoang, khoá truy cập hoặc yêu cầu hỗ trợ tại cơ sở.</p>
+                      <a class="btn btn-sm" href="#"
+                        >Gửi yêu cầu hỗ trợ
+                        <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg
+                      ></a>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="screen-panel" data-panel="fm" hidden>
+        <div class="wrap screen-note">
+          <span class="label">FM · Hàng chờ yêu cầu</span>
+          <span class="label">1440px · Operate</span>
+        </div>
+        <div class="mock mock-app">
+          <div class="app">
+            <aside class="side">
+              <div class="side-brand">
+                <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+                  <rect x="2" y="5" width="24" height="4" fill="currentColor" />
+                  <rect x="2" y="12" width="17" height="4" fill="currentColor" />
+                  <rect x="9" y="19" width="17" height="4" fill="currentColor" />
+                </svg>
+                Kho Mộc
+              </div>
+              <div>
+                <div class="side-label">Facility Manager</div>
+                <nav class="side-nav" aria-label="Điều hướng quản lý cơ sở">
+                  <a class="active" href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-box" /></svg> Yêu cầu đặt
+                    kho <span class="badge">4</span></a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-calendar" /></svg> Lịch hẹn
+                    &amp; phân công</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-receipt" /></svg> Yêu cầu
+                    trả kho</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg> Yêu cầu gia
+                    hạn</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-life" /></svg> Yêu cầu hỗ
+                    trợ</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-warehouse" /></svg> Khoang
+                    chứa</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-users" /></svg> Nhân viên
+                    FS</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-chart" /></svg> Báo cáo cơ
+                    sở</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-receipt" /></svg> Hoá đơn cơ
+                    sở</a
+                  >
+                  <a href="#"
+                    ><svg class="icon" aria-hidden="true"><use href="#i-map" /></svg> Khách hàng
+                    &amp; hợp đồng</a
+                  >
+                </nav>
+              </div>
+              <div class="side-foot">
+                <span class="avatar">H</span>
+                <div><strong>Hoàng Nam</strong><small>Quản lý cơ sở</small></div>
+              </div>
+            </aside>
+
+            <div class="main">
+              <header class="topbar">
+                <div style="display: flex; align-items: center; gap: 12px">
+                  <button class="icon-btn mobile-menu" type="button" aria-label="Mở menu">
+                    <svg class="icon" aria-hidden="true"><use href="#i-menu" /></svg>
+                  </button>
+                  <span class="crumb">Facility Manager / Kho Mộc Thảo Điền Hub</span>
+                </div>
+                <div class="top-actions">
+                  <button class="icon-btn" type="button" aria-label="Thông báo">
+                    <svg class="icon" aria-hidden="true"><use href="#i-bell" /></svg
+                    ><span class="dot"></span>
+                  </button>
+                  <button class="icon-btn" type="button" aria-label="Đổi giao diện">
+                    <svg class="icon" aria-hidden="true"><use href="#i-moon" /></svg>
+                  </button>
+                  <div class="user-chip">
+                    <span class="avatar">H</span>
+                    <div><strong>Hoàng Nam</strong><small>Quản lý cơ sở</small></div>
+                  </div>
+                </div>
+              </header>
+
+              <div class="content">
+                <div class="page-head">
+                  <div>
+                    <h1>Yêu cầu đặt kho</h1>
+                    <p>4 yêu cầu đang chờ · Cập nhật 09:42, 26/10/2026</p>
+                  </div>
+                  <button class="btn btn-secondary" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-filter" /></svg> Bộ lọc
+                  </button>
+                </div>
+
+                <div class="fm-tabs" role="tablist" aria-label="Trạng thái yêu cầu">
+                  <button class="fm-tab active" role="tab" aria-selected="true">
+                    Chờ xử lý <b>4</b>
+                  </button>
+                  <button class="fm-tab" role="tab" aria-selected="false">
+                    Đã duyệt <b>12</b>
+                  </button>
+                  <button class="fm-tab" role="tab" aria-selected="false">Từ chối <b>3</b></button>
+                  <button class="fm-tab" role="tab" aria-selected="false">Hết hạn <b>1</b></button>
+                </div>
+
+                <div class="fm-filters">
+                  <label class="field"
+                    ><span>Tìm kiếm</span>
+                    <div class="input">
+                      <input type="text" placeholder="Tên khách, email, số điện thoại…" /></div
+                  ></label>
+                  <label class="field"
+                    ><span>Quy mô</span>
+                    <div class="select">
+                      <select>
+                        <option>Tất cả quy mô</option>
+                        <option>4 m²</option>
+                        <option>8 m²</option>
+                        <option>15 m²</option>
+                      </select>
+                      <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+                  ></label>
+                  <label class="field"
+                    ><span>Sắp xếp</span>
+                    <div class="select">
+                      <select>
+                        <option>Mới nhất trước</option>
+                        <option>Cũ nhất trước</option>
+                      </select>
+                      <svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+                  ></label>
+                  <button class="btn btn-primary" type="button">Áp dụng</button>
+                </div>
+
+                <div class="table-wrap">
+                  <div class="table">
+                    <div class="tr head">
+                      <span>Khách hàng</span><span>Nhu cầu</span><span>Ghi chú</span
+                      ><span>Nhận lúc</span><span>Trạng thái</span
+                      ><span style="text-align: right">Hành động</span>
+                    </div>
+
+                    <div class="tr">
+                      <div class="who">
+                        <strong>Lê Thị Ngọc Hà</strong><span>090 123 4567 · ha.le@example.com</span>
+                      </div>
+                      <div class="need">Kho cơ bản · 4 m²<small>6 tháng</small></div>
+                      <div class="note">Cần lưu trữ hàng gia dụng, ưu tiên tầng trệt.</div>
+                      <div class="when">09:12<small>26/09/2026</small></div>
+                      <span class="tag tag-warn">Chờ xử lý</span>
+                      <div class="action">
+                        <button class="btn btn-primary btn-sm" type="button">Đề xuất khoang</button>
+                      </div>
+                    </div>
+
+                    <div class="tr">
+                      <div class="who">
+                        <strong>Phạm Quốc Bảo</strong><span>091 234 5678 · Chưa có tài khoản</span>
+                      </div>
+                      <div class="need">Kho linh hoạt · 8 m²<small>Chưa xác định</small></div>
+                      <div class="note">Hàng kinh doanh online, nhập/xuất hàng tuần.</div>
+                      <div class="when">08:40<small>25/09/2026</small></div>
+                      <span class="tag tag-warn">Chờ xử lý</span>
+                      <div class="action">
+                        <button class="btn btn-primary btn-sm" type="button">Đề xuất khoang</button>
+                      </div>
+                    </div>
+
+                    <div class="tr">
+                      <div class="who">
+                        <strong>Đỗ Minh Thư</strong><span>093 456 7890 · thu.do@example.com</span>
+                      </div>
+                      <div class="need">Kho linh hoạt · 8 m²<small>3 tháng</small></div>
+                      <div class="note">Chuyển nhà tạm thời, cần kho khoảng 3 tháng.</div>
+                      <div class="when">16:05<small>24/09/2026</small></div>
+                      <span class="tag tag-warn">Chờ xử lý</span>
+                      <div class="action">
+                        <button class="btn btn-primary btn-sm" type="button">Đề xuất khoang</button>
+                      </div>
+                    </div>
+
+                    <div class="tr">
+                      <div class="who">
+                        <strong>Vũ Anh Tuấn</strong><span>094 567 8901 · tuan.vu@example.com</span>
+                      </div>
+                      <div class="need">Kho cơ bản · 4 m²<small>12 tháng</small></div>
+                      <div class="note">Lưu trữ tài liệu công ty.</div>
+                      <div class="when">10:20<small>18/09/2026</small></div>
+                      <span class="tag tag-ok">Đã duyệt</span>
+                      <div class="action">
+                        <button class="btn btn-secondary btn-sm" type="button">Xem</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="table-foot">
+                  <span>1–4 / 20 yêu cầu</span>
+                  <div class="pager">
+                    <button type="button">←</button><button class="on" type="button">1</button
+                    ><button type="button">2</button><button type="button">3</button
+                    ><button type="button">→</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="screen-panel" data-panel="system" hidden>
+        <div class="wrap doc">
+          <header class="doc-head">
+            <p class="label">Hệ thống · Thành phần</p>
+            <h1>Bộ thành phần<span class="accent">.</span></h1>
+            <p class="doc-lede">
+              Cùng một bộ điều khiển cho public, auth và vận hành: nút vuông 2px, field 42px, tag
+              mono, bảng kê 1px. Không có biến thể trang trí riêng cho từng role.
+            </p>
+            <div class="chips">
+              <span class="chip">Nút</span><span class="chip">Ô nhập</span
+              ><span class="chip">Tag</span><span class="chip">Bảng</span
+              ><span class="chip">Trạng thái</span>
+            </div>
+          </header>
+
+          <section class="doc-block">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Thành phần</h2>
+              <p>
+                Trạng thái hover/focus/disabled là một phần của component, không phải lớp phủ thêm.
+              </p>
+            </div>
+            <div class="comp-grid">
+              <div class="comp">
+                <h3>Nút</h3>
+                <div class="comp-row">
+                  <button class="btn btn-primary" type="button">
+                    Hành động chính
+                    <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg>
+                  </button>
+                  <button class="btn btn-secondary" type="button">Hành động phụ</button>
+                  <button class="btn btn-ghost" type="button">Bỏ qua</button>
+                  <button class="btn btn-danger" type="button">Huỷ yêu cầu</button>
+                  <button
+                    class="btn btn-primary"
+                    type="button"
+                    disabled
+                    style="opacity: 0.45; cursor: not-allowed"
+                  >
+                    Đang gửi…
+                  </button>
+                </div>
+              </div>
+
+              <div class="comp">
+                <h3>Ô nhập</h3>
+                <div class="comp-stack">
+                  <label class="field"
+                    ><span>Cơ sở</span>
+                    <div class="select">
+                      <select>
+                        <option>Thảo Điền Hub</option>
+                        <option>Tân Bình Hub</option></select
+                      ><svg class="icon" aria-hidden="true"><use href="#i-chev" /></svg></div
+                  ></label>
+                  <label class="field"
+                    ><span>Email</span>
+                    <div class="input"><input type="email" value="ha.le@example.com" /></div>
+                    <span class="hint-text">Dùng email để nhận phản hồi đề xuất.</span></label
+                  >
+                  <label class="field field-error"
+                    ><span>Số điện thoại</span>
+                    <div class="input"><input type="text" value="090 123" /></div>
+                    <span class="error-text">Số điện thoại cần 10 chữ số.</span></label
+                  >
+                </div>
+              </div>
+
+              <div class="comp">
+                <h3>Trạng thái</h3>
+                <div class="comp-row">
+                  <span class="tag tag-ok">Đang thuê</span>
+                  <span class="tag tag-warn">Chờ xử lý</span>
+                  <span class="tag tag-bad">Quá hạn</span>
+                  <span class="tag tag-info">Đã duyệt</span>
+                  <span class="tag">Bản nháp</span>
+                </div>
+              </div>
+
+              <div class="comp">
+                <h3>Hàng bảng</h3>
+                <div class="table-sample">
+                  <div class="tr head">
+                    <span>Mã</span><span>Cơ sở</span><span>Giá</span><span>Trạng thái</span>
+                  </div>
+                  <div class="tr">
+                    <span class="mono" style="font-size: 12px">TD-205</span
+                    ><span style="font-size: 12px">Thảo Điền</span
+                    ><span class="mono" style="font-size: 12px">7.900.000</span
+                    ><span class="tag tag-ok">Trống</span>
+                  </div>
+                  <div class="tr">
+                    <span class="mono" style="font-size: 12px">TB-210</span
+                    ><span style="font-size: 12px">Tân Bình</span
+                    ><span class="mono" style="font-size: 12px">7.900.000</span
+                    ><span class="tag tag-ok">Trống</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comp">
+                <h3>Trạng thái rỗng</h3>
+                <div class="state-box">
+                  <svg class="icon" aria-hidden="true"><use href="#i-box" /></svg>
+                  <strong>Chưa có yêu cầu nào</strong>
+                  <p>Khi khách gửi nhu cầu, yêu cầu sẽ xuất hiện ở đây.</p>
+                  <button class="btn btn-secondary btn-sm" type="button">Xem khoang trống</button>
+                </div>
+              </div>
+
+              <div class="comp">
+                <h3>Đang tải</h3>
+                <div class="skeleton"><i></i><i></i><i></i></div>
+                <p class="hint-text" style="margin-top: 12px">
+                  Dùng skeleton theo đúng nhịp hàng của bảng, không dùng spinner giữa nội dung.
+                </p>
+              </div>
+
+              <div class="comp">
+                <h3>Thông báo</h3>
+                <div class="notif">
+                  <span class="pip"></span>
+                  <div>
+                    <strong>Đề xuất khoang mới</strong
+                    ><span>FM đã gửi phương án TD-205 · 2 giờ trước</span>
+                  </div>
+                </div>
+                <div class="notif read">
+                  <span class="pip"></span>
+                  <div>
+                    <strong>Hoá đơn tháng 11 đã phát hành</strong
+                    ><span>Hạn thanh toán 05/11/2026 · 1 ngày trước</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comp">
+                <h3>Đăng nhập</h3>
+                <form class="login-card">
+                  <h4>Đăng nhập</h4>
+                  <p>Dùng tài khoản Kho Mộc để theo dõi hợp đồng.</p>
+                  <label class="field"
+                    ><span>Email</span>
+                    <div class="input"><input type="email" value="ha.le@example.com" /></div
+                  ></label>
+                  <label class="field field-error"
+                    ><span>Mật khẩu</span>
+                    <div class="input"><input type="password" value="123456" /></div>
+                    <span class="error-text"
+                      ><svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg> Email hoặc
+                      mật khẩu không đúng.</span
+                    ></label
+                  >
+                  <button class="btn btn-primary btn-block" type="button">Đăng nhập</button>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <section class="doc-block">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Quy tắc</h2>
+              <p>Ba quy tắc đủ để giữ hệ thống nhất quán khi mở rộng sang BOM, Admin và FS.</p>
+            </div>
+            <div class="notes">
+              <div class="note-col">
+                <h3>Hình dạng</h3>
+                <p>
+                  Control 2px, panel 0px, tag 2px. Không dùng pill cho nút, field hay navigation.
+                  Chỉ avatar và status dot là hình tròn.
+                </p>
+              </div>
+              <div class="note-col">
+                <h3>Mật độ</h3>
+                <p>
+                  Public 15px/1.55; vận hành 12–13px trong bảng, 44px hàng tối thiểu. Dòng kẻ 1px
+                  thay cho khoảng trắng lớn giữa các item.
+                </p>
+              </div>
+              <div class="note-col">
+                <h3>Chuyển động</h3>
+                <p>
+                  150–200ms cho hover, focus, mở panel. Không animation khi tải trang. Tôn trọng
+                  <span class="mono">prefers-reduced-motion</span>.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="doc-block" style="border-bottom: 0">
+            <div class="doc-block-head">
+              <h2 style="border: 0; padding: 0">Ghi chú triển khai</h2>
+              <p>Đổi token trước, component sau. Không đổi class Tailwind ở mọi file cùng lúc.</p>
+            </div>
+            <div class="scope-grid">
+              <div class="scope-col">
+                <h3>Bước 1 · Token</h3>
+                <ul>
+                  <li>
+                    Cập nhật <span class="mono">:root</span> và
+                    <span class="mono">[data-theme=light]</span> trong
+                    <span class="mono">styles.css</span>.
+                  </li>
+                  <li>Giữ tên biến cũ để bridge Tailwind không đổi.</li>
+                  <li>Thêm token accent-text, accent-soft, sidebar.</li>
+                </ul>
+              </div>
+              <div class="scope-col">
+                <h3>Bước 2 · Shell</h3>
+                <ul>
+                  <li>Sidebar tối, active 3px accent.</li>
+                  <li>Topbar 64px, page header 28px.</li>
+                  <li>Bỏ shadow/radius khỏi card; chuyển sang border 1px.</li>
+                </ul>
+              </div>
+              <div class="scope-col">
+                <h3>Bước 3 · Dữ liệu</h3>
+                <ul>
+                  <li>Danh sách chuyển sang hàng có đường kẻ.</li>
+                  <li>Status tag dùng text + dot, không chỉ màu.</li>
+                  <li>Bảng cuộn ngang dưới 900px.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <div class="doc-foot">
+            <span>Mockup tĩnh. Không có component nào được import vào app.</span>
+            <span class="mono">BÃI KHO · V1</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        var tabs = Array.prototype.slice.call(document.querySelectorAll(".bar-tab"));
+        var panels = Array.prototype.slice.call(document.querySelectorAll("[data-panel]"));
+
+        function select(name) {
+          tabs.forEach(function (tab) {
+            tab.setAttribute("aria-selected", String(tab.dataset.tab === name));
+          });
+          panels.forEach(function (panel) {
+            panel.hidden = panel.dataset.panel !== name;
+          });
+          window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+        }
+
+        tabs.forEach(function (tab) {
+          tab.addEventListener("click", function () {
+            select(tab.dataset.tab);
+          });
+        });
+
+        var toggle = document.getElementById("themeToggle");
+        toggle.addEventListener("click", function () {
+          var root = document.documentElement;
+          root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+          toggle.setAttribute(
+            "aria-label",
+            root.dataset.theme === "dark"
+              ? "Chuyển sang giao diện sáng"
+              : "Chuyển sang giao diện tối",
+          );
+        });
+      })();
+    </script>
+  </body>
+</html>
