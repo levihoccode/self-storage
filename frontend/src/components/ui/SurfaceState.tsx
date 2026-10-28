@@ -34,7 +34,7 @@ export function SurfaceState({
   const isNegative = variant === "error" || variant === "forbidden";
   return (
     <div
-      className="grid justify-items-center gap-2.5 border border-[var(--container-border)] bg-surface px-6 py-12 text-center"
+      className="grid justify-items-center gap-2.5 bg-surface px-6 py-12 text-center"
       role={isNegative ? "alert" : "status"}
     >
       <div
