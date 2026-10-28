@@ -161,3 +161,34 @@ export const authGateway: AuthGateway = {
     return () => listeners.delete(listener);
   },
 };
+
+export type AuthActionResult =
+  { ok: true; message: string } | { ok: false; status: number; message: string };
+
+async function authPost(path: string, body: unknown): Promise<AuthActionResult> {
+  try {
+    await apiRequest<null>(path, { method: "POST", body });
+    return { ok: true, message: "" };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return { ok: false, status: error.status, message: error.message };
+    }
+    return {
+      ok: false,
+      status: 0,
+      message: "Không thể kết nối tới máy chủ.",
+    };
+  }
+}
+
+export const authApi = {
+  register(email: string, password: string) {
+    return authPost("/api/auth/register", { email, password });
+  },
+  verifyEmail(email: string, code: string) {
+    return authPost("/api/auth/verify-email", { email, code });
+  },
+  resendVerification(email: string) {
+    return authPost("/api/auth/resend-verification", { email });
+  },
+};

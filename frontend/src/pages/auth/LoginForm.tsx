@@ -22,7 +22,11 @@ const ROLE_PAGE_NAMES: Record<UserRole, string> = {
 };
 
 export function LoginForm({ navigate }: { navigate: Navigate }) {
-  const [notice, setNotice] = useState<Notice>(null);
+  const [notice, setNotice] = useState<Notice>(
+    new URLSearchParams(window.location.search).get("verified") === "1"
+      ? { tone: "success", message: "Email đã được xác minh. Đăng nhập để tiếp tục." }
+      : null,
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
