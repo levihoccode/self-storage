@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
@@ -77,7 +78,9 @@ public class PaymentService {
         PaymentTransaction transaction = new PaymentTransaction(
                 invoiceId, request.txnRef(), request.amount(), request.orderInfo());
         repository.save(transaction);
-        String paymentUrl = gateway.buildPaymentUrl(request);
+        // Dùng cùng mốc createdAt cho URL và transaction: querydr phải gửi đúng
+        // vnp_TransactionDate = vnp_CreateDate của URL pay.
+        String paymentUrl = gateway.buildPaymentUrl(request, transaction.getCreatedAt());
         urlCache.put(invoiceId, paymentUrl);
         return paymentUrl;
     }
@@ -149,28 +152,63 @@ public class PaymentService {
         // Hai event dưới đây publish TRƯỚC khi transaction này commit — listener phải đăng ký
         // @TransactionalEventListener(AFTER_COMMIT); xem javadoc PaymentSucceeded/PaymentFailed.
         if (gatewayReportedSuccess(params)) {
-            transaction.markSucceeded(
-                    params.get("vnp_TransactionNo"), parsePayDate(params.get("vnp_PayDate")), responsePayload);
-            // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
-            audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
-                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
-                    Map.of("status", "Pending"),
-                    Map.of("status", "Success", "gatewayTransactionNo",
-                            String.valueOf(transaction.getGatewayTransactionNo())),
-                    null, null));
-            events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(), txnRef,
-                    transaction.getAmount(), transaction.getPaidAt()));
+            applySuccess(transaction, params.get("vnp_TransactionNo"),
+                    parsePayDate(params.get("vnp_PayDate")), responsePayload);
         } else {
             String reason = "vnp_ResponseCode=" + params.get("vnp_ResponseCode")
                     + ", vnp_TransactionStatus=" + params.get("vnp_TransactionStatus");
-            transaction.markFailed(reason, responsePayload);
-            audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
-                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
-                    Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
-            events.publishEvent(new PaymentFailed(transaction.getInvoiceId(), txnRef,
-                    transaction.getAmount(), reason));
+            applyFailure(transaction, reason, responsePayload);
         }
         return IpnResponse.success();
+    }
+
+    /**
+     * Job đối soát ghi nhận giao dịch thành công. Khoá row và kiểm lại Pending trong transaction
+     * mới để không đè lên IPN vừa xử lý xong.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean reconcileSuccess(Long transactionId, String gatewayTransactionNo,
+                                    Instant paidAt, String responsePayload) {
+        PaymentTransaction transaction = repository.findByIdForUpdate(transactionId).orElseThrow();
+        if (!transaction.isPending()) {
+            return false;
+        }
+        applySuccess(transaction, gatewayTransactionNo, paidAt, responsePayload);
+        return true;
+    }
+
+    /** Job đối soát đóng giao dịch thất bại/không tìm thấy; cùng quy tắc khoá như success. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean reconcileFailure(Long transactionId, String reason, String responsePayload) {
+        PaymentTransaction transaction = repository.findByIdForUpdate(transactionId).orElseThrow();
+        if (!transaction.isPending()) {
+            return false;
+        }
+        applyFailure(transaction, reason, responsePayload);
+        return true;
+    }
+
+    private void applySuccess(PaymentTransaction transaction, String gatewayTransactionNo,
+                              Instant paidAt, String responsePayload) {
+        transaction.markSucceeded(gatewayTransactionNo, paidAt, responsePayload);
+        // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
+        audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
+                AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                Map.of("status", "Pending"),
+                Map.of("status", "Success", "gatewayTransactionNo",
+                        String.valueOf(transaction.getGatewayTransactionNo())),
+                null, null));
+        events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(), transaction.getVnpTxnRef(),
+                transaction.getAmount(), transaction.getPaidAt()));
+    }
+
+    private void applyFailure(PaymentTransaction transaction, String reason, String responsePayload) {
+        transaction.markFailed(reason, responsePayload);
+        audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
+                AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
+        events.publishEvent(new PaymentFailed(transaction.getInvoiceId(), transaction.getVnpTxnRef(),
+                transaction.getAmount(), reason));
     }
 
     /** Cổng chỉ coi là thành công khi cả hai mã đều {@code 00}. */

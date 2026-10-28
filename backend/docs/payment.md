@@ -40,8 +40,16 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
     hiện 15') — cửa sổ chỉ là giới hạn kỹ thuật (hết cửa sổ là cổng không cho trả tiếp); khách bấm
     trả sát `due_date` vẫn có đủ 15'.
 - **Đối soát phiên im lặng.** Khách bỏ ngang (đóng browser, IPN không về) để lại giao dịch `Pending`.
-  Job định kỳ quét `Pending` quá ngưỡng và gọi `querydr`: cổng có giao dịch → chốt theo trạng thái
-  thật; không có → đóng `Failed` + `failure_reason` ghi rõ phiên hết hạn.
+  `PaymentReconciliationJob` chạy mỗi 5 phút, chọn `Pending` tạo trước `now - PaymentSession.WINDOW`
+  (15 phút) rồi gọi `querydr`:
+  - `ResponseCode=00` + `TransactionStatus=00` → `Success` + audit `PAYMENT_SUCCEEDED` + event;
+  - `00` + `02/04/07/09` → `Failed` + audit `PAYMENT_FAILED`;
+  - `00` + `01/05/06` → giữ `Pending`, quá 60 phút vẫn chưa hoàn tất → `Failed`;
+  - `91` không tìm thấy → `Failed`;
+  - `02/03/94/97/99`, lỗi mạng/chữ ký → giữ `Pending`, lần sau retry.
+
+  Row được khoá lại trước khi ghi; IPN thắng nếu đã chốt trước. HTTP querydr chạy ngoài
+  transaction, chỉ mở transaction ngắn khi có kết quả.
 - **Xác nhận muộn (lưới an toàn).** Hi hữu — khách đã trả trong cửa sổ hợp lệ nhưng hệ thống chỉ biết
   sau khi invoice/đơn đã hủy (chỉ khi job/server lỗi dài): vẫn ghi `Success` + đủ dấu vết, log ERROR
   để vận hành xử lý thủ công (hoàn tiền hoặc xếp chỗ khác). Không tự mở lại đơn.
@@ -85,7 +93,8 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
 ## Cấu hình
 
 Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`,
-`VNPAY_PAY_URL`, `VNPAY_RETURN_URL`. Hướng dẫn sandbox: `docs/vnpay-sandbox.md`.
+`VNPAY_PAY_URL`, `VNPAY_RETURN_URL`. `VNPAY_QUERYDR_URL` mặc định trỏ sandbox, production phải
+override. Hướng dẫn sandbox: `docs/vnpay-sandbox.md`.
 
 ## Trạng thái hiện tại
 
@@ -95,5 +104,6 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 - **`PaymentSucceeded`/`PaymentFailed`: `booking` đã nghe** — `DepositPaymentListener` chốt hoá đơn,
   đơn và khoang khi `PaymentSucceeded`; `PaymentFailed` chỉ ghi log vì khoá phiên tự hết hạn. Chi
   tiết ở `routes/booking/invoice-pay.md`.
-- **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc luồng đặt cọc.
+- **Job đối soát phiên (`querydr`): có** — `PaymentReconciliationJob`, chạy mỗi 5 phút; xem
+  “Đối soát phiên im lặng”. Response `99` từ VNPay là lỗi terminal/API; job giữ `Pending` để retry.
 - **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.

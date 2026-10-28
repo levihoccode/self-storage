@@ -31,7 +31,8 @@ class VnPayGatewayTest {
             "TESTTMN1",
             FAKE_SECRET,
             "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-            "http://localhost:8080/api/payments/vnpay/return"));
+            "http://localhost:8080/api/payments/vnpay/return",
+            "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"));
 
     private Map<String, String> callbackParams() {
         Map<String, String> params = new HashMap<>();

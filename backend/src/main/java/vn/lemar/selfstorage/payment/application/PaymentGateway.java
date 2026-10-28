@@ -3,6 +3,8 @@ package vn.lemar.selfstorage.payment.application;
 import java.time.Instant;
 import java.util.Map;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
+import vn.lemar.selfstorage.payment.application.dto.QueryDrRequest;
+import vn.lemar.selfstorage.payment.application.dto.QueryDrResult;
 
 /**
  * Cổng thanh toán, tách khỏi nghiệp vụ để đổi nhà cung cấp không phải sửa flow nào
@@ -18,6 +20,9 @@ public interface PaymentGateway {
      * theo {@code createdAt} — dùng khi cache URL bị mất mà phiên vẫn còn hạn.
      */
     String buildPaymentUrl(PaymentRequest request, Instant createdAt);
+
+    /** Đối soát trạng thái giao dịch tại cổng (server-to-server, không qua trình duyệt). */
+    QueryDrResult queryDr(QueryDrRequest request);
 
     /**
      * Kiểm chữ ký trên dữ liệu cổng trả về, dùng cho cả Return URL lẫn IPN.
