@@ -40,4 +40,8 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     /** Phiên Pending còn hạn của invoice — dùng để dựng lại URL khi cache mất. */
     Optional<PaymentTransaction> findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
             Long invoiceId, PaymentStatus status, Instant since);
+
+    /** Giao dịch PAY/Success gần nhất của invoice — job booking dùng để sửa state sau listener lỗi. */
+    Optional<PaymentTransaction> findFirstByInvoiceIdAndDirectionAndStatusOrderByPaidAtDesc(
+            Long invoiceId, PaymentDirection direction, PaymentStatus status);
 }

@@ -89,6 +89,10 @@ Listener bắt buộc `@TransactionalEventListener(AFTER_COMMIT)` **và**
 `@Transactional(REQUIRES_NEW)` — xem `payment.md` › Quy tắc bất biến. `AuditRecorder` dùng
 propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 
+Nếu listener lỗi sau khi IPN đã commit, giao dịch vẫn `Success` nhưng invoice còn `Unpaid`.
+`DepositStateRepairJob` quét invoice `Unpaid` + giao dịch `PAY/Success` và gọi lại listener
+(idempotent); đây là local outbox, không phải querydr.
+
 ## Ghi chú nghiệp vụ
 
 - **Số tiền đọc từ `Invoice` trong DB**, không nhận từ client — cổng đối chiếu `vnp_Amount` với

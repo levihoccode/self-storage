@@ -45,6 +45,11 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
 - **Xác nhận muộn (lưới an toàn).** Hi hữu — khách đã trả trong cửa sổ hợp lệ nhưng hệ thống chỉ biết
   sau khi invoice/đơn đã hủy (chỉ khi job/server lỗi dài): vẫn ghi `Success` + đủ dấu vết, log ERROR
   để vận hành xử lý thủ công (hoàn tiền hoặc xếp chỗ khác). Không tự mở lại đơn.
+- **Sửa state khi listener IPN lỗi.** `PaymentTransaction(PAY/Success)` là bản ghi bền.
+  `DepositStateRepairJob` quét invoice `Unpaid` (`Deposit`/`DepositSupplement`) có giao dịch
+  `PAY/Success`, rồi gọi lại `DepositPaymentListener` (idempotent). Không cần querydr, không thêm
+  bảng outbox. Job không cứu được IPN mất hẳn (giao dịch còn `Pending`) — ca đó vẫn cần nguồn đối
+  soát ngoài (querydr hoặc báo cáo portal).
 - **URL phiên cache Redis.** Key `payment:url:{invoiceId}`, TTL 15 phút, khớp `vnp_ExpireDate`.
   `/pay` lần nữa trên cùng hoá đơn trả lại URL cũ; cache mất thì `resumePayment` dựng lại URL từ
   transaction Pending — cùng `vnp_TxnRef`, `vnp_CreateDate`/`vnp_ExpireDate` gốc, không tạo giao dịch
@@ -95,5 +100,7 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 - **`PaymentSucceeded`/`PaymentFailed`: `booking` đã nghe** — `DepositPaymentListener` chốt hoá đơn,
   đơn và khoang khi `PaymentSucceeded`; `PaymentFailed` chỉ ghi log vì khoá phiên tự hết hạn. Chi
   tiết ở `routes/booking/invoice-pay.md`.
+- **Sửa state booking từ giao dịch Success: có** — `DepositStateRepairJob`, xem “Sửa state khi
+  listener IPN lỗi”.
 - **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc luồng đặt cọc.
 - **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.
