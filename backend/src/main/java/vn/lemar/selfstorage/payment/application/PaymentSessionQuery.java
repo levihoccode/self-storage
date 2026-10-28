@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.payment.application;
 
 import java.util.Collection;
+import java.util.Optional;
 
 /**
  * Cho module nghiệp vụ hỏi "hóa đơn này có phiên thanh toán đang mở không" mà không phải chạm
@@ -22,4 +23,10 @@ public interface PaymentSessionQuery {
      * mới để khách không trả lần hai.
      */
     boolean hasSuccessfulPayment(Long invoiceId);
+
+    /** Cùng invoice này có phiên {@code Pending} còn hạn không — để trả lại URL thay vì mở phiên mới. */
+    boolean hasOpenSessionForInvoice(Long invoiceId);
+
+    /** URL còn hạn của phiên cũ; rỗng khi cache hết hạn hoặc Redis lỗi. */
+    Optional<String> openPaymentUrl(Long invoiceId);
 }

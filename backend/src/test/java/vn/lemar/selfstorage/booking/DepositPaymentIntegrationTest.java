@@ -22,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -31,9 +32,11 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Toàn tuyến đặt cọc trên Postgres thật: gọi endpoint → mở phiên → VNPay xác nhận qua IPN →
@@ -56,8 +59,16 @@ class DepositPaymentIntegrationTest {
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    @Container
+    @ServiceConnection
+    static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+            .withExposedPorts(6379);
+
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -84,6 +95,7 @@ class DepositPaymentIntegrationTest {
         jdbc.update("DELETE FROM rental_orders");
         jdbc.update("DELETE FROM rental_requests");
         jdbc.update("UPDATE storage_units SET status = 'Available' WHERE status = 'Reserved'");
+        redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
 
         Long customerId = jdbc.queryForObject(
                 "SELECT id FROM accounts WHERE email = ?", Long.class, CUSTOMER_EMAIL);
@@ -143,14 +155,28 @@ class DepositPaymentIntegrationTest {
     }
 
     /**
-     * Khách bấm back rồi bấm lại hóa đơn của chính mình: phiên cũ không được coi là "khách khác"
-     * (review #137 mục 6, chốt phương án A).
+     * Khách bấm back rồi bấm lại hóa đơn của chính mình: trả lại đúng URL phiên cũ, không mở
+     * phiên thứ hai (review #137 mục C1, chốt trả URL).
      */
     @Test
-    void retryingTheSameInvoiceIsNotBlocked() throws Exception {
-        openSessionAndReadTxnRef();
+    void retryingTheSameInvoiceReturnsTheSameSession() throws Exception {
+        MvcResult first = mockMvc.perform(payAs(CUSTOMER_EMAIL))
+                .andExpect(status().isOk())
+                .andReturn();
+        String firstUrl = com.jayway.jsonpath.JsonPath.read(
+                first.getResponse().getContentAsString(), "$.data.paymentUrl");
 
-        mockMvc.perform(payAs(CUSTOMER_EMAIL)).andExpect(status().isOk());
+        MvcResult second = mockMvc.perform(payAs(CUSTOMER_EMAIL))
+                .andExpect(status().isOk())
+                .andReturn();
+        String secondUrl = com.jayway.jsonpath.JsonPath.read(
+                second.getResponse().getContentAsString(), "$.data.paymentUrl");
+
+        assertThat(secondUrl).isEqualTo(firstUrl);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM payment_transactions WHERE invoice_id = ? AND status = 'Pending'",
+                Integer.class, invoiceId))
+                .as("chỉ một phiên Pending cho hóa đơn").isEqualTo(1);
     }
 
     /**

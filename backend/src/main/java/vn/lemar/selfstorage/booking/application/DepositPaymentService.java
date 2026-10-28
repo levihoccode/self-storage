@@ -57,6 +57,8 @@ public class DepositPaymentService {
                     + "hoặc chọn khoang chứa khác!";
     private static final String PAYMENT_ALREADY_SUCCEEDED =
             "Hóa đơn này đã được thanh toán thành công. Vui lòng chờ hệ thống xác nhận.";
+    private static final String SESSION_LOST =
+            "Phiên thanh toán trước đã hết hiệu lực. Vui lòng thử lại sau ít phút.";
 
     private final InvoiceRepository invoices;
     private final RentalOrderRepository orders;
@@ -127,6 +129,14 @@ public class DepositPaymentService {
         // (1) Đơn quá hạn — chặn trước khi đụng tới khoang.
         if (order.getExpiresAt() != null && order.getExpiresAt().isBefore(Instant.now())) {
             throw new DepositNotAllowedException(ORDER_EXPIRED);
+        }
+
+        // Khách bấm back: cùng invoice đang có phiên Pending trong 15 phút → trả lại URL cũ,
+        // không mở phiên mới. URL là cache Redis; mất cache thì chặn cho tới khi phiên hết hạn,
+        // thay vì mở URL thứ hai và để khách trả hai lần.
+        if (sessions.hasOpenSessionForInvoice(invoice.getId())) {
+            return sessions.openPaymentUrl(invoice.getId())
+                    .orElseThrow(() -> new DepositNotAllowedException(SESSION_LOST));
         }
 
         // Khoá khoang sau đơn và hoá đơn — cùng thứ tự với listener IPN và cascade. Khoang thuộc

@@ -42,9 +42,11 @@ cùng lúc.
 
 ## Khóa giao dịch ngắn hạn
 
-Không có bảng khóa và không dùng Redis. Một khoang coi là đang bận khi tồn tại
-`PaymentTransaction` còn `Pending` thuộc đơn của khoang đó, tạo chưa quá `PaymentSession.WINDOW`
-(15 phút) — đúng bằng `vnp_ExpireDate` mà gateway đặt, nên khóa và URL hết hạn cùng lúc.
+Không có bảng khóa; khóa suy từ `PaymentTransaction(Pending)` trong Postgres. Redis chỉ cache
+URL của phiên (`payment:url:{invoiceId}`, TTL 15 phút), không phải khóa. Một khoang coi là đang bận
+khi tồn tại `PaymentTransaction` còn `Pending` thuộc đơn của khoang đó, tạo chưa quá
+`PaymentSession.WINDOW` (15 phút) — đúng bằng `vnp_ExpireDate` mà gateway đặt, nên khóa và URL hết
+hạn cùng lúc.
 
 Kiểm **theo khoang, không theo hóa đơn**: hai khách khác nhau trả cho hai hóa đơn khác nhau vẫn
 tranh cùng một khoang.
@@ -93,8 +95,9 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
   chính con số đó khi xác nhận.
 - `vnp_TxnRef` dạng `INV{invoiceId}T{yyyyMMddHHmmss}` GMT+7 kèm hậu tố ngẫu nhiên: mốc thời gian
   chỉ tới giây nên hai lần bấm trong cùng một giây sẽ trùng mã và vỡ unique constraint.
-- Phiên đang mở **của chính hóa đơn này** không chặn khách: bấm back rồi bấm lại không phải
-  "khách hàng khác". Chỉ phiên của hóa đơn khác trên cùng khoang mới chặn.
+- Phiên đang mở **của chính hóa đơn này**: `/pay` trả lại đúng URL cũ nếu cache Redis còn; cache
+  mất thì 409 "Phiên thanh toán trước đã hết hiệu lực…" cho tới khi phiên quá 15 phút. Không mở
+  phiên thứ hai.
 - Hóa đơn không tồn tại và hóa đơn của người khác trả **cùng một** 404.
 - Cơ sở chưa gán FM thì vẫn hủy hóa đơn, chỉ bỏ qua thông báo — thiếu người nhận không được chặn
   nghiệp vụ.

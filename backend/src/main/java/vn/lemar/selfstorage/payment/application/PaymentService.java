@@ -48,16 +48,18 @@ public class PaymentService {
     private final ApplicationEventPublisher events;
     private final ObjectMapper objectMapper;
     private final AuditRecorder audit;
+    private final PaymentUrlCache urlCache;
 
     public PaymentService(PaymentGateway gateway, PaymentTransactionRepository repository,
                           VnPayProperties properties, ApplicationEventPublisher events,
-                          ObjectMapper objectMapper, AuditRecorder audit) {
+                          ObjectMapper objectMapper, AuditRecorder audit, PaymentUrlCache urlCache) {
         this.gateway = gateway;
         this.repository = repository;
         this.properties = properties;
         this.events = events;
         this.objectMapper = objectMapper;
         this.audit = audit;
+        this.urlCache = urlCache;
     }
 
     /**
@@ -72,8 +74,9 @@ public class PaymentService {
         PaymentTransaction transaction = new PaymentTransaction(
                 invoiceId, request.txnRef(), request.amount(), request.orderInfo());
         repository.save(transaction);
-
-        return gateway.buildPaymentUrl(request);
+        String paymentUrl = gateway.buildPaymentUrl(request);
+        urlCache.put(invoiceId, paymentUrl);
+        return paymentUrl;
     }
 
     /**

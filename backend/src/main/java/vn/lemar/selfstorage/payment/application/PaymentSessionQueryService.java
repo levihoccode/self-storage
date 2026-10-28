@@ -2,6 +2,8 @@ package vn.lemar.selfstorage.payment.application;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.payment.domain.PaymentDirection;
@@ -13,9 +15,11 @@ import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 public class PaymentSessionQueryService implements PaymentSessionQuery {
 
     private final PaymentTransactionRepository repository;
+    private final PaymentUrlCache urlCache;
 
-    public PaymentSessionQueryService(PaymentTransactionRepository repository) {
+    public PaymentSessionQueryService(PaymentTransactionRepository repository, PaymentUrlCache urlCache) {
         this.repository = repository;
+        this.urlCache = urlCache;
     }
 
     @Override
@@ -33,5 +37,16 @@ public class PaymentSessionQueryService implements PaymentSessionQuery {
     public boolean hasSuccessfulPayment(Long invoiceId) {
         return repository.existsByInvoiceIdAndDirectionAndStatus(
                 invoiceId, PaymentDirection.PAY, PaymentStatus.SUCCESS);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasOpenSessionForInvoice(Long invoiceId) {
+        return hasOpenSession(List.of(invoiceId));
+    }
+
+    @Override
+    public Optional<String> openPaymentUrl(Long invoiceId) {
+        return urlCache.get(invoiceId);
     }
 }

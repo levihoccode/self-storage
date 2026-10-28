@@ -9,8 +9,10 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import vn.lemar.selfstorage.payment.application.PaymentSessionQueryService;
+import vn.lemar.selfstorage.payment.application.PaymentUrlCache;
 import vn.lemar.selfstorage.payment.domain.PaymentDirection;
 import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
@@ -19,7 +21,8 @@ import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 class PaymentSessionQueryServiceTest {
 
     private final PaymentTransactionRepository repository = mock(PaymentTransactionRepository.class);
-    private final PaymentSessionQueryService service = new PaymentSessionQueryService(repository);
+    private final PaymentUrlCache urlCache = mock(PaymentUrlCache.class);
+    private final PaymentSessionQueryService service = new PaymentSessionQueryService(repository, urlCache);
 
     @Test
     void noInvoicesMeansNoOpenSessionAndNoQuery() {
@@ -35,6 +38,21 @@ class PaymentSessionQueryServiceTest {
                 anyCollection(), any(PaymentStatus.class), any(Instant.class))).thenReturn(true);
 
         assertThat(service.hasOpenSession(List.of(1L, 2L))).isTrue();
+    }
+
+    @Test
+    void sameInvoiceOpeningUsesThePendingCheck() {
+        when(repository.existsByInvoiceIdInAndStatusAndCreatedAtAfter(
+                anyCollection(), any(PaymentStatus.class), any(Instant.class))).thenReturn(true);
+
+        assertThat(service.hasOpenSessionForInvoice(1L)).isTrue();
+    }
+
+    @Test
+    void openPaymentUrlComesFromTheCache() {
+        when(urlCache.get(1L)).thenReturn(Optional.of("https://pay/session"));
+
+        assertThat(service.openPaymentUrl(1L)).contains("https://pay/session");
     }
 
     @Test

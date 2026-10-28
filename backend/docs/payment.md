@@ -45,6 +45,9 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
 - **Xác nhận muộn (lưới an toàn).** Hi hữu — khách đã trả trong cửa sổ hợp lệ nhưng hệ thống chỉ biết
   sau khi invoice/đơn đã hủy (chỉ khi job/server lỗi dài): vẫn ghi `Success` + đủ dấu vết, log ERROR
   để vận hành xử lý thủ công (hoàn tiền hoặc xếp chỗ khác). Không tự mở lại đơn.
+- **URL phiên cache Redis.** Key `payment:url:{invoiceId}`, TTL 15 phút, khớp `vnp_ExpireDate`.
+  `/pay` lần nữa trên cùng hoá đơn trả lại URL cũ; cache mất thì caller trả 409 cho tới khi phiên hết
+  hạn. Cache không phải khóa — khóa phiên vẫn suy từ `PaymentTransaction(Pending)`.
 - **`vnp_OrderInfo` bỏ dấu trước khi ký.** VNPay chỉ hiển thị được ASCII; chuỗi có dấu bị encode
   thành `?`. `VnPayGateway` chuẩn hoá về không dấu trước khi ghép tham số, nên chuỗi ký và chuỗi
   khách thấy khớp nhau: `Đặt cọc khoang chứa A-01` → `Dat coc khoang chua A-01`.

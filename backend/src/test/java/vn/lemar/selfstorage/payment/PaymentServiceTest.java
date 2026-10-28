@@ -23,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.payment.application.PaymentService;
+import vn.lemar.selfstorage.payment.application.PaymentUrlCache;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
@@ -41,6 +42,7 @@ class PaymentServiceTest {
     private PaymentTransactionRepository repository;
     private ApplicationEventPublisher events;
     private AuditRecorder audit;
+    private PaymentUrlCache urlCache;
     private PaymentService service;
     private PaymentTransaction transaction;
 
@@ -50,9 +52,10 @@ class PaymentServiceTest {
         repository = mock(PaymentTransactionRepository.class);
         events = mock(ApplicationEventPublisher.class);
         audit = mock(AuditRecorder.class);
+        urlCache = mock(PaymentUrlCache.class);
         service = new PaymentService(gateway, repository,
                 new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
-                new ObjectMapper(), audit);
+                new ObjectMapper(), audit, urlCache);
 
         transaction = new PaymentTransaction(7L, TXN_REF, new BigDecimal("10000"), "Thanh toan");
         when(gateway.verifySignature(any())).thenReturn(true);
@@ -80,6 +83,17 @@ class PaymentServiceTest {
         assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(transaction.getGatewayTransactionNo()).isEqualTo("15690354");
         verify(events).publishEvent(any(PaymentSucceeded.class));
+    }
+
+    @Test
+    void startPaymentCachesTheUrlForBackButton() {
+        when(gateway.buildPaymentUrl(any())).thenReturn("https://pay/session");
+
+        String url = service.startPayment(7L, new PaymentRequest(
+                "TXN", new BigDecimal("10000"), "Thanh toan", "127.0.0.1"));
+
+        assertThat(url).isEqualTo("https://pay/session");
+        verify(urlCache).put(7L, "https://pay/session");
     }
 
     @Test
@@ -121,7 +135,7 @@ class PaymentServiceTest {
         when(failingMapper.writeValueAsString(any())).thenThrow(new JsonGenerationException("boom"));
         PaymentService failingService = new PaymentService(gateway, repository,
                 new VnPayProperties(TMN_CODE, "secret", "https://pay", "https://return"), events,
-                failingMapper, audit);
+                failingMapper, audit, urlCache);
         Map<String, String> params = ipn();
 
         var response = failingService.handleIpn(params);
