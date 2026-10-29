@@ -5,34 +5,31 @@ import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import vn.lemar.selfstorage.payment.application.dto.QueryDrRequest;
-import vn.lemar.selfstorage.payment.application.dto.QueryDrResult;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQuery;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQueryResult;
 import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.domain.PaymentTransaction;
 import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 
 /**
- * Đối soát các phiên Pending đã quá cửa sổ thanh toán. Kết quả lấy từ {@code querydr}, không lấy
- * từ đồng hồ: một giao dịch có thể thành công dù IPN không về.
+ * Đối soát các phiên Pending đã quá cửa sổ thanh toán. Kết quả lấy từ API truy vấn của cổng, không
+ * lấy từ đồng hồ: một giao dịch có thể thành công dù callback/IPN không về.
  *
- * <p>HTTP querydr chạy ngoài transaction; chỉ khi có kết quả mới mở transaction ngắn để khoá row
- * và ghi, tránh giữ khoá trong lúc chờ cổng.
+ * <p>Dùng chung cho mọi provider: adapter ({@link PaymentGateway#queryTransaction}) đã chuẩn hoá mã
+ * riêng của cổng sang {@link TransactionQueryResult.Outcome}. HTTP chạy ngoài transaction; chỉ khi
+ * có kết quả mới mở transaction ngắn để khoá row và ghi, tránh giữ khoá trong lúc chờ cổng.
  */
 @Service
 public class PaymentReconciliationService {
 
     private static final Logger LOG = LoggerFactory.getLogger(PaymentReconciliationService.class);
-    private static final String SUCCESS_CODE = "00";
-    private static final String NOT_FOUND_CODE = "91";
     private static final int BATCH_SIZE = 50;
     private static final Duration MAX_PENDING_AGE = Duration.ofMinutes(60);
-    private static final Set<String> FAILED_STATUSES = Set.of("02", "04", "07", "09");
-    private static final Set<String> STILL_PENDING_STATUSES = Set.of("01", "05", "06");
+    private static final String PREFIX = "đối soát: ";
 
     private final PaymentTransactionRepository repository;
     private final PaymentGateway gateway;
@@ -67,48 +64,55 @@ public class PaymentReconciliationService {
     }
 
     private boolean reconcileOne(PaymentTransaction transaction) {
-        QueryDrResult result;
+        TransactionQueryResult result;
         try {
-            result = gateway.queryDr(new QueryDrRequest(
+            result = gateway.queryTransaction(new TransactionQuery(
                     transaction.getVnpTxnRef(), transaction.getTransactionContent(),
                     transaction.getCreatedAt(), serverIp()));
         } catch (RuntimeException e) {
-            LOG.warn("querydr lỗi cho {}: {}", transaction.getVnpTxnRef(), e.getMessage());
+            LOG.warn("Truy vấn {} lỗi cho {}: {}", gateway.provider(), transaction.getVnpTxnRef(), e.getMessage());
             return false;
         }
 
-        if (NOT_FOUND_CODE.equals(result.responseCode())) {
-            return payments.reconcileFailure(transaction.getId(),
-                    "querydr: không tìm thấy giao dịch", result.rawResponse());
+        switch (result.outcome()) {
+            case NOT_FOUND:
+                return payments.reconcileFailure(transaction.getId(),
+                        PREFIX + "không tìm thấy giao dịch", result.rawResponse());
+            case UNKNOWN:
+                LOG.warn("Truy vấn {} chưa xác định cho {}: {}", gateway.provider(),
+                        transaction.getVnpTxnRef(), result.message());
+                return false;
+            default:
+                break;
         }
-        if (!SUCCESS_CODE.equals(result.responseCode())) {
-            LOG.warn("querydr trả ResponseCode={} cho {}: {}",
-                    result.responseCode(), transaction.getVnpTxnRef(), result.message());
-            return false;
-        }
-        if (result.amount() == null || result.amount().compareTo(transaction.getAmount()) != 0) {
-            LOG.error("querydr lệch số tiền cho {}: gateway={} local={}",
+        // Cổng có trả số tiền thì phải khớp số tiền đã dùng mở phiên; thành công mà thiếu số tiền
+        // cũng không được ghi.
+        boolean amountMissing = result.amount() == null;
+        if ((amountMissing && result.outcome() == TransactionQueryResult.Outcome.SUCCESS)
+                || (!amountMissing && result.amount().compareTo(transaction.getAmount()) != 0)) {
+            LOG.error("Đối soát lệch số tiền cho {}: gateway={} local={}",
                     transaction.getVnpTxnRef(), result.amount(), transaction.getAmount());
             return false;
         }
-        if (SUCCESS_CODE.equals(result.transactionStatus())) {
-            return payments.reconcileSuccess(transaction.getId(), result.transactionNo(),
-                    result.paidAt(), result.rawResponse());
-        }
-        if (FAILED_STATUSES.contains(result.transactionStatus())) {
-            return payments.reconcileFailure(transaction.getId(),
-                    "querydr: " + result.message(), result.rawResponse());
-        }
-        if (STILL_PENDING_STATUSES.contains(result.transactionStatus())
-                && transaction.getCreatedAt().isBefore(Instant.now().minus(MAX_PENDING_AGE))) {
-            return payments.reconcileFailure(transaction.getId(),
-                    "querydr: chưa hoàn tất quá " + MAX_PENDING_AGE.toMinutes() + " phút",
-                    result.rawResponse());
-        }
 
-        LOG.info("querydr chưa chốt được {}: status={}", transaction.getVnpTxnRef(),
-                result.transactionStatus());
-        return false;
+        switch (result.outcome()) {
+            case SUCCESS:
+                return payments.reconcileSuccess(transaction.getId(), result.transactionNo(),
+                        result.paidAt(), result.rawResponse());
+            case FAILED:
+                return payments.reconcileFailure(transaction.getId(),
+                        PREFIX + result.message(), result.rawResponse());
+            case PENDING:
+                if (transaction.getCreatedAt().isBefore(Instant.now().minus(MAX_PENDING_AGE))) {
+                    return payments.reconcileFailure(transaction.getId(),
+                            PREFIX + "chưa hoàn tất quá " + MAX_PENDING_AGE.toMinutes() + " phút",
+                            result.rawResponse());
+                }
+                LOG.info("Đối soát chưa chốt được {}: còn đang xử lý", transaction.getVnpTxnRef());
+                return false;
+            default:
+                return false;
+        }
     }
 
     private static String serverIp() {

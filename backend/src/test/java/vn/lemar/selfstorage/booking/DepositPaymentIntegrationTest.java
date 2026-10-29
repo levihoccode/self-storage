@@ -202,7 +202,7 @@ class DepositPaymentIntegrationTest {
 
     /** Cache Redis mất nhưng phiên Pending còn hạn: dựng lại URL từ transaction, không mở phiên mới. */
     @Test
-    void cacheMissRebuildsTheSameSession() throws Exception {
+    void cacheMissReturnsTheSameSessionUrl() throws Exception {
         MvcResult first = mockMvc.perform(payAs(CUSTOMER_EMAIL))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -218,9 +218,11 @@ class DepositPaymentIntegrationTest {
         String secondUrl = com.jayway.jsonpath.JsonPath.read(
                 second.getResponse().getContentAsString(), "$.data.paymentUrl");
 
+        // Mất cache → trả payment_url đã lưu (chốt resume ở #184), không dựng lại URL: cùng phiên,
+        // cùng URL; IP của lần bấm sau không được ghi vào URL cũ.
+        assertThat(secondUrl).isEqualTo(firstUrl);
         assertThat(queryParam(secondUrl, "vnp_TxnRef"))
                 .isEqualTo(queryParam(firstUrl, "vnp_TxnRef"));
-        assertThat(queryParam(secondUrl, "vnp_IpAddr")).isEqualTo("203.0.113.9");
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM payment_transactions WHERE invoice_id = ? AND status = 'Pending'",
                 Integer.class, invoiceId))

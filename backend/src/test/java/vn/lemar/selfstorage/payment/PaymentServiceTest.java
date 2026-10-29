@@ -26,6 +26,8 @@ import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentUrlCache;
+import vn.lemar.selfstorage.payment.application.dto.GatewayNotification;
+import vn.lemar.selfstorage.payment.application.dto.PaymentNotificationResult;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
@@ -99,26 +101,70 @@ class PaymentServiceTest {
         verify(urlCache).put(7L, "https://pay/session");
     }
 
+    // Resume đọc payment_url đã lưu thay vì dựng lại URL (chốt ở #184: có cổng không cho tạo lại đơn
+    // với cùng mã) — test cũ "rebuild" được thay bằng hai test dưới.
     @Test
-    void resumeRebuildsTheUrlWithoutCreatingANewTransaction() {
+    void resumeReturnsTheStoredUrlWithoutCreatingANewTransaction() {
+        transaction.rememberPaymentUrl("https://pay/stored");
         when(repository.findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
                 org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(PaymentStatus.class),
                 org.mockito.ArgumentMatchers.any(Instant.class)))
                 .thenReturn(Optional.of(transaction));
-        when(gateway.buildPaymentUrl(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(Instant.class))).thenReturn("https://pay/resumed");
 
-        assertThat(service.resumePayment(7L, "203.0.113.9")).contains("https://pay/resumed");
+        assertThat(service.resumePayment(7L, "203.0.113.9")).contains("https://pay/stored");
 
-        org.mockito.ArgumentCaptor<PaymentRequest> request =
-                org.mockito.ArgumentCaptor.forClass(PaymentRequest.class);
-        verify(gateway).buildPaymentUrl(request.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
-        assertThat(request.getValue().ipAddr()).isEqualTo("203.0.113.9");
+        verify(gateway, never()).buildPaymentUrl(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(Instant.class));
         verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
         verify(urlCache).put(org.mockito.ArgumentMatchers.eq(7L),
-                org.mockito.ArgumentMatchers.eq("https://pay/resumed"),
+                org.mockito.ArgumentMatchers.eq("https://pay/stored"),
                 org.mockito.ArgumentMatchers.any(Duration.class));
+    }
+
+    @Test
+    void resumeWithoutStoredUrlReturnsEmpty() {
+        when(repository.findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(PaymentStatus.class),
+                org.mockito.ArgumentMatchers.any(Instant.class)))
+                .thenReturn(Optional.of(transaction));
+
+        assertThat(service.resumePayment(7L, "203.0.113.9")).isEmpty();
+    }
+
+    @Test
+    void startPaymentStoresTheUrlOnTheTransaction() {
+        when(gateway.createTxnRef(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Instant.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(gateway.buildPaymentUrl(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(Instant.class))).thenReturn("https://pay/new");
+        org.mockito.ArgumentCaptor<PaymentTransaction> saved =
+                org.mockito.ArgumentCaptor.forClass(PaymentTransaction.class);
+
+        service.startPayment(7L, new PaymentRequest("TXN-NEW", new BigDecimal("10000"), "Dat coc", "1.2.3.4"));
+
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getPaymentUrl()).isEqualTo("https://pay/new");
+    }
+
+    @Test
+    void settledTransactionForgetsItsUrlAndCache() {
+        transaction.rememberPaymentUrl("https://pay/stored");
+        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(transaction));
+
+        service.reconcileFailure(1L, "đối soát: failed", "{}");
+
+        assertThat(transaction.getPaymentUrl()).isNull();
+        verify(urlCache).evict(7L);
+    }
+
+    @Test
+    void expiredUrlsAreClearedThroughTheRepository() {
+        when(repository.clearPaymentUrlCreatedBefore(org.mockito.ArgumentMatchers.any(Instant.class)))
+                .thenReturn(3);
+
+        assertThat(service.forgetExpiredPaymentUrls()).isEqualTo(3);
     }
 
     @Test
@@ -276,5 +322,50 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> service.startPayment(null, request))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("invoiceId");
+    }
+
+    @Test
+    void handlesANormalizedGatewaySuccess() {
+        GatewayNotification notification = new GatewayNotification(
+                TXN_REF, PaymentStatus.SUCCESS, new BigDecimal("10000"), Instant.now(),
+                "ZP123", "{\"status\":1}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.ACCEPTED);
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getGatewayTransactionNo()).isEqualTo("ZP123");
+        verify(events).publishEvent(any(PaymentSucceeded.class));
+    }
+
+    @Test
+    void normalizedNotificationRejectsWrongAmount() {
+        GatewayNotification notification = new GatewayNotification(
+                TXN_REF, PaymentStatus.SUCCESS, new BigDecimal("9999"), Instant.now(),
+                "ZP123", "{}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.INVALID_AMOUNT);
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    }
+
+    @Test
+    void normalizedNotificationIgnoresProcessingStatus() {
+        GatewayNotification notification = new GatewayNotification(
+                TXN_REF, PaymentStatus.PENDING, new BigDecimal("10000"), null, null, "{}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.IGNORED);
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    }
+
+    @Test
+    void normalizedNotificationReportsAnUnknownTransaction() {
+        when(repository.findByVnpTxnRef("KHONG-CO")).thenReturn(Optional.empty());
+
+        GatewayNotification notification = new GatewayNotification(
+                "KHONG-CO", PaymentStatus.SUCCESS, new BigDecimal("10000"), Instant.now(), "ZP", "{}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.NOT_FOUND);
     }
 }

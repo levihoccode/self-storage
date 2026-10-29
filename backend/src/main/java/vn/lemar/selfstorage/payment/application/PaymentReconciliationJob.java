@@ -12,9 +12,11 @@ public class PaymentReconciliationJob {
     private static final Logger LOG = LoggerFactory.getLogger(PaymentReconciliationJob.class);
 
     private final PaymentReconciliationService service;
+    private final PaymentService payments;
 
-    public PaymentReconciliationJob(PaymentReconciliationService service) {
+    public PaymentReconciliationJob(PaymentReconciliationService service, PaymentService payments) {
         this.service = service;
+        this.payments = payments;
     }
 
     @Scheduled(
@@ -24,6 +26,10 @@ public class PaymentReconciliationJob {
         int applied = service.reconcilePending();
         if (applied > 0) {
             LOG.info("Đối soát đã chốt {} giao dịch Pending", applied);
+        }
+        int cleared = payments.forgetExpiredPaymentUrls();
+        if (cleared > 0) {
+            LOG.info("Đã xoá payment_url của {} phiên quá hạn", cleared);
         }
     }
 }

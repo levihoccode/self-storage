@@ -12,8 +12,9 @@ import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
-import vn.lemar.selfstorage.payment.application.dto.QueryDrRequest;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQuery;
 import vn.lemar.selfstorage.payment.application.dto.QueryDrResult;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQueryResult;
 import vn.lemar.selfstorage.payment.config.VnPayProperties;
 
 class VnPayQueryDrTest {
@@ -25,7 +26,7 @@ class VnPayQueryDrTest {
 
     @Test
     void requestUsesTheOriginalTransactionDateAndTheSpecFieldOrder() throws Exception {
-        QueryDrRequest request = new QueryDrRequest(
+        TransactionQuery request = new TransactionQuery(
                 "TXN1", "Dat coc khoang A-01", Instant.parse("2026-10-28T12:20:00Z"), "127.0.0.1");
 
         Map<String, String> params = gateway.queryDrParams(
@@ -73,6 +74,32 @@ class VnPayQueryDrTest {
         assertThat(result.responseCode()).isEqualTo("99");
         assertThat(result.transactionStatus()).isNull();
         assertThat(result.amount()).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "00, 00, SUCCESS",
+        "00, 02, FAILED",
+        "00, 04, FAILED",
+        "00, 07, FAILED",
+        "00, 09, FAILED",
+        "00, 01, PENDING",
+        "00, 05, PENDING",
+        "00, 06, PENDING",
+        "00, 99, UNKNOWN",
+        "91, , NOT_FOUND",
+        "99, , UNKNOWN"
+    })
+    void vnpayCodesMapToTheSharedOutcome(String responseCode, String transactionStatus,
+                                         TransactionQueryResult.Outcome expected) {
+        QueryDrResult raw = new QueryDrResult(responseCode, transactionStatus, "GW1", null,
+                new BigDecimal("500000"), "msg", "{}");
+
+        TransactionQueryResult result = VnPayGateway.toQueryResult(raw);
+
+        assertThat(result.outcome()).isEqualTo(expected);
+        assertThat(result.amount()).isEqualByComparingTo("500000");
+        assertThat(result.rawResponse()).isEqualTo("{}");
     }
 
     private Map<String, String> response() throws Exception {

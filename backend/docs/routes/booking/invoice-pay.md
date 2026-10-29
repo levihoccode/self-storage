@@ -5,7 +5,7 @@ purpose: Mở phiên thanh toán cho hóa đơn cọc — năm nhánh kiểm c�
 # POST /api/invoices/{invoiceId}/pay
 
 Khách bấm "Tiến hành thanh toán" trên hóa đơn cọc. Endpoint kiểm điều kiện, mở một phiên thanh
-toán và trả URL VNPay để FE chuyển hướng.
+toán và trả URL của cổng đang hoạt động (ZaloPay mặc định, hoặc VNPay) để FE chuyển hướng.
 
 - **Actor / quyền:** khách đã đăng nhập, **đã xác minh email**, và phải là chủ hóa đơn.
 - **Contract chi tiết:** annotation tại `InvoicePaymentController.java`; Swagger UI —
@@ -45,8 +45,8 @@ cùng lúc.
 Không có bảng khóa; khóa suy từ `PaymentTransaction(Pending)` trong Postgres. Redis chỉ cache
 URL của phiên (`payment:url:{invoiceId}`, TTL 15 phút), không phải khóa. Một khoang coi là đang bận
 khi tồn tại `PaymentTransaction` còn `Pending` thuộc đơn của khoang đó, tạo chưa quá
-`PaymentSession.WINDOW` (15 phút) — đúng bằng `vnp_ExpireDate` mà gateway đặt, nên khóa và URL hết
-hạn cùng lúc.
+`PaymentSession.WINDOW` (15 phút) — đúng bằng hạn đơn ở cổng (ZaloPay `expire_duration_seconds = 900`,
+VNPay `vnp_ExpireDate`), nên khóa và URL hết hạn cùng lúc.
 
 Kiểm **theo khoang, không theo hóa đơn**: hai khách khác nhau trả cho hai hóa đơn khác nhau vẫn
 tranh cùng một khoang.
@@ -96,8 +96,8 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 - `vnp_TxnRef` dạng `INV{invoiceId}T{yyyyMMddHHmmss}` GMT+7 kèm hậu tố ngẫu nhiên: mốc thời gian
   chỉ tới giây nên hai lần bấm trong cùng một giây sẽ trùng mã và vỡ unique constraint.
 - Phiên đang mở **của chính hóa đơn này**: `/pay` trả lại đúng URL cũ nếu cache Redis còn; cache
-  mất thì dựng lại URL từ `PaymentTransaction(Pending)` — cùng `vnp_TxnRef`, `vnp_CreateDate`/
-  `vnp_ExpireDate` gốc, không tạo giao dịch mới. Không còn phiên Pending trong 15 phút thì 409
+  mất thì trả `payment_url` đã lưu trên `PaymentTransaction(Pending)` — không tạo giao dịch hay đơn mới
+  ở cổng. Không còn phiên Pending kèm URL trong 15 phút thì 409
   "Phiên thanh toán trước đã hết hiệu lực…".
 - Hóa đơn không tồn tại và hóa đơn của người khác trả **cùng một** 404.
 - Cơ sở chưa gán FM thì vẫn hủy hóa đơn, chỉ bỏ qua thông báo — thiếu người nhận không được chặn

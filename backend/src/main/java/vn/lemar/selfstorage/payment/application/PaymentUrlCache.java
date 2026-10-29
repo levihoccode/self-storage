@@ -54,6 +54,15 @@ public class PaymentUrlCache {
         }
     }
 
+    /** Bỏ URL của hoá đơn khi giao dịch đã chốt; lỗi Redis chỉ log — TTL vẫn dọn sau 15 phút. */
+    public void evict(Long invoiceId) {
+        try {
+            redis.delete(key(invoiceId));
+        } catch (RuntimeException e) {
+            LOG.warn("Không xoá được cache URL thanh toán cho hóa đơn {}: {}", invoiceId, e.getMessage());
+        }
+    }
+
     private static String key(Long invoiceId) {
         return KEY_PREFIX + invoiceId;
     }

@@ -72,6 +72,10 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `LOGIN_RATE_LIMIT_EMAIL_MAX` | Số lần đăng nhập sai tối đa theo email / window | `5` |
 | `LOGIN_RATE_LIMIT_IP_MAX` | Số lần đăng nhập sai tối đa theo IP / window | `20` |
 | `LOGIN_RATE_LIMIT_WINDOW` | Cửa sổ đếm lần đăng nhập sai | `PT15M` |
+| `PAYMENT_PROVIDER` | Cổng thanh toán đang hoạt động: `zalopay` hoặc `vnpay` — chi tiết [payment.md](payment.md#cấu-hình) | `zalopay` |
+| `ZALOPAY_APP_ID`, `ZALOPAY_KEY1`, `ZALOPAY_KEY2` | App + key ZaloPay (key1 ký đơn/truy vấn, key2 kiểm callback) | — (bắt buộc khi chạy `zalopay`) |
+| `ZALOPAY_CALLBACK_URL` | URL public nhận callback (dev: ngrok) | trống |
+| `ZALOPAY_REDIRECT_URL` | Return URL sau thanh toán | `http://localhost:8080/api/payments/zalopay/return` |
 | `VNPAY_TMN_CODE` | Mã website đăng ký trên VNPay | — (bắt buộc) |
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
@@ -85,13 +89,13 @@ Chạy local không cần export tay: `application.yml` có
 `spring.config.import: optional:file:../.env[.properties]` → copy `.env.example` thành `.env`.
 Đường dẫn `../.env` tính theo working directory (đúng khi chạy từ `backend/`).
 
-Bốn biến `VNPAY_*` để `@NotBlank`: thiếu là **app chết ngay lúc khởi động**, có chủ đích — thà
+Bốn biến `VNPAY_*` để `@NotBlank` (kể cả khi chạy `zalopay`): thiếu là **app chết ngay lúc khởi động**, có chủ đích — thà
 chết lúc boot còn hơn NPE giữa luồng thu tiền. Credential sandbox mỗi người tự đăng ký riêng,
 hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V10__unit_change_release_audit.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V12__payment_transaction_payment_url.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -117,7 +121,8 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
-CHECK `audit_logs.action`.
+CHECK `audit_logs.action`. V12 thêm cột `payment_transactions.payment_url` — URL của phiên thanh toán
+đang mở, dùng trả lại cho khách khi mất cache Redis; về `NULL` khi giao dịch chốt hoặc phiên quá 15 phút.
 
 Seed V2 chưa có đơn thuê/proposal (do luồng convert tạo). Muốn thử Flow 1.3 trên DB local thì
 chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration, Flyway không đọc file này.

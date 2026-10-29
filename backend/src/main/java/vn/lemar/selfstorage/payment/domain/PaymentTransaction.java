@@ -64,6 +64,10 @@ public class PaymentTransaction {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** URL thanh toán của phiên đang mở; {@code null} khi giao dịch đã chốt hoặc phiên quá hạn. */
+    @Column(name = "payment_url")
+    private String paymentUrl;
+
     protected PaymentTransaction() {
         // JPA
     }
@@ -94,6 +98,20 @@ public class PaymentTransaction {
 
     public boolean isPending() {
         return status == PaymentStatus.PENDING;
+    }
+
+    /** Lưu URL của phiên vừa mở — dùng để mở lại khi cache mất. */
+    public void rememberPaymentUrl(String paymentUrl) {
+        this.paymentUrl = paymentUrl;
+    }
+
+    /** Phiên đã chốt/quá hạn: URL không còn dùng được. */
+    public void forgetPaymentUrl() {
+        this.paymentUrl = null;
+    }
+
+    public String getPaymentUrl() {
+        return paymentUrl;
     }
 
     public Long getId() {

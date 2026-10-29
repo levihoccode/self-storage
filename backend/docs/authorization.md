@@ -52,6 +52,7 @@ Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard n�
 | `/api/health`, `/api/auth/**`, `/swagger-ui/**`, `/v3/api-docs/**` | `permitAll` | Public (`/api/auth/me` khớp rule riêng trước, vẫn cần token) |
 | `POST /api/rental-requests`, `GET /api/unit-types` | `permitAll` đúng scope method | Form đặt kho + dropdown loại khoang (đặt trước rule vét `/api/**`) |
 | `/api/payments/vnpay/ipn`, `/api/payments/vnpay/return` | `permitAll` | Callback của VNPay — xem ghi chú bên dưới |
+| `/api/payments/zalopay/callback`, `/api/payments/zalopay/return` | `permitAll` | Callback của ZaloPay — xem ghi chú bên dưới |
 
 Quy tắc đặt route: dùng role-bound → đặt controller dưới prefix của role; không dùng role-bound
 (permission-bound / ownership) → để trong `/api/**` chung, guard ở method/service — **không** tự
@@ -62,6 +63,11 @@ gọi IPN và **không có JWT**, còn Return URL là redirect trình duyệt n�
 `Authorization`. Hai route này không dùng token mà xác thực bằng **chữ ký HMAC-SHA512** trong
 `vnp_SecureHash`; sai chữ ký thì IPN trả `97` và không ghi gì. Return URL thì không ghi dữ liệu
 trong mọi trường hợp.
+
+Tương tự, `/api/payments/zalopay/callback` được ZaloPay gọi server-to-server không có JWT, xác thực bằng
+**HMAC-SHA256** (key2) trên field `data` — sai chữ ký thì trả `return_code = 2` và không ghi gì;
+`/api/payments/zalopay/return` chỉ hiển thị. Controller callback chỉ được nạp với cổng đang hoạt
+động (`payment.provider`), cổng còn lại trả 404.
 
 Matcher khai **đúng hai path** (không dùng wildcard `/api/payments/vnpay/**` — route thêm sau này
 sẽ không tự public) và phải đứng **trước** dòng vét `/api/**`, nếu không VNPay nhận 401 và toàn bộ
