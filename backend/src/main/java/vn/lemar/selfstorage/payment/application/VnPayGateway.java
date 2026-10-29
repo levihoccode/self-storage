@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.config.VnPayProperties;
@@ -25,6 +26,7 @@ import vn.lemar.selfstorage.payment.config.VnPayProperties;
  * và chữ ký HMAC-SHA512 tính trên chuỗi tham số đã sắp xếp theo thứ tự alphabet.
  */
 @Component
+@ConditionalOnProperty(name = "payment.provider", havingValue = "vnpay", matchIfMissing = true)
 public class VnPayGateway implements PaymentGateway {
 
     private static final String VERSION = "2.1.0";
@@ -46,6 +48,11 @@ public class VnPayGateway implements PaymentGateway {
 
     public VnPayGateway(VnPayProperties properties) {
         this.properties = properties;
+    }
+
+    @Override
+    public String provider() {
+        return "vnpay";
     }
 
     @Override

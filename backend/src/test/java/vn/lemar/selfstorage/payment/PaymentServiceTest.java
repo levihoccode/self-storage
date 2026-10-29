@@ -26,6 +26,8 @@ import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentUrlCache;
+import vn.lemar.selfstorage.payment.application.dto.GatewayNotification;
+import vn.lemar.selfstorage.payment.application.dto.PaymentNotificationResult;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
@@ -61,6 +63,7 @@ class PaymentServiceTest {
 
         transaction = new PaymentTransaction(7L, TXN_REF, new BigDecimal("10000"), "Thanh toan");
         when(gateway.verifySignature(any())).thenReturn(true);
+        when(gateway.supportsResume()).thenReturn(true);
         when(repository.findByVnpTxnRef(TXN_REF)).thenReturn(Optional.of(transaction));
     }
 
@@ -89,7 +92,7 @@ class PaymentServiceTest {
 
     @Test
     void startPaymentCachesTheUrlForBackButton() {
-        when(gateway.buildPaymentUrl(any())).thenReturn("https://pay/session");
+        when(gateway.buildPaymentUrl(any(), any(Instant.class))).thenReturn("https://pay/session");
 
         String url = service.startPayment(7L, new PaymentRequest(
                 "TXN", new BigDecimal("10000"), "Thanh toan", "127.0.0.1"));
@@ -227,7 +230,7 @@ class PaymentServiceTest {
 
     @Test
     void savesPendingTransactionBeforeRedirect() {
-        when(gateway.buildPaymentUrl(any())).thenReturn("https://pay?x=1");
+        when(gateway.buildPaymentUrl(any(), any(Instant.class))).thenReturn("https://pay?x=1");
 
         String url = service.startPayment(7L,
                 new PaymentRequest("TXN999", new BigDecimal("250000"), "Thanh toan", "127.0.0.1"));
@@ -245,5 +248,50 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> service.startPayment(null, request))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("invoiceId");
+    }
+
+    @Test
+    void handlesANormalizedGatewaySuccess() {
+        GatewayNotification notification = new GatewayNotification(
+                TXN_REF, PaymentStatus.SUCCESS, new BigDecimal("10000"), Instant.now(),
+                "ZP123", "{\"status\":1}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.ACCEPTED);
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getGatewayTransactionNo()).isEqualTo("ZP123");
+        verify(events).publishEvent(any(PaymentSucceeded.class));
+    }
+
+    @Test
+    void normalizedNotificationRejectsWrongAmount() {
+        GatewayNotification notification = new GatewayNotification(
+                TXN_REF, PaymentStatus.SUCCESS, new BigDecimal("9999"), Instant.now(),
+                "ZP123", "{}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.INVALID_AMOUNT);
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    }
+
+    @Test
+    void normalizedNotificationIgnoresProcessingStatus() {
+        GatewayNotification notification = new GatewayNotification(
+                TXN_REF, PaymentStatus.PENDING, new BigDecimal("10000"), null, null, "{}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.IGNORED);
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    }
+
+    @Test
+    void normalizedNotificationReportsAnUnknownTransaction() {
+        when(repository.findByVnpTxnRef("KHONG-CO")).thenReturn(Optional.empty());
+
+        GatewayNotification notification = new GatewayNotification(
+                "KHONG-CO", PaymentStatus.SUCCESS, new BigDecimal("10000"), Instant.now(), "ZP", "{}");
+
+        assertThat(service.handleNotification(notification))
+                .isEqualTo(PaymentNotificationResult.NOT_FOUND);
     }
 }

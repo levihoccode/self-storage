@@ -20,7 +20,9 @@ import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
+import vn.lemar.selfstorage.payment.application.dto.GatewayNotification;
 import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
+import vn.lemar.selfstorage.payment.application.dto.PaymentNotificationResult;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
@@ -74,10 +76,17 @@ public class PaymentService {
     @Transactional
     public String startPayment(Long invoiceId, PaymentRequest request) {
         Objects.requireNonNull(invoiceId, "invoiceId bắt buộc");
+        Instant createdAt = Instant.now();
+        String providerTxnRef = gateway.createTxnRef(request.txnRef(), createdAt);
+        if (providerTxnRef == null || providerTxnRef.isBlank()) {
+            providerTxnRef = request.txnRef();
+        }
         PaymentTransaction transaction = new PaymentTransaction(
-                invoiceId, request.txnRef(), request.amount(), request.orderInfo());
+                invoiceId, providerTxnRef, request.amount(), request.orderInfo());
         repository.save(transaction);
-        String paymentUrl = gateway.buildPaymentUrl(request);
+        PaymentRequest providerRequest = new PaymentRequest(providerTxnRef, request.amount(),
+                request.orderInfo(), request.ipAddr());
+        String paymentUrl = gateway.buildPaymentUrl(providerRequest, createdAt);
         urlCache.put(invoiceId, paymentUrl);
         return paymentUrl;
     }
@@ -90,6 +99,9 @@ public class PaymentService {
      */
     @Transactional(readOnly = true)
     public Optional<String> resumePayment(Long invoiceId, String clientIp) {
+        if (!gateway.supportsResume()) {
+            return Optional.empty();
+        }
         Instant now = Instant.now();
         Optional<PaymentTransaction> pending = repository
                 .findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
@@ -149,28 +161,73 @@ public class PaymentService {
         // Hai event dưới đây publish TRƯỚC khi transaction này commit — listener phải đăng ký
         // @TransactionalEventListener(AFTER_COMMIT); xem javadoc PaymentSucceeded/PaymentFailed.
         if (gatewayReportedSuccess(params)) {
-            transaction.markSucceeded(
-                    params.get("vnp_TransactionNo"), parsePayDate(params.get("vnp_PayDate")), responsePayload);
-            // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
-            audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
-                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
-                    Map.of("status", "Pending"),
-                    Map.of("status", "Success", "gatewayTransactionNo",
-                            String.valueOf(transaction.getGatewayTransactionNo())),
-                    null, null));
-            events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(), txnRef,
-                    transaction.getAmount(), transaction.getPaidAt()));
+            applySuccess(transaction, params.get("vnp_TransactionNo"),
+                    parsePayDate(params.get("vnp_PayDate")), responsePayload, null);
         } else {
             String reason = "vnp_ResponseCode=" + params.get("vnp_ResponseCode")
                     + ", vnp_TransactionStatus=" + params.get("vnp_TransactionStatus");
-            transaction.markFailed(reason, responsePayload);
-            audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
-                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
-                    Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
-            events.publishEvent(new PaymentFailed(transaction.getInvoiceId(), txnRef,
-                    transaction.getAmount(), reason));
+            applyFailure(transaction, reason, responsePayload);
         }
         return IpnResponse.success();
+    }
+
+    /**
+     * Xử lý callback đã được adapter chuẩn hoá (VD ZaloPay). Không biết định dạng field của cổng.
+     *
+     * <p>Khoá row theo {@code txnRef}, kiểm lại số tiền và trạng thái Pending trước khi ghi — cùng
+     * quy tắc idempotency với IPN.
+     */
+    @Transactional
+    public PaymentNotificationResult handleNotification(GatewayNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        PaymentTransaction transaction = repository.findByVnpTxnRef(notification.txnRef()).orElse(null);
+        if (transaction == null) {
+            return PaymentNotificationResult.NOT_FOUND;
+        }
+        if (notification.amount() == null
+                || notification.amount().compareTo(transaction.getAmount()) != 0) {
+            LOG.warn("Callback lệch số tiền cho {}: gateway={} local={}",
+                    notification.txnRef(), notification.amount(), transaction.getAmount());
+            return PaymentNotificationResult.INVALID_AMOUNT;
+        }
+        if (!transaction.isPending()) {
+            return PaymentNotificationResult.ALREADY_SETTLED;
+        }
+        if (notification.status() == null || notification.status() == PaymentStatus.PENDING) {
+            return PaymentNotificationResult.IGNORED;
+        }
+        if (notification.status() == PaymentStatus.SUCCESS) {
+            applySuccess(transaction, notification.gatewayTransactionNo(),
+                    notification.paidAt() == null ? Instant.now() : notification.paidAt(),
+                    notification.rawPayload(), null);
+        } else {
+            applyFailure(transaction, "Cổng báo " + notification.status().dbValue(),
+                    notification.rawPayload());
+        }
+        return PaymentNotificationResult.ACCEPTED;
+    }
+
+    private void applySuccess(PaymentTransaction transaction, String gatewayTransactionNo,
+            Instant paidAt, String responsePayload, Long actorAccountId) {
+        transaction.markSucceeded(gatewayTransactionNo, paidAt, responsePayload);
+        // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
+        audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
+                AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                Map.of("status", "Pending"),
+                Map.of("status", "Success", "gatewayTransactionNo",
+                        String.valueOf(transaction.getGatewayTransactionNo())),
+                null, actorAccountId));
+        events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(),
+                transaction.getVnpTxnRef(), transaction.getAmount(), transaction.getPaidAt()));
+    }
+
+    private void applyFailure(PaymentTransaction transaction, String reason, String responsePayload) {
+        transaction.markFailed(reason, responsePayload);
+        audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
+                AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
+        events.publishEvent(new PaymentFailed(transaction.getInvoiceId(),
+                transaction.getVnpTxnRef(), transaction.getAmount(), reason));
     }
 
     /** Cổng chỉ coi là thành công khi cả hai mã đều {@code 00}. */
