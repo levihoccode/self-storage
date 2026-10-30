@@ -10,5 +10,5 @@ import java.time.Instant;
  * @param transactionDate thời điểm tạo giao dịch — phải khớp {@code vnp_CreateDate} của URL pay
  * @param ipAddr          IP của server gọi API đối soát
  */
-public record QueryDrRequest(String txnRef, String orderInfo, Instant transactionDate, String ipAddr) {
+public record TransactionQuery(String txnRef, String orderInfo, Instant transactionDate, String ipAddr) {
 }

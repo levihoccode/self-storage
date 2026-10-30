@@ -423,12 +423,13 @@ Các bước:
 - gateway_transaction_no (unique) - Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
 - transaction_content
 - response_payload: JSON / TEXT, nullable -> Lưu toàn bộ log raw webhook/IPN để đối soát
-- vnp_txn_ref - mã tham chiếu merchant gửi sang VNPay, không trùng trong ngày -> dùng để tra cứu IPN và chống xử lý trùng (idempotent)
+- vnp_txn_ref - mã giao dịch merchant gửi sang cổng (VNPay `vnp_TxnRef`, ZaloPay `app_trans_id` dạng `yyMMdd_...`), không trùng -> dùng để tra cứu callback/IPN và chống xử lý trùng (idempotent)
 - amount
 - direction (PAY/REFUND)
 - failure_reason
 - paid_at
 - created_at
+- payment_url (nullable) - URL thanh toán của phiên đang mở, trả lại cho khách khi mất cache; `NULL` khi giao dịch chốt Success/Failed hoặc phiên quá 15 phút
 - status (Pending/Failed/Success)
 # AuditLog
 **Overview:** lưu lịch sử các thao tác nghiệp vụ nhạy cảm để đối chiếu khi có tranh chấp hoặc lỗi.

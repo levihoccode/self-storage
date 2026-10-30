@@ -21,7 +21,9 @@ import vn.lemar.selfstorage.audit.application.AuditEntry;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
+import vn.lemar.selfstorage.payment.application.dto.GatewayNotification;
 import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
+import vn.lemar.selfstorage.payment.application.dto.PaymentNotificationResult;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
@@ -75,21 +77,32 @@ public class PaymentService {
     @Transactional
     public String startPayment(Long invoiceId, PaymentRequest request) {
         Objects.requireNonNull(invoiceId, "invoiceId bắt buộc");
+        Instant createdAt = Instant.now();
+        String providerTxnRef = gateway.createTxnRef(request.txnRef(), createdAt);
+        if (providerTxnRef == null || providerTxnRef.isBlank()) {
+            providerTxnRef = request.txnRef();
+        }
         PaymentTransaction transaction = new PaymentTransaction(
-                invoiceId, request.txnRef(), request.amount(), request.orderInfo());
+                invoiceId, providerTxnRef, request.amount(), request.orderInfo());
         repository.save(transaction);
-        // Dùng cùng mốc createdAt cho URL và transaction: querydr phải gửi đúng
+        // Dùng cùng mốc createdAt cho URL và transaction: đối soát VNPay phải gửi đúng
         // vnp_TransactionDate = vnp_CreateDate của URL pay.
-        String paymentUrl = gateway.buildPaymentUrl(request, transaction.getCreatedAt());
+        PaymentRequest providerRequest = new PaymentRequest(providerTxnRef, request.amount(),
+                request.orderInfo(), request.ipAddr());
+        String paymentUrl = gateway.buildPaymentUrl(providerRequest, transaction.getCreatedAt());
+        // Lưu URL cạnh giao dịch để mở lại khi mất cache Redis — không dựng lại, vì có cổng (ZaloPay)
+        // không cho tạo lại đơn với cùng mã. Không log URL.
+        transaction.rememberPaymentUrl(paymentUrl);
         urlCache.put(invoiceId, paymentUrl);
         return paymentUrl;
     }
 
     /**
-     * Dựng lại URL của phiên Pending còn hạn khi cache URL bị mất. Không tạo giao dịch mới:
-     * cùng {@code vnp_TxnRef} và cùng {@code createdAt}, nên hạn phiên không bị kéo dài.
+     * Trả lại URL của phiên Pending còn hạn khi cache Redis bị mất — đọc {@code payment_url} đã lưu,
+     * không tạo giao dịch mới nên hạn phiên không bị kéo dài.
      *
-     * @return URL nếu còn phiên trong 15 phút; rỗng nếu phiên đã hết hạn/không còn
+     * @param clientIp giữ cho tương thích chữ ký; URL đã lưu không phụ thuộc IP
+     * @return URL nếu còn phiên trong 15 phút và URL còn lưu; rỗng trong các trường hợp khác
      */
     @Transactional(readOnly = true)
     public Optional<String> resumePayment(Long invoiceId, String clientIp) {
@@ -106,9 +119,10 @@ public class PaymentService {
             return Optional.empty();
         }
 
-        PaymentRequest request = new PaymentRequest(transaction.getVnpTxnRef(), transaction.getAmount(),
-                transaction.getTransactionContent(), clientIp);
-        String paymentUrl = gateway.buildPaymentUrl(request, transaction.getCreatedAt());
+        String paymentUrl = transaction.getPaymentUrl();
+        if (paymentUrl == null || paymentUrl.isBlank()) {
+            return Optional.empty();
+        }
         urlCache.put(invoiceId, paymentUrl, remaining);
         return Optional.of(paymentUrl);
     }
@@ -163,6 +177,43 @@ public class PaymentService {
     }
 
     /**
+     * Xử lý callback đã được adapter chuẩn hoá (ZaloPay). Không đọc field riêng của cổng.
+     *
+     * <p>Khoá row theo {@code txnRef} ({@code findByVnpTxnRef} là {@code PESSIMISTIC_WRITE}), kiểm số
+     * tiền và trạng thái Pending trước khi ghi — cùng quy tắc idempotency với IPN VNPay: callback lặp
+     * hoặc đến sau job đối soát chỉ trả {@code ALREADY_SETTLED}, không audit/publish lần hai.
+     */
+    @Transactional
+    public PaymentNotificationResult handleNotification(GatewayNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        PaymentTransaction transaction = repository.findByVnpTxnRef(notification.txnRef()).orElse(null);
+        if (transaction == null) {
+            return PaymentNotificationResult.NOT_FOUND;
+        }
+        if (notification.amount() == null
+                || notification.amount().compareTo(transaction.getAmount()) != 0) {
+            LOG.warn("Callback lệch số tiền cho {}: gateway={} local={}",
+                    notification.txnRef(), notification.amount(), transaction.getAmount());
+            return PaymentNotificationResult.INVALID_AMOUNT;
+        }
+        if (!transaction.isPending()) {
+            return PaymentNotificationResult.ALREADY_SETTLED;
+        }
+        if (notification.status() == null || notification.status() == PaymentStatus.PENDING) {
+            return PaymentNotificationResult.IGNORED;
+        }
+        if (notification.status() == PaymentStatus.SUCCESS) {
+            applySuccess(transaction, notification.gatewayTransactionNo(),
+                    notification.paidAt() == null ? Instant.now() : notification.paidAt(),
+                    notification.rawPayload());
+        } else {
+            applyFailure(transaction, "Cổng báo " + notification.status().dbValue(),
+                    notification.rawPayload());
+        }
+        return PaymentNotificationResult.ACCEPTED;
+    }
+
+    /**
      * Job đối soát ghi nhận giao dịch thành công. Khoá row và kiểm lại Pending trong transaction
      * mới để không đè lên IPN vừa xử lý xong.
      */
@@ -191,6 +242,7 @@ public class PaymentService {
     private void applySuccess(PaymentTransaction transaction, String gatewayTransactionNo,
                               Instant paidAt, String responsePayload) {
         transaction.markSucceeded(gatewayTransactionNo, paidAt, responsePayload);
+        forgetPaymentUrl(transaction);
         // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
         audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
                 AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
@@ -204,11 +256,32 @@ public class PaymentService {
 
     private void applyFailure(PaymentTransaction transaction, String reason, String responsePayload) {
         transaction.markFailed(reason, responsePayload);
+        forgetPaymentUrl(transaction);
         audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
                 AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
                 Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
         events.publishEvent(new PaymentFailed(transaction.getInvoiceId(), transaction.getVnpTxnRef(),
                 transaction.getAmount(), reason));
+    }
+
+    /**
+     * Giao dịch đã chốt thì URL không còn dùng được: xoá cột {@code payment_url} và cache Redis của
+     * hoá đơn. Row giao dịch và audit giữ nguyên.
+     */
+    private void forgetPaymentUrl(PaymentTransaction transaction) {
+        transaction.forgetPaymentUrl();
+        urlCache.evict(transaction.getInvoiceId());
+    }
+
+    /**
+     * Xoá {@code payment_url} của các phiên Pending đã quá {@link PaymentSession#WINDOW} — URL hết
+     * hạn ở cổng nên không được trả lại cho khách nữa. Cache Redis tự hết TTL cùng lúc.
+     *
+     * @return số giao dịch vừa xoá URL
+     */
+    @Transactional
+    public int forgetExpiredPaymentUrls() {
+        return repository.clearPaymentUrlCreatedBefore(Instant.now().minus(PaymentSession.WINDOW));
     }
 
     /** Cổng chỉ coi là thành công khi cả hai mã đều {@code 00}. */

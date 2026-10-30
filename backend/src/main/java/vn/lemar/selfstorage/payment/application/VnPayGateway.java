@@ -19,10 +19,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
-import vn.lemar.selfstorage.payment.application.dto.QueryDrRequest;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQuery;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQueryResult;
 import vn.lemar.selfstorage.payment.application.dto.QueryDrResult;
 import vn.lemar.selfstorage.payment.config.VnPayProperties;
 
@@ -34,6 +36,7 @@ import vn.lemar.selfstorage.payment.config.VnPayProperties;
  * và chữ ký HMAC-SHA512 tính trên chuỗi tham số đã sắp xếp theo thứ tự alphabet.
  */
 @Component
+@ConditionalOnProperty(name = "payment.provider", havingValue = "vnpay", matchIfMissing = true)
 public class VnPayGateway implements PaymentGateway {
 
     private static final String VERSION = "2.1.0";
@@ -53,6 +56,9 @@ public class VnPayGateway implements PaymentGateway {
 
     private static final String QUERY_DR_COMMAND = "querydr";
     private static final String SUCCESS_CODE = "00";
+    private static final String NOT_FOUND_CODE = "91";
+    private static final java.util.Set<String> FAILED_STATUSES = java.util.Set.of("02", "04", "07", "09");
+    private static final java.util.Set<String> STILL_PENDING_STATUSES = java.util.Set.of("01", "05", "06");
     private static final Logger LOG = LoggerFactory.getLogger(VnPayGateway.class);
 
     private final VnPayProperties properties;
@@ -60,6 +66,11 @@ public class VnPayGateway implements PaymentGateway {
 
     public VnPayGateway(VnPayProperties properties) {
         this.properties = properties;
+    }
+
+    @Override
+    public String provider() {
+        return "vnpay";
     }
 
     @Override
@@ -104,7 +115,35 @@ public class VnPayGateway implements PaymentGateway {
     }
 
     @Override
-    public QueryDrResult queryDr(QueryDrRequest request) {
+    public TransactionQueryResult queryTransaction(TransactionQuery query) {
+        return toQueryResult(queryDr(query));
+    }
+
+    /**
+     * Map kết quả querydr của VNPay sang kết quả chung. {@code vnp_ResponseCode} là kết quả lời gọi
+     * API ({@code 00} OK, {@code 91} không tìm thấy, mã khác là lỗi API); trạng thái thật của giao
+     * dịch nằm ở {@code vnp_TransactionStatus}.
+     */
+    static TransactionQueryResult toQueryResult(QueryDrResult result) {
+        TransactionQueryResult.Outcome outcome;
+        if (NOT_FOUND_CODE.equals(result.responseCode())) {
+            outcome = TransactionQueryResult.Outcome.NOT_FOUND;
+        } else if (!SUCCESS_CODE.equals(result.responseCode())) {
+            outcome = TransactionQueryResult.Outcome.UNKNOWN;
+        } else if (SUCCESS_CODE.equals(result.transactionStatus())) {
+            outcome = TransactionQueryResult.Outcome.SUCCESS;
+        } else if (FAILED_STATUSES.contains(result.transactionStatus())) {
+            outcome = TransactionQueryResult.Outcome.FAILED;
+        } else if (STILL_PENDING_STATUSES.contains(result.transactionStatus())) {
+            outcome = TransactionQueryResult.Outcome.PENDING;
+        } else {
+            outcome = TransactionQueryResult.Outcome.UNKNOWN;
+        }
+        return new TransactionQueryResult(outcome, result.transactionNo(), result.paidAt(), result.amount(),
+                result.message(), result.rawResponse());
+    }
+
+    QueryDrResult queryDr(TransactionQuery request) {
         LocalDateTime now = LocalDateTime.now(VNPAY_ZONE);
         Map<String, String> params = queryDrParams(request, now,
                 UUID.randomUUID().toString().replace("-", ""));
@@ -122,7 +161,7 @@ public class VnPayGateway implements PaymentGateway {
     }
 
     /** Dựng body querydr — tách khỏi HTTP để test chữ ký và thứ tự field. */
-    Map<String, String> queryDrParams(QueryDrRequest request, LocalDateTime now, String requestId) {
+    Map<String, String> queryDrParams(TransactionQuery request, LocalDateTime now, String requestId) {
         String orderInfo = request.orderInfo() == null ? "" : asciiFold(request.orderInfo());
         Map<String, String> params = new LinkedHashMap<>();
         params.put("vnp_RequestId", requestId);

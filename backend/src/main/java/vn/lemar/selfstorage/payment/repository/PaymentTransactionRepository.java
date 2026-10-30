@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.lemar.selfstorage.payment.domain.PaymentDirection;
@@ -49,6 +50,15 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from PaymentTransaction t where t.id = :id")
     Optional<PaymentTransaction> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Xoá {@code payment_url} của các phiên tạo trước {@code before} (đã quá cửa sổ thanh toán) —
+     * URL đã hết hạn ở cổng. Chỉ đụng cột URL; trạng thái giao dịch do đối soát quyết định.
+     */
+    @Modifying
+    @Query(value = "update payment_transactions set payment_url = null "
+            + "where payment_url is not null and created_at < :before", nativeQuery = true)
+    int clearPaymentUrlCreatedBefore(@Param("before") Instant before);
 
     /** Lô giao dịch Pending đủ cũ để đối soát. */
     List<PaymentTransaction> findByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(

@@ -65,6 +65,28 @@ vnpay:
   return-url: ${VNPAY_RETURN_URL:}
   query-dr-url: ${VNPAY_QUERYDR_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
 
+payment:
+  # Cổng đang hoạt động: payos (mặc định), zalopay hoặc vnpay. Mỗi lúc chỉ một cổng — giao dịch Pending
+  # của cổng cũ sẽ không đối soát được sau khi đổi, nên chỉ đổi khi không còn phiên đang mở.
+  provider: ${PAYMENT_PROVIDER:payos}
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
+  base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:8080/api/payments/payos/return}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:8080/api/payments/payos/return}
+
+zalopay:
+  app-id: ${ZALOPAY_APP_ID:}
+  key1: ${ZALOPAY_KEY1:}
+  key2: ${ZALOPAY_KEY2:}
+  create-url: ${ZALOPAY_CREATE_URL:https://sb-openapi.zalopay.vn/v2/create}
+  query-url: ${ZALOPAY_QUERY_URL:https://sb-openapi.zalopay.vn/v2/query}
+  callback-url: ${ZALOPAY_CALLBACK_URL:}
+  redirect-url: ${ZALOPAY_REDIRECT_URL:http://localhost:8080/api/payments/zalopay/return}
+
 # Cloudinary — giá trị thật nằm trong .env của từng người (tài khoản free, không cần thẻ).
 # Map tường minh qua placeholder vì key trong .env giữ nguyên dạng CLOUDINARY_NAME.
 cloudinary:

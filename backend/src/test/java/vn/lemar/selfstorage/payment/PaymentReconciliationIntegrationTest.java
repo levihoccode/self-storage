@@ -19,7 +19,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.payment.application.PaymentReconciliationService;
-import vn.lemar.selfstorage.payment.application.dto.QueryDrResult;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQueryResult;
+import vn.lemar.selfstorage.payment.application.dto.TransactionQueryResult.Outcome;
 
 /** Job đối soát trên Postgres thật; querydr mock vì sandbox đang trả 99. */
 @SpringBootTest
@@ -94,7 +95,7 @@ class PaymentReconciliationIntegrationTest {
 
     @Test
     void successIsAppliedThroughTheBookingListener() {
-        when(gateway.queryDr(any())).thenReturn(new QueryDrResult("00", "00", "GW-RECON",
+        when(gateway.queryTransaction(any())).thenReturn(new TransactionQueryResult(Outcome.SUCCESS, "GW-RECON",
                 Instant.now(), new BigDecimal("10000"), "ok", "{}"));
 
         assertThat(reconciliation.reconcilePending()).isEqualTo(1);
@@ -109,7 +110,7 @@ class PaymentReconciliationIntegrationTest {
 
     @Test
     void failedStatusClosesTheTransactionWithoutTouchingBooking() {
-        when(gateway.queryDr(any())).thenReturn(new QueryDrResult("00", "02", "GW-RECON",
+        when(gateway.queryTransaction(any())).thenReturn(new TransactionQueryResult(Outcome.FAILED, "GW-RECON",
                 null, new BigDecimal("10000"), "failed", "{}"));
 
         assertThat(reconciliation.reconcilePending()).isEqualTo(1);
@@ -125,7 +126,7 @@ class PaymentReconciliationIntegrationTest {
 
     @Test
     void notFoundClosesTheTransaction() {
-        when(gateway.queryDr(any())).thenReturn(new QueryDrResult("91", null, null,
+        when(gateway.queryTransaction(any())).thenReturn(new TransactionQueryResult(Outcome.NOT_FOUND, null,
                 null, null, "not found", "{}"));
 
         assertThat(reconciliation.reconcilePending()).isEqualTo(1);
@@ -136,7 +137,7 @@ class PaymentReconciliationIntegrationTest {
 
     @Test
     void apiErrorLeavesTheTransactionPending() {
-        when(gateway.queryDr(any())).thenReturn(new QueryDrResult("99", null, null,
+        when(gateway.queryTransaction(any())).thenReturn(new TransactionQueryResult(Outcome.UNKNOWN, null,
                 null, null, "Unexpected error", "{}"));
 
         assertThat(reconciliation.reconcilePending()).isZero();

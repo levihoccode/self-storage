@@ -32,6 +32,10 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | POST | `/api/rental-orders/{orderId}/proposals` | Bearer + `ACCOUNT_ACTIVE`; `proposal_feedback.repropose` (+ `.override`) + facility scope | Đề xuất lại khoang cho đơn | [routes/booking/rental-order-proposals-create.md](routes/booking/rental-order-proposals-create.md) |
 | GET | `/api/payments/vnpay/ipn` | Public (chữ ký VNPay) | VNPay xác nhận thanh toán — nguồn xác nhận duy nhất | [routes/payment/vnpay-ipn.md](routes/payment/vnpay-ipn.md) |
 | GET | `/api/payments/vnpay/return` | Public (redirect VNPay) | Trang kết quả cho khách — không ghi dữ liệu | [routes/payment/vnpay-return.md](routes/payment/vnpay-return.md) |
+| POST | `/api/payments/zalopay/callback` | Public (chữ ký ZaloPay) | ZaloPay xác nhận thanh toán thành công — chỉ khi `PAYMENT_PROVIDER=zalopay` | [routes/payment/zalopay-callback.md](routes/payment/zalopay-callback.md) |
+| GET | `/api/payments/zalopay/return` | Public (redirect ZaloPay) | Trang kết quả cho khách — không ghi dữ liệu | [routes/payment/zalopay-return.md](routes/payment/zalopay-return.md) |
+| POST | `/api/payments/payos/webhook` | Public (chữ ký payOS) | payOS báo giao dịch thanh toán — chỉ khi `PAYMENT_PROVIDER=payos` | [routes/payment/payos-webhook.md](routes/payment/payos-webhook.md) |
+| GET | `/api/payments/payos/return` | Public (redirect payOS) | Trang kết quả/huỷ cho khách — không ghi dữ liệu | [routes/payment/payos-return.md](routes/payment/payos-return.md) |
 | POST | `/api/invoices/{invoiceId}/pay` | Chủ hóa đơn + đã xác minh email | Mở phiên thanh toán hóa đơn cọc (Flow 1.4) | [routes/booking/invoice-pay.md](routes/booking/invoice-pay.md) |
 | POST | `/api/media/uploads` | Bearer + `ACCOUNT_ACTIVE` | Upload file (ảnh/PDF ≤ 10MB), trả URL dùng lại trong flow | [routes/media/upload.md](routes/media/upload.md) |
 

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +34,7 @@ import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
  */
 @RestController
 @RequestMapping("/api/payments/vnpay")
+@ConditionalOnProperty(name = "payment.provider", havingValue = "vnpay", matchIfMissing = true)
 public class VnPayCallbackController {
 
     private static final Logger LOG = LoggerFactory.getLogger(VnPayCallbackController.class);

@@ -40,6 +40,10 @@ public class SecurityConfig {
                         // tự xác thực bằng chữ ký HMAC-SHA512 trong `vnp_SecureHash`, và `/return`
                         // không ghi dữ liệu.
                         .requestMatchers("/api/payments/vnpay/ipn", "/api/payments/vnpay/return").permitAll()
+                        .requestMatchers("/api/payments/zalopay/callback",
+                                "/api/payments/zalopay/return").permitAll()
+                        .requestMatchers("/api/payments/payos/webhook",
+                                "/api/payments/payos/return").permitAll()
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/staff/**").hasRole("FS")
                         .requestMatchers("/api/fm/**").hasRole("FM")
