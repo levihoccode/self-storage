@@ -66,9 +66,17 @@ vnpay:
   query-dr-url: ${VNPAY_QUERYDR_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
 
 payment:
-  # Cổng đang hoạt động: zalopay (mặc định) hoặc vnpay. Mỗi lúc chỉ một cổng — giao dịch Pending
+  # Cổng đang hoạt động: payos (mặc định), zalopay hoặc vnpay. Mỗi lúc chỉ một cổng — giao dịch Pending
   # của cổng cũ sẽ không đối soát được sau khi đổi, nên chỉ đổi khi không còn phiên đang mở.
-  provider: ${PAYMENT_PROVIDER:zalopay}
+  provider: ${PAYMENT_PROVIDER:payos}
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
+  base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:8080/api/payments/payos/return}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:8080/api/payments/payos/return}
 
 zalopay:
   app-id: ${ZALOPAY_APP_ID:}

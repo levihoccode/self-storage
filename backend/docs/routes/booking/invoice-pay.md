@@ -5,7 +5,7 @@ purpose: Mở phiên thanh toán cho hóa đơn cọc — năm nhánh kiểm c�
 # POST /api/invoices/{invoiceId}/pay
 
 Khách bấm "Tiến hành thanh toán" trên hóa đơn cọc. Endpoint kiểm điều kiện, mở một phiên thanh
-toán và trả URL của cổng đang hoạt động (ZaloPay mặc định, hoặc VNPay) để FE chuyển hướng.
+toán và trả URL của cổng đang hoạt động (payOS mặc định, ZaloPay hoặc VNPay) để FE chuyển hướng.
 
 - **Actor / quyền:** khách đã đăng nhập, **đã xác minh email**, và phải là chủ hóa đơn.
 - **Contract chi tiết:** annotation tại `InvoicePaymentController.java`; Swagger UI —
@@ -45,8 +45,8 @@ cùng lúc.
 Không có bảng khóa; khóa suy từ `PaymentTransaction(Pending)` trong Postgres. Redis chỉ cache
 URL của phiên (`payment:url:{invoiceId}`, TTL 15 phút), không phải khóa. Một khoang coi là đang bận
 khi tồn tại `PaymentTransaction` còn `Pending` thuộc đơn của khoang đó, tạo chưa quá
-`PaymentSession.WINDOW` (15 phút) — đúng bằng hạn đơn ở cổng (ZaloPay `expire_duration_seconds = 900`,
-VNPay `vnp_ExpireDate`), nên khóa và URL hết hạn cùng lúc.
+`PaymentSession.WINDOW` (15 phút) — đúng bằng hạn đơn ở cổng (payOS `expiredAt` = lúc tạo + 900 giây,
+ZaloPay `expire_duration_seconds = 900`, VNPay `vnp_ExpireDate`), nên khóa và URL hết hạn cùng lúc.
 
 Kiểm **theo khoang, không theo hóa đơn**: hai khách khác nhau trả cho hai hóa đơn khác nhau vẫn
 tranh cùng một khoang.

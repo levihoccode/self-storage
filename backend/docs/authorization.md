@@ -53,6 +53,7 @@ Chức năng mà gán cho role khác là vô nghĩa hoặc nguy hiểm. Guard n�
 | `POST /api/rental-requests`, `GET /api/unit-types` | `permitAll` đúng scope method | Form đặt kho + dropdown loại khoang (đặt trước rule vét `/api/**`) |
 | `/api/payments/vnpay/ipn`, `/api/payments/vnpay/return` | `permitAll` | Callback của VNPay — xem ghi chú bên dưới |
 | `/api/payments/zalopay/callback`, `/api/payments/zalopay/return` | `permitAll` | Callback của ZaloPay — xem ghi chú bên dưới |
+| `/api/payments/payos/webhook`, `/api/payments/payos/return` | `permitAll` | Webhook của payOS — xem ghi chú bên dưới |
 
 Quy tắc đặt route: dùng role-bound → đặt controller dưới prefix của role; không dùng role-bound
 (permission-bound / ownership) → để trong `/api/**` chung, guard ở method/service — **không** tự
@@ -66,8 +67,10 @@ trong mọi trường hợp.
 
 Tương tự, `/api/payments/zalopay/callback` được ZaloPay gọi server-to-server không có JWT, xác thực bằng
 **HMAC-SHA256** (key2) trên field `data` — sai chữ ký thì trả `return_code = 2` và không ghi gì;
-`/api/payments/zalopay/return` chỉ hiển thị. Controller callback chỉ được nạp với cổng đang hoạt
-động (`payment.provider`), cổng còn lại trả 404.
+`/api/payments/zalopay/return` chỉ hiển thị. `/api/payments/payos/webhook` cũng vậy: payOS gọi không có JWT, xác thực bằng
+**HMAC-SHA256** (checksum key) trên object `data` — sai chữ ký thì trả `400` và không ghi gì;
+`/api/payments/payos/return` chỉ hiển thị. Controller callback chỉ được nạp với cổng đang hoạt
+động (`payment.provider`), các cổng khác trả 404.
 
 Matcher khai **đúng hai path** (không dùng wildcard `/api/payments/vnpay/**` — route thêm sau này
 sẽ không tự public) và phải đứng **trước** dòng vét `/api/**`, nếu không VNPay nhận 401 và toàn bộ
