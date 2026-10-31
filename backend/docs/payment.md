@@ -1,5 +1,5 @@
 ---
-purpose: Module payment — luồng thanh toán VNPay: tạo giao dịch, IPN/return, đối soát phiên và xử lý hết hạn.
+purpose: Module payment — luồng thanh toán VNPay: tạo giao dịch, IPN/return, local repair và đối soát thủ công khi IPN mất.
 ---
 # Payment — luồng thanh toán VNPay
 
@@ -39,9 +39,13 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
   - **LƯU Ý:** đừng nhầm với cửa sổ phiên VNPay (`vnp_ExpireDate` = lúc tạo URL + `PAYMENT_WINDOW`,
     hiện 15') — cửa sổ chỉ là giới hạn kỹ thuật (hết cửa sổ là cổng không cho trả tiếp); khách bấm
     trả sát `due_date` vẫn có đủ 15'.
-- **Đối soát phiên im lặng.** Khách bỏ ngang (đóng browser, IPN không về) để lại giao dịch `Pending`.
-  Job định kỳ quét `Pending` quá ngưỡng và gọi `querydr`: cổng có giao dịch → chốt theo trạng thái
-  thật; không có → đóng `Failed` + `failure_reason` ghi rõ phiên hết hạn.
+- **Ba lớp xác nhận & đối soát.** Không dùng `querydr` tự động:
+  1. **IPN** — nguồn xác nhận chính, tự động.
+  2. **Local repair** — `PaymentTransaction(PAY/Success)` còn đó nhưng listener booking lỗi; job
+     `DepositStateRepairJob` quét invoice `Unpaid` và gọi lại listener.
+  3. **Đối soát thủ công** — IPN mất hẳn nên giao dịch còn `Pending`; ops tra portal VNPay theo
+     `vnp_TxnRef` rồi nhập kết quả qua endpoint ADMIN. Đây là thay thế cho querydr; chấp nhận
+     không có job tự đóng `Pending`.
 - **Xác nhận muộn (lưới an toàn).** Hi hữu — khách đã trả trong cửa sổ hợp lệ nhưng hệ thống chỉ biết
   sau khi invoice/đơn đã hủy (chỉ khi job/server lỗi dài): vẫn ghi `Success` + đủ dấu vết, log ERROR
   để vận hành xử lý thủ công (hoàn tiền hoặc xếp chỗ khác). Không tự mở lại đơn.
@@ -49,7 +53,7 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
   `DepositStateRepairJob` quét invoice `Unpaid` (`Deposit`/`DepositSupplement`) có giao dịch
   `PAY/Success`, rồi gọi lại `DepositPaymentListener` (idempotent). Không cần querydr, không thêm
   bảng outbox. Job không cứu được IPN mất hẳn (giao dịch còn `Pending`) — ca đó vẫn cần nguồn đối
-  soát ngoài (querydr hoặc báo cáo portal).
+  soát ngoài (báo cáo portal).
 - **URL phiên cache Redis.** Key `payment:url:{invoiceId}`, TTL 15 phút, khớp `vnp_ExpireDate`.
   `/pay` lần nữa trên cùng hoá đơn trả lại URL cũ; cache mất thì `resumePayment` dựng lại URL từ
   transaction Pending — cùng `vnp_TxnRef`, `vnp_CreateDate`/`vnp_ExpireDate` gốc, không tạo giao dịch
@@ -62,10 +66,10 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
 ## Quy tắc bất biến
 
 - **IPN là nguồn xác nhận thanh toán chính.** Return URL nằm trên thanh địa chỉ, khách sửa được —
-  không bao giờ dùng để ghi nhận đã trả tiền. Khi IPN không về, chỉ `querydr` (kênh server-to-server
-  cùng chữ ký HMAC) được dùng làm nguồn đối soát dự phòng — không có nguồn nào khác.
-- **Đóng phiên dựa trên kết quả `querydr`, không dựa trên đồng hồ.** Ngưỡng thời gian chỉ để chọn lúc
-  hỏi cổng; `querydr` lỗi thì giữ `Pending`, lần chạy sau đối soát tiếp.
+  không bao giờ dùng để ghi nhận đã trả tiền. Khi IPN không về, nguồn dự phòng là **đối soát thủ
+  công qua portal VNPay**; không có querydr tự động trong hệ thống.
+- **Không tự đóng `Pending` theo đồng hồ.** Giao dịch Pending không tự chuyển trạng thái; ops là
+  người quyết định sau khi tra portal, qua endpoint ADMIN, có audit + event như IPN.
 - **Idempotent theo `vnp_TxnRef`.** VNPay retry tối đa 10 lần (cách 5 phút) và có thể gọi song song;
   row bị khóa `PESSIMISTIC_WRITE` khi đọc, lần thứ hai trả `02` và không ghi gì. Unique constraint
   không thay được khóa vì cả hai cùng update một row.
@@ -77,7 +81,7 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
   `booking` nên không tự đọc lại.
 - **Không mở phiên mới khi đã có giao dịch `PAY/Success`.** IPN ghi giao dịch trước khi listener
   booking chạy; nếu listener chưa chạy/lỗi, invoice vẫn `Unpaid`. `/pay` kiểm giao dịch thành công
-  và trả 409, không thu lần hai; đối soát/`querydr` chốt phần còn lại.
+  và trả 409, không thu lần hai; local repair hoặc đối soát thủ công chốt phần còn lại.
 - **Ranh giới module:** `PaymentTransaction.invoiceId` là `Long`, không quan hệ JPA với bảng
   `invoices`; module khác giao tiếp qua event, không import chéo.
 - **Listener event bắt buộc `AFTER_COMMIT`.** `PaymentSucceeded`/`PaymentFailed` được publish
@@ -92,6 +96,21 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
 Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`,
 `VNPAY_PAY_URL`, `VNPAY_RETURN_URL`. Hướng dẫn sandbox: `docs/vnpay-sandbox.md`.
 
+
+## Đối soát thủ công — thay cho querydr
+
+- **Endpoint:** `POST /api/admin/payments/{txnRef}/reconcile`; quyền `ADMIN`; contract chi tiết ở
+  [routes/payment/manual-reconcile.md](routes/payment/manual-reconcile.md).
+- **Chỉ giao dịch `Pending`.** Row bị khoá `PESSIMISTIC_WRITE`; giao dịch đã `Success`/`Failed`
+  trả `409`, không ghi thêm.
+- **Ghi như IPN:** `markSucceeded`/`markFailed`, audit `PAYMENT_SUCCEEDED`/`PAYMENT_FAILED`, phát
+  `PaymentSucceeded`/`PaymentFailed`; listener booking cập nhật invoice/order/unit.
+- **Quy trình ops:** lọc `PaymentTransaction(Pending)` quá 15'; tra portal VNPay theo `vnp_TxnRef`;
+  nếu đã trả → gọi endpoint với `outcome=SUCCESS`, `paidAt`, `gatewayTransactionNo`; nếu không →
+  `outcome=FAILED` + note. Không sửa DB tay.
+- **Giới hạn:** không tự retry, không tự phát hiện giao dịch; chất lượng phụ thuộc thao tác ops.
+  Giao dịch `Pending` không có ai tra thì vẫn nằm nguyên — đây là mất mát đã chấp nhận khi bỏ querydr.
+
 ## Trạng thái hiện tại
 
 - Gateway + IPN + Return + entity: có (VNPay).
@@ -102,5 +121,7 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
   tiết ở `routes/booking/invoice-pay.md`.
 - **Sửa state booking từ giao dịch Success: có** — `DepositStateRepairJob`, xem “Sửa state khi
   listener IPN lỗi”.
-- **Job đối soát phiên (`querydr`) + xử lý xác nhận muộn: chưa có trong code** — thuộc luồng đặt cọc.
+- **Đối soát thủ công: có** — `POST /api/admin/payments/{txnRef}/reconcile` (ADMIN), xem
+  [routes/payment/manual-reconcile.md](routes/payment/manual-reconcile.md).
+- **Querydr tự động: không dùng** — thay bằng đối soát thủ công; chấp nhận `Pending` không tự đóng.
 - **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.
