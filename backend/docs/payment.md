@@ -95,7 +95,6 @@ chốt đơn và khoang theo loại hoá đơn (routes/booking/invoice-pay.md �
   khoang không tự release theo hạn.
 - **Chưa có hoàn tiền tự động** (Flow 4). Tiền vào invoice đã `Canceled`/`Expired`, hoặc khoang đã mất,
   chỉ log ERROR; hoàn tiền thủ công.
-- **Cọc bổ sung không gửi thông báo** — chưa có `NotificationType` cho ca này.
 - **Chỉ VNPay.** Chưa provider-neutral; `PaymentTransaction` chưa có cột provider; chưa có ZaloPay/payOS.
 - **Chưa có ShedLock/multi-instance** cho job tương lai; hiện luồng này chưa có job định kỳ.
 
