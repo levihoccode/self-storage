@@ -7,7 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.lemar.selfstorage.ApiError;
+import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
+import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.FacilityNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
@@ -86,6 +89,23 @@ public class BookingExceptionHandler {
 
     @ExceptionHandler(StorageUnitUnavailableException.class)
     public ResponseEntity<ApiError> handleUnitUnavailable(StorageUnitUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    /** Không tồn tại và không phải của mình trả về như nhau — không lộ sự tồn tại của hóa đơn. */
+    @ExceptionHandler(InvoiceNotFoundException.class)
+    public ResponseEntity<ApiError> handleInvoiceNotFound(InvoiceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiError> handleUnverified(EmailNotVerifiedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
+    }
+
+    /** 409: hóa đơn hợp lệ nhưng hoàn cảnh hiện tại không cho thanh toán (Flow 1.4). */
+    @ExceptionHandler(DepositNotAllowedException.class)
+    public ResponseEntity<ApiError> handleDepositNotAllowed(DepositNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
     }
 }

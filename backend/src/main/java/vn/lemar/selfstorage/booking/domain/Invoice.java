@@ -89,6 +89,11 @@ public class Invoice {
     }
 
     /** Cancellation Cascade: chỉ hoá đơn {@code Unpaid} chuyển {@code Canceled}; đã {@code Expired} giữ nguyên. */
+    /** Cổng thanh toán đã xác nhận thu tiền (Flow 1.4). */
+    public void markPaid() {
+        this.status = InvoiceStatus.PAID;
+    }
+
     public void cancel() {
         if (status != InvoiceStatus.UNPAID) {
             throw new IllegalStateException("Hoá đơn " + id + " không huỷ được ở trạng thái " + status);

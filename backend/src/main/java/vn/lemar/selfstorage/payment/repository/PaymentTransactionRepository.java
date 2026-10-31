@@ -1,9 +1,13 @@
 package vn.lemar.selfstorage.payment.repository;
 
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import vn.lemar.selfstorage.payment.domain.PaymentDirection;
+import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.domain.PaymentTransaction;
 
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long> {
@@ -21,4 +25,19 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PaymentTransaction> findByVnpTxnRef(String vnpTxnRef);
+
+    /**
+     * Có giao dịch nào của nhóm hóa đơn này còn mở không — {@code Pending} và tạo sau {@code since}.
+     * Dùng cho khóa giao dịch ngắn hạn ở Flow 1.4; không khóa row vì chỉ là phép đọc.
+     */
+    boolean existsByInvoiceIdInAndStatusAndCreatedAtAfter(
+            Collection<Long> invoiceIds, PaymentStatus status, Instant since);
+
+    /** Đã có giao dịch thu tiền thành công cho hoá đơn này chưa — chặn mở phiên thứ hai. */
+    boolean existsByInvoiceIdAndDirectionAndStatus(
+            Long invoiceId, PaymentDirection direction, PaymentStatus status);
+
+    /** Phiên Pending còn hạn của invoice — dùng để dựng lại URL khi cache mất. */
+    Optional<PaymentTransaction> findFirstByInvoiceIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+            Long invoiceId, PaymentStatus status, Instant since);
 }

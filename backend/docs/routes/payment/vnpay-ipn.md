@@ -37,9 +37,10 @@ Lỗi ngoài dự kiến trả `99` thay vì HTTP 500, bắt ở controller nên
   định thấy state chưa commit, và exception từ listener sẽ rollback IPN khiến VNPay retry 10 lần.
 - IPN URL khai trong **cấu hình tài khoản merchant** trên portal VNPay, không gửi kèm lúc tạo URL
   thanh toán. Dev local cần tunnel HTTPS — xem [docs/vnpay-sandbox.md](../../../../docs/vnpay-sandbox.md).
-- `vnp_Amount` hiện đối chiếu với `PaymentTransaction.amount`, mà giá trị đó do caller truyền vào
-  lúc `startPayment`. Khi module invoice có entity thật thì phải đọc amount từ invoice trong DB —
-  đã ghi `TODO(invoice)` tại chỗ so sánh.
+- `vnp_Amount` đối chiếu với `PaymentTransaction.amount`; giá trị đó do caller truyền vào lúc
+  `startPayment`. Caller phải đọc amount từ `Invoice` trong DB — luồng đặt cọc làm vậy, xem
+  [invoice-pay.md](../booking/invoice-pay.md). Module `payment` không import `booking` nên không tự
+  đọc lại.
 
 ## Ví dụ
 
