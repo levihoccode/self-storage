@@ -106,10 +106,13 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 
 ## Chưa có trong luồng này
 
-- Cron hủy đơn quá hạn thanh toán và đối soát phiên bằng `querydr`.
+- Cron hủy đơn quá hạn thanh toán; đối soát phiên bằng `querydr` — **chưa có**, known limitation:
+  `Pending` không tự đóng, vận hành phải tra portal thủ công.
 - Thông báo cho khách sau khi thu xong cọc bổ sung — chưa có `NotificationType` nào được định cho
   ca này.
 - Hoàn tiền khi tiền đã vào mà khoang đã mất: thuộc Flow 4.
+- **Listener lỗi sau IPN**: giao dịch `PAY/Success` đã có nhưng invoice có thể còn `Unpaid`; chưa có
+  job replay listener, cần can thiệp thủ công.
 
 ## Liên quan
 
