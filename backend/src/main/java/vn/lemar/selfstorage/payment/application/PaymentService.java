@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,7 +22,12 @@ import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.payment.application.dto.IpnResponse;
+import vn.lemar.selfstorage.payment.application.dto.ManualReconciliationOutcome;
+import vn.lemar.selfstorage.payment.application.dto.ManualReconciliationRequest;
+import vn.lemar.selfstorage.payment.application.dto.ManualReconciliationResponse;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
+import vn.lemar.selfstorage.payment.application.exception.ManualReconciliationConflictException;
+import vn.lemar.selfstorage.payment.application.exception.ManualReconciliationNotFoundException;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
 import vn.lemar.selfstorage.payment.domain.PaymentStatus;
@@ -149,28 +155,77 @@ public class PaymentService {
         // Hai event dưới đây publish TRƯỚC khi transaction này commit — listener phải đăng ký
         // @TransactionalEventListener(AFTER_COMMIT); xem javadoc PaymentSucceeded/PaymentFailed.
         if (gatewayReportedSuccess(params)) {
-            transaction.markSucceeded(
-                    params.get("vnp_TransactionNo"), parsePayDate(params.get("vnp_PayDate")), responsePayload);
-            // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
-            audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
-                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
-                    Map.of("status", "Pending"),
-                    Map.of("status", "Success", "gatewayTransactionNo",
-                            String.valueOf(transaction.getGatewayTransactionNo())),
-                    null, null));
-            events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(), txnRef,
-                    transaction.getAmount(), transaction.getPaidAt()));
+            applySuccess(transaction, params.get("vnp_TransactionNo"),
+                    parsePayDate(params.get("vnp_PayDate")), responsePayload, null);
         } else {
             String reason = "vnp_ResponseCode=" + params.get("vnp_ResponseCode")
                     + ", vnp_TransactionStatus=" + params.get("vnp_TransactionStatus");
-            transaction.markFailed(reason, responsePayload);
-            audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
-                    AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
-                    Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
-            events.publishEvent(new PaymentFailed(transaction.getInvoiceId(), txnRef,
-                    transaction.getAmount(), reason));
+            applyFailure(transaction, reason, responsePayload);
         }
         return IpnResponse.success();
+    }
+
+    /**
+     * Chốt thủ công một giao dịch Pending theo kết quả ops tra portal VNPay.
+     *
+     * <p>Đây là lớp thay thế querydr: vẫn khoá row, chỉ nhận Pending, ghi audit và phát event như
+     * IPN. Không sửa DB tay và không tự mở lại invoice/order đã huỷ.
+     */
+    @Transactional
+    public ManualReconciliationResponse reconcileManually(String txnRef,
+            ManualReconciliationRequest request, String actorEmail) {
+        PaymentTransaction transaction = repository.findByVnpTxnRef(txnRef)
+                .orElseThrow(() -> new ManualReconciliationNotFoundException(txnRef));
+        if (!transaction.isPending()) {
+            throw new ManualReconciliationConflictException(transaction.getStatus());
+        }
+
+        String responsePayload = manualPayload(request, actorEmail);
+        if (request.outcome() == ManualReconciliationOutcome.SUCCESS) {
+            Instant paidAt = request.paidAt() == null ? Instant.now() : request.paidAt();
+            applySuccess(transaction, request.gatewayTransactionNo(), paidAt,
+                    responsePayload, actorEmail);
+        } else {
+            applyFailure(transaction, "manual: " + request.note(), responsePayload);
+        }
+        return new ManualReconciliationResponse(transaction.getVnpTxnRef(), transaction.getStatus(),
+                transaction.getGatewayTransactionNo(), transaction.getPaidAt());
+    }
+
+    private String manualPayload(ManualReconciliationRequest request, String actorEmail) {
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("source", "manual-portal");
+        payload.put("outcome", request.outcome().name());
+        payload.put("note", request.note());
+        payload.put("actor", actorEmail == null ? "unknown" : actorEmail);
+        if (request.gatewayTransactionNo() != null && !request.gatewayTransactionNo().isBlank()) {
+            payload.put("gatewayTransactionNo", request.gatewayTransactionNo());
+        }
+        return toJson(payload);
+    }
+
+    private void applySuccess(PaymentTransaction transaction, String gatewayTransactionNo,
+            Instant paidAt, String responsePayload, String actorEmail) {
+        transaction.markSucceeded(gatewayTransactionNo, paidAt, responsePayload);
+        // Audit entity của chính module này; RentalOrder/StorageUnit do booking tự ghi.
+        audit.record(new AuditEntry(AuditAction.PAYMENT_SUCCEEDED,
+                AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                Map.of("status", "Pending"),
+                Map.of("status", "Success", "gatewayTransactionNo",
+                        String.valueOf(transaction.getGatewayTransactionNo())),
+                actorEmail == null ? null : "manual reconcile by " + actorEmail,
+                null));
+        events.publishEvent(new PaymentSucceeded(transaction.getInvoiceId(),
+                transaction.getVnpTxnRef(), transaction.getAmount(), transaction.getPaidAt()));
+    }
+
+    private void applyFailure(PaymentTransaction transaction, String reason, String responsePayload) {
+        transaction.markFailed(reason, responsePayload);
+        audit.record(new AuditEntry(AuditAction.PAYMENT_FAILED,
+                AuditEntityType.PAYMENT_TRANSACTION, String.valueOf(transaction.getId()),
+                Map.of("status", "Pending"), Map.of("status", "Failed"), reason, null));
+        events.publishEvent(new PaymentFailed(transaction.getInvoiceId(),
+                transaction.getVnpTxnRef(), transaction.getAmount(), reason));
     }
 
     /** Cổng chỉ coi là thành công khi cả hai mã đều {@code 00}. */

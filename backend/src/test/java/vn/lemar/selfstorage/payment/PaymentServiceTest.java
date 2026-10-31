@@ -26,7 +26,11 @@ import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.audit.application.AuditRecorder;
 import vn.lemar.selfstorage.payment.application.PaymentService;
 import vn.lemar.selfstorage.payment.application.PaymentUrlCache;
+import vn.lemar.selfstorage.payment.application.dto.ManualReconciliationOutcome;
+import vn.lemar.selfstorage.payment.application.dto.ManualReconciliationRequest;
 import vn.lemar.selfstorage.payment.application.dto.PaymentRequest;
+import vn.lemar.selfstorage.payment.application.exception.ManualReconciliationConflictException;
+import vn.lemar.selfstorage.payment.application.exception.ManualReconciliationNotFoundException;
 import vn.lemar.selfstorage.payment.application.event.PaymentFailed;
 import vn.lemar.selfstorage.payment.application.event.PaymentSucceeded;
 import vn.lemar.selfstorage.payment.config.VnPayProperties;
@@ -246,4 +250,58 @@ class PaymentServiceTest {
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("invoiceId");
     }
+    @Test
+    void manualSuccessMarksTransactionAndPublishesEvent() {
+        Instant paidAt = Instant.parse("2026-10-30T10:00:00Z");
+
+        var response = service.reconcileManually(TXN_REF,
+                new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
+                        "portal says paid", paidAt, "79357284"), "admin@lemar.vn");
+
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.getGatewayTransactionNo()).isEqualTo("79357284");
+        assertThat(transaction.getPaidAt()).isEqualTo(paidAt);
+        assertThat(response.txnRef()).isEqualTo(TXN_REF);
+        assertThat(response.status()).isEqualTo(PaymentStatus.SUCCESS);
+        verify(events).publishEvent(any(PaymentSucceeded.class));
+        verify(audit).record(argThat(entry -> entry.reason() != null
+                && entry.reason().contains("admin@lemar.vn")));
+    }
+
+    @Test
+    void manualFailureMarksTransactionFailedAndPublishesEvent() {
+        var response = service.reconcileManually(TXN_REF,
+                new ManualReconciliationRequest(ManualReconciliationOutcome.FAILED,
+                        "portal says failed", null, null), "admin@lemar.vn");
+
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(transaction.getFailureReason()).isEqualTo("manual: portal says failed");
+        assertThat(response.status()).isEqualTo(PaymentStatus.FAILED);
+        verify(events).publishEvent(any(PaymentFailed.class));
+    }
+
+    @Test
+    void manualReconcileRefusesAlreadySettledTransaction() {
+        service.reconcileManually(TXN_REF,
+                new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
+                        "first", Instant.now(), "GW-1"), "admin@lemar.vn");
+        reset(events);
+
+        assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
+                new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
+                        "second", Instant.now(), "GW-2"), "admin@lemar.vn"))
+                .isInstanceOf(ManualReconciliationConflictException.class);
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void manualReconcileReturnsNotFoundForUnknownTxnRef() {
+        when(repository.findByVnpTxnRef("missing")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reconcileManually("missing",
+                new ManualReconciliationRequest(ManualReconciliationOutcome.FAILED,
+                        "not found", null, null), "admin@lemar.vn"))
+                .isInstanceOf(ManualReconciliationNotFoundException.class);
+    }
+
 }

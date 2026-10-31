@@ -89,6 +89,11 @@ Listener bắt buộc `@TransactionalEventListener(AFTER_COMMIT)` **và**
 `@Transactional(REQUIRES_NEW)` — xem `payment.md` › Quy tắc bất biến. `AuditRecorder` dùng
 propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 
+Nếu listener lỗi sau khi IPN đã commit, giao dịch vẫn `Success` nhưng invoice còn `Unpaid`.
+`DepositStateRepairJob` quét invoice `Unpaid` + giao dịch `PAY/Success` và gọi lại listener
+(idempotent); đây là local outbox, không phải querydr. Trường hợp IPN mất hẳn (transaction còn
+`Pending`) do ops tra portal rồi chốt qua `POST /api/admin/payments/{txnRef}/reconcile`.
+
 ## Ghi chú nghiệp vụ
 
 - **Số tiền đọc từ `Invoice` trong DB**, không nhận từ client — cổng đối chiếu `vnp_Amount` với
@@ -106,7 +111,7 @@ propagation `MANDATORY` nên không có transaction mới là lỗi wiring.
 
 ## Chưa có trong luồng này
 
-- Cron hủy đơn quá hạn thanh toán và đối soát phiên bằng `querydr`.
+- Cron hủy đơn quá hạn thanh toán; đối soát `Pending` bằng endpoint ADMIN thủ công (không querydr).
 - Thông báo cho khách sau khi thu xong cọc bổ sung — chưa có `NotificationType` nào được định cho
   ca này.
 - Hoàn tiền khi tiền đã vào mà khoang đã mất: thuộc Flow 4.
