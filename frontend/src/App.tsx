@@ -17,6 +17,7 @@ import { InvoicesPage } from "./pages/InvoicesPage";
 import { AppointmentBookingPage } from "./pages/AppointmentBookingPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { RentalRequestQueuePage } from "./pages/fm/RentalRequestQueuePage";
+import { RentalOrderListPage } from "./pages/fm/RentalOrderListPage";
 import { ProposalRedoPage } from "./pages/fm/ProposalRedoPage";
 import { AppointmentSchedulePage } from "./pages/fm/AppointmentSchedulePage";
 import { ReturnRequestQueuePage } from "./pages/fm/ReturnRequestQueuePage";
@@ -124,6 +125,7 @@ function App() {
     (view === "request" && !!session);
   const isFmView =
     view === "fm-rental-requests" ||
+    view === "fm-orders" ||
     view === "fm-proposal-redo" ||
     view === "fm-appointments" ||
     view === "fm-return-requests" ||
@@ -207,6 +209,7 @@ function App() {
       ) : isFmShellView ? (
         <FmShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "fm-rental-requests" && <RentalRequestQueuePage navigate={navigate} />}
+          {view === "fm-orders" && <RentalOrderListPage navigate={navigate} />}
           {view === "fm-proposal-redo" && <ProposalRedoPage navigate={navigate} />}
           {view === "fm-appointments" && <AppointmentSchedulePage />}
           {view === "fm-return-requests" && <ReturnRequestQueuePage />}
