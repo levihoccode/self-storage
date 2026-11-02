@@ -130,6 +130,8 @@ Chi tiết: [error-handling.md](error-handling.md).
 - Luồng gán lại FM khi account FM bị `BANNED`/chưa xác minh. `facilities.fm_account_id` giữ
   nguyên, nên facility không còn account vận hành; reassign hiện thủ công hoặc thuộc Flow 5.
 - Namespace `/api/fm/**` có các màn của FM: hàng đợi + duyệt/từ chối yêu cầu đặt kho, xem đơn để đề xuất
-  lại (`GET /api/fm/rental-orders/{orderId}`, role FM **cộng** facility scope). Thao tác đề xuất khoang theo
-  quy tắc đặt route ở trên: `/api/proposals/**` (ownership) và `/api/rental-orders/{orderId}/proposals`
-  (permission `proposal_feedback.repropose` theo cơ sở) nằm trong `/api/**` chung. `/api/bom/**`… vẫn chưa có.
+  lại (`GET /api/fm/rental-orders/{orderId}`, `rental_order.read`) và huỷ đơn
+  (`POST /api/fm/rental-orders/{orderId}/cancel`, `rental_order.cancel` — seed V3 cho FM scope `FACILITY`); role FM
+  **cộng** facility scope. Thao tác đề xuất khoang theo quy tắc đặt route ở trên: `/api/proposals/**` (ownership)
+  và `/api/rental-orders/{orderId}/proposals` (permission `proposal_feedback.repropose` theo cơ sở) nằm trong
+  `/api/**` chung. `/api/bom/**`… vẫn chưa có.

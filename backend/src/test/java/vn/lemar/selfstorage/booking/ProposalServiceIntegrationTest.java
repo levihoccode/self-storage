@@ -30,6 +30,8 @@ import vn.lemar.selfstorage.booking.application.ProposalQueryService;
 import vn.lemar.selfstorage.booking.application.ProposalService;
 import vn.lemar.selfstorage.booking.application.ProposalView;
 import vn.lemar.selfstorage.booking.application.RejectResult;
+import vn.lemar.selfstorage.booking.application.RentalOrderService;
+import vn.lemar.selfstorage.booking.application.RentalOrderView;
 import vn.lemar.selfstorage.booking.application.dto.CustomerProposalResponse;
 import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderResponse;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
@@ -61,6 +63,8 @@ class ProposalServiceIntegrationTest {
     private ProposalService service;
     @Autowired
     private ProposalQueryService queryService;
+    @Autowired
+    private RentalOrderService orderService;
     @Autowired
     private JdbcTemplate jdbc;
     @Autowired
@@ -734,6 +738,83 @@ class ProposalServiceIntegrationTest {
 
         assertThatThrownBy(() -> jdbc.update("update proposal_feedbacks set status = 'Expired' where id = ?",
                 proposalId)).hasMessageContaining("proposal_feedbacks_status_check");
+    }
+
+    // ---------------------------------------------------------------- FM huỷ đơn (#142)
+
+    @Test
+    void fmCancelRunsFullCascadeWithAuditAndNotifications() {
+        long agreedEarlier = proposal("B-01", "Agreed");
+        long pendingId = proposal("A-01", "Pending");
+        // Đơn đã cọc B-01 (Reserved) — chỉ đơn đã cọc mới giữ khoang nên huỷ đơn phải nhả B-01.
+        jdbc.update("update storage_units set status = 'Reserved' where code = 'B-01'");
+        jdbc.update("update rental_orders set unit_id = ?, status = 'Deposited' where id = ?", unitId("B-01"), orderId);
+        long invoiceId = jdbc.queryForObject("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, 'INV-DEP-Q7-TEST-000002', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Unpaid', 900000,
+                        now() + interval '3 days') returning id""", Long.class, orderId, customerId);
+        loginAs("fm1@lemar.vn");
+
+        RentalOrderView result = orderService.cancelByFacilityManager(orderId, fmId);
+
+        assertThat(result.status()).isEqualTo("Canceled");
+        assertThat(result.cancelReason()).isEqualTo("Khách không còn nhu cầu");
+        assertThat(orderStatus()).isEqualTo("Canceled");
+        assertThat(proposalStatus(agreedEarlier)).isEqualTo("Canceled");
+        assertThat(proposalStatus(pendingId)).isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select status from storage_units where code = 'B-01'", String.class))
+                .isEqualTo("Available");
+        assertThat(auditActions("RentalOrder", orderId)).containsExactly("RENTAL_ORDER_CANCELED");
+        assertThat(auditActions("ProposalFeedback", agreedEarlier)).containsExactly("RENTAL_ORDER_CANCELED");
+        assertThat(auditActions("ProposalFeedback", pendingId)).containsExactly("RENTAL_ORDER_CANCELED");
+        assertThat(auditActions("Invoice", invoiceId)).containsExactly("INVOICE_CANCELED");
+        assertThat(auditActions("StorageUnit", unitId("B-01"))).containsExactly("RENTAL_ORDER_CANCELED");
+        assertThat(jdbc.queryForObject("select actor_account_id from audit_logs where entity_type = 'RentalOrder' "
+                + "and entity_id = ?", Long.class, String.valueOf(orderId))).isEqualTo(fmId);
+        assertThat(notificationsOf(customerId)).singleElement().satisfies(row -> {
+            assertThat(row.get("type")).isEqualTo("RENTAL_ORDER_CANCELED");
+            assertThat((String) row.get("body")).contains("Khách không còn nhu cầu");
+        });
+        assertThat(notificationsOf(fmId)).extracting(row -> row.get("type"))
+                .containsExactly("RENTAL_ORDER_CANCELED");
+    }
+
+    @Test
+    void fmCancelOnClosedOrderConflicts() {
+        jdbc.update("update rental_orders set status = 'Done' where id = ?", orderId);
+        loginAs("fm1@lemar.vn");
+
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, fmId))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessage("Đơn thuê đã đóng, không thể huỷ");
+        assertThat(auditActions("RentalOrder", orderId)).isEmpty();
+    }
+
+    @Test
+    void fmCancelByFmOfAnotherFacilityIsForbidden() {
+        loginAs("fm2@lemar.vn");
+
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, accountId("fm2@lemar.vn")))
+                .isInstanceOf(ForbiddenException.class);
+        assertThat(orderStatus()).isEqualTo("Pending");
+    }
+
+    @Test
+    void cancelWithoutPermissionIsForbidden() {
+        loginAs("customer1@lemar.vn");
+
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, customerId))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void fmCancelOnUnknownOrderIsNotFound() {
+        loginAs("fm1@lemar.vn");
+
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(-1L, fmId))
+                .isInstanceOf(RentalOrderNotFoundException.class);
     }
 
     // ---------------------------------------------------------------- helpers
