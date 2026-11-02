@@ -1,14 +1,15 @@
-import { ArrowRight, Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import type { Navigate } from "../app/types";
 import { formatPrice } from "../mocks/catalog";
 import { rentedStorage, type StorageStatus } from "../mocks/customer";
 import { proposals } from "../mocks/proposals";
 import { Button } from "../components/ui/Button";
+import { StatusTag } from "../components/ui/StatusTag";
 
-const STATUS: Record<StorageStatus, { label: string; className: string }> = {
-  active: { label: "Đang thuê", className: "bg-success-soft text-success" },
-  expiring: { label: "Sắp đến hạn", className: "bg-warning-soft text-warning" },
-  overdue: { label: "Đã quá hạn", className: "bg-danger-soft text-danger" },
+const STATUS: Record<StorageStatus, { label: string; tone: "success" | "warning" | "danger" }> = {
+  active: { label: "Đang thuê", tone: "success" },
+  expiring: { label: "Sắp đến hạn", tone: "warning" },
+  overdue: { label: "Đã quá hạn", tone: "danger" },
 };
 
 export function MyStoragePage({ navigate }: { navigate: Navigate }) {
@@ -62,59 +63,72 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
             </h2>
             <span className="text-label text-muted">{rentedStorage.length} hợp đồng</span>
           </div>
-          <div className="grid gap-2.5">
+          <div className="grid gap-3">
             {rentedStorage.map((storage) => {
               const status = STATUS[storage.status];
               return (
-                <div
-                  key={storage.id}
-                  className="grid grid-cols-[84px_minmax(0,1.25fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_auto] items-center gap-4 bg-surface p-4 max-[1100px]:grid-cols-[64px_minmax(0,1fr)_auto] max-[760px]:gap-2"
-                >
-                  <div className="min-w-0">
-                    <strong className="block whitespace-nowrap text-stat text-ink">
-                      {storage.unitCode}
-                    </strong>
-                    <span className="text-label text-muted">{storage.size}</span>
+                <article key={storage.id} className="border border-border bg-surface p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <strong className="whitespace-nowrap text-stat text-ink">
+                          {storage.unitCode}
+                        </strong>
+                        <span className="text-label text-muted">{storage.size}</span>
+                      </div>
+                      <strong className="mt-1 block truncate text-small font-semibold text-ink">
+                        {storage.facility}
+                      </strong>
+                      <span className="mt-0.5 block truncate text-label text-muted">
+                        {storage.district}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <StatusTag tone={status.tone}>{status.label}</StatusTag>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate(`/my-storage/${storage.id}`)}
+                      >
+                        Xem
+                      </Button>
+                    </div>
                   </div>
-                  <div className="min-w-0 max-[1100px]:col-span-2">
-                    <strong className="block truncate text-small font-semibold text-ink">
-                      {storage.facility}
-                    </strong>
-                    <span className="mt-0.5 block truncate text-label text-muted">
-                      {storage.district}
-                    </span>
-                  </div>
-                  <div className="whitespace-nowrap text-label text-ink max-[1100px]:hidden">
-                    <span className="block text-label text-muted">Thời hạn</span>
-                    {storage.startDate} → {storage.endDate}
-                  </div>
-                  <div className="text-small text-ink max-[1100px]:hidden">
-                    <span className="block text-label text-muted">Thanh toán</span>
-                    {formatPrice(storage.monthlyPrice)} đ / tháng
-                    <span className="mt-2 block h-[3px] w-full bg-border" aria-hidden="true">
-                      <span
-                        className="block h-full bg-brand"
-                        style={{ width: storage.status === "active" ? "78%" : "92%" }}
-                      />
-                    </span>
-                    <span className="mt-1 block text-label text-muted">{storage.paymentLabel}</span>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 max-[1100px]:col-start-3 max-[1100px]:row-start-1">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2 py-1 text-label font-semibold ${status.className}`}
+                  <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 max-[760px]:grid-cols-1">
+                    <div>
+                      <dt className="text-label text-muted">Thời hạn</dt>
+                      <dd className="m-0 mt-1 whitespace-nowrap text-small text-ink">
+                        {storage.startDate} → {storage.endDate}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-label text-muted">Giá thuê</dt>
+                      <dd className="m-0 mt-1 text-small font-semibold text-ink">
+                        {formatPrice(storage.monthlyPrice)} đ / tháng
+                      </dd>
+                    </div>
+                  </dl>
+                  {/* Chỉ hiện khi sắp đến hạn / quá hạn. TẠM: mock dùng status; API thật trả is_expiring_soon / is_overdue / has_unpaid_invoice. */}
+                  {storage.status !== "active" && (
+                    <div
+                      className={`mt-4 flex items-center justify-between gap-4 px-3 py-2.5 ${
+                        storage.status === "overdue"
+                          ? "bg-danger-soft text-danger"
+                          : "bg-warning-soft text-warning"
+                      }`}
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-                      {status.label}
-                    </span>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigate(`/my-storage/${storage.id}`)}
-                    >
-                      Xem
-                    </Button>
-                  </div>
-                </div>
+                      <span className="flex items-center gap-2 text-small font-semibold">
+                        <AlertTriangle size={16} /> {storage.paymentLabel}
+                      </span>
+                      <button
+                        className="inline-flex shrink-0 items-center gap-1 border-0 bg-transparent p-0 text-label font-bold hover:underline"
+                        onClick={() => navigate("/invoices")}
+                      >
+                        Thanh toán <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  )}
+                </article>
               );
             })}
           </div>

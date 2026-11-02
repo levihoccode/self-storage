@@ -62,15 +62,6 @@ export function PublicHeader({
           <button className={view === "units" ? activeLink : navLink} onClick={() => go("/units")}>
             Tìm kho
           </button>
-          <a className={navLink} href="/#how-it-works" onClick={() => setOpen(false)}>
-            Quy trình
-          </a>
-          <a className={navLink} href="/#locations" onClick={() => setOpen(false)}>
-            Cơ sở
-          </a>
-          <a className={navLink} href="mailto:hello@khomoc.example" onClick={() => setOpen(false)}>
-            Hỗ trợ
-          </a>
           <ThemeToggle theme={theme} onToggle={onThemeToggle} />
           {session ? (
             <>

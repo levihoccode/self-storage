@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#e9eae6" />
     <meta name="description" content="Kho lưu trữ vừa đủ cho mọi kế hoạch của bạn." />
+    <script>
+      (function () {
+        try {
+          var theme = window.localStorage.getItem("kho-moc-theme");
+          if (theme !== "dark" && theme !== "light") return;
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", theme === "dark" ? "#0e1211" : "#e9eae6");
+        } catch (error) {
+          // localStorage unavailable — keep the light default from :root.
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

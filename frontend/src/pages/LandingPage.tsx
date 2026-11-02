@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import { Navigate } from "../app/types";
 import { PAGE_CONTAINER as CONTAINER } from "../app/layout";
@@ -19,6 +19,63 @@ function unitRange(unitIds: string[]) {
     .filter((area) => area > 0);
   if (areas.length === 0) return "Đang cập nhật";
   return `${Math.min(...areas)}–${Math.max(...areas)} m²`;
+}
+
+const SECTIONS = [
+  { id: "how-it-works", index: "01", label: "Quy trình" },
+  { id: "locations", index: "02", label: "Cơ sở" },
+];
+
+function SectionNav() {
+  const [active, setActive] = useState<string | null>(null);
+
+  useEffect(() => {
+    const elements = SECTIONS.map((section) => document.getElementById(section.id)).filter(
+      (element): element is HTMLElement => element !== null,
+    );
+    if (elements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+        if (visible) setActive(visible.target.id);
+      },
+      { rootMargin: "-120px 0px -55% 0px", threshold: [0, 0.25, 0.5] },
+    );
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, []);
+
+  function jump(id: string) {
+    setActive(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <div className="sticky top-[74px] z-10 border-y border-border bg-background/95 backdrop-blur max-[760px]:top-[64px]">
+      <div className={`${CONTAINER} flex items-center gap-6 overflow-x-auto py-2.5`}>
+        <span className="label shrink-0 text-muted">Trang này</span>
+        {SECTIONS.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            aria-current={active === section.id ? "true" : undefined}
+            className={`inline-flex shrink-0 items-center gap-2 border-b-2 pb-0.5 text-small font-semibold transition-colors ${
+              active === section.id
+                ? "border-brand text-ink"
+                : "border-transparent text-muted hover:text-ink"
+            }`}
+            onClick={() => jump(section.id)}
+          >
+            <span className="font-mono text-label text-muted">{section.index}</span>
+            {section.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function LandingPage({ navigate }: { navigate: Navigate }) {
@@ -120,6 +177,8 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           </form>
         </div>
       </section>
+
+      <SectionNav />
 
       <section aria-label="Cơ sở đang mở" className="bg-background">
         <div className={`${CONTAINER} pb-16`}>
@@ -236,7 +295,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section id="how-it-works" className="bg-background py-[clamp(56px,7vw,92px)]">
+      <section
+        id="how-it-works"
+        className="scroll-mt-[120px] bg-background py-[clamp(56px,7vw,92px)]"
+      >
         <div className={CONTAINER}>
           <div className="mb-8 grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] items-end gap-10 max-[900px]:grid-cols-1 max-[900px]:gap-4">
             <div>
@@ -267,7 +329,10 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section id="locations" className="bg-surface-subtle py-[clamp(56px,7vw,92px)]">
+      <section
+        id="locations"
+        className="scroll-mt-[120px] bg-surface-subtle py-[clamp(56px,7vw,92px)]"
+      >
         <div className={CONTAINER}>
           <div className="mb-8 grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] items-end gap-10 max-[900px]:grid-cols-1 max-[900px]:gap-4">
             <div>
