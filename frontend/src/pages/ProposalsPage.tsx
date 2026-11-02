@@ -1,58 +1,150 @@
-import { AlertTriangle, ArrowRight, Check, MapPin, X } from "lucide-react";
-import { useState } from "react";
-import type { Navigate } from "../app/types";
+import { AlertTriangle, ArrowRight, Check, MapPin, Maximize2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError } from "../app/api";
+import { formatDate, formatMoney } from "../app/format";
+import { agreeProposal, fetchMyProposals, rejectProposal } from "../app/proposals";
+import { listUnitTypes } from "../app/unitTypes";
+import type { CustomerProposal, DepositInvoice, Navigate, UnitTypeSummary } from "../app/types";
 import { rentedStorage } from "../mocks/customer";
-import { MAX_REJECTIONS, proposals as initialProposals, type Proposal } from "../mocks/proposals";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
+import { DetailPanel } from "../components/ui/DetailPanel";
 import { SurfaceState } from "../components/ui/SurfaceState";
+import { UnitIllustration } from "../components/domain/UnitIllustration";
+import { UnitIllustrationLightbox } from "../components/domain/UnitIllustrationLightbox";
 
 type Tab = "active" | "pending";
+type LoadState = "loading" | "ready" | "error";
+
+type CardOutcome =
+  | { kind: "agreed"; invoice: DepositInvoice | null }
+  | { kind: "unavailable"; message: string }
+  | { kind: "rejected" };
+
+type LoadResult = { ok: true; data: CustomerProposal[] } | { ok: false; message: string };
+
+async function loadPendingProposals(): Promise<LoadResult> {
+  try {
+    return { ok: true, data: await fetchMyProposals("Pending") };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Không tải được danh sách đề xuất.",
+    };
+  }
+}
 
 export function ProposalsPage({ navigate }: { navigate: Navigate }) {
   const [tab, setTab] = useState<Tab>("pending");
-  const [items, setItems] = useState<Proposal[]>(initialProposals);
-  const [agreedIds, setAgreedIds] = useState<Set<string>>(new Set());
-  const [canceledIds, setCanceledIds] = useState<Set<string>>(new Set());
-  const [conflictId, setConflictId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [items, setItems] = useState<CustomerProposal[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState("");
+  const [outcomes, setOutcomes] = useState<Record<number, CardOutcome>>({});
+  const [actionError, setActionError] = useState<{ id: number; message: string } | null>(null);
+  const [orderCanceled, setOrderCanceled] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [detailProposal, setDetailProposal] = useState<CustomerProposal | null>(null);
+  const [detailUnitType, setDetailUnitType] = useState<UnitTypeSummary | null>(null);
+  const [detailState, setDetailState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [detailError, setDetailError] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const detailRequest = useRef(0);
 
-  const visibleProposals = items.filter((proposal) => !canceledIds.has(proposal.id));
-  const awaitingCount = items.filter(
-    (proposal) => !agreedIds.has(proposal.id) && !canceledIds.has(proposal.id),
-  ).length;
+  const applyLoad = useCallback((result: LoadResult) => {
+    if (result.ok) {
+      setItems(result.data);
+      setLoadState("ready");
+    } else {
+      setLoadError(result.message);
+      setLoadState("error");
+    }
+  }, []);
 
-  function agree(proposal: Proposal) {
-    setBusyId(proposal.id);
-    setConflictId(null);
-    window.setTimeout(() => {
-      setBusyId(null);
-      if (proposal.simulateConflict) {
-        setConflictId(proposal.id);
-        setItems((current) =>
-          current.map((item) => (item.id === proposal.id ? { ...item, status: "expired" } : item)),
-        );
-        return;
-      }
-      setAgreedIds((current) => new Set(current).add(proposal.id));
-    }, 700);
+  useEffect(() => {
+    let active = true;
+    async function loadInitial() {
+      const result = await loadPendingProposals();
+      if (active) applyLoad(result);
+    }
+    void loadInitial();
+    return () => {
+      active = false;
+    };
+  }, [applyLoad]);
+
+  async function reload() {
+    setLoadState("loading");
+    applyLoad(await loadPendingProposals());
   }
 
-  function confirmReject(proposal: Proposal) {
-    const nextCount = proposal.rejectionCount + 1;
-    if (nextCount >= MAX_REJECTIONS) {
-      setCanceledIds((current) => new Set(current).add(proposal.id));
-    } else {
-      setItems((current) =>
-        current.map((item) =>
-          item.id === proposal.id ? { ...item, rejectionCount: nextCount } : item,
-        ),
-      );
+  async function openUnitDetail(proposal: CustomerProposal) {
+    const requestId = ++detailRequest.current;
+    setDetailProposal(proposal);
+    setDetailUnitType(null);
+    setDetailState("loading");
+    setDetailError("");
+    setLightboxOpen(false);
+    try {
+      const types = await listUnitTypes(proposal.facilityId);
+      if (detailRequest.current !== requestId) return;
+      setDetailUnitType(types.find((type) => type.name === proposal.unitTypeName) ?? null);
+      setDetailState("ready");
+    } catch (error) {
+      if (detailRequest.current !== requestId) return;
+      setDetailError(error instanceof Error ? error.message : "Không tải được thông tin khoang.");
+      setDetailState("error");
     }
-    setRejectingId(null);
-    setRejectNote("");
+  }
+
+  function closeUnitDetail() {
+    detailRequest.current += 1;
+    setDetailProposal(null);
+    setDetailUnitType(null);
+    setDetailState("idle");
+    setDetailError("");
+    setLightboxOpen(false);
+  }
+
+  const awaitingCount = items.filter((proposal) => !outcomes[proposal.id]).length;
+
+  async function agree(proposal: CustomerProposal) {
+    setBusyId(proposal.id);
+    setActionError(null);
+    try {
+      const result = await agreeProposal(proposal.id);
+      setOutcomes((current) => ({
+        ...current,
+        [proposal.id]: { kind: "agreed", invoice: result.invoice },
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể đồng ý đề xuất.";
+      if (error instanceof ApiError && error.status === 409) {
+        setOutcomes((current) => ({ ...current, [proposal.id]: { kind: "unavailable", message } }));
+      } else {
+        setActionError({ id: proposal.id, message });
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function confirmReject(proposal: CustomerProposal) {
+    setBusyId(proposal.id);
+    setActionError(null);
+    try {
+      const result = await rejectProposal(proposal.id, rejectNote.trim());
+      setOutcomes((current) => ({ ...current, [proposal.id]: { kind: "rejected" } }));
+      if (result.orderCanceled) setOrderCanceled(true);
+      setRejectingId(null);
+      setRejectNote("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể từ chối đề xuất.";
+      setActionError({ id: proposal.id, message });
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function tabClass(active: boolean) {
@@ -95,35 +187,55 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         </button>
       </div>
 
-      {tab === "active" &&
-        (rentedStorage.length === 0 ? (
-          <SurfaceState variant="empty" title="Chưa có kho đang sử dụng" />
-        ) : (
-          <div className="grid gap-2.5">
-            {rentedStorage.map((storage) => (
-              <div
-                key={storage.id}
-                className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
-              >
-                <div>
-                  <span className="text-label text-muted">
-                    Khoang {storage.unitCode} · {storage.size}
-                  </span>
-                  <h2 className="mt-1 text-[16px] font-semibold text-ink">{storage.facility}</h2>
-                  <p className="mt-1 flex items-center gap-1.5 text-small text-muted">
-                    <MapPin size={14} /> {storage.district}
-                  </p>
+      {tab === "active" && (
+        <>
+          <DemoNotice tone="info">
+            Danh sách kho đang sử dụng chưa có API — tab này đang dùng dữ liệu minh hoạ.
+          </DemoNotice>
+          {rentedStorage.length === 0 ? (
+            <SurfaceState variant="empty" title="Chưa có kho đang sử dụng" />
+          ) : (
+            <div className="grid gap-2.5">
+              {rentedStorage.map((storage) => (
+                <div
+                  key={storage.id}
+                  className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
+                >
+                  <div>
+                    <span className="text-label text-muted">
+                      Khoang {storage.unitCode} · {storage.size}
+                    </span>
+                    <h2 className="mt-1 text-[16px] font-semibold text-ink">{storage.facility}</h2>
+                    <p className="mt-1 flex items-center gap-1.5 text-small text-muted">
+                      <MapPin size={14} /> {storage.district}
+                    </p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => navigate("/my-storage")}>
+                    Xem chi tiết <ArrowRight size={15} />
+                  </Button>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => navigate("/my-storage")}>
-                  Xem chi tiết <ArrowRight size={15} />
-                </Button>
-              </div>
-            ))}
-          </div>
-        ))}
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "pending" && loadState === "loading" && (
+        <SurfaceState variant="loading" title="Đang tải đề xuất khoang…" />
+      )}
+
+      {tab === "pending" && loadState === "error" && (
+        <SurfaceState
+          variant="error"
+          title="Không tải được đề xuất khoang"
+          description={loadError}
+          action={{ label: "Thử lại", onClick: () => void reload() }}
+        />
+      )}
 
       {tab === "pending" &&
-        (visibleProposals.length === 0 ? (
+        loadState === "ready" &&
+        (items.length === 0 ? (
           <SurfaceState
             variant="empty"
             title="Chưa có đề xuất nào đang chờ"
@@ -131,93 +243,107 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           />
         ) : (
           <div className="grid gap-2.5">
-            {visibleProposals.map((proposal) => {
-              const isExpired = proposal.status === "expired";
-              const isAgreed = agreedIds.has(proposal.id);
+            {items.map((proposal) => {
+              const outcome = outcomes[proposal.id];
               const isBusy = busyId === proposal.id;
-              const nearLimit = proposal.rejectionCount >= MAX_REJECTIONS - 1;
+              const remaining = proposal.maxRejectionCount - proposal.rejectionCount;
+              const nearLimit = remaining <= 1;
               return (
                 <article key={proposal.id} className="bg-surface p-5">
                   <div className="flex items-start justify-between gap-5 max-[760px]:flex-col">
                     <div>
                       <span className="text-label text-muted">
-                        Khoang {proposal.unitCode} · {proposal.unitType}
+                        Khoang {proposal.unitCode} · {proposal.unitTypeName}
                       </span>
-                      <h2 className="mt-1 text-section text-ink">{proposal.facility}</h2>
-                      <p className="mt-1.5 flex items-center gap-1.5 text-small text-muted">
-                        <MapPin size={15} /> {proposal.district} · {proposal.size}
-                      </p>
+                      <h2 className="mt-1 text-section text-ink">{proposal.facilityName}</h2>
+                      {proposal.facilityAddress && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-small text-muted">
+                          <MapPin size={15} /> {proposal.facilityAddress}
+                        </p>
+                      )}
                     </div>
                     <div className="grid gap-3 text-right max-[760px]:text-left">
                       <div>
                         <span className="text-label text-muted">Giá thuê đề xuất</span>
                         <strong className="mt-0.5 block text-[18px] font-semibold text-ink">
-                          {proposal.monthlyPrice}
+                          {formatMoney(proposal.monthlyPrice)} / tháng
                         </strong>
                       </div>
                       <div>
-                        <span className="text-label text-muted">
-                          {isExpired ? "Đã hết hạn" : "Hạn phản hồi"}
-                        </span>
-                        <strong
-                          className={`mt-0.5 block text-small font-semibold ${
-                            isExpired ? "text-danger" : "text-ink"
-                          }`}
-                        >
-                          {proposal.expiresAt}
+                        <span className="text-label text-muted">Ngày đề xuất</span>
+                        <strong className="mt-0.5 block text-small font-semibold text-ink">
+                          {formatDate(proposal.createdAt)}
                         </strong>
                       </div>
                     </div>
                   </div>
 
-                  {conflictId === proposal.id && (
+                  {outcome?.kind === "unavailable" && (
                     <div className="mt-4">
                       <DemoNotice tone="error">
-                        Khoang này vừa có người khác đặt cọc trước. Đề xuất đã hết hiệu lực — đội
-                        ngũ vận hành sẽ gửi đề xuất khoang khác cho bạn.
+                        {outcome.message}. Đề xuất đã hết hiệu lực — đội ngũ vận hành sẽ gửi đề xuất
+                        khoang khác cho bạn.
                       </DemoNotice>
                     </div>
                   )}
 
-                  {isExpired && conflictId !== proposal.id && (
-                    <div className="mt-4 bg-surface-subtle p-4">
-                      <p className="flex items-center gap-2 text-small font-semibold text-ink">
-                        <AlertTriangle size={16} className="text-warning" /> Đề xuất đã hết hạn
-                      </p>
-                      <p className="mt-1.5 text-label text-muted">
-                        Bạn chưa phản hồi trước hạn. Đội ngũ vận hành sẽ gửi đề xuất khoang mới.
-                      </p>
-                    </div>
-                  )}
-
-                  {isAgreed && (
-                    <div className="mt-4 bg-surface-subtle p-4">
+                  {outcome?.kind === "agreed" && (
+                    <div className="mt-4">
                       <DemoNotice tone="success">
-                        Đã đồng ý khoang này. Hoá đơn đặt cọc đang được tạo.
+                        Đã đồng ý khoang này.
+                        {outcome.invoice
+                          ? ` Hoá đơn đặt cọc ${outcome.invoice.code}: ${formatMoney(outcome.invoice.amount)}${
+                              outcome.invoice.dueDate
+                                ? `, hạn thanh toán ${formatDate(outcome.invoice.dueDate)}`
+                                : ""
+                            }.`
+                          : " Khoang mới đã được cập nhật cho đơn thuê."}
                       </DemoNotice>
                       <Button
                         variant="secondary"
                         size="sm"
                         className="mt-3"
-                        onClick={() => navigate("/invoices")}
+                        onClick={() => navigate(outcome.invoice ? "/invoices" : "/my-storage")}
                       >
-                        Xem hoá đơn <ArrowRight size={15} />
+                        {outcome.invoice ? "Xem hoá đơn" : "Về Kho của tôi"}{" "}
+                        <ArrowRight size={15} />
                       </Button>
                     </div>
                   )}
 
-                  {!isExpired && !isAgreed && nearLimit && (
+                  {outcome?.kind === "rejected" && (
                     <div className="mt-4">
-                      <DemoNotice tone="pending">
-                        Bạn đã từ chối {proposal.rejectionCount}/{MAX_REJECTIONS} lần cho phép. Từ
-                        chối thêm {MAX_REJECTIONS - proposal.rejectionCount} lần nữa, yêu cầu này sẽ
-                        tự huỷ và bạn cần gửi lại từ đầu.
+                      <DemoNotice tone="info">
+                        Đã từ chối đề xuất này. Đội ngũ vận hành sẽ gửi phương án khác nếu còn
+                        khoang phù hợp.
                       </DemoNotice>
                     </div>
                   )}
 
-                  {!isExpired && !isAgreed && (
+                  {actionError?.id === proposal.id && (
+                    <div className="mt-4">
+                      <DemoNotice tone="error">{actionError.message}</DemoNotice>
+                    </div>
+                  )}
+
+                  {!outcome && nearLimit && (
+                    <div className="mt-4">
+                      <DemoNotice tone="pending">
+                        Bạn đã từ chối {proposal.rejectionCount}/{proposal.maxRejectionCount} lần
+                        cho phép. Từ chối thêm {remaining} lần nữa, yêu cầu này sẽ tự huỷ.
+                      </DemoNotice>
+                    </div>
+                  )}
+
+                  {!outcome && (
                     <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void openUnitDetail(proposal)}
+                      >
+                        Xem khoang
+                      </Button>
                       <Button pending={isBusy} onClick={() => agree(proposal)}>
                         {!isBusy && <Check size={16} />}
                         Đồng ý
@@ -232,7 +358,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                     </div>
                   )}
 
-                  {rejectingId === proposal.id && (
+                  {rejectingId === proposal.id && !outcome && (
                     <div className="mt-4 bg-surface-subtle p-4">
                       <label className="grid gap-1.5 text-label text-muted">
                         Lý do từ chối
@@ -244,7 +370,13 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                         />
                       </label>
                       <div className="mt-3 flex items-center gap-2.5">
-                        <Button onClick={() => confirmReject(proposal)}>Xác nhận từ chối</Button>
+                        <Button
+                          disabled={!rejectNote.trim() || isBusy}
+                          pending={isBusy}
+                          onClick={() => confirmReject(proposal)}
+                        >
+                          Xác nhận từ chối
+                        </Button>
                         <button
                           className="border-0 bg-transparent px-3 py-2 text-small text-muted hover:text-ink"
                           onClick={() => {
@@ -261,14 +393,14 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
               );
             })}
 
-            {canceledIds.size > 0 && (
+            {orderCanceled && (
               <div className="bg-danger-soft p-4">
                 <p className="flex items-center gap-2 text-small font-semibold text-danger">
                   <AlertTriangle size={16} /> Yêu cầu đã bị huỷ
                 </p>
                 <p className="mt-1.5 text-label text-muted">
-                  Bạn đã từ chối đủ {MAX_REJECTIONS} lần nên yêu cầu này tự động huỷ. Vui lòng gửi
-                  yêu cầu mới nếu vẫn cần thuê kho.
+                  Bạn đã từ chối đủ số lần cho phép nên yêu cầu này tự động huỷ. Vui lòng gửi yêu
+                  cầu mới nếu vẫn cần thuê kho.
                 </p>
                 <Button
                   variant="secondary"
@@ -282,6 +414,99 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
             )}
           </div>
         ))}
+
+      {detailProposal && (
+        <>
+          <DetailPanel
+            title={`Khoang ${detailProposal.unitCode}`}
+            eyebrow={`${detailProposal.facilityName} · ${detailProposal.unitTypeName}`}
+            onClose={closeUnitDetail}
+          >
+            {detailState === "loading" && (
+              <SurfaceState variant="loading" title="Đang tải thông tin khoang…" />
+            )}
+            {detailState === "error" && <DemoNotice tone="error">{detailError}</DemoNotice>}
+            <div className="mt-4">
+              <button
+                type="button"
+                className="group relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-left"
+                onClick={() => setLightboxOpen(true)}
+                aria-label={`Phóng to hình minh hoạ khoang ${detailProposal.unitCode}`}
+              >
+                <UnitIllustration
+                  unitCode={detailProposal.unitCode}
+                  unitTypeName={detailProposal.unitTypeName}
+                  area={detailUnitType?.area}
+                  width={detailUnitType?.width}
+                  depth={detailUnitType?.depth}
+                  height={detailUnitType?.height}
+                />
+                <span className="absolute right-2 top-2 inline-flex items-center gap-1 bg-[rgba(16,20,19,0.82)] px-2 py-1 text-label font-semibold text-white">
+                  <Maximize2 size={13} /> Phóng to
+                </span>
+              </button>
+              <p className="mt-2 text-label text-muted">
+                Hình minh hoạ — khoang thực tế có thể khác.
+              </p>
+            </div>
+            <dl className="mt-5 grid gap-2.5">
+              <DetailRow label="Mã khoang" value={detailProposal.unitCode} />
+              <DetailRow label="Loại khoang" value={detailProposal.unitTypeName} />
+              <DetailRow label="Kích thước khoang" value={detailProposal.unitSize ?? "—"} />
+              {detailUnitType && (
+                <>
+                  <DetailRow label="Diện tích" value={`${detailUnitType.area} m²`} />
+                  <DetailRow
+                    label="Kích thước loại"
+                    value={`${detailUnitType.width} × ${detailUnitType.depth} × ${detailUnitType.height} m`}
+                  />
+                </>
+              )}
+              <DetailRow label="Cơ sở" value={detailProposal.facilityName} />
+              <DetailRow label="Địa chỉ" value={detailProposal.facilityAddress ?? "—"} />
+              <DetailRow
+                label="Giá thuê"
+                value={`${formatMoney(detailProposal.monthlyPrice)} / tháng`}
+              />
+              <DetailRow label="Ngày đề xuất" value={formatDate(detailProposal.createdAt)} />
+              <DetailRow
+                label="Đã từ chối"
+                value={`${detailProposal.rejectionCount}/${detailProposal.maxRejectionCount} lần`}
+              />
+            </dl>
+            {detailState === "error" && (
+              <Button
+                variant="secondary"
+                className="mt-4"
+                onClick={() => void openUnitDetail(detailProposal)}
+              >
+                Thử lại
+              </Button>
+            )}
+          </DetailPanel>
+
+          {lightboxOpen && (
+            <UnitIllustrationLightbox
+              unitCode={detailProposal.unitCode}
+              unitTypeName={detailProposal.unitTypeName}
+              area={detailUnitType?.area}
+              width={detailUnitType?.width}
+              depth={detailUnitType?.depth}
+              height={detailUnitType?.height}
+              onClose={() => setLightboxOpen(false)}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 text-small">
+      <dt className="shrink-0 text-muted">{label}</dt>
+      <dd className="m-0 max-w-[62%] break-words text-right font-semibold text-ink">{value}</dd>
     </div>
   );
 }
