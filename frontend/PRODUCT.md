@@ -62,8 +62,7 @@ Kiến trúc frontend hiện tại được xem là baseline tốt và phải đ
 ## Evidence on Hand
 
 - `README.md`: phạm vi prototype hiện tại, cách chạy và boundary frontend/backend.
-- `DESIGN.md`: visual source of truth cho hướng **Bãi kho** (concrete + signal yellow + Saira/Source Sans 3); app token migration đang chờ.
-- `design/proposal/kho-moc-redesign.html`: mockup tĩnh đã được duyệt cho Trang chủ, Tìm kho, Kho của tôi, FM queue và component kit; có light/dark theme.
+- `DESIGN.md`: visual source of truth cho hướng **Bãi kho** (concrete + signal yellow + Saira/Source Sans 3); token set đã áp dụng trong `src/`.
 - `../fe-pages/README.md` và các page spec trong `../fe-pages/`: route, actor, mục đích, dữ liệu, actions, states và edge cases.
 - `../fe-pages/README.md` và các page spec trong `../fe-pages/`: route, actor, mục đích, dữ liệu, actions, states và edge cases.
 - `../draft.md` và `../db-table-draft.md`: nguồn tham khảo cho terminology và dữ liệu hiển thị, không phải giấy phép tự khóa business rule.
@@ -110,4 +109,4 @@ Hướng hình ảnh đã được duyệt: **Bãi kho** — concrete lạnh, si
 - Business rule, status và API chưa chốt phải được giữ ở mức provisional trong UI.
 - Phạm vi và thứ tự triển khai các slice sau public/auth chưa được xem là cam kết release.
 - Prototype ưu tiên một visual system phổ thông, polished, light-first và dễ nhận diện; dark theme là biến thể đầy đủ, không phải mặc định.
-- Hướng **Bãi kho** đã được duyệt qua mockup nhưng chưa migrate token/component trong `src/`. Cho đến khi migrate, code có thể còn dùng hệ dark teal/lime cũ; không trộn hai hệ trong cùng một surface.
+- Hướng **Bãi kho** đã được duyệt và migrate token/component trong `src/`; không trộn hai hệ trong cùng một surface.

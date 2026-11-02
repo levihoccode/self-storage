@@ -164,7 +164,7 @@ components:
     padding: "10px 14px"
 ---
 
-<!-- STATUS: Target direction approved from design/proposal/kho-moc-redesign.html. The React app still carries the previous dark teal/lime token set until token migration lands. -->
+<!-- STATUS: Target direction approved. The React app uses the Bãi kho token set. -->
 
 # Design System: Kho Mộc Frontend
 
@@ -259,7 +259,7 @@ Dark is an alternate theme, not the default. Concrete becomes `#0E1211`, surface
 
 ## Layout
 
-The public page uses a 1200px content container with 24px desktop gutters and 16px mobile gutters (the presentation mockup renders at 1240/32; the app keeps `PAGE_CONTAINER`). The application shell uses a 236–268px ink sidebar, a 64px topbar and a content column capped at 1320px. The first viewport of the public landing is a two-column composition: a short statement on the left, a finder block on the right, then a full-width facility block list.
+The public page uses a 1200px content container with 24px desktop gutters and 16px mobile gutters (the app keeps `PAGE_CONTAINER`). The application shell uses a 236–268px ink sidebar, a 64px topbar and a content column capped at 1320px. The first viewport of the public landing is a two-column composition: a short statement on the left, a finder block on the right, then a full-width facility block list.
 
 Lists are stacks of blocks: a surface, 16px padding and an 8px gap between items. A list item never uses a bottom border. Tables are the exception: a header block and row blocks keep columns aligned, and 1px rules are allowed only when a dense table genuinely needs them. Sections are separated by surface tone and vertical spacing rather than a rule under every heading.
 
