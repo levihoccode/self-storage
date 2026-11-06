@@ -29,6 +29,11 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PaymentTransaction> findByVnpTxnRef(String vnpTxnRef);
 
+    /** Khoá giao dịch gốc khi ghi refund — hai request không được cùng tạo refund Success. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PaymentTransaction p where p.id = :id")
+    Optional<PaymentTransaction> findByIdForUpdate(@Param("id") Long id);
+
     /**
      * Có giao dịch nào của nhóm hóa đơn này còn mở không — {@code Pending} và tạo sau {@code since}.
      * Dùng cho khóa giao dịch ngắn hạn ở Flow 1.4; không khóa row vì chỉ là phép đọc.
@@ -57,6 +62,10 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     /** Giao dịch PAY/Success gần nhất của invoice — job booking dùng để sửa state sau listener lỗi. */
     Optional<PaymentTransaction> findFirstByInvoiceIdAndDirectionAndStatusOrderByPaidAtDesc(
             Long invoiceId, PaymentDirection direction, PaymentStatus status);
+
+    /** Giao dịch gốc gần nhất có thể hoàn: Success hoặc Duplicate. */
+    Optional<PaymentTransaction> findFirstByInvoiceIdAndDirectionAndStatusInOrderByPaidAtDesc(
+            Long invoiceId, PaymentDirection direction, Collection<PaymentStatus> statuses);
 
     /** Toàn bộ giao dịch PAY của nhóm invoice, mới nhất trước — read model cho FM. */
     List<PaymentTransaction> findByInvoiceIdInAndDirectionOrderByCreatedAtDesc(

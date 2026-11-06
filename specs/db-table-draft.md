@@ -258,7 +258,7 @@ Các bước:
 - amount - snapshot của giá hiệu lực tại thời điểm tạo hóa đơn.
 - created_at
 - due_date
-- refund_status (None/Required/Processing/Refunded) — tiền đã vào nhưng cần hoàn; tách khỏi `status`
+- refund_status (None/Required/Processing/AwaitingConfirmation/Refunded) — tiền đã vào nhưng cần hoàn; tách khỏi `status`. `AwaitingConfirmation` = FS/FM đã đưa tiền, chờ khách xác nhận; `Refunded` = khách đã xác nhận.
 - refund_reason (nullable)
 - refund_requested_at (nullable)
 - refunded_at (nullable)
@@ -425,17 +425,45 @@ Các bước:
 - `PENDING_ITEMS`: khoang còn tài sản, chưa hoàn tất trả kho, **chưa thu hồi `UnitAccessKey`** vì khách còn cần vào lấy đồ. Khách quay lại dọn thì cập nhật tiếp trên **cùng một bản ghi**, không tạo mới: `PENDING_ITEMS -> IN_PROGRESS` khi FS mở lại buổi kiểm tra, rồi `-> COMPLETED` hoặc quay lại `PENDING_ITEMS`. Mỗi lần cập nhật ghi `updated_at`.
 - `COMPLETED`: đủ 5 cột mốc `true`, khoang sẵn sàng chuyển `Maintenance`.
 # PaymentTransaction
+**Overview:** ledger tiền vào. Chỉ ghi giao dịch `PAY`; tiền ra dùng `RefundTransaction`.
+
 - invoice_id (N - 1: Invoice)
 - gateway_transaction_no (unique) - Mã giao dịch định danh từ cổng thanh toán/ngân hàng trả về (ví dụ mã vnpay_TransactionNo, payOS reference code, ...) -> Dùng để tra cứu, đối soát khi có khiếu nại
 - transaction_content
 - response_payload: JSON / TEXT, nullable -> Lưu toàn bộ log raw webhook/IPN để đối soát
 - vnp_txn_ref - mã tham chiếu merchant gửi sang VNPay, không trùng trong ngày -> dùng để tra cứu IPN và chống xử lý trùng (idempotent)
 - amount
-- direction (PAY/REFUND)
+- direction (PAY) — refund không ghi vào bảng này
 - failure_reason
 - paid_at
 - created_at
 - status (Pending/Failed/Success/Duplicate)
+# RefundTransaction
+**Overview:** ledger tiền ra, tách khỏi `PaymentTransaction`. Một lần handover thủ công tạo ngay `Success`; VNPay refund sau này có thể tạo `Pending`.
+
+- invoice_id (N - 1: Invoice)
+- source_transaction_id (N - 1: PaymentTransaction) — giao dịch `PAY` gốc, `Success` hoặc `Duplicate`
+- amount (amount > 0, MVP: bằng source_transaction.amount)
+- method (CASH/BANK_TRANSFER/VNPAY)
+- status (Pending/Success/Failed/Canceled)
+- reason_code (UNIT_UNAVAILABLE/DUPLICATE_PAYMENT/DEPOSIT_SURPLUS/OTHER) — snapshot tại lúc handover
+- reason_note (nullable; bắt buộc khi `reason_code=OTHER`)
+- gateway_ref (nullable)
+- evidence_url
+- note (nullable)
+- handled_by_account_id (N - 1: Account, nullable cho VNPay sau này)
+- disbursed_at (nullable; bắt buộc khi `Success`)
+- customer_confirmed_at (nullable)
+- disputed_at (nullable) — lần đầu khách báo chưa nhận
+- dispute_note (nullable) — note của lần dispute đầu
+- created_at
+- updated_at
+
+**Constraints**
+- Một `Success` cho mỗi `source_transaction_id` (partial unique index); partial refund nhiều lần để sau.
+- `source_transaction_id` phải là `PAY` của cùng `invoice_id` — service kiểm, DB chỉ giữ FK.
+- Không lưu secret/thông tin ngân hàng đầy đủ trong `note`/`evidence_url`/audit.
+
 # PaymentReconciliationCase
 - transaction_id (1 - 1: PaymentTransaction)
 - invoice_id
@@ -492,7 +520,9 @@ Các bước:
 | `PAYMENT_DUPLICATE` | Giao dịch Success thứ hai cho cùng invoice; không ghi Success lần hai | `PaymentTransaction` | System/IPN/Admin |
 | `RENTAL_ORDER_DEPOSITED` | Đơn chuyển sang đã đặt cọc | `RentalOrder` | System |
 | `STORAGE_UNIT_RESERVED` | Khoang chuyển sang Reserved | `StorageUnit` | System |
-| `MANUAL_REFUND_RECORDED` | Ghi nhận hoàn tiền thủ công | `PaymentTransaction` | Admin/FM |
+| `MANUAL_REFUND_RECORDED` | Ghi nhận FS/FM đã đưa tiền hoàn | `RefundTransaction` | FS/FM/Admin |
+| `REFUND_CUSTOMER_CONFIRMED` | Khách xác nhận đã nhận tiền hoàn | `RefundTransaction` | Customer |
+| `REFUND_CUSTOMER_DISPUTED` | Khách báo chưa nhận tiền hoàn | `RefundTransaction` | Customer |
 | `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau khi cọc dư — cần hoàn tiền | `RentalOrder` | Customer |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in | `Appointment` | System |
 | `FS_ASSIGNED` | FM phân công FS | `Appointment`, `RentalOrder` | FM |

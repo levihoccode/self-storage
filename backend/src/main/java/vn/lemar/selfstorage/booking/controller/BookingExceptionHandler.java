@@ -26,6 +26,7 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredEx
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
+import vn.lemar.selfstorage.booking.application.exception.RefundNotAllowedException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitFilterException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -112,6 +113,11 @@ public class BookingExceptionHandler {
     /** 409: hóa đơn hợp lệ nhưng hoàn cảnh hiện tại không cho thanh toán (Flow 1.4). */
     @ExceptionHandler(DepositNotAllowedException.class)
     public ResponseEntity<ApiError> handleDepositNotAllowed(DepositNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundNotAllowedException.class)
+    public ResponseEntity<ApiError> handleRefundNotAllowed(RefundNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
     }
 

@@ -14,8 +14,8 @@ Mô hình guard: [authorization.md › Models](authorization.md#models).
 
 - `Permission.code = <resource>.<action>`.
 - `resource` = tên bảng snake_case, **số ít**: `rental_request`, `rental_order`, `proposal_feedback`,
-  `rental_contract`, `handover_record`, `unit_access_key`, `payment_transaction`, `appointment`,
-  `notification`, `facility`.
+  `rental_contract`, `handover_record`, `unit_access_key`, `payment_transaction`,
+  `refund_transaction`, `appointment`, `notification`, `facility`.
 - `action` = động từ nghiệp vụ: `read`, `approve`, `reject`, `assign`, `create_other`, `refund`…
 - Mọi code dùng trong source (`can(...)`) phải có trong catalog **trước** khi wire.
 - Thêm code mới → cập nhật catalog này + seed `permissions` + `role_permissions`; không hard-code
@@ -48,7 +48,8 @@ Sắp theo code alphabet.
 | `invoice.pay` | Thanh toán hóa đơn | | | | | own | §1.4 |
 | `invoice.read` | Xem hóa đơn | | | F | | own | §1.4 |
 | `notification.create_other` | Tạo thông báo `OTHER` thủ công | G | G | | | | `POST /api/notifications` |
-| `payment_transaction.refund` | Ghi nhận hoàn tiền thủ công | | | F | | | §2.5 |
+| `payment_transaction.refund` | Ghi nhận hoàn tiền thủ công (FM cũ) | | | F | | | §2.5 |
+| `refund_transaction.handover` | Xác nhận đã đưa tiền hoàn | F | | | F | | #192 |
 | `proposal_feedback.override` | Override khoang đã bị từ chối (audit) | | | F | | | §1.3 |
 | `proposal_feedback.repropose` | Đề xuất lại khoang | | | F | | | §1.3 |
 | `proposal_feedback.respond` | Đồng ý/từ chối đề xuất | | | | | own | §1.3 |
@@ -68,6 +69,8 @@ Ghi chú:
 - Các dòng chỉ có `own` (`invoice.pay`, `appointment.create`, `handover_record.reject`,
   `proposal_feedback.respond`) không seed — guard ownership ở service. `invoice.read` có thêm FM
   scope `FACILITY`; khách vẫn đọc hoá đơn của mình qua ownership.
+- `refund_transaction.handover` là permission riêng cho FS và ADMIN; FM tiếp tục dùng
+  `payment_transaction.refund`. Không cấp FS quyền refund toàn hệ thống.
 
 ## Không thuộc catalog
 
