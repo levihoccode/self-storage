@@ -14,6 +14,8 @@ FS xác nhận khách đã đến; không body.
 ## Luồng / hành vi
 
 1. Khoá lịch; lịch phải `Pending`, do chính FS phụ trách và **chưa quá `end_at`** → 403/409 nếu sai.
+   Chỉ cho xác nhận sớm tối đa **15 phút** trước `started_at`; sớm hơn → 409
+   `"Chưa tới giờ hẹn. Chỉ có thể xác nhận khách đến sớm tối đa 15 phút."`
    Quá `end_at` → hệ thống huỷ no-show **ngay** (audit `APPOINTMENT_CANCELED_NO_SHOW`, notification khách)
    rồi trả 409; không đợi cron.
 2. `status = Done`, `arrived_at = now`; audit `APPOINTMENT_ARRIVED` (actor FS); phát event
@@ -31,6 +33,9 @@ curl -s -X POST http://localhost:8080/api/staff/appointments/1/arrive -H "Author
 
 # 409 — quá end_at
 # {"message":"Lịch đã quá khung giờ, không thể xác nhận khách đến","timestamp":"2026-11-04T03:52:11.390999337Z"}
+
+# 409 — sớm hơn 15 phút trước started_at
+# {"message":"Chưa tới giờ hẹn. Chỉ có thể xác nhận khách đến sớm tối đa 15 phút.","timestamp":"..."}
 ```
 
 ## Liên quan
