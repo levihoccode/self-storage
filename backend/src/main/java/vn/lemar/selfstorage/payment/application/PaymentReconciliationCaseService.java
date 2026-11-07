@@ -12,6 +12,7 @@ import vn.lemar.selfstorage.payment.application.dto.RefundCasePageView;
 import vn.lemar.selfstorage.payment.application.dto.RefundCaseView;
 import vn.lemar.selfstorage.payment.application.event.PaymentPendingReviewRequired;
 import vn.lemar.selfstorage.payment.application.exception.PendingPaymentFilterException;
+import vn.lemar.selfstorage.payment.application.exception.RefundQueueFilterException;
 import vn.lemar.selfstorage.payment.repository.PaymentReconciliationCaseRepository;
 
 /** Tạo/đọc/đóng case đối soát; không đổi trạng thái PaymentTransaction. */
@@ -69,6 +70,25 @@ public class PaymentReconciliationCaseService {
         validatePage(page, size);
         long total = repository.countRefundRequired();
         List<RefundCaseView> items = repository.findRefundRequiredPage((long) page * size, size)
+                .stream()
+                .map(row -> new RefundCaseView(row.invoiceId(), row.invoiceCode(), row.orderId(),
+                        row.amount(), row.refundStatus(), row.refundReason(), row.refundRequestedAt(),
+                        row.vnpTxnRef(), row.gatewayTransactionNo(), row.paidAt()))
+                .toList();
+        return new RefundCasePageView(items, page, size, total, totalPages(total, size));
+    }
+
+    @Transactional(readOnly = true)
+    public RefundCasePageView listRefunds(String view, int page, int size) {
+        validatePage(page, size);
+        String statuses = switch (view == null ? "active" : view.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "active" -> "'Required', 'Processing', 'AwaitingConfirmation'";
+            case "history" -> "'Refunded'";
+            default -> throw new RefundQueueFilterException(
+                    "view phải là active hoặc history: " + view);
+        };
+        long total = repository.countRefundPage(statuses);
+        List<RefundCaseView> items = repository.findRefundPage(statuses, (long) page * size, size)
                 .stream()
                 .map(row -> new RefundCaseView(row.invoiceId(), row.invoiceCode(), row.orderId(),
                         row.amount(), row.refundStatus(), row.refundReason(), row.refundRequestedAt(),

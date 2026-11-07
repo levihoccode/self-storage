@@ -93,7 +93,7 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V21__invoice_refund_state.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V24__refund_requests.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -133,6 +133,14 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
 - V21 thêm `invoices.refund_status/refund_reason/refund_requested_at/refunded_at` — invoice vẫn
   `Paid` khi tiền đã vào nhưng khoang không còn giữ được; refund là trục riêng. Audit check giữ đủ
   action của main + B4, gồm `APPOINTMENT_ARRIVED`.
+- V22 thêm `refund_transactions` (ledger tiền ra), `invoice.refund_status=AwaitingConfirmation`,
+  audit `RefundTransaction` + `REFUND_CUSTOMER_CONFIRMED`/`REFUND_CUSTOMER_DISPUTED`, và permission
+  `refund_transaction.handover` cho FS/ADMIN. Queue `GET /api/admin/payments/refunds` có
+  `view=active|history`.
+- V23 thêm `refund_transactions.disputed_at/dispute_note` để khách chỉ ghi nhận báo chưa nhận
+  một lần; lần gọi lặp không tạo audit/notification trùng.
+- V24 thêm `refund_requests` + `refund_request_lines` cho nghĩa vụ hoàn tiền có breakdown, và
+  permission `refund_transaction.request` cho FM/ADMIN. Request chưa nối handover.
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
@@ -175,7 +183,7 @@ chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration
   rollback theo.
 - Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
   hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
-- `AuditAction` (48 action) / `AuditEntityType` (12 loại) khớp Audit action catalog
+- `AuditAction` (54 action) / `AuditEntityType` (14 loại) khớp Audit action catalog
   (`specs/db-table-draft.md` › AuditLog); action không khớp entity → `IllegalStateException`
   (lỗi lập trình, 500).
 - Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =

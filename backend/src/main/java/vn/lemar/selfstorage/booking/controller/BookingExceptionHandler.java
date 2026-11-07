@@ -26,6 +26,8 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredEx
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
+import vn.lemar.selfstorage.booking.application.exception.RefundNotAllowedException;
+import vn.lemar.selfstorage.booking.application.exception.RefundRequestValidationException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitFilterException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -113,6 +115,16 @@ public class BookingExceptionHandler {
     @ExceptionHandler(DepositNotAllowedException.class)
     public ResponseEntity<ApiError> handleDepositNotAllowed(DepositNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundNotAllowedException.class)
+    public ResponseEntity<ApiError> handleRefundNotAllowed(RefundNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundRequestValidationException.class)
+    public ResponseEntity<ApiError> handleRefundRequestValidation(RefundRequestValidationException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 
     // ---- Lịch hẹn check-in (spec 1.5)

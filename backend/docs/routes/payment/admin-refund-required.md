@@ -1,11 +1,11 @@
 ---
 auth-model: permission-bound
-purpose: ADMIN xem các invoice đang có nghĩa vụ hoàn tiền; read-only, chưa ghi nhận hoàn tiền.
+purpose: ADMIN xem queue hoàn tiền đang mở và lịch sử; read-only.
 ---
-# GET /api/admin/payments/refunds?page=&size=
+# GET /api/admin/payments/refunds?page=&size=&view=
 
-Trả các invoice có `refund_status = Required`, kèm giao dịch `PAY/Success` gần nhất. Route
-read-only; chưa có endpoint ghi nhận hoàn tiền.
+Trả các invoice trong queue hoàn tiền, kèm giao dịch `PAY` gần nhất (`Success` hoặc `Duplicate`).
+Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 
 - **Actor / quyền:** role `ADMIN`.
 - **Contract chi tiết:** annotation tại `AdminRefundPaymentController.java`; Swagger UI —
@@ -14,22 +14,26 @@ read-only; chưa có endpoint ghi nhận hoàn tiền.
 ## Luồng / hành vi
 
 - `page` bắt đầu từ 0; `size` mặc định 20, tối đa 100; sai → `400`.
+- `view=active` (mặc định): `Required`, `Processing`, `AwaitingConfirmation`.
+- `view=history`: `Refunded`. Giá trị khác → `400`.
 - Query đọc từ `invoices`, không đọc từ case: khoản cần hoàn vẫn hiện dù chưa từng có case đối soát.
 - Mỗi dòng: `invoiceId`, `invoiceCode`, `orderId`, `amount`, `refundStatus`, `refundReason`,
   `refundRequestedAt`, `vnpTxnRef`, `gatewayTransactionNo`, `paidAt`.
-- `vnpTxnRef`/`gatewayTransactionNo`/`paidAt` lấy từ giao dịch `PAY/Success` gần nhất; có thể null
-  nếu chưa có giao dịch thành công.
+- `vnpTxnRef`/`gatewayTransactionNo`/`paidAt` lấy từ giao dịch `PAY` gần nhất (`Success` hoặc
+  `Duplicate`); có thể null nếu chưa có giao dịch.
 - Không đổi trạng thái invoice/transaction; không tạo refund transaction.
 
 ## Ghi chú nghiệp vụ
 
 - `refund_status=Required` được đặt khi tiền đã vào nhưng khoang không còn giữ được
   (`INVOICE_REFUND_REQUIRED`).
-- Hoàn tiền thủ công thuộc Flow 4; route này chỉ là queue hiển thị.
-- Khi có endpoint ghi nhận hoàn tiền, trạng thái sẽ chuyển `Required → Processing → Refunded`.
+- Queue active/history là query trên cùng `invoices` + `refund_transactions`; không có bảng history
+  riêng.
+- Trạng thái: `Required → AwaitingConfirmation → Refunded` sau handover/confirm.
 
 ## Liên quan
 
 - Case Pending: [admin-pending-payments.md](admin-pending-payments.md)
 - Nhánh thanh toán unit đã mất: [invoice-pay.md](../booking/invoice-pay.md)
+- Handover/confirm/dispute: [refund-handover.md](refund-handover.md), [refund-confirm.md](refund-confirm.md), [refund-dispute.md](refund-dispute.md)
 - Xem thêm: [routes.md](../../routes.md) · [index.md](../../index.md)

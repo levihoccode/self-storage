@@ -30,7 +30,8 @@ public class AdminRefundPaymentController {
     }
 
     @Operation(summary = "Khoản cần hoàn tiền",
-            description = "Các invoice có refund_status=Required, kèm giao dịch PAY/Success gần nhất. "
+            description = "Queue các khoản hoàn tiền đang mở (Required, Processing, "
+                    + "AwaitingConfirmation) hoặc lịch sử (Refunded), kèm giao dịch PAY gần nhất. "
                     + "page bắt đầu từ 0; size tối đa 100. Chỉ ADMIN; không đổi trạng thái.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công"),
@@ -44,8 +45,10 @@ public class AdminRefundPaymentController {
     public ResponseEntity<ApiEnvelope<RefundCasePageView>> list(
             @Parameter(description = "Trang, bắt đầu từ 0") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Số dòng mỗi trang, tối đa 100")
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "active hoặc history")
+            @RequestParam(defaultValue = "active") String view) {
         return ResponseEntity.ok(ApiEnvelope.ok(LIST_MESSAGE,
-                caseService.listRefundRequired(page, size)));
+                caseService.listRefunds(view, page, size)));
     }
 }

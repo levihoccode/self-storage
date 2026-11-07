@@ -127,6 +127,14 @@ public class NotificationTemplateCatalog {
                 "Khoản cọc sẽ được hoàn",
                 "Đơn {{orderCode}} đã thanh toán nhưng khoang không còn giữ được. "
                         + "Bộ phận vận hành sẽ liên hệ hoàn tiền.");
+        put(NotificationType.REFUND_AWAITING_CONFIRMATION, NotificationRecipient.CUSTOMER,
+                "Cơ sở đã đưa tiền hoàn",
+                "Đơn {{orderCode}}: cơ sở đã đưa {{amount}}. Vui lòng xác nhận đã nhận tiền "
+                        + "trong mục Hoá đơn.");
+        put(NotificationType.REFUND_DISPUTE_RECORDED, NotificationRecipient.CUSTOMER,
+                "Đã ghi nhận báo chưa nhận tiền",
+                "Đơn {{orderCode}}: yêu cầu đối soát khoản hoàn {{amount}} đã được ghi nhận. "
+                        + "Bộ phận vận hành sẽ kiểm tra và phản hồi.");
         put(NotificationType.UNIT_CHANGE_PAYMENT_REQUIRED, NotificationRecipient.CUSTOMER,
                 "Thanh toán để giữ khoang mới",
                 "Đơn {{orderCode}}: cần thanh toán thêm {{amount}} để giữ khoang mới. "
