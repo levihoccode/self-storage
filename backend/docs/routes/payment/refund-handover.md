@@ -37,6 +37,19 @@ Không có bước FM duyệt sau đó.
 
 Số tiền **không** có trong request; service lấy `invoice.amount` và kiểm ≤ `source_transaction.amount`.
 
+## Phạm vi
+
+Route này là **xác nhận đã chi tiền cho nghĩa vụ hoàn tiền của invoice**, không phải route tạo
+nghĩa vụ hoàn tiền và không phải route riêng cho từng lý do. Nghĩa vụ phải có trước với
+`invoice.refund_status = Required`/`Processing`.
+
+Các loại hoàn tiền sau này (trả cọc khi kết thúc thuê, dư phí, chi phí sửa chữa) phải tạo nghĩa vụ
+trước rồi dùng lại route này. Nếu cần tính toán hoặc duyệt riêng, thêm endpoint `settle`/`approve`
+trước bước handover; không thêm một route handover thứ hai.
+
+`payment_transaction.refund` là permission cũ của FM cho action này, không phải quyền wildcard cho
+mọi chức năng refund tương lai. Mỗi endpoint refund mới phải tự khai báo guard/permission.
+
 ## Hành vi
 
 1. Kiểm permission facility của actor.

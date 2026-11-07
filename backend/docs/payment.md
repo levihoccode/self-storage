@@ -124,8 +124,8 @@ Required/Processing
 ```
 
 - **FS/FM handover:** `POST /api/invoices/{invoiceId}/refund` với `method`, `evidenceUrl`,
-  `gatewayRef?`, `note?`, `sourceTransactionId?`, `reasonNote?`. Số tiền lấy từ giao dịch PAY gốc
-  (`Success` hoặc `Duplicate`), không nhận từ client. FS dùng permission
+  `gatewayRef?`, `note?`, `sourceTransactionId?`, `reasonNote?`. Số tiền lấy từ `invoice.amount`
+  và phải ≤ giao dịch PAY gốc (`Success` hoặc `Duplicate`), không nhận amount từ client. FS dùng permission
   `refund_transaction.handover`; FM dùng `payment_transaction.refund`; ADMIN override; tất cả kiểm
   facility scope. Evidence bắt buộc.
 - **Khách xác nhận:** `POST /api/invoices/{invoiceId}/refund-confirm`; chỉ nhận khi refund ledger
@@ -137,11 +137,38 @@ Required/Processing
   trùng. Support request/Flow 7 xử lý tiếp.
 - **Bất biến:** một `refund_transactions` `Success` cho mỗi `source_transaction_id` (partial unique
   index V22); `status='Success'` bắt buộc có `disbursed_at`; `reason_code=OTHER` bắt buộc
-  `reason_note`. `reason_code` snapshot từ `invoices.refund_reason` tại lúc handover.
+  `reason_note`. `reason_code` snapshot từ `invoices.refund_reason` tại lúc handover. Partial refund
+  từ cùng một source chưa hỗ trợ — cần đổi unique index và contract trước khi dùng cho hoàn cọc
+  một phần.
 - **Queue:** `GET /api/admin/payments/refunds?view=active|history`; `active` gồm `Required`,
   `Processing`, `AwaitingConfirmation`; `history` gồm `Refunded`.
 - **Notification:** sau khi handover commit, listener gửi `REFUND_AWAITING_CONFIRMATION` cho khách
   (in-app + email). Gửi lỗi không rollback nghiệp vụ.
+
+### Phạm vi route handover
+
+`POST /api/invoices/{invoiceId}/refund` là **action chi tiền cho một nghĩa vụ hoàn tiền đã tồn tại**
+trên invoice. Route không tạo nghĩa vụ hoàn tiền, không quyết định invoice có được hoàn hay không,
+và không phải route riêng cho từng lý do.
+
+```text
+Flow nghiệp vụ tạo nghĩa vụ
+  → invoice.refund_status = Required
+  → POST /invoices/{id}/refund (FS/FM xác nhận đã đưa tiền)
+  → khách confirm
+```
+
+- Điều kiện vào route: invoice đang `Required`/`Processing`; source PAY cùng invoice; amount ≤ source.
+- `reason_code` chỉ là snapshot lý do tại lúc handover; không thay đổi permission hay endpoint.
+- Các loại hoàn tiền tương lai như trả cọc khi kết thúc thuê, dư phí hoặc chi phí sửa chữa phải
+  tạo nghĩa vụ trước (set `refund_status=Required` hoặc tạo invoice/obligation tương ứng), rồi dùng
+  lại route handover này.
+- Nếu nghiệp vụ cần bước tính toán/duyệt riêng, thêm endpoint `settle`/`approve` trước handover;
+  không thêm endpoint handover thứ hai trùng chức năng.
+
+`payment_transaction.refund` là permission cũ của FM cho action handover hiện tại; nó **không** phải
+quyền wildcard cho mọi endpoint refund tương lai. Mỗi endpoint refund mới phải tự khai báo guard và
+permission tương ứng.
 
 ## Known limitations
 

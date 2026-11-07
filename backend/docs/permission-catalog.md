@@ -48,8 +48,8 @@ Sắp theo code alphabet.
 | `invoice.pay` | Thanh toán hóa đơn | | | | | own | §1.4 |
 | `invoice.read` | Xem hóa đơn | | | F | | own | §1.4 |
 | `notification.create_other` | Tạo thông báo `OTHER` thủ công | G | G | | | | `POST /api/notifications` |
-| `payment_transaction.refund` | Ghi nhận hoàn tiền thủ công (FM cũ) | | | F | | | §2.5 |
-| `refund_transaction.handover` | Xác nhận đã đưa tiền hoàn | F | | | F | | #192 |
+| `payment_transaction.refund` | Ghi nhận hoàn tiền thủ công (legacy của FM) | | | F | | | §2.5 |
+| `refund_transaction.handover` | Xác nhận đã đưa tiền hoàn cho invoice | F | | | F | | §2.5 |
 | `proposal_feedback.override` | Override khoang đã bị từ chối (audit) | | | F | | | §1.3 |
 | `proposal_feedback.repropose` | Đề xuất lại khoang | | | F | | | §1.3 |
 | `proposal_feedback.respond` | Đồng ý/từ chối đề xuất | | | | | own | §1.3 |
@@ -70,7 +70,9 @@ Ghi chú:
   `proposal_feedback.respond`) không seed — guard ownership ở service. `invoice.read` có thêm FM
   scope `FACILITY`; khách vẫn đọc hoá đơn của mình qua ownership.
 - `refund_transaction.handover` là permission riêng cho FS và ADMIN; FM tiếp tục dùng
-  `payment_transaction.refund`. Không cấp FS quyền refund toàn hệ thống.
+  `payment_transaction.refund` cho action handover hiện tại. Không cấp FS quyền refund toàn hệ thống.
+- `payment_transaction.refund` là tên legacy, không phải quyền wildcard cho mọi chức năng refund
+  tương lai. Endpoint refund mới phải khai báo permission/guard riêng.
 
 ## Không thuộc catalog
 
