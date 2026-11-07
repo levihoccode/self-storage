@@ -263,6 +263,7 @@ class AppointmentServiceIntegrationTest {
             assertThat(row.attempt()).isEqualTo(1);
             assertThat(row.rebooked()).isFalse();
             assertThat(row.rebookReason()).isNull();
+            assertThat(row.previousCancelReason()).isNull();
         });
         assertThat(after).singleElement().satisfies(row -> assertThat(row.staffEmail()).isEqualTo("fs1@lemar.vn"));
         assertThat(queryService.listForFacility(q7, day.plusDays(1))).isEmpty();
@@ -316,6 +317,7 @@ class AppointmentServiceIntegrationTest {
         assertThat(row.attempt()).isEqualTo(2);
         assertThat(row.rebooked()).isTrue();
         assertThat(row.rebookReason()).isEqualTo("Quá giờ và khách không đến");
+        assertThat(row.previousCancelReason()).isEqualTo("Quá giờ và khách không đến");
     }
 
     @Test
@@ -342,6 +344,7 @@ class AppointmentServiceIntegrationTest {
         assertThat(row.attempt()).isEqualTo(2);
         assertThat(row.rebooked()).isTrue();
         assertThat(row.rebookReason()).isEqualTo("Chưa hoàn tất bàn giao trong hạn");
+        assertThat(row.previousCancelReason()).isEqualTo("Lý do cũ");
     }
 
     @Test
