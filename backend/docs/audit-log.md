@@ -67,6 +67,7 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | `payment` | `MANUAL_REFUND_RECORDED` | `RefundTransaction` | `payment/application/RefundTransactionService.recordSuccess` — FS/FM xác nhận đã đưa tiền, `newValue` gồm source/amount/method/reason/status/disbursedAt; actor = FS/FM/Admin |
 | `payment` | `REFUND_CUSTOMER_CONFIRMED` | `RefundTransaction` | `payment/application/RefundTransactionService.confirm` — khách xác nhận đã nhận; chạy một lần cho mỗi refund, lặp lại không ghi audit |
 | `payment` | `REFUND_CUSTOMER_DISPUTED` | `RefundTransaction` | `payment/application/RefundTransactionService.dispute` — khách báo chưa nhận; giữ invoice `AwaitingConfirmation` |
+| `payment` | `REFUND_REQUESTED` | `RefundRequest` | `payment/application/RefundRequestService.create` — FM/Admin tạo nghĩa vụ hoàn tiền, `newValue` gồm amount/formula/version/status |
 | `booking` | `RENTAL_ORDER_CANCELED` | `RentalOrder`, `ProposalFeedback`, `StorageUnit` | `booking/application/RentalOrderCancellation.cancel` — một bản ghi mỗi entity, cùng lý do huỷ |
 | `booking` | `DEPOSIT_REFUND_REQUIRED` | `RentalOrder` | `booking/application/ProposalService.issueDeposit` — đổi khoang sau khi cọc dư; actor = customer, FM nhận notification hoàn tiền thủ công — hoàn tự động thuộc Flow 4, chưa có trong code |
 | `booking` | `UNIT_CHANGE_RELEASED` | `StorageUnit` | `booking/application/ProposalService.releaseReplacedUnit` — nhả khoang cũ khi khách đồng ý khoang mới sau khi đã cọc; actor = customer |

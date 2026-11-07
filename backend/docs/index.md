@@ -93,7 +93,7 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V23__refund_dispute_once.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V24__refund_requests.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -139,6 +139,8 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
   `view=active|history`.
 - V23 thêm `refund_transactions.disputed_at/dispute_note` để khách chỉ ghi nhận báo chưa nhận
   một lần; lần gọi lặp không tạo audit/notification trùng.
+- V24 thêm `refund_requests` + `refund_request_lines` cho nghĩa vụ hoàn tiền có breakdown, và
+  permission `refund_transaction.request` cho FM/ADMIN. Request chưa nối handover.
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
@@ -181,7 +183,7 @@ chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration
   rollback theo.
 - Một thao tác đổi nhiều entity → gọi `record` một lần cho mỗi entity; ví dụ `RENTAL_ORDER_CANCELED`
   hợp lệ với 4 loại entity (`RentalOrder`, `StorageUnit`, `ProposalFeedback`, `RentalContract`).
-- `AuditAction` (53 action) / `AuditEntityType` (13 loại) khớp Audit action catalog
+- `AuditAction` (54 action) / `AuditEntityType` (14 loại) khớp Audit action catalog
   (`specs/db-table-draft.md` › AuditLog); action không khớp entity → `IllegalStateException`
   (lỗi lập trình, 500).
 - Cột `entity_id` lưu dạng chuỗi; `old_value`/`new_value` là JSONB; `actor_account_id` null =

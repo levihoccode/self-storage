@@ -48,6 +48,7 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | GET | `/api/admin/payments/pending` | Bearer + role `ADMIN` | Danh sách case Pending cần đối soát, có pagination | [routes/payment/admin-pending-payments.md](routes/payment/admin-pending-payments.md) |
 | GET | `/api/admin/payments/refunds` | Bearer + role `ADMIN` | Queue hoàn tiền `active`/`history`, có pagination | [routes/payment/admin-refund-required.md](routes/payment/admin-refund-required.md) |
 | POST | `/api/invoices/{invoiceId}/refund` | FS `refund_transaction.handover` / FM `payment_transaction.refund` / ADMIN; facility scope | FS/FM xác nhận đã đưa tiền hoàn | [routes/payment/refund-handover.md](routes/payment/refund-handover.md) |
+| POST | `/api/refund-requests` | FM/ADMIN; `refund_transaction.request` + facility scope | Tạo nghĩa vụ hoàn tiền có breakdown/final amount | [routes/payment/refund-request-create.md](routes/payment/refund-request-create.md) |
 | POST | `/api/invoices/{invoiceId}/refund-confirm` | Chủ invoice + `ACCOUNT_ACTIVE` | Khách xác nhận đã nhận tiền hoàn | [routes/payment/refund-confirm.md](routes/payment/refund-confirm.md) |
 | POST | `/api/invoices/{invoiceId}/refund-dispute` | Chủ invoice + `ACCOUNT_ACTIVE` | Khách báo chưa nhận tiền hoàn | [routes/payment/refund-dispute.md](routes/payment/refund-dispute.md) |
 | POST | `/api/admin/payments/{txnRef}/reconcile` | Bearer + role `ADMIN` | Chốt thủ công giao dịch Pending theo portal VNPay | [routes/payment/manual-reconcile.md](routes/payment/manual-reconcile.md) |

@@ -35,10 +35,12 @@ thì mở issue theo workflow; file này không thay thế issue.
 - **Queue vận hành:** endpoint hiện tại là `GET /api/admin/payments/refunds` (ADMIN). FM cần
   queue theo facility cho công việc handover; admin chỉ nên giữ cross-facility oversight. Chưa mở
   issue riêng.
-- **Hoàn cọc khi kết thúc thuê:** flow quyết toán phải tạo nghĩa vụ hoàn trước (set
-  `refund_status=Required` trên invoice cọc hoặc tạo obligation riêng), rồi dùng lại
-  `POST /api/invoices/{invoiceId}/refund`. Nếu cần khấu trừ/duyệt, thêm `settle`/`approve` trước
-  handover, không thêm endpoint handover trùng.
+- **Refund request:** `POST /api/refund-requests` đã tạo obligation/lines/formula snapshot nhưng
+  chưa nối handover. Cần đổi handover sang `refundRequestId` và chuyển request `Requested → Disbursed`
+  trước khi dùng vận hành.
+- **Hoàn cọc khi kết thúc thuê:** flow quyết toán tạo request với lines cọc/khấu trừ; sau đó dùng
+  handover theo request. Nếu cần duyệt, thêm `approve` trước handover, không thêm endpoint handover
+  trùng.
 - **Partial refund:** hiện một `Success` cho mỗi `source_transaction_id`; hoàn cọc một phần từ cùng
   giao dịch cọc cần thiết kế lại unique index và contract amount trước khi implement.
 - **Per-reason policy:** `payment_transaction.refund`/`refund_transaction.handover` hiện cho phép

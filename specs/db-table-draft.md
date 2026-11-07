@@ -464,6 +464,36 @@ Các bước:
 - `source_transaction_id` phải là `PAY` của cùng `invoice_id` — service kiểm, DB chỉ giữ FK.
 - Không lưu secret/thông tin ngân hàng đầy đủ trong `note`/`evidence_url`/audit.
 
+# RefundRequest
+**Overview:** nghĩa vụ hoàn tiền được tạo trước khi chi tiền. Chưa phải ledger tiền ra.
+
+- invoice_id (N - 1: Invoice, nullable)
+- order_id (N - 1: RentalOrder, nullable)
+- amount — final amount server tính từ lines
+- reason_code (UNIT_UNAVAILABLE/DUPLICATE_PAYMENT/DEPOSIT_SURPLUS/OTHER)
+- reason_note (nullable; bắt buộc khi reason_code=OTHER)
+- status (Requested/Approved/Disbursed/Canceled)
+- calculation_version
+- calculation_input (JSONB snapshot input/policy)
+- formula_text — chỉ để hiển thị/audit
+- requested_by_account_id (N - 1: Account)
+- created_at/updated_at
+
+**Constraints**
+- Ít nhất một trong invoice_id/order_id.
+- Một request active (`Requested`/`Approved`) cho mỗi invoice; request order-only có unique riêng.
+- Final amount > 0 và bằng `sum(ADD) - sum(SUBTRACT)` của lines.
+
+# RefundRequestLine
+- refund_request_id (N - 1: RefundRequest)
+- component_code (DEPOSIT_PAID/DEPOSIT_REQUIRED/UNIT_CHANGE_FEE/UNPAID_RENT/REPAIR_FEE/CLEANING_FEE/PRIOR_REFUND/GOODWILL/ADJUSTMENT/OTHER)
+- direction (ADD/SUBTRACT)
+- amount (> 0)
+- label
+- source_type/source_id (nullable)
+- note (nullable)
+- sort_order
+
 # PaymentReconciliationCase
 - transaction_id (1 - 1: PaymentTransaction)
 - invoice_id
@@ -523,6 +553,7 @@ Các bước:
 | `MANUAL_REFUND_RECORDED` | Ghi nhận FS/FM đã đưa tiền hoàn | `RefundTransaction` | FS/FM/Admin |
 | `REFUND_CUSTOMER_CONFIRMED` | Khách xác nhận đã nhận tiền hoàn | `RefundTransaction` | Customer |
 | `REFUND_CUSTOMER_DISPUTED` | Khách báo chưa nhận tiền hoàn | `RefundTransaction` | Customer |
+| `REFUND_REQUESTED` | FM/Admin tạo nghĩa vụ hoàn tiền thủ công | `RefundRequest` | FM/Admin |
 | `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau khi cọc dư — cần hoàn tiền | `RentalOrder` | Customer |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in | `Appointment` | System |
 | `FS_ASSIGNED` | FM phân công FS | `Appointment`, `RentalOrder` | FM |

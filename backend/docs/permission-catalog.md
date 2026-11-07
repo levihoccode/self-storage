@@ -50,6 +50,7 @@ Sắp theo code alphabet.
 | `notification.create_other` | Tạo thông báo `OTHER` thủ công | G | G | | | | `POST /api/notifications` |
 | `payment_transaction.refund` | Ghi nhận hoàn tiền thủ công (legacy của FM) | | | F | | | §2.5 |
 | `refund_transaction.handover` | Xác nhận đã đưa tiền hoàn cho invoice | F | | | F | | §2.5 |
+| `refund_transaction.request` | Tạo nghĩa vụ hoàn tiền thủ công | F | | F | | | §2.5 |
 | `proposal_feedback.override` | Override khoang đã bị từ chối (audit) | | | F | | | §1.3 |
 | `proposal_feedback.repropose` | Đề xuất lại khoang | | | F | | | §1.3 |
 | `proposal_feedback.respond` | Đồng ý/từ chối đề xuất | | | | | own | §1.3 |
@@ -73,6 +74,7 @@ Ghi chú:
   `payment_transaction.refund` cho action handover hiện tại. Không cấp FS quyền refund toàn hệ thống.
 - `payment_transaction.refund` là tên legacy, không phải quyền wildcard cho mọi chức năng refund
   tương lai. Endpoint refund mới phải khai báo permission/guard riêng.
+- `refund_transaction.request` chỉ tạo nghĩa vụ; FS không có quyền tạo nghĩa vụ, chỉ handover.
 
 ## Không thuộc catalog
 
