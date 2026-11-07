@@ -216,6 +216,9 @@ export function AppointmentSchedulePage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusTag tone="success">Check-in</StatusTag>
+                    {appointment.rebooked && (
+                      <StatusTag tone="info">Đặt lại lần {appointment.attempt}</StatusTag>
+                    )}
                     <strong className="text-small font-semibold text-ink">
                       {appointment.customerName ?? appointment.customerEmail}
                     </strong>
@@ -223,6 +226,11 @@ export function AppointmentSchedulePage() {
                   <span className="mt-1.5 block text-label text-muted">
                     Khoang {appointment.unitCode ?? "—"} · {formatTimeRange(appointment)}
                   </span>
+                  {appointment.rebooked && appointment.rebookReason && (
+                    <span className="mt-1 block text-label text-muted">
+                      Lý do lần trước: {appointment.rebookReason}
+                    </span>
+                  )}
                 </div>
                 <span className="flex items-center gap-1.5 whitespace-nowrap">
                   {assignedName ? (
@@ -249,6 +257,17 @@ export function AppointmentSchedulePage() {
             <span>{openAppointment.customerEmail}</span>
             <span>Khoang {openAppointment.unitCode ?? "—"}</span>
             <span>{formatTimeRange(openAppointment)}</span>
+            {openAppointment.rebooked && (
+              <div className="mt-1 grid gap-1 border-t border-rule pt-2 text-label">
+                <span>Đặt lại lần {openAppointment.attempt}</span>
+                {openAppointment.rebookReason && (
+                  <span>Lý do lần trước: {openAppointment.rebookReason}</span>
+                )}
+                {openAppointment.previousCancelReason && (
+                  <span>Lý do huỷ lịch: {openAppointment.previousCancelReason}</span>
+                )}
+              </div>
+            )}
           </div>
 
           {assignError && (

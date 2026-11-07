@@ -16,6 +16,10 @@ export type FmAppointment = {
   customerEmail: string;
   staffId: number | null;
   staffEmail: string | null;
+  attempt: number;
+  rebooked: boolean;
+  rebookReason: string | null;
+  previousCancelReason: string | null;
 };
 
 function accessToken(): string | undefined {
