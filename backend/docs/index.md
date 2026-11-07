@@ -21,7 +21,8 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 Hiện tại `identity` xử lý xác thực/RBAC; `facility` cung cấp public API kiểm tra facility tồn tại,
 catalog cơ sở public và đọc khoang theo cơ sở; `audit` ghi vết thao tác nghiệp vụ nhạy cảm; `media`
 upload file (ảnh/PDF) lên Cloudinary và dọn asset theo batch; `booking` có luồng nội bộ convert
-request đã duyệt thành đơn + proposal ([booking/conversion.md](booking/conversion.md)).
+request đã duyệt thành đơn + proposal ([booking/conversion.md](booking/conversion.md));
+`handover` có data layer bàn giao + listener set `due_at` ([handover/records.md](handover/records.md)).
 
 Layout trong một module:
 
@@ -72,6 +73,7 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `LOGIN_RATE_LIMIT_EMAIL_MAX` | Số lần đăng nhập sai tối đa theo email / window | `5` |
 | `LOGIN_RATE_LIMIT_IP_MAX` | Số lần đăng nhập sai tối đa theo IP / window | `20` |
 | `LOGIN_RATE_LIMIT_WINDOW` | Cửa sổ đếm lần đăng nhập sai | `PT15M` |
+| `REDIS_HOST` | Redis host cho rate-limit auth / cache | `localhost` |
 | `VNPAY_TMN_CODE` | Mã website đăng ký trên VNPay | — (bắt buộc) |
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc) |
@@ -91,7 +93,7 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V12__media_uploads.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V21__invoice_refund_state.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -109,13 +111,28 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
 - Seed policy `invoice.deposit_months = 1`: tiền cọc = giá thuê hiệu lực
   (`storage_units.monthly_price`, trống thì `unit_types.monthly_price`) × số tháng này.
 - V9 seed `fee.unit_change = 0` (Flow 4 chốt giá trị) và thêm audit action `DEPOSIT_REFUND_REQUIRED`
-  cho trường hợp đổi khoang sau khi cọc dư — trước B4, FM hoàn thủ công; B4 hoàn tự động về thẻ đã liên kết.
+  cho trường hợp đổi khoang sau khi cọc dư — hiện FM hoàn thủ công; hoàn tự động thuộc Flow 4, chưa có trong code.
 - V10 thêm audit action `UNIT_CHANGE_RELEASED` — nhả khoang cũ khi khách đổi khoang sau khi đã cọc;
-  khoang mới chưa reserve cho tới khi thanh toán (B4); trường hợp `delta ≤ 0` cần follow-up reserve riêng.
+  khoang mới chưa reserve cho tới khi thanh toán cọc bổ sung; trường hợp `delta ≤ 0` cần follow-up reserve riêng.
 - V11 thêm type `DepositSupplement` cho hoá đơn chênh lệch cọc và 2 partial unique index: một `Deposit`
   active (Unpaid/Paid) + một `DepositSupplement` Unpaid trên mỗi đơn.
 - V12 thêm `media_uploads` — theo dõi upload theo batch, dọn asset chưa attach khi Hủy (chi tiết ở
   [routes/media/delete-batch.md](routes/media/delete-batch.md)).
+- V13 thêm `accounts.name`/`accounts.phone` và backfill từ rental request cũ.
+- V14 thêm audit action `APPOINTMENT_ARRIVED` cho FS xác nhận khách đến.
+- V15 đặt `appointments.started_at/end_at` NOT NULL; no-show và notification đọc trực tiếp hai mốc.
+- V16 seed `handover.due_days = 1` — hạn hoàn tất bàn giao sau khi khách đến (Flow 2.1).
+- V17 thêm status `Duplicate` cho `payment_transactions` và audit action `PAYMENT_DUPLICATE`; dùng khi
+  một nguồn xác nhận Success thứ hai cho cùng invoice — tiền vào nhưng không ghi Success lần hai.
+- V18 thêm partial unique index `(invoice_id) WHERE direction = 'PAY' AND status = 'Success'`: DB
+  chốt cuối cho bất biến một `PAY/Success` mỗi invoice. Migration fail nếu dữ liệu cũ đã vi phạm.
+- V19 cấp `invoice.read` scope `FACILITY` cho FM — xem hoá đơn cơ sở mình phụ trách; ownership của
+  khách vẫn kiểm ở service, không seed thành role permission.
+- V20 thêm `payment_reconciliation_cases` — case Pending quá hạn cho ADMIN, lưu evidence/note/kết quả
+  reconcile; không đổi trạng thái transaction.
+- V21 thêm `invoices.refund_status/refund_reason/refund_requested_at/refunded_at` — invoice vẫn
+  `Paid` khi tiền đã vào nhưng khoang không còn giữ được; refund là trục riêng. Audit check giữ đủ
+  action của main + B4, gồm `APPOINTMENT_ARRIVED`.
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
@@ -245,6 +262,8 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
 | [booking/conversion.md](booking/conversion.md) | Convert request → đơn + proposal, claim sau xác minh |
 | [booking/proposal-flow.md](booking/proposal-flow.md) | Đồng ý / từ chối đề xuất khoang, đề xuất lại: sơ đồ, state, invariant |
+| [booking/appointment-no-show.md](booking/appointment-no-show.md) | Cron no-show check-in, guard `noShowDue`, audit/notification |
+| [handover/records.md](handover/records.md) | `HandoverRecord` + `RentalContract`, `due_at` Flow 2.1, luật huỷ |
 | [flows/cancellation-cascade.md](flows/cancellation-cascade.md) | Cascade huỷ đơn: entity, khoang, audit, notification |
 | [routes.md](routes.md) | Index toàn bộ route hiện có |
 | [routes/health.md](routes/health.md) | `GET /api/health` |
