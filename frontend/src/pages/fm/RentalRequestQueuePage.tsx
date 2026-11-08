@@ -93,6 +93,19 @@ function nextActionLabel(request: QueueItem) {
       return "Chờ khách phản hồi";
     case "REPROPOSE_UNIT":
       return "Cần đề xuất lại";
+    case "VIEW":
+      if (request.orderStatus === "Pending") {
+        return request.lastProposal?.status === "Agreed" ? "Chờ khách thanh toán" : "Chờ xử lý";
+      }
+      if (request.orderStatus === "Deposited") return "Chờ khách đặt lịch";
+      if (request.orderStatus === "Scheduled" || request.orderStatus === "InProgress") {
+        return "Đã có lịch";
+      }
+      if (request.orderStatus === "Canceled" || request.orderStatus === "Done") {
+        return "Đã đóng";
+      }
+      if (request.status === "Approved") return "Chờ khách xác minh email";
+      return STATUS_LABEL[request.status];
     default:
       return STATUS_LABEL[request.status];
   }
