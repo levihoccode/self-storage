@@ -62,9 +62,6 @@ export type RentalRequestStatus = "Pending" | "Rejected" | "Approved" | "Convert
 
 export type RejectReason = "UNIT_UNAVAILABLE" | "UNIT_MISMATCH" | "CUSTOMER_REQUEST" | "OTHER";
 
-export type RentalRequestNextAction =
-  "APPROVE_REQUEST" | "WAIT_CUSTOMER" | "REPROPOSE_UNIT" | "VIEW";
-
 export type RentalRequestSummary = {
   id: number;
   customerName: string;
@@ -78,7 +75,7 @@ export type RentalRequestSummary = {
   expiresAt: string | null;
   orderId: number | null;
   orderStatus: string | null;
-  nextAction: RentalRequestNextAction;
+  needsRepropose: boolean;
   lastProposal: {
     id: number;
     unitCode: string;

@@ -48,15 +48,13 @@ const TABS: {
   {
     value: "Pending",
     label: "Chờ xử lý",
-    matches: (request) =>
-      request.nextAction === "APPROVE_REQUEST" || request.nextAction === "REPROPOSE_UNIT",
+    matches: (request) => request.status === "Pending" || request.needsRepropose,
   },
   {
     value: "Approved",
-    label: "Đã duyệt",
+    label: "Đã xử lý",
     matches: (request) =>
-      (request.status === "Approved" || request.status === "Converted") &&
-      request.nextAction !== "REPROPOSE_UNIT",
+      (request.status === "Approved" || request.status === "Converted") && !request.needsRepropose,
   },
   { value: "Rejected", label: "Từ chối", matches: (request) => request.status === "Rejected" },
   { value: "Expired", label: "Hết hạn", matches: (request) => request.status === "Expired" },
@@ -85,35 +83,16 @@ const REJECT_REASON_LABEL: Record<RejectReason, string> = {
   OTHER: "Lý do khác",
 };
 
-function nextActionLabel(request: QueueItem) {
-  switch (request.nextAction) {
-    case "APPROVE_REQUEST":
-      return "Chờ xử lý";
-    case "WAIT_CUSTOMER":
-      return "Chờ khách phản hồi";
-    case "REPROPOSE_UNIT":
-      return "Cần đề xuất lại";
-    case "VIEW":
-      if (request.orderStatus === "Pending") {
-        return request.lastProposal?.status === "Agreed" ? "Chờ khách thanh toán" : "Chờ xử lý";
-      }
-      if (request.orderStatus === "Deposited") return "Chờ khách đặt lịch";
-      if (request.orderStatus === "Scheduled" || request.orderStatus === "InProgress") {
-        return "Đã có lịch";
-      }
-      if (request.orderStatus === "Canceled" || request.orderStatus === "Done") {
-        return "Đã đóng";
-      }
-      if (request.status === "Approved") return "Chờ khách xác minh email";
-      return STATUS_LABEL[request.status];
-    default:
-      return STATUS_LABEL[request.status];
-  }
+function rowLabel(request: QueueItem) {
+  if (request.needsRepropose) return "Cần đề xuất lại";
+  if (request.status === "Pending") return "Chờ xử lý";
+  if (request.status === "Converted") return "Đã được xử lý";
+  return STATUS_LABEL[request.status];
 }
 
-function nextActionBadge(request: QueueItem) {
-  if (request.nextAction === "REPROPOSE_UNIT") return "bg-warning-soft text-warning";
-  if (request.nextAction === "WAIT_CUSTOMER") return "bg-info-soft text-info";
+function rowBadge(request: QueueItem) {
+  if (request.needsRepropose) return "bg-warning-soft text-warning";
+  if (request.status === "Pending") return "bg-warning-soft text-warning";
   return STATUS_BADGE[request.status];
 }
 
@@ -419,10 +398,10 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
                   </span>
                   <div className="grid gap-1">
                     <span
-                      className={`inline-flex w-fit items-center gap-1.5 px-2 py-1 text-label font-semibold ${nextActionBadge(request)}`}
+                      className={`inline-flex w-fit items-center gap-1.5 px-2 py-1 text-label font-semibold ${rowBadge(request)}`}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-                      {nextActionLabel(request)}
+                      {rowLabel(request)}
                     </span>
                     {request.orderId && (
                       <span className="text-label text-muted">
@@ -432,7 +411,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
                     )}
                   </div>
                   <div className="flex justify-end">
-                    {request.nextAction === "REPROPOSE_UNIT" && request.orderId ? (
+                    {request.needsRepropose && request.orderId ? (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -442,7 +421,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
                       </Button>
                     ) : (
                       <Button variant="secondary" size="sm" onClick={() => openDetails(request)}>
-                        {request.nextAction === "APPROVE_REQUEST" ? "Đề xuất" : "Xem"}
+                        {request.status === "Pending" ? "Đề xuất" : "Xem"}
                       </Button>
                     )}
                   </div>
@@ -500,7 +479,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             </div>
           )}
 
-          {openRequest.nextAction === "REPROPOSE_UNIT" && openRequest.orderId && (
+          {openRequest.needsRepropose && openRequest.orderId && (
             <Button
               className="mt-4 w-full"
               onClick={() => {
@@ -512,15 +491,20 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             </Button>
           )}
 
-          {openRequest.nextAction === "WAIT_CUSTOMER" && (
-            <div className="mt-4">
-              <DemoNotice tone="info">Đang chờ khách phản hồi đề xuất gần nhất.</DemoNotice>
-            </div>
-          )}
-
-          {openRequest.nextAction === "VIEW" && (
-            <div className="mt-4">
-              <DemoNotice tone="info">Không cần thao tác trên yêu cầu này.</DemoNotice>
+          {openRequest.status === "Converted" && !openRequest.needsRepropose && (
+            <div className="mt-4 grid gap-3">
+              <DemoNotice tone="success">
+                Yêu cầu đã được xử lý. Theo dõi đơn ở mục Đơn thuê kho.
+              </DemoNotice>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setOpenId(null);
+                  navigate("/fm/rental-orders");
+                }}
+              >
+                Mở Đơn thuê kho <ArrowRight size={16} />
+              </Button>
             </div>
           )}
 
@@ -530,7 +514,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             </div>
           )}
 
-          {openRequest.nextAction === "APPROVE_REQUEST" && mode === "view" && (
+          {openRequest.status === "Pending" && !openRequest.needsRepropose && mode === "view" && (
             <>
               <label className="mt-6 grid gap-1.5 text-label font-semibold text-ink">
                 Chọn khoang phù hợp
@@ -568,7 +552,7 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             </>
           )}
 
-          {openRequest.nextAction === "APPROVE_REQUEST" && mode === "reject" && (
+          {openRequest.status === "Pending" && !openRequest.needsRepropose && mode === "reject" && (
             <div className="mt-6 bg-surface-subtle p-4">
               <label className="grid gap-1.5 text-label font-semibold text-ink">
                 Lý do từ chối
@@ -615,16 +599,15 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             </div>
           )}
 
-          {openRequest.nextAction === "VIEW" &&
-            (openRequest.status === "Approved" || openRequest.status === "Converted") && (
-              <div className="mt-6">
-                <DemoNotice tone="success">
-                  {openRequest.approvedUnitCode
-                    ? `Đã gán khoang ${openRequest.approvedUnitCode} cho yêu cầu này.`
-                    : "Yêu cầu đã được duyệt."}
-                </DemoNotice>
-              </div>
-            )}
+          {openRequest.status === "Approved" && (
+            <div className="mt-6">
+              <DemoNotice tone="success">
+                {openRequest.approvedUnitCode
+                  ? `Đã gán khoang ${openRequest.approvedUnitCode} cho yêu cầu này.`
+                  : "Yêu cầu đã được duyệt."}
+              </DemoNotice>
+            </div>
+          )}
 
           {openRequest.status === "Rejected" && (
             <div className="mt-6">
