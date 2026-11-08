@@ -40,7 +40,6 @@ export function viewFromLocation(): View {
   if (path === "/admin/reconciliation" || path === "/admin/payments") {
     return "admin-payments";
   }
-  if (path === "/admin/invoices") return "admin-invoices";
   if (path === "/staff/schedule") return "fs-schedule";
   if (path.startsWith("/staff/appointments/") && path.endsWith("/handover")) {
     return "fs-handover";

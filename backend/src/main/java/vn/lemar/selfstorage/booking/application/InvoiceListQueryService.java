@@ -43,16 +43,6 @@ public class InvoiceListQueryService {
         return readRepository.findCustomerInvoices(currentAccount.getCurrentAccountId());
     }
 
-    /** Toàn bộ hoá đơn cho ADMIN; route `/api/admin/**` đã chặn role. */
-    @Transactional(readOnly = true)
-    public AdminInvoicePageView listAllForAdmin(int page, int size) {
-        validatePage(page, size);
-        long total = readRepository.countAdminInvoices();
-        List<InvoiceListView> items = readRepository.findAdminInvoices((long) page * size, size);
-        int totalPages = total == 0 ? 0 : (int) ((total + size - 1) / size);
-        return new AdminInvoicePageView(items, page, size, total, totalPages);
-    }
-
     /**
      * Một trang hoá đơn của cơ sở FM. Filter invoice type/status và trạng thái PAY gần nhất
      * được xử lý trong read model để total/page khớp với dữ liệu trả về.
@@ -99,15 +89,6 @@ public class InvoiceListQueryService {
                 row.unitCode(), row.facilityId(), row.facilityName(), row.customerId(), row.customerName(),
                 row.customerEmail(), row.paymentStatus(), row.vnpTxnRef(), row.paymentCreatedAt(),
                 row.paidAt(), pendingAgeMinutes, needsReconciliation, duplicateRefundRequired);
-    }
-
-    private static void validatePage(int page, int size) {
-        if (page < 0) {
-            throw new InvoiceFilterException("Số trang không hợp lệ: " + page);
-        }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new InvoiceFilterException("Kích thước trang phải từ 1 đến " + MAX_PAGE_SIZE);
-        }
     }
 
     private static String normalize(Set<String> allowed, String value, String label) {

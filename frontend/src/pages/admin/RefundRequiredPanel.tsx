@@ -34,7 +34,11 @@ function refundReasonLabel(reason: string | null) {
 }
 
 /** Read-only queue: tiền đã vào nhưng chưa có thao tác hoàn tiền. */
-export function RefundRequiredPanel() {
+type RefundRequiredPanelProps = {
+  loadCases?: (page: number, size?: number) => Promise<RefundCasePage>;
+};
+
+export function RefundRequiredPanel({ loadCases = loadRefundCases }: RefundRequiredPanelProps) {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<RefundCasePage>(EMPTY_PAGE);
   const [loading, setLoading] = useState(true);
@@ -44,7 +48,7 @@ export function RefundRequiredPanel() {
 
   useEffect(() => {
     let active = true;
-    loadRefundCases(page)
+    loadCases(page)
       .then((result) => {
         if (active) setData(result);
       })
@@ -62,7 +66,7 @@ export function RefundRequiredPanel() {
     return () => {
       active = false;
     };
-  }, [page, reloadKey]);
+  }, [page, reloadKey, loadCases]);
 
   function reload() {
     setLoading(true);
