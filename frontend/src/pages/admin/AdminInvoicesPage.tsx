@@ -43,8 +43,6 @@ export function AdminInvoicesPage() {
   useEffect(() => {
     if (tab !== "invoices") return;
     let active = true;
-    setLoading(true);
-    setError(null);
     loadAdminInvoices(page)
       .then((result) => {
         if (active) setData(result);
@@ -68,6 +66,10 @@ export function AdminInvoicesPage() {
   function changeTab(next: "invoices" | "refunds") {
     setTab(next);
     setPage(0);
+    if (next === "invoices") {
+      setLoading(true);
+      setError(null);
+    }
   }
 
   return (
@@ -164,14 +166,22 @@ export function AdminInvoicesPage() {
             <Button
               variant="secondary"
               disabled={page === 0}
-              onClick={() => setPage((current) => current - 1)}
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                setPage((current) => current - 1);
+              }}
             >
               Trang trước
             </Button>
             <Button
               variant="secondary"
               disabled={page + 1 >= data.totalPages}
-              onClick={() => setPage((current) => current + 1)}
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                setPage((current) => current + 1);
+              }}
             >
               Trang sau
             </Button>
