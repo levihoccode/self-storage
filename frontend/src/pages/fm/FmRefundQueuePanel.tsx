@@ -1,11 +1,7 @@
 import { ReceiptText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ApiError } from "../../app/api";
-import {
-  loadRefundCases,
-  type RefundCase,
-  type RefundCasePage,
-} from "../../app/adminReconciliation";
+import { type RefundCase, type RefundCasePage } from "../../app/adminReconciliation";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
@@ -34,11 +30,11 @@ function refundReasonLabel(reason: string | null) {
 }
 
 /** Read-only queue: tiền đã vào nhưng chưa có thao tác hoàn tiền. */
-type RefundRequiredPanelProps = {
-  loadCases?: (page: number, size?: number) => Promise<RefundCasePage>;
+type FmRefundQueuePanelProps = {
+  loadCases: (page: number, size?: number) => Promise<RefundCasePage>;
 };
 
-export function RefundRequiredPanel({ loadCases = loadRefundCases }: RefundRequiredPanelProps) {
+export function FmRefundQueuePanel({ loadCases }: FmRefundQueuePanelProps) {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<RefundCasePage>(EMPTY_PAGE);
   const [loading, setLoading] = useState(true);

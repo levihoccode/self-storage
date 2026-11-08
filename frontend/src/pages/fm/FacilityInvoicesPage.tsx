@@ -15,7 +15,7 @@ import { FilterSelect } from "../../components/ui/FilterSelect";
 import { StatusTag } from "../../components/ui/StatusTag";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 import { formatPrice } from "../../mocks/catalog";
-import { RefundRequiredPanel } from "../admin/RefundRequiredPanel";
+import { FmRefundQueuePanel } from "./FmRefundQueuePanel";
 import { loadFmRefundCases } from "../../app/fmInvoices";
 
 type TypeFilter = "all" | FmInvoiceType;
@@ -88,6 +88,7 @@ export function FacilityInvoicesPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (tab !== "invoices") return;
     const controller = new AbortController();
     const paymentStatus =
       paymentFilter === "needs-reconciliation"
@@ -124,7 +125,7 @@ export function FacilityInvoicesPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [typeFilter, statusFilter, paymentFilter, page, reloadKey]);
+  }, [typeFilter, statusFilter, paymentFilter, page, reloadKey, tab]);
 
   function reload() {
     setLoading(true);
@@ -162,6 +163,10 @@ export function FacilityInvoicesPage() {
   function changeTab(next: "invoices" | "refunds") {
     setTab(next);
     setOpenId(null);
+    if (next === "invoices") {
+      setLoading(true);
+      setError(null);
+    }
   }
 
   const invoices = data.items;
@@ -211,7 +216,7 @@ export function FacilityInvoicesPage() {
       <div className="grid gap-6">
         {header}
         {tabs}
-        <RefundRequiredPanel loadCases={loadFmRefundCases} />
+        <FmRefundQueuePanel loadCases={loadFmRefundCases} />
       </div>
     );
   }
