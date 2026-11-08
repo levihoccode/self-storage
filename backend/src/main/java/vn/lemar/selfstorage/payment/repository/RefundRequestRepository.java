@@ -10,8 +10,5 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
 
     boolean existsByInvoiceIdAndStatusIn(Long invoiceId, Collection<RefundRequestStatus> statuses);
 
-    boolean existsByOrderIdAndInvoiceIdIsNullAndStatusIn(Long orderId,
-            Collection<RefundRequestStatus> statuses);
-
     Optional<RefundRequest> findByIdAndInvoiceId(Long id, Long invoiceId);
 }

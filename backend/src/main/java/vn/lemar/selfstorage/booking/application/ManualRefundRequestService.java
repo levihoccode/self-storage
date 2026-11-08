@@ -3,6 +3,7 @@ package vn.lemar.selfstorage.booking.application;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RefundNotAllowedException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
 import vn.lemar.selfstorage.booking.domain.InvoiceRefundStatus;
@@ -82,7 +83,6 @@ public class ManualRefundRequestService {
     private Long facilityOf(Long orderId) {
         return readRepository.findOrder(orderId)
                 .map(BookingReadRepository.OrderRow::facilityId)
-                .orElseThrow(() -> new RefundRequestValidationException(
-                        "Không tìm thấy đơn thuê"));
+                .orElseThrow(RentalOrderNotFoundException::new);
     }
 }

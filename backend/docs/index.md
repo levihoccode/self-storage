@@ -93,7 +93,7 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V24__refund_requests.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V25__refund_requests_allow_multiple_per_order.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -141,6 +141,8 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
   một lần; lần gọi lặp không tạo audit/notification trùng.
 - V24 thêm `refund_requests` + `refund_request_lines` cho nghĩa vụ hoàn tiền có breakdown, và
   permission `refund_transaction.request` cho FM/ADMIN. Request chưa nối handover.
+- V25 bỏ unique index order-only của `refund_requests` — một order có thể có nhiều nghĩa vụ hoàn
+  tiền; trùng chỉ bị chặn theo invoice.
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào

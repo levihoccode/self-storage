@@ -111,6 +111,52 @@ class RefundRequestIntegrationTest {
     }
 
     @Test
+    void twoOrderOnlyRequestsForSameOrderAreAllowed() throws Exception {
+        mockMvc.perform(post("/api/refund-requests")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(null)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/refund-requests")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(null)))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                "select count(*) from refund_requests where order_id = ? and invoice_id is null",
+                Integer.class, orderId)).isEqualTo(2);
+    }
+
+    @Test
+    void invoiceBoundAndOrderOnlyRequestForSameOrderAreAllowed() throws Exception {
+        mockMvc.perform(post("/api/refund-requests")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(invoiceId)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/refund-requests")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(null)))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                "select count(*) from refund_requests where order_id = ?", Integer.class, orderId))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void orderOnlyRequestWithUnknownOrderReturnsNotFound() throws Exception {
+        String json = body(null).replace("\"orderId\": " + orderId, "\"orderId\": 999999999");
+        mockMvc.perform(post("/api/refund-requests")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void otherFacilityFmIsForbidden() throws Exception {
         mockMvc.perform(post("/api/refund-requests")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@lemar.vn"))

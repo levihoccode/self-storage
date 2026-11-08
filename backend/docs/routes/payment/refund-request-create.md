@@ -52,7 +52,7 @@ Server tính, lưu `amount`, và render `formulaText`; `formulaText` chỉ để
 ## Hành vi
 
 1. Xác định facility từ invoice/order; kiểm permission facility.
-2. Chặn request active thứ hai cho cùng invoice/order.
+2. Chặn request active thứ hai cho cùng invoice; nhiều request order-only cho cùng đơn được phép.
 3. Validate component code, direction, amount, reason; `OTHER` phải có note.
 4. Tạo `refund_requests` + `refund_request_lines`, tính final amount.
 5. Audit `REFUND_REQUESTED` trên `RefundRequest`.
@@ -65,7 +65,7 @@ Server tính, lưu `amount`, và render `formulaText`; `formulaText` chỉ để
 | 400 | thiếu invoice/order, line/reason không hợp lệ, final amount ≤ 0 |
 | 403 | không có permission tại facility |
 | 404 | không thấy invoice/đơn |
-| 409 | invoice/order đã có request đang mở |
+| 409 | invoice đã có request đang mở |
 
 ## Liên quan
 

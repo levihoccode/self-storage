@@ -53,12 +53,6 @@ public class RefundRequestService {
             throw new RefundRequestConflictException(
                     "Invoice đã có refund request đang mở");
         }
-        if (input.invoiceId() == null && input.orderId() != null
-                && requests.existsByOrderIdAndInvoiceIdIsNullAndStatusIn(input.orderId(), ACTIVE)) {
-            throw new RefundRequestConflictException(
-                    "Đơn đã có refund request đang mở");
-        }
-
         RefundRequest request = RefundRequest.create(input.invoiceId(), input.orderId(),
                 input.reasonCode(), blankToNull(input.reasonNote()),
                 input.calculationVersion(), input.calculationInput(), actorAccountId);
@@ -75,7 +69,7 @@ public class RefundRequestService {
             requests.saveAndFlush(request);
         } catch (DataIntegrityViolationException ex) {
             throw new RefundRequestConflictException(
-                    "Invoice/đơn đã có refund request đang mở");
+                    "Invoice đã có refund request đang mở");
         } catch (IllegalArgumentException ex) {
             throw new RefundRequestValidationException(ex.getMessage());
         }

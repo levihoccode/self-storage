@@ -443,7 +443,7 @@ Các bước:
 
 - invoice_id (N - 1: Invoice)
 - source_transaction_id (N - 1: PaymentTransaction) — giao dịch `PAY` gốc, `Success` hoặc `Duplicate`
-- amount (amount > 0, MVP: bằng source_transaction.amount)
+- amount (amount > 0, MVP: ≤ source_transaction.amount)
 - method (CASH/BANK_TRANSFER/VNPAY)
 - status (Pending/Success/Failed/Canceled)
 - reason_code (UNIT_UNAVAILABLE/DUPLICATE_PAYMENT/DEPOSIT_SURPLUS/OTHER) — snapshot tại lúc handover
@@ -481,7 +481,8 @@ Các bước:
 
 **Constraints**
 - Ít nhất một trong invoice_id/order_id.
-- Một request active (`Requested`/`Approved`) cho mỗi invoice; request order-only có unique riêng.
+- Một request active (`Requested`/`Approved`) cho mỗi invoice; request order-only không giới hạn
+  theo order — một order có thể có nhiều nghĩa vụ hoàn tiền.
 - Final amount > 0 và bằng `sum(ADD) - sum(SUBTRACT)` của lines.
 
 # RefundRequestLine
