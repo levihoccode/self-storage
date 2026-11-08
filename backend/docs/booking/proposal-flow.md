@@ -89,21 +89,17 @@ flowchart TB
 - Khoang mới **chưa reserve** ở luồng này — thanh toán cọc/follow-up reserve sau khi thu đủ.
 - Audit một bản ghi mỗi entity thay đổi.
 
-## Hàng đợi FM — `nextAction`
+## Hàng đợi FM — `needsRepropose`
 
-`GET /api/fm/rental-requests` trả `nextAction` cho từng request đã convert:
+`GET /api/fm/rental-requests` trả `needsRepropose` cho từng request đã convert. Flag `true` khi
+order chưa đóng, không có proposal `Pending`, `(order.status = Pending || needs_reproposal)`,
+và proposal gần nhất là `null`/`Rejected`/`Canceled`.
 
-- `APPROVE_REQUEST` — request `Pending`, chưa có order.
-- `WAIT_CUSTOMER` — order có proposal `Pending`.
-- `REPROPOSE_UNIT` — order chưa đóng, không có proposal `Pending`, `(order.status = Pending ||
-  needs_reproposal)`, proposal gần nhất không phải `Agreed`. Áp dụng cả order `Pending` sau khi
-  khách từ chối (không set `needs_reproposal`) và order đã cọc có `needs_reproposal = true`.
-- `VIEW` — không có action: order closed/`Done`, proposal gần nhất `Agreed` (chờ thanh toán/lịch),
-  order `Scheduled`/`InProgress`, hoặc request không còn xử lý được. `VIEW` chỉ là trạng thái
-  "FM không cần làm gì"; FE mở detail, không hiện nút nghiệp vụ.
-
-`lastProposal`, `rejectionCount`, `maxRejectionCount` đi kèm để FM thấy lần đề xuất gần nhất và
-ngưỡng từ chối trước khi quyết định.
+- Áp dụng cả order `Pending` sau khi khách từ chối (không set `needs_reproposal`) và order đã cọc
+  có `needs_reproposal = true`.
+- `lastProposal`, `rejectionCount`, `maxRejectionCount` đi kèm để FM thấy lần đề xuất gần nhất và
+  ngưỡng từ chối trước khi quyết định.
+- Các action order-level khác (chờ khách phản hồi/thanh toán, lịch) thuộc màn Đơn thuê kho.
 
 ## Ranh giới
 

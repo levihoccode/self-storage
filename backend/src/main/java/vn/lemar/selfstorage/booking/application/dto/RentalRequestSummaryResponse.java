@@ -4,16 +4,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
-import vn.lemar.selfstorage.booking.domain.RentalRequestNextAction;
-import vn.lemar.selfstorage.booking.domain.RentalRequestStatus;
 import vn.lemar.selfstorage.booking.repository.BookingReadRepository;
 
 /**
  * Một dòng trong hàng đợi FM — không có field facility (spec draft.md NOTES §1.1:
  * FM chỉ thấy cơ sở của mình).
  *
- * <p>Ngoài dữ liệu request, response mang thêm trạng thái đơn/proposal để FM biết bước tiếp theo.
- * {@code nextAction} do BE tính; FE không tự suy luận.
+ * <p>Ngoài dữ liệu request, response mang thêm trạng thái đơn/proposal. {@code needsRepropose}
+ * là flag BE tính theo đủ điều kiện đề xuất lại; queue không mang các action order-level khác.
  */
 public record RentalRequestSummaryResponse(
         @Schema(description = "Id yêu cầu") Long id,
@@ -29,8 +27,8 @@ public record RentalRequestSummaryResponse(
         @Schema(description = "Id đơn thuê nếu đã convert; null nếu chưa") Long orderId,
         @Schema(description = "Trạng thái đơn thuê; null nếu chưa convert", example = "Pending")
         String orderStatus,
-        @Schema(description = "APPROVE_REQUEST / WAIT_CUSTOMER / REPROPOSE_UNIT / VIEW")
-        String nextAction,
+        @Schema(description = "Đơn cần FM đề xuất lại (tính theo order/proposal)")
+        boolean needsRepropose,
         @Schema(description = "Proposal gần nhất của đơn; null nếu chưa có") LastProposal lastProposal,
         @Schema(description = "Số proposal bị từ chối của đơn", example = "1") long rejectionCount,
         @Schema(description = "Ngưỡng `proposal.max_rejection_count`", example = "3") int maxRejectionCount
@@ -48,30 +46,21 @@ public record RentalRequestSummaryResponse(
                 request.getUnitTypeId(), request.getStartDate(), request.getPeriod(),
                 request.getStatus().name(), request.getCreatedAt(), request.getExpiresAt(),
                 enrichment == null ? null : enrichment.orderId(),
-                enrichment == null ? null : enrichment.orderStatus(), nextAction(request, enrichment).name(),
+                enrichment == null ? null : enrichment.orderStatus(), needsRepropose(enrichment),
                 lastProposal, enrichment == null ? 0 : enrichment.rejectionCount(), maxRejection);
     }
 
-    private static RentalRequestNextAction nextAction(RentalRequest request,
-            BookingReadRepository.QueueEnrichment enrichment) {
-        if (enrichment == null || enrichment.orderId() == null) {
-            return request.getStatus() == RentalRequestStatus.Pending
-                    ? RentalRequestNextAction.APPROVE_REQUEST : RentalRequestNextAction.VIEW;
+    private static boolean needsRepropose(BookingReadRepository.QueueEnrichment enrichment) {
+        if (enrichment == null || enrichment.orderId() == null
+                || "Canceled".equals(enrichment.orderStatus()) || "Done".equals(enrichment.orderStatus())
+                || enrichment.pendingProposalCount() > 0
+                || "Agreed".equals(enrichment.lastProposalStatus())) {
+            return false;
         }
-        if ("Canceled".equals(enrichment.orderStatus()) || "Done".equals(enrichment.orderStatus())) {
-            return RentalRequestNextAction.VIEW;
-        }
-        if (enrichment.pendingProposalCount() > 0) {
-            return RentalRequestNextAction.WAIT_CUSTOMER;
-        }
-        if ("Agreed".equals(enrichment.lastProposalStatus())) {
-            return RentalRequestNextAction.VIEW;
-        }
-        boolean canRepropose = ("Pending".equals(enrichment.orderStatus()) || enrichment.needsReproposal())
+        return ("Pending".equals(enrichment.orderStatus()) || enrichment.needsReproposal())
                 && (enrichment.lastProposalStatus() == null
                         || "Rejected".equals(enrichment.lastProposalStatus())
                         || "Canceled".equals(enrichment.lastProposalStatus()));
-        return canRepropose ? RentalRequestNextAction.REPROPOSE_UNIT : RentalRequestNextAction.VIEW;
     }
 
     @Schema(name = "RentalRequestLastProposal")

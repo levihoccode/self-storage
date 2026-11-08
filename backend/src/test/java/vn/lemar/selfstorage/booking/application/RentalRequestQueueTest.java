@@ -93,7 +93,7 @@ class RentalRequestQueueTest {
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
         assertThat(page.items()).singleElement().satisfies(item -> {
-            assertThat(item.nextAction()).isEqualTo("REPROPOSE_UNIT");
+            assertThat(item.needsRepropose()).isTrue();
             assertThat(item.orderId()).isEqualTo(10L);
             assertThat(item.rejectionCount()).isEqualTo(1);
             assertThat(item.maxRejectionCount()).isEqualTo(3);
@@ -114,7 +114,7 @@ class RentalRequestQueueTest {
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
-        assertThat(page.items().get(0).nextAction()).isEqualTo("WAIT_CUSTOMER");
+        assertThat(page.items().get(0).needsRepropose()).isFalse();
     }
 
     @Test
@@ -130,7 +130,7 @@ class RentalRequestQueueTest {
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
-        assertThat(page.items().get(0).nextAction()).isEqualTo("VIEW");
+        assertThat(page.items().get(0).needsRepropose()).isFalse();
     }
 
     @Test
@@ -146,7 +146,7 @@ class RentalRequestQueueTest {
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
-        assertThat(page.items().get(0).nextAction()).isEqualTo("VIEW");
+        assertThat(page.items().get(0).needsRepropose()).isFalse();
     }
 
     @Test
@@ -160,7 +160,7 @@ class RentalRequestQueueTest {
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Pending, 0, 20);
 
-        assertThat(page.items().get(0).nextAction()).isEqualTo("APPROVE_REQUEST");
+        assertThat(page.items().get(0).needsRepropose()).isFalse();
     }
 
     @Test
@@ -176,7 +176,7 @@ class RentalRequestQueueTest {
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
-        assertThat(page.items().get(0).nextAction()).isEqualTo("REPROPOSE_UNIT");
+        assertThat(page.items().get(0).needsRepropose()).isTrue();
     }
 
     @Test
@@ -191,7 +191,7 @@ class RentalRequestQueueTest {
 
         RentalRequestPageResponse page = service.queue(1L, null, 0, 20);
 
-        assertThat(page.items()).extracting(item -> item.nextAction()).containsOnly("VIEW");
+        assertThat(page.items()).extracting(item -> item.needsRepropose()).containsOnly(false);
     }
 
     private static RentalRequest request(RentalRequestStatus status) {
