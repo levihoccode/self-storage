@@ -1,0 +1,137 @@
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap");
+
+/*
+ * Giao diện "bản vẽ kỹ thuật" của trang chủ. Mọi biến nằm dưới `.lp` nên không
+ * đụng vào token dùng chung; chế độ sáng/tối đi theo `data-theme` của <html>
+ * (công tắc ở header). Màu hành động chính lấy từ --brand của hệ thống.
+ */
+.lp {
+  --lp-bg: #f5f7f4;
+  --lp-bg-alt: #ffffff;
+  --lp-hero: #e6f2ee;
+  --lp-surface: #ffffff;
+  --lp-surface-2: #eef4f0;
+  --lp-ink: #0c1512;
+  --lp-text-2: #33433c;
+  --lp-muted: #56655e;
+  --lp-line: #c9d6cf;
+  --lp-teal: #0f766e;
+  --lp-grid: rgba(15, 118, 110, 0.11);
+  --lp-door-a: #dbe9e3;
+  --lp-door-b: #cfded6;
+  --lp-wall: #e6f0eb;
+  --lp-roof: #f8fcfa;
+  --lp-floor: #c4d3cb;
+  --lp-shade: rgba(12, 21, 18, 0.2);
+
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-family: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root[data-theme="dark"] .lp {
+  --lp-bg: #0c1512;
+  --lp-bg-alt: #101b17;
+  --lp-hero: #0c1512;
+  --lp-surface: #121f1a;
+  --lp-surface-2: #0c1512;
+  --lp-ink: #e8efe9;
+  --lp-text-2: #b4c4bb;
+  --lp-muted: #9fb3aa;
+  --lp-line: rgba(127, 209, 192, 0.3);
+  --lp-teal: #7fd1c0;
+  --lp-grid: rgba(127, 209, 192, 0.1);
+  --lp-door-a: #2d4238;
+  --lp-door-b: #26382f;
+  --lp-wall: #1b2a23;
+  --lp-roof: #33473d;
+  --lp-floor: #101a15;
+  --lp-shade: rgba(0, 0, 0, 0.45);
+}
+
+.lp h1,
+.lp h2,
+.lp h3 {
+  font-family: inherit;
+  font-weight: 800;
+}
+
+.lp-mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 500;
+}
+
+.lp-eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lp-grid-bg {
+  background-image:
+    linear-gradient(var(--lp-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--lp-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.lp-spin {
+  animation: lp-spin 16s linear infinite;
+}
+
+@keyframes lp-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-spin {
+    animation: none;
+  }
+}
+
+.lp-btn {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 0 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.lp-btn:hover {
+  filter: brightness(0.94);
+}
+
+.lp-btn-primary {
+  background: var(--brand);
+  color: var(--signal-ink);
+}
+
+.lp-btn-ghost {
+  border-color: var(--lp-teal);
+  background: transparent;
+  color: var(--lp-ink);
+}
+
+.lp-btn-solid {
+  background: var(--lp-ink);
+  color: var(--lp-bg);
+}
+
+.lp button:focus-visible,
+.lp select:focus-visible {
+  outline: 3px solid var(--lp-teal);
+  outline-offset: 2px;
+}
