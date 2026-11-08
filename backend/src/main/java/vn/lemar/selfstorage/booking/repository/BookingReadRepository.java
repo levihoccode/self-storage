@@ -72,6 +72,17 @@ public class BookingReadRepository {
                 INVOICE_MAPPER, customerId);
     }
 
+    /** Toàn bộ hoá đơn cho ADMIN, mới nhất trước. */
+    public List<InvoiceListView> findAdminInvoices(long offset, int limit) {
+        return jdbc.query(INVOICE_SELECT + "order by i.created_at desc, i.id desc limit ? offset ?",
+                INVOICE_MAPPER, limit, offset);
+    }
+
+    public long countAdminInvoices() {
+        Long count = jdbc.queryForObject("select count(*) from invoices", Long.class);
+        return count == null ? 0 : count;
+    }
+
     /**
      * Một hoá đơn của khách. Rỗng khi hoá đơn không tồn tại <em>và</em> khi nó thuộc người khác —
      * hai ca trả về như nhau để không lộ sự tồn tại của hoá đơn.

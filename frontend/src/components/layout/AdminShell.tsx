@@ -1,4 +1,4 @@
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, ReceiptText } from "lucide-react";
 import { authGateway } from "../../app/auth";
 import type { Navigate, View } from "../../app/types";
 import type { Theme } from "../ui/ThemeToggle";
@@ -10,6 +10,12 @@ const navigation: (WorkspaceNavItem & { view: View })[] = [
     path: "/admin/reconciliation",
     view: "admin-payments",
     icon: ClipboardCheck,
+  },
+  {
+    label: "Hoá đơn",
+    path: "/admin/invoices",
+    view: "admin-invoices",
+    icon: ReceiptText,
   },
 ];
 

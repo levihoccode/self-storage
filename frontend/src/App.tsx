@@ -32,6 +32,7 @@ import { CustomerContractOverviewPage } from "./pages/fm/CustomerContractOvervie
 import { DailySchedulePage } from "./pages/fs/DailySchedulePage";
 import { HandoverChecklistPage } from "./pages/fs/HandoverChecklistPage";
 import { PaymentReconciliationPage } from "./pages/admin/PaymentReconciliationPage";
+import { AdminInvoicesPage } from "./pages/admin/AdminInvoicesPage";
 import type { Theme } from "./components/ui/ThemeToggle";
 import { ROLE_HOME, viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
@@ -142,7 +143,7 @@ function App() {
     view === "fm-invoices" ||
     view === "fm-contracts";
   const isFsView = view === "fs-schedule" || view === "fs-handover";
-  const isAdminView = view === "admin-payments";
+  const isAdminView = view === "admin-payments" || view === "admin-invoices";
   const isNotificationView = view === "notifications";
   // The route guard only picks the screen to render; the real gate is the API
   // (403 on /api/** for the wrong role). /notifications is shared by every
@@ -239,6 +240,7 @@ function App() {
       ) : isAdminView ? (
         <AdminShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "admin-payments" && <PaymentReconciliationPage />}
+          {view === "admin-invoices" && <AdminInvoicesPage />}
         </AdminShell>
       ) : (
         <>
