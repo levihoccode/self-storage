@@ -66,6 +66,40 @@ class BookingReadRepositoryQueueTest {
         assertThat(repository.findQueueEnrichments(List.of())).isEmpty();
     }
 
+    @Test
+    void enrichmentUsesLatestProposal() {
+        long customer = accountId("customer1@lemar.vn");
+        long facility = facilityId("Q7");
+        long unitType = unitTypeId("Small");
+        long unit = unitId("A-01");
+        long requestId = jdbc.queryForObject("""
+                insert into rental_requests (facility_id, customer_name, normalized_customer_email,
+                    customer_phone, unit_type_id, start_date, period, status)
+                values (?, 'Read Test', 'customer1@lemar.vn', '0901234567', ?, current_date, 6, 'Converted')
+                returning id
+                """, Long.class, facility, unitType);
+        long orderId = jdbc.queryForObject("""
+                insert into rental_orders (request_id, customer_id, unit_id, status)
+                values (?, ?, ?, 'Pending') returning id
+                """, Long.class, requestId, customer, unit);
+        jdbc.update("""
+                insert into proposal_feedbacks (order_id, customer_id, unit_id, status, note, created_at)
+                values (?, ?, ?, 'Rejected', 'Cũ', now() - interval '1 hour')
+                """, orderId, customer, unit);
+        jdbc.update("""
+                insert into proposal_feedbacks (order_id, customer_id, unit_id, status, note, created_at)
+                values (?, ?, ?, 'Pending', 'Mới nhất', now())
+                """, orderId, customer, unit);
+
+        BookingReadRepository.QueueEnrichment enrichment =
+                repository.findQueueEnrichments(List.of(requestId)).get(requestId);
+
+        assertThat(enrichment.lastProposalStatus()).isEqualTo("Pending");
+        assertThat(enrichment.lastProposalNote()).isEqualTo("Mới nhất");
+        assertThat(enrichment.rejectionCount()).isEqualTo(1);
+        assertThat(enrichment.pendingProposalCount()).isEqualTo(1);
+    }
+
     private long accountId(String email) {
         return jdbc.queryForObject("select id from accounts where email = ?", Long.class, email);
     }

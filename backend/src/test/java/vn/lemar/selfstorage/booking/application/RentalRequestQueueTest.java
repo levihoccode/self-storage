@@ -163,6 +163,37 @@ class RentalRequestQueueTest {
         assertThat(page.items().get(0).nextAction()).isEqualTo("APPROVE_REQUEST");
     }
 
+    @Test
+    void queueMarksReproposeWhenNeedsReproposalFlagIsSet() {
+        RentalRequest request = request(RentalRequestStatus.Converted);
+        when(facilityAccess.exists(1L)).thenReturn(true);
+        when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Converted),
+                any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(request)));
+        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L,
+                new BookingReadRepository.QueueEnrichment(1L, 10L, "Deposited", true, null, null,
+                        null, null, null, 0, 0)));
+        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+
+        RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
+
+        assertThat(page.items().get(0).nextAction()).isEqualTo("REPROPOSE_UNIT");
+    }
+
+    @Test
+    void queueMarksViewForApprovedAndExpiredRequestWithoutOrder() {
+        RentalRequest approved = request(RentalRequestStatus.Approved);
+        RentalRequest expired = request(RentalRequestStatus.Expired);
+        when(facilityAccess.exists(1L)).thenReturn(true);
+        when(repository.findByFacilityId(eq(1L), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(approved, expired)));
+        when(bookingReadRepository.findQueueEnrichments(List.of(1L, 1L))).thenReturn(Map.of());
+        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+
+        RentalRequestPageResponse page = service.queue(1L, null, 0, 20);
+
+        assertThat(page.items()).extracting(item -> item.nextAction()).containsOnly("VIEW");
+    }
+
     private static RentalRequest request(RentalRequestStatus status) {
         RentalRequest request = mock(RentalRequest.class);
         when(request.getId()).thenReturn(1L);
