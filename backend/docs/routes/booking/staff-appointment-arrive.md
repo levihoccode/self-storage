@@ -20,7 +20,7 @@ FS xác nhận khách đã đến; không body.
    rồi trả 409; không đợi cron.
 2. `status = Done`, `arrived_at = now`; audit `APPOINTMENT_ARRIVED` (actor FS); phát event
    `AppointmentArrived`.
-3. Handover (PR Flow 2) nghe event để set `HandoverRecord.due_at`; route này không biết `due_days`.
+3. Module `handover` nghe event để set `HandoverRecord.due_at`; route này không biết `due_days`.
 
 ## Ví dụ
 

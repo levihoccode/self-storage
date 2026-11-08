@@ -26,7 +26,8 @@ khoang và FS phụ trách.
   thuộc filter `date`. `rebooked = attempt > 1`. `rebookReason` lấy `handover_records.reject_reason`
   gần nhất, fallback `appointments.cancel_reason` của lần trước; null ở lần đầu.
 - `previousCancelReason`: đúng `appointments.cancel_reason` của lịch trước, tách khỏi `rebookReason`
-  để FE hiển thị lý do huỷ lịch (no-show/FS huỷ) khi handover cũng có lý do riêng.
+  để tra cứu khi handover cũng có lý do riêng. FE hiển thị một lý do chính: `rebookReason`,
+  fallback `previousCancelReason`.
 - Các field đặt lại chỉ để hiển thị; không đổi schema, không đổi quyền/status code.
 
 ## Ghi chú nghiệp vụ
