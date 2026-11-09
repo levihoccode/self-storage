@@ -75,7 +75,7 @@ class RefundObligationIntegrationTest {
 
     @Test
     void fmCreatesRequestWithServerCalculatedAmountAndLines() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(invoiceId)))
@@ -101,7 +101,7 @@ class RefundObligationIntegrationTest {
 
     @Test
     void orderOnlyRequestIsAllowed() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(null)))
@@ -113,12 +113,12 @@ class RefundObligationIntegrationTest {
 
     @Test
     void twoOrderOnlyRequestsForSameOrderAreAllowed() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(null)))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(null)))
@@ -131,12 +131,12 @@ class RefundObligationIntegrationTest {
 
     @Test
     void invoiceBoundAndOrderOnlyRequestForSameOrderAreAllowed() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(invoiceId)))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(null)))
@@ -150,7 +150,7 @@ class RefundObligationIntegrationTest {
     @Test
     void orderOnlyRequestWithUnknownOrderReturnsNotFound() throws Exception {
         String json = body(null).replace("\"orderId\": " + orderId, "\"orderId\": 999999999");
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
@@ -159,7 +159,7 @@ class RefundObligationIntegrationTest {
 
     @Test
     void otherFacilityFmIsForbidden() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(invoiceId)))
@@ -168,7 +168,7 @@ class RefundObligationIntegrationTest {
 
     @Test
     void customerCannotCreateRefundObligation() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(invoiceId)))
@@ -178,7 +178,7 @@ class RefundObligationIntegrationTest {
     @Test
     void zeroFinalAmountIsRejected() throws Exception {
         String json = body(invoiceId).replace("\"amount\":200000", "\"amount\":1000000");
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
@@ -187,7 +187,7 @@ class RefundObligationIntegrationTest {
 
     @Test
     void requestWithoutInvoiceOrOrderIsRejected() throws Exception {
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(null).replace("\"orderId\": " + orderId, "\"orderId\": null")))
@@ -197,7 +197,7 @@ class RefundObligationIntegrationTest {
     @Test
     void otherReasonRequiresNote() throws Exception {
         String json = body(invoiceId).replace("\"reasonNote\": \"Điều chỉnh đặc biệt\"", "\"reasonNote\": \"\"");
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
@@ -207,12 +207,12 @@ class RefundObligationIntegrationTest {
     @Test
     void duplicateActiveRequestIsRejected() throws Exception {
         String json = body(invoiceId);
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/refund-obligations")
+        mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))

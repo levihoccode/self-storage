@@ -123,15 +123,15 @@ Required/Processing
   → Refunded
 ```
 
-- **FS/FM handover:** `POST /api/invoices/{invoiceId}/refund` với `method`, `evidenceUrl`,
+- **FS/FM handover:** `POST /api/refunds/invoices/{invoiceId}/handover` với `method`, `evidenceUrl`,
   `gatewayRef?`, `note?`, `sourceTransactionId?`, `reasonNote?`. Số tiền lấy từ `invoice.amount`
   và phải ≤ giao dịch PAY gốc (`Success` hoặc `Duplicate`), không nhận amount từ client. FS dùng permission
   `refund_transaction.handover`; FM dùng `payment_transaction.refund`; ADMIN override; tất cả kiểm
   facility scope. Evidence bắt buộc.
-- **Khách xác nhận:** `POST /api/invoices/{invoiceId}/refund-confirm`; chỉ nhận khi refund ledger
+- **Khách xác nhận:** `POST /api/refunds/invoices/{invoiceId}/confirm`; chỉ nhận khi refund ledger
   đã `Success` và invoice đang `AwaitingConfirmation`, nếu chưa trả `409`. Xác nhận lặp lại trả kết
   quả cũ, không ghi audit trùng. Invoice chuyển `Refunded`, set `refunded_at`.
-- **Khách báo chưa nhận:** `POST /api/invoices/{invoiceId}/refund-dispute`; lần đầu ghi
+- **Khách báo chưa nhận:** `POST /api/refunds/invoices/{invoiceId}/dispute`; lần đầu ghi
   `disputed_at/dispute_note`, audit `REFUND_CUSTOMER_DISPUTED` + notification, giữ invoice
   `AwaitingConfirmation`, không tạo refund lần hai. Gọi lặp trả kết quả cũ, không ghi audit/notification
   trùng. Support request/Flow 7 xử lý tiếp.
@@ -140,14 +140,15 @@ Required/Processing
   `reason_note`. `reason_code` snapshot từ `invoices.refund_reason` tại lúc handover. Partial refund
   từ cùng một source chưa hỗ trợ — cần đổi unique index và contract trước khi dùng cho hoàn cọc
   một phần.
-- **Queue:** `GET /api/admin/payments/refunds?view=active|history`; `active` gồm `Required`,
-  `Processing`, `AwaitingConfirmation`; `history` gồm `Refunded`.
+- **Queue:** `GET /api/refunds/queues/invoices`; ADMIN dùng `view=active|history` (active gồm
+  `Required`, `Processing`, `AwaitingConfirmation`; history gồm `Refunded`). FM dùng
+  `facilityId=...&view=active`, chỉ thấy invoice `Required` của cơ sở.
 - **Notification:** sau khi handover commit, listener gửi `REFUND_AWAITING_CONFIRMATION` cho khách
   (in-app + email). Gửi lỗi không rollback nghiệp vụ.
 
 ### Refund obligation — nghĩa vụ trước khi chi tiền
 
-`POST /api/refund-obligations` tạo **refund obligation** thủ công, chưa chi tiền và chưa tạo
+`POST /api/refunds/obligations` tạo **refund obligation** thủ công, chưa chi tiền và chưa tạo
 `refund_transactions`. Dùng cho case đặc biệt không có obligation tự động hoặc amount khác invoice.
 
 - FM theo facility; ADMIN override; permission `refund_obligation.create`.
@@ -162,14 +163,14 @@ Required/Processing
 
 ### Phạm vi route handover
 
-`POST /api/invoices/{invoiceId}/refund` là **action chi tiền cho một nghĩa vụ hoàn tiền đã tồn tại**
+`POST /api/refunds/invoices/{invoiceId}/handover` là **action chi tiền cho một nghĩa vụ hoàn tiền đã tồn tại**
 trên invoice. Route không tạo nghĩa vụ hoàn tiền, không quyết định invoice có được hoàn hay không,
 và không phải route riêng cho từng lý do.
 
 ```text
 Flow nghiệp vụ tạo nghĩa vụ
   → invoice.refund_status = Required
-  → POST /invoices/{id}/refund (FS/FM xác nhận đã đưa tiền)
+  → POST /refunds/invoices/{id}/handover (FS/FM xác nhận đã đưa tiền)
   → khách confirm
 ```
 
@@ -215,8 +216,8 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 - **Case Pending:** `PendingPaymentWatchdogJob` tạo case `Open`; ADMIN xem
   `GET /api/admin/payments/reconciliation?view=open|history`; reconcile đóng case và lưu
   note/evidence. `/api/admin/payments/pending` là alias cũ của `view=open`.
-  Khoản cần hoàn tiền có queue riêng `GET /api/admin/payments/refunds?view=active|history`
-  (xem mục **Hoàn tiền thủ công** bên dưới).
+  Khoản cần hoàn tiền có queue riêng `GET /api/refunds/queues/invoices` (ADMIN cross-facility,
+  FM theo `facilityId`; xem mục **Hoàn tiền thủ công** bên dưới).
   Evidence là URL file Admin upload qua `POST /api/media/uploads`, optional.
 - **Chỉ giao dịch `Pending`.** Row bị khoá `PESSIMISTIC_WRITE`; invoice được khoá thêm bằng
   advisory lock để hai manual request cùng invoice serialize. Giao dịch đã `Success`/`Failed`/

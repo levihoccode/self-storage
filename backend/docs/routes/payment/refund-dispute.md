@@ -2,7 +2,7 @@
 auth-model: permission-bound
 purpose: Khách báo chưa nhận tiền hoàn; ghi nhận để đối soát, không tạo refund lần hai.
 ---
-# POST /api/invoices/{invoiceId}/refund-dispute
+# POST /api/refunds/invoices/{invoiceId}/dispute
 
 Khách sở hữu invoice báo chưa nhận tiền sau khi FS/FM đã handover. Lần đầu route ghi audit +
 notification; các lần sau trả kết quả cũ, không tạo audit/notification trùng. Invoice giữ

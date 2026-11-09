@@ -1,18 +1,19 @@
 ---
 auth-model: permission-bound
-purpose: FM xem các invoice đang có nghĩa vụ hoàn tiền thuộc cơ sở mình.
+purpose: FM xem các invoice đang có nghĩa vụ hoàn tiền thuộc cơ sở mình; ADMIN dùng cùng route cross-facility.
 ---
-# GET /api/fm/invoices/refunds?facilityId=&page=&size=
+# GET /api/refunds/queues/invoices?facilityId=&page=&size=
 
 Queue refund read-only cho FM theo facility. Hiện trả các invoice có `refund_status='Required'`;
 khi refund ledger mở rộng sẽ thêm active/history.
 
 - **Actor / quyền:** Bearer + role `FM`; `payment_transaction.refund` scope `FACILITY`.
-- **Contract chi tiết:** annotation tại `FmRefundController.java`.
+- **Contract chi tiết:** annotation tại `RefundQueueController.java`.
 
 ## Hành vi
 
-- `facilityId` bắt buộc; FM phải thuộc facility đó.
+- `facilityId` bắt buộc; FM phải thuộc facility đó. ADMIN không cần `facilityId`.
+- `view` mặc định `active`; FM chỉ hỗ trợ `active`, `history` trả `400`.
 - Chỉ invoice có `refund_status='Required'` và thuộc facility.
 - Mỗi dòng: `invoiceId`, `invoiceCode`, `orderId`, `amount`, `refundStatus`, `refundReason`,
   `refundRequestedAt`, `vnpTxnRef`, `gatewayTransactionNo`, `paidAt`.

@@ -19,7 +19,7 @@ import vn.lemar.selfstorage.payment.application.dto.RefundTransactionView;
 
 /** FS/FM xác nhận đã đưa tiền; khách xác nhận đã nhận hoặc báo chưa nhận. */
 @RestController
-@RequestMapping("/api/invoices")
+@RequestMapping("/api/refunds/invoices")
 public class InvoiceRefundController {
 
     private final InvoiceRefundService refundService;
@@ -37,7 +37,7 @@ public class InvoiceRefundController {
             @ApiResponse(responseCode = "404", description = "Không tìm thấy hoá đơn"),
             @ApiResponse(responseCode = "409", description = "Hoá đơn không còn cần hoàn")
     })
-    @PostMapping("/{invoiceId}/refund")
+    @PostMapping("/{invoiceId}/handover")
     public ResponseEntity<ApiEnvelope<RefundTransactionView>> handover(
             @PathVariable Long invoiceId, @Valid @RequestBody RefundHandoverRequest request) {
         return ResponseEntity.ok(ApiEnvelope.ok("Đã ghi nhận tiền hoàn",
@@ -46,7 +46,7 @@ public class InvoiceRefundController {
 
     @Operation(summary = "Khách xác nhận đã nhận tiền hoàn",
             description = "Chỉ hợp lệ sau khi FS/FM đã ghi nhận đưa tiền. Gọi lặp lại trả kết quả cũ.")
-    @PostMapping("/{invoiceId}/refund-confirm")
+    @PostMapping("/{invoiceId}/confirm")
     public ResponseEntity<ApiEnvelope<RefundTransactionView>> confirm(
             @PathVariable Long invoiceId, @Valid @RequestBody RefundConfirmRequest request) {
         return ResponseEntity.ok(ApiEnvelope.ok("Đã xác nhận nhận tiền hoàn",
@@ -55,7 +55,7 @@ public class InvoiceRefundController {
 
     @Operation(summary = "Khách báo chưa nhận tiền hoàn",
             description = "Ghi nhận đối soát, giữ invoice AwaitingConfirmation; không tạo refund lần hai.")
-    @PostMapping("/{invoiceId}/refund-dispute")
+    @PostMapping("/{invoiceId}/dispute")
     public ResponseEntity<ApiEnvelope<RefundTransactionView>> dispute(
             @PathVariable Long invoiceId, @Valid @RequestBody RefundDisputeRequest request) {
         return ResponseEntity.ok(ApiEnvelope.ok("Đã ghi nhận báo chưa nhận tiền",

@@ -135,7 +135,7 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
   action của main + B4, gồm `APPOINTMENT_ARRIVED`.
 - V22 thêm `refund_transactions` (ledger tiền ra), `invoice.refund_status=AwaitingConfirmation`,
   audit `RefundTransaction` + `REFUND_CUSTOMER_CONFIRMED`/`REFUND_CUSTOMER_DISPUTED`, và permission
-  `refund_transaction.handover` cho FS/ADMIN. Queue `GET /api/admin/payments/refunds` có
+  `refund_transaction.handover` cho FS/ADMIN. Queue `GET /api/refunds/queues/invoices` có
   `view=active|history`.
 - V23 thêm `refund_transactions.disputed_at/dispute_note` để khách chỉ ghi nhận báo chưa nhận
   một lần; lần gọi lặp không tạo audit/notification trùng.

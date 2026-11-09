@@ -16,7 +16,7 @@ import vn.lemar.selfstorage.payment.application.dto.RefundObligationView;
 
 /** FM/Admin tạo nghĩa vụ hoàn tiền thủ công, có breakdown và snapshot cách tính. */
 @RestController
-@RequestMapping("/api/refund-obligations")
+@RequestMapping("/api/refunds/obligations")
 public class RefundObligationController {
 
     private final ManualRefundObligationService refundObligations;

@@ -2,7 +2,7 @@
 auth-model: permission-bound
 purpose: FS/FM ghi nhận đã đưa tiền hoàn; tạo refund ledger và chuyển invoice sang AwaitingConfirmation.
 ---
-# POST /api/invoices/{invoiceId}/refund
+# POST /api/refunds/invoices/{invoiceId}/handover
 
 FS/FM xác nhận đã đưa tiền hoàn (tiền mặt/chuyển khoản). Route tạo
 `refund_transactions(Success)`, ghi audit và chuyển invoice sang `AwaitingConfirmation`.

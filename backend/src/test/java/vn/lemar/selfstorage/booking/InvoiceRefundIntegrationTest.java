@@ -92,7 +92,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void fsHandoverCreatesLedgerAndWaitsForCustomerConfirmation() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
@@ -118,7 +118,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void fmCanHandoverUsingExistingRefundPermission() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
@@ -134,7 +134,7 @@ class InvoiceRefundIntegrationTest {
     void refundUsesInvoiceAmountNotFullSourceAmount() throws Exception {
         jdbc.update("update invoices set amount = 200000 where id = ?", invoiceId);
 
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
@@ -148,7 +148,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void handoverRejectsNonHttpEvidenceUrl() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -159,7 +159,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void invalidPathIdReturnsBadRequest() throws Exception {
-        mockMvc.perform(post("/api/invoices/not-a-number/refund")
+        mockMvc.perform(post("/api/refunds/invoices/not-a-number/handover")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
@@ -168,7 +168,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void customerCannotConfirmBeforeHandover() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund-confirm", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/confirm", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -181,13 +181,13 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void customerConfirmMarksInvoiceRefundedAndRepeatsIdempotently() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/invoices/{id}/refund-confirm", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/confirm", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -195,7 +195,7 @@ class InvoiceRefundIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("Success"))
                 .andExpect(jsonPath("$.data.customerConfirmedAt").isNotEmpty());
 
-        mockMvc.perform(post("/api/invoices/{id}/refund-confirm", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/confirm", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -211,7 +211,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void customerCannotHandoverRefund() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
@@ -224,32 +224,32 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void queueMovesFromActiveToHistoryAfterCustomerConfirm() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/admin/payments/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("view", "active")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(ADMIN)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.items[0].refundStatus").value("AwaitingConfirmation"));
 
-        mockMvc.perform(post("/api/invoices/{id}/refund-confirm", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/confirm", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/admin/payments/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("view", "active")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(ADMIN)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(0));
 
-        mockMvc.perform(get("/api/admin/payments/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("view", "history")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(ADMIN)))
                 .andExpect(status().isOk())
@@ -259,13 +259,13 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void customerCanDisputeAfterHandoverWithoutSecondRefund() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/invoices/{id}/refund-dispute", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/dispute", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"note\":\"Chưa nhận được tiền\"}"))
@@ -277,7 +277,7 @@ class InvoiceRefundIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "select count(*) from refund_transactions where invoice_id = ?",
                 Integer.class, invoiceId)).isEqualTo(1);
-        mockMvc.perform(post("/api/invoices/{id}/refund-dispute", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/dispute", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(USER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"note\":\"báo lại\"}"))
@@ -293,13 +293,13 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void secondHandoverIsRejectedAfterInvoiceMovedToAwaitingConfirmation() throws Exception {
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/invoices/{id}/refund", invoiceId)
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
@@ -312,7 +312,7 @@ class InvoiceRefundIntegrationTest {
 
     @Test
     void invalidRefundQueueViewIsRejected() throws Exception {
-        mockMvc.perform(get("/api/admin/payments/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("view", "unknown")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(ADMIN)))
                 .andExpect(status().isBadRequest());

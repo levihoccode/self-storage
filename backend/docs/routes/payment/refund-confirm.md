@@ -2,7 +2,7 @@
 auth-model: permission-bound
 purpose: Khách xác nhận đã nhận tiền hoàn; invoice chỉ chuyển Refunded sau bước này.
 ---
-# POST /api/invoices/{invoiceId}/refund-confirm
+# POST /api/refunds/invoices/{invoiceId}/confirm
 
 Khách sở hữu invoice xác nhận đã nhận tiền. Chỉ hợp lệ sau khi FS/FM đã handover — trước đó trả
 `409`. Gọi lặp lại trả kết quả cũ, không ghi audit trùng.

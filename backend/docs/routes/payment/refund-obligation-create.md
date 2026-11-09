@@ -2,7 +2,7 @@
 auth-model: permission-bound
 purpose: FM/ADMIN tạo nghĩa vụ hoàn tiền thủ công với breakdown và snapshot cách tính; chưa chi tiền.
 ---
-# POST /api/refund-obligations
+# POST /api/refunds/obligations
 
 Tạo **refund obligation** — nghĩa vụ hoàn tiền có final amount do server tính từ các dòng. Route
 không tạo `refund_transactions`, không đổi invoice state và chưa phải bước handover.
