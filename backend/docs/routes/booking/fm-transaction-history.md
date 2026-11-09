@@ -19,7 +19,7 @@ Một dòng thuộc đúng một nguồn; `kind` cho biết đọc từ đâu:
 |---|---|---|---|---|
 | `INVOICE` | `invoices` type `Deposit`/`DepositSupplement`/`Rental` | `IN` | `created_at` | Chứng từ phát sinh |
 | `FEE` | `invoices` type `Extension`/`Penalty`/`Service` | `IN` | `created_at` | Phí phát sinh |
-| `PAYMENT` | `payment_transactions` (`direction='PAY'`) | `IN` | `coalesce(paid_at, created_at)` | Tiền khách đã trả |
+| `PAYMENT` | `payment_transactions` (`direction='PAY'`) | `IN` | `paid_at` khi `Success`, ngược lại `created_at` | Tiền khách đã trả |
 | `REFUND` | `refund_transactions` | `OUT` | `coalesce(disbursed_at, created_at)` | Tiền cơ sở đã hoàn |
 
 Invoice và payment là hai dòng khác nhau cho cùng một khoản: invoice là chứng từ, payment là tiền

@@ -117,6 +117,8 @@ class FmTransactionHistoryIntegrationTest {
         insertPayment(invoice, "TXN-TX-SUCCESS", "Success", "500000", "5 hours", "5 hours");
         insertPayment(invoice, "TXN-TX-DUP", "Duplicate", "500000", "4 hours", null);
         insertPayment(invoice, "TXN-TX-PENDING", "Pending", "500000", "20 minutes", null);
+        // Dữ liệu bẩn: Pending nhưng có paid_at; tuổi chờ phải tính từ created_at, không phải paid_at.
+        insertPayment(invoice, "TXN-TX-PAIDPENDING", "Pending", "500000", "60 minutes", "5 minutes");
         long source = paymentId("TXN-TX-SUCCESS");
         insertRefund(invoice, source, "Success", "500000", "2 hours", "2 hours");
 
@@ -125,22 +127,25 @@ class FmTransactionHistoryIntegrationTest {
                         .param("kind", "PAYMENT")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items.length()").value(3))
+                .andExpect(jsonPath("$.data.items.length()").value(4))
                 .andExpect(jsonPath("$.data.items[0].code").value("TXN-TX-PENDING"))
                 .andExpect(jsonPath("$.data.items[0].needsReconciliation").value(true))
                 .andExpect(jsonPath("$.data.items[0].pendingAgeMinutes")
                         .value(org.hamcrest.Matchers.greaterThanOrEqualTo(15)))
-                .andExpect(jsonPath("$.data.items[1].code").value("TXN-TX-DUP"))
-                .andExpect(jsonPath("$.data.items[1].needsReconciliation").value(false))
-                .andExpect(jsonPath("$.data.items[2].code").value("TXN-TX-SUCCESS"));
+                .andExpect(jsonPath("$.data.items[1].code").value("TXN-TX-PAIDPENDING"))
+                .andExpect(jsonPath("$.data.items[1].needsReconciliation").value(true))
+                .andExpect(jsonPath("$.data.items[2].code").value("TXN-TX-DUP"))
+                .andExpect(jsonPath("$.data.items[2].needsReconciliation").value(false))
+                .andExpect(jsonPath("$.data.items[3].code").value("TXN-TX-SUCCESS"));
 
         mockMvc.perform(get("/api/fm/transactions")
                         .param("facilityId", String.valueOf(q7))
                         .param("needsReconciliation", "true")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].code").value("TXN-TX-PENDING"));
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].code").value("TXN-TX-PENDING"))
+                .andExpect(jsonPath("$.data.items[1].code").value("TXN-TX-PAIDPENDING"));
 
         mockMvc.perform(get("/api/fm/transactions")
                         .param("facilityId", String.valueOf(q7))
@@ -183,8 +188,10 @@ class FmTransactionHistoryIntegrationTest {
                         .param("to", to.toString())
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].kind").value("REFUND"));
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                // PAIDPENDING neo ở created_at (60 phút), nên rơi đúng vào khoảng 3h–1h.
+                .andExpect(jsonPath("$.data.items[0].code").value("TXN-TX-PAIDPENDING"))
+                .andExpect(jsonPath("$.data.items[1].kind").value("REFUND"));
     }
 
     @Test

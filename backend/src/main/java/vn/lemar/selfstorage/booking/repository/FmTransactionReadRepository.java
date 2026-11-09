@@ -72,7 +72,8 @@ public class FmTransactionReadRepository {
                    pt.id,
                    pt.amount,
                    pt.status,
-                   coalesce(pt.paid_at, pt.created_at),
+                   case when pt.status = 'Success'
+                        then coalesce(pt.paid_at, pt.created_at) else pt.created_at end,
                    i.order_id,
                    i.invoice_id,
                    i.invoice_code,
