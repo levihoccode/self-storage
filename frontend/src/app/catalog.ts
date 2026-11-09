@@ -4,9 +4,10 @@
  * - `GET /api/unit-types?facilityId={id}` → `UnitType[]`
  * - `POST /api/rental-requests`          → `RentalRequestCreated`
  *
- * Hiện dữ liệu là mock (lấy từ ví dụ trong backend/docs/routes). Khi nối backend chỉ thay thân hai hàm
- * `fetchFacilities` / `fetchUnitTypes` bằng `apiRequest`, giao diện không đổi.
+ * Hai endpoint GET là public (không cần token) và đã có trên main.
  */
+
+import { apiRequest } from "./api";
 
 export type Facility = {
   id: number;
@@ -52,39 +53,13 @@ export type RentalRequestCreated = {
   expiresAt: string;
 };
 
-const MOCK_FACILITIES: Facility[] = [
-  {
-    id: 1,
-    code: "Q7",
-    name: "Self Storage Quận 7",
-    address: "123 Nguyễn Văn Linh, Quận 7, TP.HCM",
-    operatingHours: "08:00–20:00 hằng ngày",
-    unitTypeIds: [1, 2, 3],
-  },
-  {
-    id: 2,
-    code: "TD",
-    name: "Self Storage Thủ Đức",
-    address: "456 Võ Văn Ngân, Thủ Đức, TP.HCM",
-    operatingHours: "08:00–20:00 hằng ngày",
-    unitTypeIds: [1, 2],
-  },
-];
-
-const MOCK_UNIT_TYPES: UnitType[] = [
-  { id: 1, name: "Small", width: 1.0, depth: 2.0, height: 2.2, area: 2.0, monthlyPrice: 500000 },
-  { id: 2, name: "Medium", width: 2.0, depth: 2.5, height: 2.2, area: 5.0, monthlyPrice: 900000 },
-  { id: 3, name: "Large", width: 2.5, depth: 3.0, height: 2.5, area: 7.5, monthlyPrice: 1400000 },
-];
-
-export async function fetchFacilities(): Promise<Facility[]> {
-  return MOCK_FACILITIES;
+export function fetchFacilities(): Promise<Facility[]> {
+  return apiRequest<Facility[]>("/api/facilities");
 }
 
-/** Cơ sở không tồn tại trả mảng rỗng, giống backend (không 404). */
-export async function fetchUnitTypes(facilityId: number): Promise<UnitType[]> {
-  const facility = MOCK_FACILITIES.find((item) => item.id === facilityId);
-  return MOCK_UNIT_TYPES.filter((unit) => facility?.unitTypeIds.includes(unit.id));
+/** Cơ sở không tồn tại trả mảng rỗng (backend không trả 404). */
+export function fetchUnitTypes(facilityId: number): Promise<UnitType[]> {
+  return apiRequest<UnitType[]>(`/api/unit-types?facilityId=${facilityId}`);
 }
 
 const vnNumber = new Intl.NumberFormat("vi-VN");
