@@ -38,6 +38,7 @@ Toàn bộ HTTP route backend đang cung cấp. Chi tiết contract từng route
 | GET | `/api/proposals` | Bearer + `ACCOUNT_ACTIVE`; chủ tài nguyên | Đề xuất khoang của tôi (lọc `status`) | [routes/booking/proposals-list.md](routes/booking/proposals-list.md) |
 | GET | `/api/invoices` | Bearer + `ACCOUNT_ACTIVE`; chủ tài nguyên | Hoá đơn của tôi, mới nhất trước | [routes/booking/invoice-list.md](routes/booking/invoice-list.md) |
 | GET | `/api/invoices/{invoiceId}` | Bearer + `ACCOUNT_ACTIVE`; chủ tài nguyên | Một hoá đơn của mình; FE đọc lại sau khi cổng thanh toán redirect về | [routes/booking/invoice-detail.md](routes/booking/invoice-detail.md) |
+| GET | `/api/contracts` | Bearer + `ACCOUNT_ACTIVE`; chủ tài nguyên | Hợp đồng `Active` của tôi, kèm khoang/cơ sở và cờ `overdue` | [routes/booking/contract-list.md](routes/booking/contract-list.md) |
 | POST | `/api/proposals/{proposalId}/agree` | Bearer + `ACCOUNT_ACTIVE`; chủ tài nguyên | Đồng ý đề xuất, tạo hoá đơn đặt cọc | [routes/booking/proposal-agree.md](routes/booking/proposal-agree.md) |
 | POST | `/api/proposals/{proposalId}/reject` | Bearer + `ACCOUNT_ACTIVE`; chủ tài nguyên | Từ chối đề xuất; lần thứ `max_rejection_count` huỷ đơn | [routes/booking/proposal-reject.md](routes/booking/proposal-reject.md) |
 | GET | `/api/fm/rental-orders` | `FM`; `rental_order.read` + facility scope | Danh sách đơn thuê của cơ sở, lọc trạng thái, cờ đề xuất lại | [routes/booking/fm-rental-order-list.md](routes/booking/fm-rental-order-list.md) |
