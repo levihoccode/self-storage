@@ -39,6 +39,7 @@ import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenExcep
 import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalValidationException;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.RentalOrderValidationException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.identity.application.exception.ForbiddenException;
 
@@ -757,7 +758,7 @@ class ProposalServiceIntegrationTest {
 
         String reason = "Khách báo không còn nhu cầu thuê khoang";
         String note = "Đã gọi 3 lần, không liên hệ được";
-        RentalOrderView result = orderService.cancelByFacilityManager(orderId, reason, note, fmId);
+        RentalOrderView result = orderService.cancelByFacilityManager(orderId, reason, note, false, fmId);
 
         assertThat(result.status()).isEqualTo("Canceled");
         assertThat(result.cancelReason()).isEqualTo(reason);
@@ -786,11 +787,45 @@ class ProposalServiceIntegrationTest {
     }
 
     @Test
+    void fmCancelWithRefundDepositMarksPaidInvoiceRequired() {
+        long invoiceId = jdbc.queryForObject("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
+                values (?, ?, 'INV-CANCEL-REFUND', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Paid', 900000,
+                        now() + interval '3 days') returning id""", Long.class, orderId, customerId);
+
+        loginAs("fm1@lemar.vn");
+        orderService.cancelByFacilityManager(orderId, "Cơ sở không bàn giao được khoang", "Đổi lịch bảo trì",
+                true, fmId);
+
+        assertThat(jdbc.queryForObject("select refund_status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("Required");
+        assertThat(jdbc.queryForObject("select refund_reason from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("ORDER_CANCELED");
+        assertThat(auditActions("Invoice", invoiceId)).containsExactly("INVOICE_REFUND_REQUIRED");
+        assertThat(notificationsOf(fmId)).extracting(row -> row.get("type"))
+                .contains("RENTAL_ORDER_CANCELED", "ORDER_CANCELED_REFUND_REQUIRED");
+        assertThat(notificationsOf(customerId)).extracting(row -> row.get("type"))
+                .contains("RENTAL_ORDER_CANCELED", "ORDER_CANCELED_REFUND_PENDING");
+    }
+
+    @Test
+    void fmCancelWithRefundDepositRejectsUnpaidOrder() {
+        loginAs("fm1@lemar.vn");
+
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Cơ sở không bàn giao được khoang",
+                null, true, fmId))
+                .isInstanceOf(RentalOrderValidationException.class)
+                .hasMessage("Đơn thuê chưa thanh toán cọc, không thể hoàn cọc");
+        assertThat(orderStatus()).isEqualTo("Pending");
+    }
+
+    @Test
     void fmCancelOnClosedOrderConflicts() {
         jdbc.update("update rental_orders set status = 'Done' where id = ?", orderId);
         loginAs("fm1@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null, fmId))
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null,
+                        false, fmId))
                 .isInstanceOf(ProposalConflictException.class)
                 .hasMessage("Đơn thuê đã đóng, không thể huỷ");
         assertThat(auditActions("RentalOrder", orderId)).isEmpty();
@@ -800,7 +835,7 @@ class ProposalServiceIntegrationTest {
     void fmCancelByFmOfAnotherFacilityIsForbidden() {
         loginAs("fm2@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null,
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null, false,
                         accountId("fm2@lemar.vn")))
                 .isInstanceOf(ForbiddenException.class);
         assertThat(orderStatus()).isEqualTo("Pending");
@@ -810,7 +845,7 @@ class ProposalServiceIntegrationTest {
     void cancelWithoutPermissionIsForbidden() {
         loginAs("customer1@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null,
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null, false,
                         customerId))
                 .isInstanceOf(ForbiddenException.class);
     }
@@ -819,7 +854,8 @@ class ProposalServiceIntegrationTest {
     void fmCancelOnUnknownOrderIsNotFound() {
         loginAs("fm1@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(-1L, "Khách không còn nhu cầu", null, fmId))
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(-1L, "Khách không còn nhu cầu", null,
+                        false, fmId))
                 .isInstanceOf(RentalOrderNotFoundException.class);
     }
 

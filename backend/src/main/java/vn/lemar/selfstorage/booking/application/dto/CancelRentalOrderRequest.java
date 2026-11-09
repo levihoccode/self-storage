@@ -18,6 +18,9 @@ public record CancelRentalOrderRequest(
 
         @Size(max = 500)
         @Schema(description = "Ghi chú nội bộ, chỉ lưu audit — không gửi khách", example = "Đã gọi 3 lần")
-        String note
+        String note,
+
+        @Schema(description = "Hoàn cọc cho khách; false/không gửi = khách mất cọc", example = "false")
+        Boolean refundDeposit
 ) {
 }

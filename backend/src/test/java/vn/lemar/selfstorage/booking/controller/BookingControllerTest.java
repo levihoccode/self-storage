@@ -305,7 +305,7 @@ class BookingControllerTest {
     void fmCancelReturnsCanceledOrder() throws Exception {
         authenticate(FM, "FM");
         when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
-        when(rentalOrderService.cancelByFacilityManager(1L, "Khách không còn nhu cầu", "Đã gọi 3 lần", 3L))
+        when(rentalOrderService.cancelByFacilityManager(1L, "Khách không còn nhu cầu", "Đã gọi 3 lần", false, 3L))
                 .thenReturn(new RentalOrderView(1L, 6L, 2L, "Canceled", "Khách không còn nhu cầu"));
 
         mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), FM)
@@ -321,11 +321,11 @@ class BookingControllerTest {
     void fmCancelMapsBusinessErrorsToStatusCodes() throws Exception {
         authenticate(FM, "FM");
         when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
-        when(rentalOrderService.cancelByFacilityManager(9L, "Khách không còn nhu cầu", null, 3L))
+        when(rentalOrderService.cancelByFacilityManager(9L, "Khách không còn nhu cầu", null, false, 3L))
                 .thenThrow(new RentalOrderNotFoundException());
-        when(rentalOrderService.cancelByFacilityManager(8L, "Khách không còn nhu cầu", null, 3L))
+        when(rentalOrderService.cancelByFacilityManager(8L, "Khách không còn nhu cầu", null, false, 3L))
                 .thenThrow(new ForbiddenException("Bạn không được gán vào cơ sở này"));
-        when(rentalOrderService.cancelByFacilityManager(7L, "Khách không còn nhu cầu", null, 3L))
+        when(rentalOrderService.cancelByFacilityManager(7L, "Khách không còn nhu cầu", null, false, 3L))
                 .thenThrow(new ProposalConflictException("Đơn thuê đã đóng, không thể huỷ"));
 
         String body = "{\"reason\":\"Khách không còn nhu cầu\"}";
