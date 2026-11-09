@@ -1,4 +1,4 @@
-import { CalendarClock, ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../../app/api";
 import { fetchCurrentFmFacility } from "../../app/fmFacility";
