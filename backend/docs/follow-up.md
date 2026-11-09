@@ -30,6 +30,24 @@ thì mở issue theo workflow; file này không thay thế issue.
 - Phân trang list trả mảng không kèm `total` — FE tải thêm tới khi trang rỗng; nếu cần
   `total`/`hasMore` phải mở issue đổi contract.
 
+## Refund
+
+- **Queue vận hành:** `GET /api/refunds/queues/invoices` — ADMIN cross-facility; FM theo
+  `facilityId`, chỉ `view=active`. Admin chỉ nên giữ cross-facility oversight.
+- **Refund obligation:** `POST /api/refunds/obligations` đang gate sau profile `refund-obligation`
+  (mặc định tắt) và chỉ tạo obligation/lines/formula snapshot. Cần nối obligation vào disbursement
+  (`refund_obligation_id`), thêm route transaction/confirm/queue, chuyển `Open → Disbursed`; order-only
+  chưa có đường chi tiền.
+- **Hoàn cọc khi kết thúc thuê:** flow quyết toán tạo obligation với lines cọc/khấu trừ; sau đó dùng
+  handover theo obligation. Nếu cần duyệt, thêm `approve` trước handover, không thêm endpoint handover
+  trùng.
+- **Partial refund:** hiện một `Success` cho mỗi `source_transaction_id`; hoàn cọc một phần từ cùng
+  giao dịch cọc cần thiết kế lại unique index và contract amount trước khi implement.
+- **Per-reason policy:** `payment_transaction.refund`/`refund_transaction.handover` hiện cho phép
+  mọi `reason_code` trong facility. Nếu FS/FM chỉ được xử lý một số lý do, thêm policy theo
+  role/task/reason ở service; không tạo permission cho từng `reason_code`.
+- **VNPay auto refund:** `vnp_Command=refund` vẫn tách riêng; không dùng permission thủ công.
+
 ## FS tasks
 
 - Chưa có bảng task/assignment cho FS. Refund queue FM hiện read-only; chưa biết FS nào xử lý

@@ -5,6 +5,7 @@ public enum InvoiceRefundStatus {
     NONE("None"),
     REQUIRED("Required"),
     PROCESSING("Processing"),
+    AWAITING_CONFIRMATION("AwaitingConfirmation"),
     REFUNDED("Refunded");
 
     private final String dbValue;

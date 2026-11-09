@@ -138,6 +138,42 @@ public class PaymentReconciliationCaseRepository {
                 limit, offset);
     }
 
+    public List<RefundRow> findRefundPage(String statuses, long offset, int limit) {
+        String sql = """
+                select i.id as invoice_id, i.code, i.order_id, i.amount, i.refund_status,
+                       i.refund_reason, i.refund_requested_at,
+                       pt.vnp_txn_ref, pt.gateway_transaction_no, pt.paid_at
+                from invoices i
+                left join lateral (
+                    select pt.vnp_txn_ref, pt.gateway_transaction_no, pt.paid_at
+                    from payment_transactions pt
+                    where pt.invoice_id = i.id
+                      and pt.direction = 'PAY'
+                      and pt.status in ('Success', 'Duplicate')
+                    order by pt.paid_at desc nulls last, pt.id desc
+                    limit 1
+                ) pt on true
+                where i.refund_status in (%s)
+                order by i.refund_requested_at nulls last, i.id
+                limit ? offset ?
+                """.formatted(statuses);
+        return jdbc.query(sql, (rs, rowNum) -> new RefundRow(
+                        rs.getLong("invoice_id"), rs.getString("code"),
+                        rs.getObject("order_id", Long.class), rs.getBigDecimal("amount"),
+                        rs.getString("refund_status"), rs.getString("refund_reason"),
+                        rs.getTimestamp("refund_requested_at") == null
+                                ? null : rs.getTimestamp("refund_requested_at").toInstant(),
+                        rs.getString("vnp_txn_ref"), rs.getString("gateway_transaction_no"),
+                        rs.getTimestamp("paid_at") == null ? null : rs.getTimestamp("paid_at").toInstant()),
+                limit, offset);
+    }
+
+    public long countRefundPage(String statuses) {
+        Long count = jdbc.queryForObject(
+                "select count(*) from invoices where refund_status in (" + statuses + ")", Long.class);
+        return count == null ? 0 : count;
+    }
+
     /** Refund Required của một facility — dùng cho queue FM. */
     public List<RefundRow> findRefundRequiredPageForFacility(Long facilityId, long offset, int limit) {
         String sql = """

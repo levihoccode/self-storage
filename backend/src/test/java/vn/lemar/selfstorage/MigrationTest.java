@@ -31,7 +31,8 @@ class MigrationTest {
             "unit_types", "policies", "storage_units",
             "rental_requests", "rental_orders", "rental_contracts", "invoices",
             "proposal_feedbacks", "appointments", "rental_appointments",
-            "handover_records", "unit_access_keys", "payment_transactions", "audit_logs",
+            "handover_records", "unit_access_keys", "payment_transactions",
+            "refund_transactions", "refund_obligations", "refund_obligation_lines", "audit_logs",
             "notifications", "order_notifications");
 
     @Container
@@ -170,9 +171,10 @@ class MigrationTest {
                     "indexname = 'uq_invoices_unpaid_deposit_supplement'")).isEqualTo(1);
             assertThat(count(connection, "account_facility_assignments")).isEqualTo(1);
             // V3: permission catalog + mapping mặc định (A3b, #57).
-            assertThat(count(connection, "permissions")).isEqualTo(24);
-            assertThat(count(connection, "role_permissions")).isEqualTo(32);
-            assertThat(countWhere(connection, "role_permissions", "scope = 'FACILITY'")).isEqualTo(24);
+            // V22 adds refund_transaction.handover for FS/ADMIN; V24 adds request for FM/ADMIN.
+            assertThat(count(connection, "permissions")).isEqualTo(26);
+            assertThat(count(connection, "role_permissions")).isEqualTo(36);
+            assertThat(countWhere(connection, "role_permissions", "scope = 'FACILITY'")).isEqualTo(28);
             assertThat(countWhere(connection, "role_permissions", "scope = 'GLOBAL'")).isEqualTo(8);
 
             // #57: quan hệ FM–Facility 1–1 trên facilities.

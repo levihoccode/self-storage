@@ -23,7 +23,7 @@ Trả case đối soát theo `view=open|history`. `GET /api/admin/payments/pendi
 - Case Open thường chưa có `resolution`/`evidenceUrl`; Admin nhập khi reconcile.
 - Case history có `resolution`, `gatewayTransactionNo`, `paidAt`, `resolvedAt`, `resolvedByEmail`,
   `note`, `evidenceUrl`; FE không render form reconcile cho history.
-- Khoản cần hoàn tiền không nằm trong list này; xem `GET /api/admin/payments/refunds`.
+- Khoản cần hoàn tiền không nằm trong list này; xem `GET /api/refunds/queues/invoices`.
 
 ## Evidence
 

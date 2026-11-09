@@ -2,6 +2,7 @@ package vn.lemar.selfstorage.identity.application;
 
 import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -103,6 +104,30 @@ public class Access {
                     account.getId(), facilityId, permissionCode);
             throw new ForbiddenException("Bạn không được gán vào cơ sở này");
         }
+    }
+
+    /**
+     * Hành động theo cơ sở khi actor có thể dùng một trong nhiều permission (vd FM dùng quyền cũ,
+     * FS dùng quyền mới). Chọn mapping FACILITY đầu tiên mà role có rồi chạy guard facility.
+     */
+    @Transactional(readOnly = true)
+    public void canAnyFacility(Long facilityId, String... permissionCodes) {
+        Objects.requireNonNull(facilityId, "facilityId bắt buộc cho hành động theo cơ sở");
+        Objects.requireNonNull(permissionCodes, "permissionCodes");
+        Account account = currentAccountProvider.getCurrentAccount();
+        for (String permissionCode : permissionCodes) {
+            Optional<PermissionScope> scope = permissionRepository
+                    .findScope(account.getRole().getId(), permissionCode);
+            if (scope.isPresent()) {
+                if (scope.get() != PermissionScope.FACILITY) {
+                    throw new IllegalStateException("Permission " + permissionCode + " có scope "
+                            + scope.get() + " — gọi sai dạng canAnyFacility(); xem permission-catalog");
+                }
+                can(permissionCode, facilityId);
+                return;
+            }
+        }
+        throw new ForbiddenException();
     }
 
     private Account requirePermission(String permissionCode, PermissionScope requiredScope) {

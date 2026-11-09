@@ -1,0 +1,157 @@
+package vn.lemar.selfstorage.payment.application;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.lemar.selfstorage.audit.application.AuditEntry;
+import vn.lemar.selfstorage.audit.application.AuditRecorder;
+import vn.lemar.selfstorage.audit.domain.AuditAction;
+import vn.lemar.selfstorage.audit.domain.AuditEntityType;
+import vn.lemar.selfstorage.payment.application.dto.CreateRefundObligation;
+import vn.lemar.selfstorage.payment.application.dto.RefundObligationLineInput;
+import vn.lemar.selfstorage.payment.application.dto.RefundObligationView;
+import vn.lemar.selfstorage.payment.application.exception.RefundObligationConflictException;
+import vn.lemar.selfstorage.payment.application.exception.RefundObligationValidationException;
+import vn.lemar.selfstorage.payment.domain.PaymentDirection;
+import vn.lemar.selfstorage.payment.domain.PaymentStatus;
+import vn.lemar.selfstorage.payment.domain.RefundLineDirection;
+import vn.lemar.selfstorage.payment.domain.RefundObligation;
+import vn.lemar.selfstorage.payment.domain.RefundObligationStatus;
+import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
+import vn.lemar.selfstorage.payment.repository.RefundObligationRepository;
+
+/**
+ * Tạo nghĩa vụ hoàn tiền có breakdown. Đây chưa phải ledger chi tiền: refund_transactions vẫn
+ * được ghi khi FS/FM handover.
+ */
+@Service
+public class RefundObligationService {
+
+    private static final Set<String> COMPONENT_CODES = Set.of(
+            "DEPOSIT_PAID", "DEPOSIT_REQUIRED", "UNIT_CHANGE_FEE", "UNPAID_RENT",
+            "REPAIR_FEE", "CLEANING_FEE", "PRIOR_REFUND", "GOODWILL", "ADJUSTMENT", "OTHER");
+    private static final List<RefundObligationStatus> ACTIVE = List.of(
+            RefundObligationStatus.OPEN, RefundObligationStatus.APPROVED);
+
+    private final RefundObligationRepository obligations;
+    private final PaymentTransactionRepository paymentTransactions;
+    private final AuditRecorder auditRecorder;
+
+    public RefundObligationService(RefundObligationRepository obligations,
+            PaymentTransactionRepository paymentTransactions, AuditRecorder auditRecorder) {
+        this.obligations = obligations;
+        this.paymentTransactions = paymentTransactions;
+        this.auditRecorder = auditRecorder;
+    }
+
+    @Transactional
+    public RefundObligationView create(CreateRefundObligation input, Long actorAccountId) {
+        validate(input);
+        if (input.invoiceId() != null
+                && !paymentTransactions.existsByInvoiceIdAndDirectionAndStatus(
+                        input.invoiceId(), PaymentDirection.PAY, PaymentStatus.SUCCESS)) {
+            throw new RefundObligationValidationException(
+                    "Hoá đơn chưa có giao dịch thanh toán thành công");
+        }
+        if (input.invoiceId() != null
+                && obligations.existsByInvoiceIdAndStatusIn(input.invoiceId(), ACTIVE)) {
+            throw new RefundObligationConflictException(
+                    "Invoice đã có refund obligation đang mở");
+        }
+        RefundObligation obligation = RefundObligation.create(input.invoiceId(), input.orderId(),
+                input.reasonCode(), blankToNull(input.reasonNote()),
+                input.calculationVersion(), input.calculationInput(), actorAccountId);
+        int index = 0;
+        for (RefundObligationLineInput line : input.lines()) {
+            obligation.addLine(line.componentCode().trim().toUpperCase(Locale.ROOT),
+                    parseDirection(line.direction()), line.amount(), line.label().trim(),
+                    blankToNull(line.sourceType()), line.sourceId(), blankToNull(line.note()),
+                    line.sortOrder() == null ? index : line.sortOrder());
+            index++;
+        }
+        try {
+            obligation.calculate();
+            assertWithinPaidAmount(obligation, input.invoiceId());
+            obligations.saveAndFlush(obligation);
+        } catch (DataIntegrityViolationException ex) {
+            throw new RefundObligationConflictException(
+                    "Invoice đã có refund obligation đang mở");
+        } catch (IllegalArgumentException ex) {
+            throw new RefundObligationValidationException(ex.getMessage());
+        }
+
+        Map<String, Object> newValue = new LinkedHashMap<>();
+        newValue.put("invoiceId", obligation.getInvoiceId());
+        newValue.put("orderId", obligation.getOrderId());
+        newValue.put("amount", obligation.getAmount());
+        newValue.put("reasonCode", obligation.getReasonCode().name());
+        newValue.put("status", obligation.getStatus().dbValue());
+        newValue.put("calculationVersion", obligation.getCalculationVersion());
+        newValue.put("formulaText", obligation.getFormulaText());
+        newValue.put("lineCount", obligation.getLines().size());
+        auditRecorder.record(new AuditEntry(AuditAction.REFUND_OBLIGATION_CREATED,
+                AuditEntityType.REFUND_OBLIGATION, String.valueOf(obligation.getId()),
+                null, newValue, obligation.getReasonCode().name(), actorAccountId));
+        return RefundObligationView.from(obligation);
+    }
+
+    /** Guard cho invoice handover: không dùng route invoice khi đang có obligation active. */
+    @Transactional(readOnly = true)
+    public boolean hasActiveForInvoice(Long invoiceId) {
+        return obligations.existsByInvoiceIdAndStatusIn(invoiceId, ACTIVE);
+    }
+
+    private void assertWithinPaidAmount(RefundObligation obligation, Long invoiceId) {
+        if (invoiceId == null) {
+            return;
+        }
+        var paid = paymentTransactions.sumAmountByInvoiceIdAndDirectionAndStatusIn(
+                invoiceId, PaymentDirection.PAY,
+                List.of(PaymentStatus.SUCCESS, PaymentStatus.DUPLICATE));
+        if (paid == null || obligation.getAmount().compareTo(paid) > 0) {
+            throw new RefundObligationValidationException(
+                    "Số tiền hoàn vượt quá tiền đã thu");
+        }
+    }
+
+    private static void validate(CreateRefundObligation input) {
+        if (input.invoiceId() == null && input.orderId() == null) {
+            throw new RefundObligationValidationException(
+                    "Phải có invoiceId hoặc orderId");
+        }
+        if (input.reasonCode() == null) {
+            throw new RefundObligationValidationException("Lý do hoàn tiền không hợp lệ");
+        }
+        if (input.reasonCode() == RefundReason.OTHER
+                && (input.reasonNote() == null || input.reasonNote().isBlank())) {
+            throw new RefundObligationValidationException("Lý do OTHER phải có ghi chú");
+        }
+        for (RefundObligationLineInput line : input.lines()) {
+            if (!COMPONENT_CODES.contains(line.componentCode().trim().toUpperCase(Locale.ROOT))) {
+                throw new RefundObligationValidationException(
+                        "componentCode không hợp lệ: " + line.componentCode());
+            }
+            if (line.amount() == null || line.amount().signum() <= 0) {
+                throw new RefundObligationValidationException(
+                        "amount của từng line phải lớn hơn 0");
+            }
+        }
+    }
+
+    private static RefundLineDirection parseDirection(String value) {
+        try {
+            return RefundLineDirection.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new RefundObligationValidationException("direction không hợp lệ: " + value);
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+}

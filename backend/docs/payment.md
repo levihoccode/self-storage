@@ -110,6 +110,84 @@ Không lớp nào tự hoàn tiền.
   mức gốc — đây là contract của bên thứ ba.
 
 
+## Hoàn tiền thủ công
+
+Tiền ra có ledger riêng `refund_transactions`; `payment_transactions` chỉ ghi tiền vào (`PAY`).
+Không có bước FM duyệt giữa FS đưa tiền và khách xác nhận.
+
+```text
+Required/Processing
+  → FS/FM ghi nhận đã đưa tiền (refund_transactions Success)
+  → AwaitingConfirmation
+  → khách xác nhận đã nhận
+  → Refunded
+```
+
+- **FS/FM handover:** `POST /api/refunds/invoices/{invoiceId}/handover` với `method`, `evidenceUrl`,
+  `gatewayRef?`, `note?`, `sourceTransactionId?`, `reasonNote?`. Số tiền lấy từ `invoice.amount`
+  và phải ≤ giao dịch PAY gốc (`Success` hoặc `Duplicate`), không nhận amount từ client. FS dùng permission
+  `refund_transaction.handover`; FM dùng `payment_transaction.refund`; ADMIN override; tất cả kiểm
+  facility scope. Evidence bắt buộc.
+- **Khách xác nhận:** `POST /api/refunds/invoices/{invoiceId}/confirm`; chỉ nhận khi refund ledger
+  đã `Success` và invoice đang `AwaitingConfirmation`, nếu chưa trả `409`. Xác nhận lặp lại trả kết
+  quả cũ, không ghi audit trùng. Invoice chuyển `Refunded`, set `refunded_at`.
+- **Khách báo chưa nhận:** `POST /api/refunds/invoices/{invoiceId}/dispute`; lần đầu ghi
+  `disputed_at/dispute_note`, audit `REFUND_CUSTOMER_DISPUTED` + notification, giữ invoice
+  `AwaitingConfirmation`, không tạo refund lần hai. Gọi lặp trả kết quả cũ, không ghi audit/notification
+  trùng. Support request/Flow 7 xử lý tiếp.
+- **Bất biến:** một `refund_transactions` `Success` cho mỗi `source_transaction_id` (partial unique
+  index V22); `status='Success'` bắt buộc có `disbursed_at`; `reason_code=OTHER` bắt buộc
+  `reason_note`. `reason_code` snapshot từ `invoices.refund_reason` tại lúc handover. Partial refund
+  từ cùng một source chưa hỗ trợ — cần đổi unique index và contract trước khi dùng cho hoàn cọc
+  một phần.
+- **Queue:** `GET /api/refunds/queues/invoices`; ADMIN dùng `view=active|history` (active gồm
+  `Required`, `Processing`, `AwaitingConfirmation`; history gồm `Refunded`). FM dùng
+  `facilityId=...&view=active`, chỉ thấy invoice `Required` của cơ sở.
+- **Notification:** sau khi handover commit, listener gửi `REFUND_AWAITING_CONFIRMATION` cho khách
+  (in-app + email). Gửi lỗi không rollback nghiệp vụ.
+
+### Refund obligation — nghĩa vụ trước khi chi tiền
+
+`POST /api/refunds/obligations` tạo **refund obligation** thủ công, chưa chi tiền và chưa tạo
+`refund_transactions`. Dùng cho case đặc biệt không có obligation tự động hoặc amount khác invoice.
+
+- FM theo facility; ADMIN override; permission `refund_obligation.create`.
+- Obligation có thể gắn `invoiceId`, `orderId`, hoặc cả hai; ít nhất một cái.
+- Server tính final amount từ `lines`, không nhận amount từ client:
+  `final = sum(ADD) - sum(SUBTRACT)`.
+- `calculationVersion` + `calculationInput` là snapshot để giải thích/recompute.
+- `formulaText` chỉ để hiển thị/audit, không dùng để tính tiền.
+- Obligation lưu `amount`, `formulaText`, lines; audit `REFUND_OBLIGATION_CREATED` trên `RefundObligation`.
+- Obligation ở trạng thái `Open`; handover hiện tại chưa nối với obligation này — cần chuyển
+  handover sang `refundObligationId` trước khi dùng trong vận hành.
+- Route `POST /api/refunds/obligations` đang gate sau profile `refund-obligation`, mặc định không
+  expose; bật khi có luồng chi tiền cho obligation.
+
+### Phạm vi route handover
+
+`POST /api/refunds/invoices/{invoiceId}/handover` là **action chi tiền cho một nghĩa vụ hoàn tiền đã tồn tại**
+trên invoice. Route không tạo nghĩa vụ hoàn tiền, không quyết định invoice có được hoàn hay không,
+và không phải route riêng cho từng lý do.
+
+```text
+Flow nghiệp vụ tạo nghĩa vụ
+  → invoice.refund_status = Required
+  → POST /refunds/invoices/{id}/handover (FS/FM xác nhận đã đưa tiền)
+  → khách confirm
+```
+
+- Điều kiện vào route: invoice đang `Required`/`Processing`; source PAY cùng invoice; amount ≤ source.
+- `reason_code` chỉ là snapshot lý do tại lúc handover; không thay đổi permission hay endpoint.
+- Các loại hoàn tiền tương lai như trả cọc khi kết thúc thuê, dư phí hoặc chi phí sửa chữa phải
+  tạo nghĩa vụ trước (set `refund_status=Required` hoặc tạo invoice/obligation tương ứng), rồi dùng
+  lại route handover này.
+- Nếu nghiệp vụ cần bước tính toán/duyệt riêng, thêm endpoint `settle`/`approve` trước handover;
+  không thêm endpoint handover thứ hai trùng chức năng.
+
+`payment_transaction.refund` là permission cũ của FM cho action handover hiện tại; nó **không** phải
+quyền wildcard cho mọi endpoint refund tương lai. Mỗi endpoint refund mới phải tự khai báo guard và
+permission tương ứng.
+
 ## Known limitations
 
 - **Không có đối soát phiên tự động (`querydr`).** IPN không về → `PaymentTransaction(Pending)` nằm
@@ -119,8 +197,18 @@ Không lớp nào tự hoàn tiền.
   cần đối soát thủ công.
 - **Chưa có cron hủy đơn quá hạn thanh toán** (Flow 6); invoice/order không tự `Expired`/`Canceled`,
   khoang không tự release theo hạn.
-- **Chưa có hoàn tiền tự động** (Flow 4). Tiền vào invoice đã `Canceled`/`Expired`, hoặc khoang đã mất,
-  chỉ log ERROR; hoàn tiền thủ công.
+- **Chưa có hoàn tiền tự động qua VNPay** (Flow 4). Handover/confirm thủ công đã có; VNPay
+  `vnp_Command=refund` và querydr vẫn tách issue riêng.
+- **Refund obligation chưa nối chi tiền.** `POST /api/refunds/obligations` chỉ ghi obligation/lines;
+  order-only obligation không có disbursement/queue/confirm. Invoice-bound vẫn dùng handover invoice
+  với `invoice.amount`, chưa dùng `obligation.amount`; `refund_transactions` chưa có
+  `refund_obligation_id`. Route đang gate sau profile `refund-obligation`, mặc định tắt.
+- **Obligation state mới `Open`.** `Approved`/`Disbursed`/`Canceled` chưa có endpoint; invoice
+  `Processing` không code nào set. Không có idempotency/cancel cho order-only.
+- **Một invoice chỉ handover một lần.** Mỗi `source_transaction_id` tối đa một `Success`; duplicate
+  khác cần obligation/transaction riêng. Chưa có API lịch sử ledger.
+- **Chưa có support request/Flow 7** để phân công FS và theo dõi dispute; hiện dispute chỉ ghi audit
+  + notification một lần.
 - **Chỉ VNPay.** Chưa provider-neutral; `PaymentTransaction` chưa có cột provider; chưa có ZaloPay/payOS.
 - **Giả định một instance.** `DepositStateRepairJob` và `PendingPaymentWatchdogJob` chạy mỗi 5 phút;
   chưa cấu hình ShedLock vì deployment hiện tại chỉ một instance. Nếu scale ngang phải bổ sung khóa job.
@@ -138,8 +226,8 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 - **Case Pending:** `PendingPaymentWatchdogJob` tạo case `Open`; ADMIN xem
   `GET /api/admin/payments/reconciliation?view=open|history`; reconcile đóng case và lưu
   note/evidence. `/api/admin/payments/pending` là alias cũ của `view=open`.
-  Khoản cần hoàn tiền có queue riêng `GET /api/admin/payments/refunds`, đọc từ
-  `invoices.refund_status=Required`; route chưa ghi nhận hoàn tiền.
+  Khoản cần hoàn tiền có queue riêng `GET /api/refunds/queues/invoices` (ADMIN cross-facility,
+  FM theo `facilityId`; xem mục **Hoàn tiền thủ công** bên dưới).
   Evidence là URL file Admin upload qua `POST /api/media/uploads`, optional.
 - **Chỉ giao dịch `Pending`.** Row bị khoá `PESSIMISTIC_WRITE`; invoice được khoá thêm bằng
   advisory lock để hai manual request cùng invoice serialize. Giao dịch đã `Success`/`Failed`/
@@ -174,4 +262,6 @@ Bốn biến `VNPAY_*` fail-fast (thiếu là app không boot): `VNPAY_TMN_CODE`
 - **Đối soát thủ công: có** — `POST /api/admin/payments/{txnRef}/reconcile` (ADMIN), xem
   [routes/payment/manual-reconcile.md](routes/payment/manual-reconcile.md).
 - **Querydr tự động: không dùng** — thay bằng đối soát thủ công; chấp nhận `Pending` không tự đóng.
+- **Hoàn tiền thủ công: có** — `refund_transactions`, handover/confirm/dispute, queue active/history;
+  xem mục **Hoàn tiền thủ công**.
 - **Chặn hủy đơn khi phiên thanh toán còn mở: chưa có trong code** — cần chốt và ghi vào docs trước.

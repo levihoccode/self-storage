@@ -74,7 +74,7 @@ class AdminRefundPaymentIntegrationTest {
 
     @Test
     void adminSeesRefundRequiredInvoice() throws Exception {
-        mockMvc.perform(get("/api/admin/payments/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy danh sách khoản cần hoàn tiền thành công"))
@@ -98,7 +98,7 @@ class AdminRefundPaymentIntegrationTest {
 
     @Test
     void invalidRefundPagingIsRejected() throws Exception {
-        mockMvc.perform(get("/api/admin/payments/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("page", "0")
                         .param("size", "0")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
@@ -106,15 +106,15 @@ class AdminRefundPaymentIntegrationTest {
     }
 
     @Test
-    void nonAdminCannotSeeRefundQueue() throws Exception {
-        mockMvc.perform(get("/api/admin/payments/refunds")
+    void fmWithoutFacilityIsRejected() throws Exception {
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void fmSeesRefundRequiredForOwnFacility() throws Exception {
-        mockMvc.perform(get("/api/fm/invoices/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
                 .andExpect(status().isOk())
@@ -124,15 +124,24 @@ class AdminRefundPaymentIntegrationTest {
 
     @Test
     void fmOfOtherFacilityCannotSeeRefundQueue() throws Exception {
-        mockMvc.perform(get("/api/fm/invoices/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@lemar.vn")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
+    void fmHistoryViewIsRejected() throws Exception {
+        mockMvc.perform(get("/api/refunds/queues/invoices")
+                        .param("facilityId", "1")
+                        .param("view", "history")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void customerCannotSeeFmRefundQueue() throws Exception {
-        mockMvc.perform(get("/api/fm/invoices/refunds")
+        mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@lemar.vn")))
                 .andExpect(status().isForbidden());
