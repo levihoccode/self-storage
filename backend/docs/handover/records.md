@@ -66,8 +66,24 @@ Bảng `rental_contracts` (V1). Entity `handover/domain/RentalContract.java`.
 - Idempotent theo trạng thái: record đã đóng không còn `IN_PROGRESS`; contract đã `Canceled` không
   nằm trong `Draft`/`Signed`. Gọi lại không tạo audit mới.
 
-HTTP chưa có cho hai hàm này. Cron quá `due_at` gọi `cancelByOrderId`; cron no-show sẽ gọi
-`cancelByAppointmentId` khi luồng đó được nối.
+HTTP chưa có cho hai hàm này. Cron quá `due_at` gọi `cancelByOrderId`;
+`AppointmentNoShowListener` nhận `AppointmentNoShow` từ cron no-show và gọi
+`cancelByAppointmentId` ngay trong transaction huỷ lịch.
+
+## Lịch no-show
+
+`AppointmentNoShowService.cancelIfDue` (booking) huỷ lịch `Pending` quá `end_at`, ghi audit
+`APPOINTMENT_CANCELED_NO_SHOW`, rồi publish `AppointmentNoShow(appointmentId, reason)`.
+
+`AppointmentNoShowListener` dùng `@EventListener` (chạy ngay khi publish, không đợi commit) để:
+
+- record theo `appointment_id` đang `IN_PROGRESS` → `CANCELED`, `reject_reason` = lý do của lịch;
+- contract `Draft`/`Signed` của đơn → `Canceled`;
+- record không tồn tại, `COMPLETED`/`REJECTED` → no-op; record đã `CANCELED` chỉ dọn contract sót.
+
+Listener chạy trước khi booking cập nhật đơn, nên thứ tự khoá chung vẫn là
+`appointments → handover_records → rental_contracts → rental_orders`. Lỗi trong listener rollback
+cả lần huỷ no-show.
 
 ## Cron quá `due_at`
 
@@ -95,9 +111,9 @@ Thứ tự khoá: `handover_records` → `rental_contracts` → `rental_orders`.
 
 - Flow 1 tạo `HandoverRecord` khi đặt lịch; hiện record phải có sẵn thì listener/cron mới có tác dụng.
 - HTTP API Flow 2.1/2.2.
-- Mở rộng cron no-show sang handover/order (`cancelByAppointmentId` chưa có caller).
 - Sinh `RentalContract` (Flow 2.3), xác minh danh tính và hiện trạng khoang (Flow 2.2).
-- Notification cho no-show handover.
+- Notification cho no-show handover (hiện khách nhận notification của lịch/đơn, không có loại riêng
+  cho phiên bàn giao bị đóng).
 
 ## Test
 
