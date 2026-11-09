@@ -4,10 +4,12 @@ purpose: FM huỷ đơn thuê với lý do do FM nhập.
 ---
 # POST /api/fm/rental-orders/{orderId}/cancel
 
-Body `{"reason": "...", "note": "..."}`:
+Body `{"reason": "...", "note": "...", "refundDeposit": true|false}`:
 
 - `reason` — bắt buộc, tối đa 255 ký tự; hiển thị cho khách trong notification.
 - `note` — tuỳ chọn, tối đa 500 ký tự; **ghi chú nội bộ**, chỉ lưu `audit_logs.new_value.note`, không gửi khách.
+- `refundDeposit` — mặc định `false` = khách mất cọc. `true` = mỗi hoá đơn `Paid` của đơn chuyển
+  `refund_status = Required`, `refund_reason = ORDER_CANCELED` để vào queue hoàn tiền của FM/FS.
 
 Service `trim()` cả hai; `note` rỗng được bỏ.
 
@@ -19,9 +21,13 @@ Service `trim()` cả hai; `note` rỗng được bỏ.
 ## Luồng / hành vi
 
 - Thiếu/blank `reason` → 400 (qua `@Valid`); quá 255 ký tự → 400; `note` quá 500 ký tự → 400.
+- `refundDeposit = true` khi đơn không có hoá đơn `Paid` → 400 "Đơn thuê chưa thanh toán cọc…".
 - Kiểm quyền theo cơ sở của đơn, rồi khoá row đơn. Đơn `Canceled`/`Done` → 409.
 - Lý do FM nhập được ghi vào `rental_orders.cancel_reason`, `audit_logs.reason` và body notification
   `RENTAL_ORDER_CANCELED` gửi khách + FM. `note` chỉ vào `audit_logs.new_value.note` của `RentalOrder`.
+- `refundDeposit = true`: audit `INVOICE_REFUND_REQUIRED` cho từng hoá đơn `Paid`, notify FM
+  `ORDER_CANCELED_REFUND_REQUIRED` và khách `ORDER_CANCELED_REFUND_PENDING`. Không tạo
+  `RefundTransaction` — tiền ra qua `POST /api/refunds/invoices/{id}/handover` rồi khách `confirm`.
 - Chạy Cancellation Cascade dùng chung với lần từ chối thứ 3 (`RentalOrderCancellation`): đơn `Canceled` +
   `cancel_reason`, proposal `Pending`/`Agreed` → `Canceled`, hoá đơn `Unpaid` → `Canceled`, khoang `Reserved` →
   `Available`, AuditLog từng entity (actor = FM), khách + FM nhận `RENTAL_ORDER_CANCELED`.
@@ -29,8 +35,9 @@ Service `trim()` cả hai; `note` rỗng được bỏ.
 ## Ghi chú nghiệp vụ
 
 - Spec `draft.md` › 1.3 nhánh "Khách không phản hồi proposal": FM liên hệ khách ngoài hệ thống, không được thì
-  huỷ đơn. Lý do do FM nhập (proposal #268) — không còn cố định "Khách không còn nhu cầu".
-- Cascade chưa xử lý `RentalContract`, `HandoverRecord`, `Appointment` và hoàn cọc (Flow 2/4 chưa có code).
+  huỷ đơn. Lý do do FM nhập; FM quyết định có hoàn cọc hay không.
+- Cascade xử lý `Appointment` `Pending` của đơn (`APPOINTMENT_CANCELED`); chưa xử lý `RentalContract`,
+  `HandoverRecord` và chưa tự chi tiền hoàn cọc (Flow 2/4).
 
 ## Ví dụ
 

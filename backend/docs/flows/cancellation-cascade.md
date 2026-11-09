@@ -8,7 +8,9 @@ caller khoá. Entry point đang có:
 
 - `ProposalService` — khách từ chối quá số khoang cho phép;
 - `HandoverOverdueService` — cron handover quá `due_at`, sau khi đã đóng record/contract;
-- `AppointmentNoShowService` — cron no-show lịch check-in khi đơn đã hết hạn giữ kho.
+- `AppointmentNoShowService` — cron no-show lịch check-in khi đơn đã hết hạn giữ kho;
+- `RentalOrderService.cancelByFacilityManager` — FM huỷ đơn từ `/api/fm/rental-orders/{id}/cancel`,
+  hoàn cọc (nếu có) đi qua invoice `refund_status = Required`, không qua cascade.
 
 ## Sơ đồ
 

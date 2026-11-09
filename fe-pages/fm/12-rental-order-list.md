@@ -34,8 +34,9 @@ cần. Đây là nơi theo dõi đơn sau khi `RentalRequest` đã convert — k
 - Mở detail panel (thông tin khách, khoang, hạn đơn, lý do huỷ, đề xuất gần nhất, số lần từ chối).
 - `Đề xuất lại khoang` khi `needsRepropose = true` → `/fm/rental-orders/{id}/re-propose`.
 - `Huỷ đơn` khi đơn chưa đóng (`Pending`, `Deposited`, `Scheduled`, `InProgress`): nhập `reason`
-  (bắt buộc, khách thấy) + `note` (tuỳ chọn, chỉ audit) → `POST /api/fm/rental-orders/{id}/cancel`;
-  200 tải lại danh sách, 409/403/404 hiện message BE.
+  (bắt buộc, khách thấy) + `note` (tuỳ chọn, chỉ audit) + tick **Hoàn cọc cho khách** (mặc định tắt)
+  → `POST /api/fm/rental-orders/{id}/cancel`; 200 tải lại danh sách, 400 (hoàn cọc khi chưa thanh
+  toán) / 409 / 403 / 404 hiện message BE.
 - Deep link `?orderId={id}` mở đúng detail panel của đơn đó.
 
 ## States / UI trạng thái
@@ -46,7 +47,7 @@ cần. Đây là nơi theo dõi đơn sau khi `RentalRequest` đã convert — k
 - Đơn `Canceled`: detail hiện `cancelReason`, kèm "Ghi chú nội bộ" khi có `cancelNote`.
 - Đơn `Done` / `Canceled`: không có nút re-propose và không có nút huỷ.
 - Form huỷ: nút xác nhận disable khi `reason` rỗng; đang gửi thì disable cả hai nút; lỗi hiện dưới ô
-  nhập.
+  nhập. Tick hoàn cọc = `refundDeposit: true` → cọc đã thu vào queue hoàn tiền của FM/FS.
 
 ## API liên quan
 

@@ -46,6 +46,7 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelNote, setCancelNote] = useState("");
+  const [refundDeposit, setRefundDeposit] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
 
@@ -94,6 +95,7 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
     setCancelMode(false);
     setCancelReason("");
     setCancelNote("");
+    setRefundDeposit(false);
     setCancelError(null);
   }
 
@@ -113,7 +115,12 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
     setIsCanceling(true);
     setCancelError(null);
     try {
-      await cancelFmRentalOrder(openOrder.id, reason, cancelNote.trim() || undefined);
+      await cancelFmRentalOrder(
+        openOrder.id,
+        reason,
+        cancelNote.trim() || undefined,
+        refundDeposit,
+      );
       closePanel();
       setIsLoading(true);
       setReloadKey((key) => key + 1);
@@ -303,6 +310,20 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
                   onChange={(event) => setCancelNote(event.target.value)}
                   placeholder="Chỉ lưu audit, không gửi khách"
                 />
+              </label>
+              <label className="flex items-start gap-2 text-label text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={refundDeposit}
+                  onChange={(event) => setRefundDeposit(event.target.checked)}
+                />
+                <span>
+                  Hoàn cọc cho khách
+                  <span className="mt-0.5 block text-label text-muted">
+                    Bỏ trống = khách mất cọc. Chọn khi cơ sở không bàn giao được khoang.
+                  </span>
+                </span>
               </label>
               {cancelError && <span className="text-label text-danger">{cancelError}</span>}
               <div className="grid grid-cols-2 gap-2">

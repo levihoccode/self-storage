@@ -83,13 +83,16 @@ public class FmRentalOrderController {
     }
 
     @Operation(summary = "FM huỷ đơn thuê",
-            description = "Body `{reason, note?}`; `reason` bắt buộc (≤255) và hiển thị cho khách, `note` tuỳ chọn "
-                    + "(≤500) chỉ lưu audit. Chạy Cancellation Cascade: "
+            description = "Body `{reason, note?, refundDeposit?}`; `reason` bắt buộc (≤255) và hiển thị cho khách, "
+                    + "`note` tuỳ chọn (≤500) chỉ lưu audit, `refundDeposit = true` đưa cọc đã thu vào queue "
+                    + "hoàn tiền. Chạy Cancellation Cascade: "
                     + "đơn `Canceled` + `cancel_reason`, proposal `Pending`/`Agreed` → `Canceled`, hoá đơn "
                     + "`Unpaid` → `Canceled`, khoang `Reserved` → `Available`, AuditLog từng entity, khách + FM "
                     + "nhận `RENTAL_ORDER_CANCELED`. Quyền `rental_order.cancel` theo cơ sở của đơn.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Đã huỷ đơn"),
+            @ApiResponse(responseCode = "400", description = "Thiếu `reason`, hoặc `refundDeposit = true` khi đơn "
+                    + "chưa thanh toán cọc"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
             @ApiResponse(responseCode = "403", description = "Không phải role FM, thiếu quyền, hoặc đơn thuộc cơ sở "
                     + "khác"),
@@ -101,6 +104,7 @@ public class FmRentalOrderController {
                                                                @PathVariable Long orderId,
                                                                @Valid @RequestBody CancelRentalOrderRequest body) {
         RentalOrderView order = rentalOrderService.cancelByFacilityManager(orderId, body.reason(), body.note(),
+                Boolean.TRUE.equals(body.refundDeposit()),
                 accountQueryService.requireIdByEmail(authentication.getName()));
         return ResponseEntity.ok(ApiEnvelope.ok(CANCEL_MESSAGE, order));
     }
