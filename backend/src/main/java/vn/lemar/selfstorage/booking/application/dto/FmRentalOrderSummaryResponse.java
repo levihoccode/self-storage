@@ -15,8 +15,8 @@ public record FmRentalOrderSummaryResponse(
         @Schema(description = "Tên khách") String customerName,
         @Schema(description = "Email khách") String customerEmail,
         @Schema(description = "Số điện thoại khách") String customerPhone,
-        @Schema(description = "Flag raw trên order") boolean needsReproposal,
-        @Schema(description = "Đơn cần FM đề xuất lại (BE tính)") boolean needsRepropose,
+        @Schema(description = "Đơn cần FM đề xuất lại (cùng điều kiện với endpoint đề xuất lại)")
+        boolean needsRepropose,
         @Schema(description = "Số proposal bị từ chối") long rejectionCount,
         @Schema(description = "Ngưỡng từ chối") int maxRejectionCount,
         @Schema(description = "Proposal gần nhất; null nếu chưa có") LastProposal lastProposal

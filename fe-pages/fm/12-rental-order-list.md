@@ -23,8 +23,8 @@ cần. Đây là nơi theo dõi đơn sau khi `RentalRequest` đã convert — k
   `customerEmail`, `customerPhone`), `lastProposal`, `rejectionCount`/`maxRejectionCount`.
 - `status`: `Pending` / `Deposited` / `Scheduled` / `InProgress` / `Done` / `Canceled`; `Canceled`
   kèm `cancelReason`.
-- Badge **Cần đề xuất lại** khi `needsRepropose = true` (flag BE tính, không phải raw
-  `needsReproposal`).
+- Badge **Cần đề xuất lại** khi `needsRepropose = true` — flag BE tính sẵn, cùng điều kiện với
+  endpoint đề xuất lại; FE không suy lại từ `status`/`expiresAt`/lịch sử proposal.
 - Không hiển thị PII thừa ngoài nhu cầu vận hành.
 
 ## Actions

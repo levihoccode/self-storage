@@ -24,11 +24,10 @@ Danh sách `RentalOrder` của cơ sở, sort `expires_at` tăng dần (null cu�
 
 - `id`, `status`, `cancelReason`, `expiresAt`, `unitId`, `unitCode`
 - `requestId`, `customerName`, `customerEmail`, `customerPhone`
-- `needsReproposal` — flag raw trên order.
 - `needsRepropose` — BE tính: order chưa đóng, chưa quá `expires_at`, không proposal `Pending`,
   proposal gần nhất không `Agreed`, `(status = Pending || needs_reproposal)`, proposal gần nhất
   `null/Rejected/Canceled`. Cùng một hàm với queue và order detail —
-  `ReproposalPolicy.canRepropose`.
+  `ReproposalPolicy.canRepropose`. Cờ raw `needs_reproposal` không trả ra response.
 - `rejectionCount`, `maxRejectionCount`
 - `lastProposal`: `{id, unitCode, status, note, createdAt}` hoặc null.
 

@@ -95,7 +95,7 @@ public class ProposalQueryService {
                 Instant.now());
         return new FmRentalOrderResponse(order.id(), order.status(), order.cancelReason(), order.expiresAt(),
                 order.unitId(), order.facilityId(), order.requestId(), order.requestStatus(),
-                order.needsReproposal(), needsRepropose, order.customer(), order.requested(), rejections,
+                needsRepropose, order.customer(), order.requested(), rejections,
                 maxRejection(), proposals,
                 readRepository.findAvailableUnits(orderId, order.facilityId(), order.requested().unitTypeId()));
     }
@@ -112,7 +112,7 @@ public class ProposalQueryService {
                         row.lastProposalCreatedAt());
         return new FmRentalOrderSummaryResponse(row.id(), row.status(), row.cancelReason(), row.expiresAt(),
                 row.unitId(), row.unitCode(), row.requestId(), row.customerName(), row.customerEmail(),
-                row.customerPhone(), row.needsReproposal(),
+                row.customerPhone(),
                 ReproposalPolicy.canRepropose(row.status(), row.expiresAt(), row.needsReproposal(),
                         row.lastProposalStatus(), row.pendingCount(), Instant.now()),
                 row.rejectionCount(), maxRejection, lastProposal);

@@ -101,13 +101,15 @@ order chưa đóng, **chưa quá `expires_at`**, không có proposal `Pending`,
   ngưỡng từ chối trước khi quyết định.
 - Các action order-level khác (chờ khách phản hồi/thanh toán, lịch) thuộc màn Đơn thuê kho.
 
-### Ba cờ dễ nhầm
+### Cột `needs_reproposal` và field `needsRepropose`
 
-| Tên | Ở đâu | Nghĩa |
+| Tên | Phạm vi | Nghĩa |
 |---|---|---|
-| `rental_orders.needs_reproposal` | cột DB | tín hiệu nghiệp vụ: khách từ chối/không nhận được khoang trên đơn đã cọc, hoặc khoang bị chiếm lúc mở phiên thanh toán |
-| `needsReproposal` | response order list + order detail | echo nguyên giá trị cột trên, chỉ để hiển thị/đối soát |
-| `needsRepropose` | response queue + order list + order detail | **gate hành động**, tính từ đủ điều kiện ở trên |
+| `rental_orders.needs_reproposal` | cột DB, **nội bộ BE** | tín hiệu nghiệp vụ: khách từ chối/không nhận được khoang trên đơn đã cọc, hoặc khoang bị chiếm lúc mở phiên thanh toán |
+| `needsRepropose` | field của queue + order list + order detail | **gate hành động**, tính từ đủ điều kiện ở trên |
+
+Cột raw không trả ra response: nó là `true` ở những ca vẫn bị chặn đề xuất lại (đơn đã có proposal
+`Pending`, đơn quá hạn, đơn đóng), nên đọc thẳng cột là mời FM bấm vào một nút chắc chắn 409.
 
 `needsRepropose` tính ở đúng một chỗ — `ReproposalPolicy.canRepropose` — và phải khớp guard của
 `POST /api/rental-orders/{id}/proposals`. Đừng suy lại điều kiện này ở nơi khác; FE chỉ render.

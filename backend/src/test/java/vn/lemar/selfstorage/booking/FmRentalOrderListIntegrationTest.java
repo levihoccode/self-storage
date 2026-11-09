@@ -90,7 +90,6 @@ class FmRentalOrderListIntegrationTest {
         assertThat(byId.get(pendingWaiting).needsRepropose()).isFalse();
         assertThat(byId.get(pendingNoProposal).needsRepropose()).isTrue();
         assertThat(byId.get(canceled).needsRepropose()).isFalse();
-        assertThat(byId.get(depositedNeeds).needsReproposal()).isTrue();
         assertThat(byId.get(depositedNeeds).needsRepropose()).isTrue();
         assertThat(byId.get(expired).needsRepropose()).isFalse();
         assertThat(page.items().get(0).maxRejectionCount()).isEqualTo(3);

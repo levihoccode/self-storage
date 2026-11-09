@@ -16,12 +16,11 @@ Dữ liệu cho màn "Đề xuất lại khoang" (`/fm/rental-orders/:id/re-prop
 - Đơn + thông tin khách và nhu cầu lấy từ `rental_requests` (tên, email, SĐT, loại khoang, ngày bắt đầu,
   số tháng).
 - `requestId`, `requestStatus`: request gốc của đơn.
-- `needsReproposal`: cờ raw trên order, chỉ bật khi order đã giữ khoang (`Deposited`/`Scheduled`/`InProgress`).
-  Order còn `Pending` sau khi khách từ chối proposal có flag `false` nhưng vẫn được đề xuất lại.
 - `needsRepropose`: gate hành động, `ReproposalPolicy.canRepropose` — đơn chưa đóng, chưa quá
   `expires_at`, không có proposal `Pending`, `(Pending || needs_reproposal)`, proposal gần nhất
   `null`/`Rejected`/`Canceled`. FE dùng field này để hiện form "Chọn khoang mới", không tự suy từ
-  `status`/`needsReproposal`.
+  `status`/`expiresAt`/lịch sử proposal.
+  Cờ raw `rental_orders.needs_reproposal` chỉ là một đầu vào của phép tính và **không** ra khỏi BE.
 - `proposals`: toàn bộ lịch sử proposal của đơn, mới nhất trước, kèm `note` lý do từ chối.
 - `availableUnits`: khoang `Available` cùng cơ sở, cùng loại khách cần; `previouslyRejected = true` nghĩa là
   chọn lại cần `overrideReason`.
