@@ -49,6 +49,15 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/
   http://localhost:8080/api/fm/rental-orders/1/cancel
 # 200 {"message":"Đã huỷ đơn thuê","data":{"id":1,"customerId":6,"unitId":1,"status":"Canceled","cancelReason":"Khách không còn nhu cầu thuê khoang"}}
 
+# Hoàn cọc cho khách
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"reason":"Cơ sở không bàn giao được khoang","refundDeposit":true}' \
+  http://localhost:8080/api/fm/rental-orders/1/cancel
+# 200; invoice Paid → refund_status Required, refund_reason ORDER_CANCELED
+
+# Hoàn cọc khi đơn chưa thanh toán
+# 400 {"message":"Đơn thuê chưa thanh toán cọc, không thể hoàn cọc","timestamp":"..."}
+
 # Thiếu reason
 # 400 {"message":"Dữ liệu không hợp lệ","timestamp":"..."}
 

@@ -62,6 +62,11 @@ Không lớp nào tự hoàn tiền.
   được, không reserve unit, order giữ trạng thái cũ, invoice có `refund_status=Required` +
   `refund_reason=UNIT_UNAVAILABLE`; ghi audit `INVOICE_REFUND_REQUIRED`, notify FM/customer và xử lý
   hoàn tiền thủ công.
+- **Huỷ đơn có cọc (FM).** `POST /api/fm/rental-orders/{id}/cancel` với `refundDeposit=true` chuyển
+  mỗi hoá đơn `Paid` của đơn sang `refund_status=Required` + `refund_reason=ORDER_CANCELED`; ghi audit
+  `INVOICE_REFUND_REQUIRED`, notify FM `ORDER_CANCELED_REFUND_REQUIRED` và khách
+  `ORDER_CANCELED_REFUND_PENDING`. Không tạo `refund_transactions`; tiền ra vẫn qua handover.
+  `refundDeposit=false` (mặc định) là khách mất cọc.
 - **Sửa state khi listener IPN lỗi.** `PaymentTransaction(PAY/Success)` là bản ghi bền.
   `DepositStateRepairJob` quét invoice `Unpaid` (`Deposit`/`DepositSupplement`) có giao dịch
   `PAY/Success`, rồi gọi lại `DepositPaymentListener` (idempotent). Không cần querydr, không thêm
@@ -171,6 +176,7 @@ và không phải route riêng cho từng lý do.
 
 ```text
 Flow nghiệp vụ tạo nghĩa vụ
+  (unit mất khi cọc, hoặc FM huỷ đơn với refundDeposit=true)
   → invoice.refund_status = Required
   → POST /refunds/invoices/{id}/handover (FS/FM xác nhận đã đưa tiền)
   → khách confirm
