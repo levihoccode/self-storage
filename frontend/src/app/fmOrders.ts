@@ -6,6 +6,18 @@ function accessToken(): string | undefined {
   return authGateway.getSession()?.token;
 }
 
+export function cancelFmRentalOrder(
+  orderId: number,
+  reason: string,
+  note?: string,
+): Promise<{ id: number; status: string; cancelReason: string | null }> {
+  return apiRequest(`/api/fm/rental-orders/${orderId}/cancel`, {
+    method: "POST",
+    body: { reason, ...(note ? { note } : {}) },
+    accessToken: accessToken(),
+  });
+}
+
 export function fetchFmRentalOrders(
   facilityId: number,
   status?: string,

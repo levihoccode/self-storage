@@ -241,7 +241,8 @@ public class BookingReadRepository {
                        (select count(*) from proposal_feedbacks x
                         where x.order_id = o.id and x.status = 'Pending') as pending_count,
                        p.id as last_proposal_id, pu.code as last_unit_code, p.status as last_proposal_status,
-                       p.note as last_note, p.created_at as last_created_at
+                       p.note as last_note, p.created_at as last_created_at,
+                       an.note as cancel_note
                 from rental_orders o
                 join rental_requests r on r.id = o.request_id
                 left join storage_units u on u.id = o.unit_id
@@ -251,6 +252,13 @@ public class BookingReadRepository {
                     order by p.created_at desc, p.id desc limit 1
                 ) p on true
                 left join storage_units pu on pu.id = p.unit_id
+                left join lateral (
+                    select a.new_value ->> 'note' as note
+                    from audit_logs a
+                    where a.action = 'RENTAL_ORDER_CANCELED' and a.entity_type = 'RentalOrder'
+                      and a.entity_id = o.id::text and a.new_value ->> 'note' is not null
+                    order by a.id desc limit 1
+                ) an on true
                 where r.facility_id = ?
                   and (cast(? as varchar) is null or o.status = ?)
                 order by o.expires_at asc nulls last, o.id asc
@@ -264,7 +272,7 @@ public class BookingReadRepository {
                 rs.getBoolean("needs_reproposal"), (Long) rs.getObject("last_proposal_id"),
                 rs.getString("last_unit_code"), rs.getString("last_proposal_status"),
                 rs.getString("last_note"), instant(rs, "last_created_at"),
-                rs.getLong("rejection_count"), rs.getLong("pending_count")),
+                rs.getLong("rejection_count"), rs.getLong("pending_count"), rs.getString("cancel_note")),
                 facilityId, status, status, limit, offset);
     }
 
@@ -300,6 +308,7 @@ public class BookingReadRepository {
                                String unitCode, Long requestId, String customerName, String customerEmail,
                                String customerPhone, boolean needsReproposal, Long lastProposalId,
                                String lastProposalUnitCode, String lastProposalStatus, String lastProposalNote,
-                               Instant lastProposalCreatedAt, long rejectionCount, long pendingCount) {
+                               Instant lastProposalCreatedAt, long rejectionCount, long pendingCount,
+                               String cancelNote) {
     }
 }

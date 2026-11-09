@@ -22,13 +22,15 @@ Danh sách `RentalOrder` của cơ sở, sort `expires_at` tăng dần (null cu�
 
 `{items, page, size, total}`; mỗi item:
 
-- `id`, `status`, `cancelReason`, `expiresAt`, `unitId`, `unitCode`
+- `id`, `status`, `cancelReason`, `cancelNote`, `expiresAt`, `unitId`, `unitCode`
 - `requestId`, `customerName`, `customerEmail`, `customerPhone`
 - `needsRepropose` — BE tính: order chưa đóng, chưa quá `expires_at`, không proposal `Pending`,
   proposal gần nhất không `Agreed`, `(status = Pending || needs_reproposal)`, proposal gần nhất
   `null/Rejected/Canceled`. Cùng một hàm với queue và order detail —
   `ReproposalPolicy.canRepropose`. Cờ raw `needs_reproposal` không trả ra response.
 - `rejectionCount`, `maxRejectionCount`
+- `cancelNote`: `note` nội bộ của lần huỷ gần nhất, đọc từ `audit_logs.new_value.note`; null nếu
+  không có. Chỉ dùng để FM xem lại, không gửi khách.
 - `lastProposal`: `{id, unitCode, status, note, createdAt}` hoặc null.
 
 ## Ví dụ

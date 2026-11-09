@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage.booking.application;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -57,17 +58,31 @@ class RentalOrderCancellation {
      * @param actorAccountId người gây ra việc huỷ; {@code null} = hệ thống/cron
      */
     void cancel(RentalOrder order, String reason, Long actorAccountId) {
-        cancel(order, reason, actorAccountId, true);
+        cancel(order, reason, actorAccountId, null, true);
     }
 
     void cancel(RentalOrder order, String reason, Long actorAccountId, boolean notifyCustomer) {
+        cancel(order, reason, actorAccountId, null, notifyCustomer);
+    }
+
+    /** Ghi chú nội bộ {@code note} chỉ vào audit của đơn, không vào notification. */
+    void cancel(RentalOrder order, String reason, Long actorAccountId, String note) {
+        cancel(order, reason, actorAccountId, note, true);
+    }
+
+    void cancel(RentalOrder order, String reason, Long actorAccountId, String note, boolean notifyCustomer) {
         String oldStatus = order.getStatus().dbValue();
         // Chụp trước khi đổi status: đơn chỉ giữ khoang khi đang ở Deposited/Scheduled/InProgress.
         boolean heldUnit = order.holdsUnit();
         order.cancel(reason);
+        Map<String, Object> orderNewValue = new HashMap<>();
+        orderNewValue.put("status", order.getStatus().dbValue());
+        orderNewValue.put("cancelReason", reason);
+        if (note != null) {
+            orderNewValue.put("note", note);
+        }
         record(AuditAction.RENTAL_ORDER_CANCELED, AuditEntityType.RENTAL_ORDER, order.getId(),
-                Map.of("status", oldStatus),
-                Map.of("status", order.getStatus().dbValue(), "cancelReason", reason), reason, actorAccountId);
+                Map.of("status", oldStatus), orderNewValue, reason, actorAccountId);
 
         for (ProposalFeedback proposal : proposalRepository.findByOrderIdAndStatusIn(order.getId(),
                 List.of(ProposalStatus.PENDING, ProposalStatus.AGREED))) {

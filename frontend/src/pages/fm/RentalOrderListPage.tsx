@@ -2,7 +2,7 @@ import { ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../../app/api";
 import { fetchCurrentFmFacility } from "../../app/fmFacility";
-import { fetchFmRentalOrders } from "../../app/fmOrders";
+import { cancelFmRentalOrder, fetchFmRentalOrders } from "../../app/fmOrders";
 import type { FmRentalOrderSummary, Navigate } from "../../app/types";
 import { Button } from "../../components/ui/Button";
 import { DetailPanel } from "../../components/ui/DetailPanel";
@@ -43,6 +43,11 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [cancelMode, setCancelMode] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelNote, setCancelNote] = useState("");
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -83,6 +88,43 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
   }, [items, query, status]);
 
   const openOrder = items.find((order) => order.id === openId) ?? null;
+
+  function openOrderPanel(orderId: number) {
+    setOpenId(orderId);
+    setCancelMode(false);
+    setCancelReason("");
+    setCancelNote("");
+    setCancelError(null);
+  }
+
+  function closePanel() {
+    setOpenId(null);
+    setCancelMode(false);
+    setCancelError(null);
+  }
+
+  async function submitCancel() {
+    if (!openOrder) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      setCancelError("Nhập lý do huỷ đơn.");
+      return;
+    }
+    setIsCanceling(true);
+    setCancelError(null);
+    try {
+      await cancelFmRentalOrder(openOrder.id, reason, cancelNote.trim() || undefined);
+      closePanel();
+      setIsLoading(true);
+      setReloadKey((key) => key + 1);
+    } catch (caught) {
+      setCancelError(
+        caught instanceof ApiError ? caught.message : "Không huỷ được đơn, thử lại sau.",
+      );
+    } finally {
+      setIsCanceling(false);
+    }
+  }
   const activeCount = items.filter((order) => ACTIVE_STATUSES.includes(order.status)).length;
   const closedCount = items.length - activeCount;
 
@@ -183,7 +225,7 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
               <button
                 key={order.id}
                 className="flex flex-wrap items-start justify-between gap-4 bg-surface p-4 text-left transition-colors hover:bg-surface-subtle"
-                onClick={() => setOpenId(order.id)}
+                onClick={() => openOrderPanel(order.id)}
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -213,7 +255,7 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
         <DetailPanel
           title={`Đơn #${openOrder.id}`}
           eyebrow={`${STATUS[openOrder.status]?.label ?? openOrder.status} · ${openOrder.customerName}`}
-          onClose={() => setOpenId(null)}
+          onClose={closePanel}
         >
           <div className="grid gap-2 text-small text-muted">
             <span>{openOrder.customerEmail}</span>
@@ -221,6 +263,7 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
             <span>Khoang {openOrder.unitCode ?? "—"}</span>
             <span>Hạn đơn {formatDate(openOrder.expiresAt)}</span>
             {openOrder.cancelReason && <span>Lý do huỷ: {openOrder.cancelReason}</span>}
+            {openOrder.cancelNote && <span>Ghi chú nội bộ: {openOrder.cancelNote}</span>}
             {openOrder.lastProposal && (
               <span>
                 Đề xuất gần nhất: khoang {openOrder.lastProposal.unitCode} ·{" "}
@@ -233,9 +276,61 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
             </span>
           </div>
 
+          {ACTIVE_STATUSES.includes(openOrder.status) && !cancelMode && (
+            <Button variant="danger" className="mt-6 w-full" onClick={() => setCancelMode(true)}>
+              Huỷ đơn
+            </Button>
+          )}
+
+          {cancelMode && (
+            <div className="mt-6 grid gap-3 border-t border-rule pt-4">
+              <label className="grid gap-1.5">
+                <span className="text-label font-semibold text-ink">Lý do huỷ (khách thấy)</span>
+                <input
+                  className="w-full rounded-[2px] border border-rule-strong bg-surface px-3 py-2 text-small text-ink outline-0 focus:border-brand"
+                  value={cancelReason}
+                  maxLength={255}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  placeholder="VD: Khách báo không còn nhu cầu thuê khoang"
+                />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-label font-semibold text-ink">Ghi chú nội bộ (tuỳ chọn)</span>
+                <input
+                  className="w-full rounded-[2px] border border-rule-strong bg-surface px-3 py-2 text-small text-ink outline-0 focus:border-brand"
+                  value={cancelNote}
+                  maxLength={500}
+                  onChange={(event) => setCancelNote(event.target.value)}
+                  placeholder="Chỉ lưu audit, không gửi khách"
+                />
+              </label>
+              {cancelError && <span className="text-label text-danger">{cancelError}</span>}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="danger"
+                  pending={isCanceling}
+                  disabled={!cancelReason.trim()}
+                  onClick={submitCancel}
+                >
+                  Xác nhận huỷ
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={isCanceling}
+                  onClick={() => {
+                    setCancelMode(false);
+                    setCancelError(null);
+                  }}
+                >
+                  Không
+                </Button>
+              </div>
+            </div>
+          )}
+
           {openOrder.needsRepropose && (
             <Button
-              className="mt-6 w-full"
+              className="mt-3 w-full"
               onClick={() => {
                 setOpenId(null);
                 navigate(`/fm/rental-orders/${openOrder.id}/re-propose`);
@@ -248,7 +343,7 @@ export function RentalOrderListPage({ navigate }: { navigate: Navigate }) {
             variant="secondary"
             className="mt-3 w-full"
             onClick={() => {
-              setOpenId(null);
+              closePanel();
               navigate("/fm/rental-orders");
             }}
           >
