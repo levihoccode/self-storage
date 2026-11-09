@@ -15,7 +15,8 @@ purpose: Cron no-show cho lịch check-in quá giờ chưa đến — guard, aud
   `APPOINTMENT_CANCELED_NO_SHOW` (actor System). Idempotent: chỉ quét `Pending`.
 - Notification khách:
   - lịch có đơn `InProgress`: **một** notification tổng hợp `APPOINTMENT_NO_SHOW_ORDER_OUTCOME`
-    (`appointmentTime`, `orderCode`, `orderOutcome`, `reason`, `rescheduleLink`);
+    (`appointmentTime`, `orderCode`, `orderOutcome`, `reason`, `rescheduleLink`); `reason` dùng chuỗi
+    gọn `"Khách không đến theo lịch hẹn bàn giao"`, khác chuỗi ghi audit/`cancel_reason`;
   - lịch không có đơn hoặc đơn không còn `InProgress`: `APPOINTMENT_CANCELED_NO_SHOW`
     (`appointmentTime`, `rescheduleLink`);
   - không gửi thêm `RENTAL_ORDER_CANCELED` cho khách khi cascade; FM vẫn nhận

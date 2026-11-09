@@ -41,6 +41,8 @@ public class AppointmentNoShowService {
     static final String ORDER_CANCEL_REASON = "Đơn hết hạn và khách không đến theo lịch bàn giao";
     private static final String ORDER_RETURNED_OUTCOME = "vẫn được giữ ở trạng thái Đã cọc";
     private static final String ORDER_CANCELED_OUTCOME = "đã bị hủy vì hết hạn giữ kho";
+    /** Lý do hiển thị cho khách — gọn hơn chuỗi ghi audit/cancel_reason. */
+    private static final String NOTIFY_REASON = "Khách không đến theo lịch hẹn bàn giao";
 
     private static final Logger LOG = LoggerFactory.getLogger(AppointmentNoShowService.class);
     private static final ZoneId FACILITY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -132,12 +134,10 @@ public class AppointmentNoShowService {
         }
         if (order.expiresAt() == null || now.isBefore(order.expiresAt())) {
             orderLifecycle.returnToDeposited(orderId, RETURN_TO_DEPOSITED_REASON);
-            return new OrderOutcome(String.valueOf(order.id()), ORDER_RETURNED_OUTCOME,
-                    RETURN_TO_DEPOSITED_REASON);
+            return new OrderOutcome(String.valueOf(order.id()), ORDER_RETURNED_OUTCOME, NOTIFY_REASON);
         }
         orderCancellation.cancel(orderId, ORDER_CANCEL_REASON, false);
-        return new OrderOutcome(String.valueOf(order.id()), ORDER_CANCELED_OUTCOME,
-                ORDER_CANCEL_REASON);
+        return new OrderOutcome(String.valueOf(order.id()), ORDER_CANCELED_OUTCOME, NOTIFY_REASON);
     }
 
     private record OrderOutcome(String orderCode, String outcome, String reason) {
