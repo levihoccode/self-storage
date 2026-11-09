@@ -213,7 +213,8 @@ export type FmRentalOrder = {
   facilityId: number;
   requestId: number;
   requestStatus: string;
-  needsReproposal: boolean;
+  /** Gate hành động do BE tính; khớp điều kiện của endpoint đề xuất lại. */
+  needsRepropose: boolean;
   customer: { accountId: number; name: string; email: string; phone: string };
   requested: { unitTypeId: number; unitTypeName: string; startDate: string; period: number };
   rejectionCount: number;
