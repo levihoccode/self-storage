@@ -118,12 +118,8 @@ export function ProposalRedoPage({ navigate }: { navigate: Navigate }) {
   const needsOverride = selectedUnit?.previouslyRejected ?? false;
   const hasPending = order.proposals.some((proposal) => proposal.status === "Pending");
   const isClosed = order.status === "Canceled" || order.status === "Done";
-  const lastProposal = order.proposals[0] ?? null;
-  const canRepropose =
-    !isClosed &&
-    !hasPending &&
-    (order.status === "Pending" || order.needsReproposal) &&
-    lastProposal?.status !== "Agreed";
+  // Gate do BE tính (`ReproposalPolicy`); FE không suy lại từ status/expiresAt/lịch sử proposal.
+  const canRepropose = order.needsRepropose;
 
   async function submit() {
     if (!selectedUnit) return;
