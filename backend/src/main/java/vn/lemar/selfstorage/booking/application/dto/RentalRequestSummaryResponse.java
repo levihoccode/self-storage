@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import vn.lemar.selfstorage.booking.domain.RentalRequest;
+import vn.lemar.selfstorage.booking.application.ReproposalPolicy;
 import vn.lemar.selfstorage.booking.repository.BookingReadRepository;
 
 /**
@@ -51,26 +52,13 @@ public record RentalRequestSummaryResponse(
     }
 
     /**
-     * Cùng điều kiện với guard của `POST /api/rental-orders/{orderId}/proposals`
-     * ({@code ProposalService#repropose}): đơn quá {@code expires_at} thì endpoint trả 409, nên
-     * queue không được mời FM đề xuất lại.
+     * Cùng một điều kiện với guard của `POST /api/rental-orders/{orderId}/proposals` — xem
+     * {@link vn.lemar.selfstorage.booking.application.ReproposalPolicy}.
      */
     private static boolean needsRepropose(BookingReadRepository.QueueEnrichment enrichment) {
-        if (enrichment == null || enrichment.orderId() == null
-                || "Canceled".equals(enrichment.orderStatus()) || "Done".equals(enrichment.orderStatus())
-                || enrichment.pendingProposalCount() > 0
-                || isPast(enrichment.orderExpiresAt())
-                || "Agreed".equals(enrichment.lastProposalStatus())) {
-            return false;
-        }
-        return ("Pending".equals(enrichment.orderStatus()) || enrichment.needsReproposal())
-                && (enrichment.lastProposalStatus() == null
-                        || "Rejected".equals(enrichment.lastProposalStatus())
-                        || "Canceled".equals(enrichment.lastProposalStatus()));
-    }
-
-    private static boolean isPast(Instant expiresAt) {
-        return expiresAt != null && expiresAt.isBefore(Instant.now());
+        return enrichment != null && ReproposalPolicy.canRepropose(
+                enrichment.orderStatus(), enrichment.orderExpiresAt(), enrichment.needsReproposal(),
+                enrichment.lastProposalStatus(), enrichment.pendingProposalCount(), Instant.now());
     }
 
     @Schema(name = "RentalRequestLastProposal")

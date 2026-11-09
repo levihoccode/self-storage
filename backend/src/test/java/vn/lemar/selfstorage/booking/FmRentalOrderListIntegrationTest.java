@@ -72,12 +72,15 @@ class FmRentalOrderListIntegrationTest {
         long pendingNoProposal = seedOrder(q7, "Pending", base.plus(3, ChronoUnit.DAYS), false, null, null);
         long canceled = seedOrder(q7, "Canceled", base.plus(4, ChronoUnit.DAYS), false, "Rejected", "Huỷ");
         long depositedNeeds = seedOrder(q7, "Deposited", base.plus(5, ChronoUnit.DAYS), true, "Rejected", "Cũ");
+        // Quá hạn: endpoint đề xuất lại trả 409 nên list cũng không được mời.
+        long expired = seedOrder(q7, "Pending", base.minus(30, ChronoUnit.DAYS), false, "Rejected", "Hết hạn");
 
         FmRentalOrderPageResponse page = service.ordersForFacilityManager(q7, null, 0, 20);
 
-        assertThat(page.total()).isEqualTo(5);
+        assertThat(page.total()).isEqualTo(6);
         assertThat(page.items()).extracting(FmRentalOrderSummaryResponse::id)
-                .containsExactly(pendingWaiting, pendingRejected, pendingNoProposal, canceled, depositedNeeds);
+                .containsExactly(expired, pendingWaiting, pendingRejected, pendingNoProposal, canceled,
+                        depositedNeeds);
 
         Map<Long, FmRentalOrderSummaryResponse> byId = page.items().stream()
                 .collect(java.util.stream.Collectors.toMap(FmRentalOrderSummaryResponse::id, item -> item));
@@ -87,8 +90,8 @@ class FmRentalOrderListIntegrationTest {
         assertThat(byId.get(pendingWaiting).needsRepropose()).isFalse();
         assertThat(byId.get(pendingNoProposal).needsRepropose()).isTrue();
         assertThat(byId.get(canceled).needsRepropose()).isFalse();
-        assertThat(byId.get(depositedNeeds).needsReproposal()).isTrue();
         assertThat(byId.get(depositedNeeds).needsRepropose()).isTrue();
+        assertThat(byId.get(expired).needsRepropose()).isFalse();
         assertThat(page.items().get(0).maxRejectionCount()).isEqualTo(3);
     }
 

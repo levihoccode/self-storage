@@ -24,9 +24,10 @@ Danh sách `RentalOrder` của cơ sở, sort `expires_at` tăng dần (null cu�
 
 - `id`, `status`, `cancelReason`, `expiresAt`, `unitId`, `unitCode`
 - `requestId`, `customerName`, `customerEmail`, `customerPhone`
-- `needsReproposal` — flag raw trên order.
-- `needsRepropose` — BE tính: order chưa đóng, không proposal `Pending`, proposal gần nhất không
-  `Agreed`, `(status = Pending || needs_reproposal)`, proposal gần nhất `null/Rejected/Canceled`.
+- `needsRepropose` — BE tính: order chưa đóng, chưa quá `expires_at`, không proposal `Pending`,
+  proposal gần nhất không `Agreed`, `(status = Pending || needs_reproposal)`, proposal gần nhất
+  `null/Rejected/Canceled`. Cùng một hàm với queue và order detail —
+  `ReproposalPolicy.canRepropose`. Cờ raw `needs_reproposal` không trả ra response.
 - `rejectionCount`, `maxRejectionCount`
 - `lastProposal`: `{id, unitCode, status, note, createdAt}` hoặc null.
 
@@ -41,7 +42,7 @@ curl -s "http://localhost:8080/api/fm/rental-orders?facilityId=1&status=Pending&
 # {"message":"Lấy danh sách đơn thuê thành công","data":{"items":[
 #   {"id":3,"status":"Pending","cancelReason":null,"expiresAt":"2026-12-09T...","unitId":1,
 #    "unitCode":"A-01","requestId":4,"customerName":"Khách Demo","customerEmail":"...",
-#    "customerPhone":"...","needsReproposal":false,"needsRepropose":true,
+#    "customerPhone":"...","needsRepropose":true,
 #    "rejectionCount":1,"maxRejectionCount":3,
 #    "lastProposal":{"id":3,"unitCode":"A-01","status":"Rejected","note":"...","createdAt":"..."}}
 # ],"page":0,"size":20,"total":1}}
