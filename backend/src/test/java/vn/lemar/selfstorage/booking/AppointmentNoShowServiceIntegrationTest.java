@@ -121,6 +121,8 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat((String) notification.get("body"))
                 .contains(String.valueOf(orderId))
                 .contains("vẫn được giữ ở trạng thái Đã cọc")
+                .contains("Khách không đến theo lịch hẹn bàn giao")
+                .doesNotContain("Đơn quay về Đặt cọc")
                 .contains("http://localhost:5173/appointments/new");
         assertThat(jdbc.queryForObject("select order_id from order_notifications where notification_id = "
                 + "(select id from notifications where account_id = ?)", Long.class, customerId)).isEqualTo(orderId);
@@ -186,7 +188,9 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat(notificationCountFor("fm1@lemar.vn", "RENTAL_ORDER_CANCELED")).isEqualTo(1L);
         assertThat(jdbc.queryForObject("select body from notifications where account_id = ? "
                 + "and type = 'APPOINTMENT_NO_SHOW_ORDER_OUTCOME'", String.class, customerId))
-                .contains("đã bị hủy vì hết hạn giữ kho");
+                .contains("đã bị hủy vì hết hạn giữ kho")
+                .contains("Khách không đến theo lịch hẹn bàn giao")
+                .doesNotContain("Đơn hết hạn và khách không đến");
     }
 
     @Test
