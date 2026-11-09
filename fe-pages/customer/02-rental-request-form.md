@@ -29,7 +29,7 @@ Cho khách điền nhu cầu thuê kho mà không cần chỉ định khoang c�
 - Lỗi submit (network/500)
 
 ## API liên quan
-- `POST /api/public/rental-requests`
+- `POST /api/rental-requests`
 
 ## Edge case / Lưu ý UX
 - Không cho chỉ định `unit_id` cụ thể (theo thiết kế MVP — "không tối ưu layout khi để khách tự chọn")
