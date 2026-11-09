@@ -51,7 +51,8 @@ vào thực tế. Route không cộng dồn, không sinh bút toán mới.
 - Dòng `INVOICE`/`FEE` thêm `invoiceRefundStatus`, `invoiceRefundReason`.
 - Không có giao dịch → `200` với `data.items: []`, `totalElements: 0`.
 - FE `/fm/transactions` dùng route này cho tab **Giao dịch**; tab **Chờ hoàn tiền** gọi
-  [fm-refund-queue.md](fm-refund-queue.md) — queue là nghĩa vụ, không phải ledger.
+  [fm-refund-queue.md](fm-refund-queue.md) với `Required`/`Processing` — queue là nghĩa vụ, không phải
+  ledger.
 
 ## Ghi chú nghiệp vụ
 

@@ -1,6 +1,6 @@
 ---
 auth-model: permission-bound
-purpose: ADMIN xem toàn bộ queue hoàn tiền; FM xem invoice Required của facility; read-only.
+purpose: ADMIN xem toàn bộ queue hoàn tiền; FM xem invoice Required/Processing của facility; read-only.
 ---
 # GET /api/refunds/queues/invoices?facilityId=&page=&size=&view=
 
@@ -33,7 +33,8 @@ Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 - `refund_status=Required` được đặt khi tiền đã vào nhưng khoang không còn giữ được
   (`INVOICE_REFUND_REQUIRED`).
 - Queue active/history là query trên `invoices`; không có bảng history riêng.
-- Trạng thái: `Required → AwaitingConfirmation → Refunded` sau handover/confirm.
+- Trạng thái: `Required → [Processing] → AwaitingConfirmation → Refunded` sau handover/confirm.
+  `Processing` chưa có flow nào set; FM vẫn thấy nếu có.
 
 ## Liên quan
 
