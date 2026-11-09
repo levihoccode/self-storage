@@ -50,10 +50,16 @@ public record RentalRequestSummaryResponse(
                 lastProposal, enrichment == null ? 0 : enrichment.rejectionCount(), maxRejection);
     }
 
+    /**
+     * Cùng điều kiện với guard của `POST /api/rental-orders/{orderId}/proposals`
+     * ({@code ProposalService#repropose}): đơn quá {@code expires_at} thì endpoint trả 409, nên
+     * queue không được mời FM đề xuất lại.
+     */
     private static boolean needsRepropose(BookingReadRepository.QueueEnrichment enrichment) {
         if (enrichment == null || enrichment.orderId() == null
                 || "Canceled".equals(enrichment.orderStatus()) || "Done".equals(enrichment.orderStatus())
                 || enrichment.pendingProposalCount() > 0
+                || isPast(enrichment.orderExpiresAt())
                 || "Agreed".equals(enrichment.lastProposalStatus())) {
             return false;
         }
@@ -61,6 +67,10 @@ public record RentalRequestSummaryResponse(
                 && (enrichment.lastProposalStatus() == null
                         || "Rejected".equals(enrichment.lastProposalStatus())
                         || "Canceled".equals(enrichment.lastProposalStatus()));
+    }
+
+    private static boolean isPast(Instant expiresAt) {
+        return expiresAt != null && expiresAt.isBefore(Instant.now());
     }
 
     @Schema(name = "RentalRequestLastProposal")

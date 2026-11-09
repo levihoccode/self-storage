@@ -42,8 +42,8 @@ class BookingReadRepositoryQueueTest {
                 returning id
                 """, Long.class, facility, unitType);
         long orderId = jdbc.queryForObject("""
-                insert into rental_orders (request_id, customer_id, unit_id, status)
-                values (?, ?, ?, 'Pending') returning id
+                insert into rental_orders (request_id, customer_id, unit_id, status, expires_at)
+                values (?, ?, ?, 'Pending', now() + interval '30 days') returning id
                 """, Long.class, requestId, customer, unit);
         jdbc.update("""
                 insert into proposal_feedbacks (order_id, customer_id, unit_id, status, note, created_at)
@@ -57,6 +57,7 @@ class BookingReadRepositoryQueueTest {
         BookingReadRepository.QueueEnrichment enrichment = result.get(requestId);
         assertThat(enrichment.orderId()).isEqualTo(orderId);
         assertThat(enrichment.orderStatus()).isEqualTo("Pending");
+        assertThat(enrichment.orderExpiresAt()).isNotNull();
         assertThat(enrichment.needsReproposal()).isFalse();
         assertThat(enrichment.lastProposalUnitCode()).isEqualTo("A-01");
         assertThat(enrichment.lastProposalStatus()).isEqualTo("Rejected");

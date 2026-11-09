@@ -150,6 +150,7 @@ public class BookingReadRepository {
         }
         String placeholders = String.join(",", Collections.nCopies(requestIds.size(), "?"));
         String sql = "select o.request_id, o.id as order_id, o.status as order_status, o.needs_reproposal, "
+                + "o.expires_at as order_expires_at, "
                 + "p.id as last_proposal_id, u.code as last_unit_code, p.status as last_proposal_status, "
                 + "p.note as last_note, p.created_at as last_created_at, "
                 + "(select count(*) from proposal_feedbacks x where x.order_id = o.id "
@@ -165,7 +166,8 @@ public class BookingReadRepository {
         Map<Long, QueueEnrichment> result = new HashMap<>();
         jdbc.query(sql, (RowCallbackHandler) rs -> result.put(rs.getLong("request_id"), new QueueEnrichment(
                 rs.getLong("request_id"), rs.getLong("order_id"), rs.getString("order_status"),
-                rs.getBoolean("needs_reproposal"), (Long) rs.getObject("last_proposal_id"),
+                rs.getBoolean("needs_reproposal"), instant(rs, "order_expires_at"),
+                (Long) rs.getObject("last_proposal_id"),
                 rs.getString("last_unit_code"), rs.getString("last_proposal_status"), rs.getString("last_note"),
                 instant(rs, "last_created_at"), rs.getLong("rejection_count"), rs.getLong("pending_count"))),
                 requestIds.toArray());
@@ -237,6 +239,7 @@ public class BookingReadRepository {
 
     /** Trạng thái đơn/proposal gắn với một request đã convert. */
     public record QueueEnrichment(Long requestId, Long orderId, String orderStatus, boolean needsReproposal,
+                                  Instant orderExpiresAt,
                                   Long lastProposalId, String lastProposalUnitCode, String lastProposalStatus,
                                   String lastProposalNote, Instant lastProposalCreatedAt, long rejectionCount,
                                   long pendingProposalCount) {

@@ -29,6 +29,8 @@ Mỗi dòng kèm trạng thái đơn/proposal để FM biết bước tiếp the
 `needsRepropose = true` khi **đủ tất cả**:
 
 - đã có order và order chưa `Canceled`/`Done`;
+- order chưa quá `expires_at` — endpoint `POST /api/rental-orders/{id}/proposals` trả 409 khi đơn
+  hết hạn, nên queue không mời FM đề xuất lại ở trạng thái đó;
 - không có proposal `Pending`;
 - proposal gần nhất không phải `Agreed`;
 - `(order.status = Pending || order.needs_reproposal)`;
@@ -46,12 +48,14 @@ FE dùng flag này, không tự suy luận:
 | request `Converted`, flag `false` | Đã được xử lý — theo dõi ở Đơn thuê kho |
 | request `Rejected`/`Expired` | Đã từ chối / Hết hạn |
 
-Queue chỉ trả request; trạng thái/action còn lại của đơn (`WAIT_CUSTOMER`, chờ thanh toán, lịch)
+Queue chỉ trả request; trạng thái/action còn lại của đơn (chờ khách phản hồi, chờ thanh toán, lịch)
 thuộc màn Đơn thuê kho.
 
 ## Ghi chú nghiệp vụ
 
 - Spec: `specs/draft.md §1.1`; permission `rental_request.read` (FACILITY) đã seed V3.
+- Queue đọc policy `proposal.max_rejection_count` cho trang khác rỗng, thiếu row đó là 500 —
+  cùng dependency với luồng từ chối proposal.
 - `lastProposal` là proposal mới nhất của order, kèm `unitCode`, `status`, `note`, `createdAt`;
   `rejectionCount` đếm proposal `Rejected` của order; `maxRejectionCount` lấy từ policy
   `proposal.max_rejection_count`.

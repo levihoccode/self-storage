@@ -80,15 +80,8 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksReproposeWhenLastProposalRejected() {
-        RentalRequest request = request(RentalRequestStatus.Converted);
-        when(facilityAccess.exists(1L)).thenReturn(true);
-        when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Converted),
-                any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(request)));
-        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L,
-                new BookingReadRepository.QueueEnrichment(1L, 10L, "Pending", false, 5L, "A-01",
-                        "Rejected", "Không thích khoang này", Instant.now(), 1, 0)));
-        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+    void marksReproposeWhenLastProposalRejected() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Pending", false, future(), "Rejected", 1, 0));
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
@@ -102,15 +95,8 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksWaitCustomerWhenProposalPending() {
-        RentalRequest request = request(RentalRequestStatus.Converted);
-        when(facilityAccess.exists(1L)).thenReturn(true);
-        when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Converted),
-                any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(request)));
-        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L,
-                new BookingReadRepository.QueueEnrichment(1L, 10L, "Pending", false, 5L, "A-01",
-                        "Pending", null, Instant.now(), 0, 1)));
-        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+    void doesNotMarkWhenProposalPending() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Pending", false, future(), "Pending", 0, 1));
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
@@ -118,15 +104,8 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksViewWhenProposalAgreed() {
-        RentalRequest request = request(RentalRequestStatus.Converted);
-        when(facilityAccess.exists(1L)).thenReturn(true);
-        when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Converted),
-                any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(request)));
-        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L,
-                new BookingReadRepository.QueueEnrichment(1L, 10L, "Pending", false, 5L, "A-01",
-                        "Agreed", null, Instant.now(), 0, 0)));
-        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+    void doesNotMarkWhenProposalAgreed() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Pending", false, future(), "Agreed", 0, 0));
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
@@ -134,15 +113,8 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksViewWhenOrderClosed() {
-        RentalRequest request = request(RentalRequestStatus.Converted);
-        when(facilityAccess.exists(1L)).thenReturn(true);
-        when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Converted),
-                any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(request)));
-        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L,
-                new BookingReadRepository.QueueEnrichment(1L, 10L, "Canceled", false, 5L, "A-01",
-                        "Rejected", null, Instant.now(), 1, 0)));
-        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+    void doesNotMarkWhenOrderClosed() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Canceled", false, future(), "Rejected", 1, 0));
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
@@ -150,7 +122,7 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksApproveForPendingRequestWithoutOrder() {
+    void doesNotMarkForPendingRequestWithoutOrder() {
         RentalRequest request = request(RentalRequestStatus.Pending);
         when(facilityAccess.exists(1L)).thenReturn(true);
         when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Pending),
@@ -164,15 +136,8 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksReproposeWhenNeedsReproposalFlagIsSet() {
-        RentalRequest request = request(RentalRequestStatus.Converted);
-        when(facilityAccess.exists(1L)).thenReturn(true);
-        when(repository.findByFacilityIdAndStatus(eq(1L), eq(RentalRequestStatus.Converted),
-                any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(request)));
-        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L,
-                new BookingReadRepository.QueueEnrichment(1L, 10L, "Deposited", true, null, null,
-                        null, null, null, 0, 0)));
-        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+    void marksReproposeWhenNeedsReproposalFlagIsSet() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Deposited", true, future(), null, 0, 0));
 
         RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
 
@@ -180,7 +145,7 @@ class RentalRequestQueueTest {
     }
 
     @Test
-    void queueMarksViewForApprovedAndExpiredRequestWithoutOrder() {
+    void doesNotMarkForApprovedAndExpiredRequestWithoutOrder() {
         RentalRequest approved = request(RentalRequestStatus.Approved);
         RentalRequest expired = request(RentalRequestStatus.Expired);
         when(facilityAccess.exists(1L)).thenReturn(true);
@@ -192,6 +157,58 @@ class RentalRequestQueueTest {
         RentalRequestPageResponse page = service.queue(1L, null, 0, 20);
 
         assertThat(page.items()).extracting(item -> item.needsRepropose()).containsOnly(false);
+    }
+
+    @Test
+    void doesNotMarkWhenOrderExpired() {
+        // `POST /api/rental-orders/{id}/proposals` trả 409 khi đơn quá expires_at — queue không
+        // được mời FM đề xuất lại ở trạng thái đó.
+        stubQueue(RentalRequestStatus.Converted,
+                enrichment("Pending", false, Instant.now().minusSeconds(3600), "Rejected", 1, 0));
+
+        RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
+
+        assertThat(page.items().get(0).needsRepropose()).isFalse();
+    }
+
+    @Test
+    void doesNotMarkWhenFlagSetButProposalPending() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Deposited", true, future(), "Pending", 0, 1));
+
+        RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
+
+        assertThat(page.items().get(0).needsRepropose()).isFalse();
+    }
+
+    @Test
+    void marksReproposeWhenLastProposalCanceled() {
+        stubQueue(RentalRequestStatus.Converted, enrichment("Pending", false, future(), "Canceled", 1, 0));
+
+        RentalRequestPageResponse page = service.queue(1L, RentalRequestStatus.Converted, 0, 20);
+
+        assertThat(page.items().get(0).needsRepropose()).isTrue();
+    }
+
+    private void stubQueue(RentalRequestStatus status, BookingReadRepository.QueueEnrichment enrichment) {
+        RentalRequest request = request(status);
+        when(facilityAccess.exists(1L)).thenReturn(true);
+        when(repository.findByFacilityIdAndStatus(eq(1L), eq(status), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(request)));
+        when(bookingReadRepository.findQueueEnrichments(List.of(1L))).thenReturn(Map.of(1L, enrichment));
+        when(pricingQuery.intPolicy(ProposalService.POLICY_MAX_REJECTION)).thenReturn(3);
+    }
+
+    private static Instant future() {
+        return Instant.now().plusSeconds(3600);
+    }
+
+    private static BookingReadRepository.QueueEnrichment enrichment(String orderStatus, boolean needsReproposal,
+            Instant orderExpiresAt, String lastProposalStatus, long rejectionCount, long pendingCount) {
+        boolean hasProposal = lastProposalStatus != null;
+        return new BookingReadRepository.QueueEnrichment(1L, 10L, orderStatus, needsReproposal, orderExpiresAt,
+                hasProposal ? 5L : null, hasProposal ? "A-01" : null, lastProposalStatus,
+                hasProposal ? "Không thích khoang này" : null, hasProposal ? Instant.now() : null,
+                rejectionCount, pendingCount);
     }
 
     private static RentalRequest request(RentalRequestStatus status) {
