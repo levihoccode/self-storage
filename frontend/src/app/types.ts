@@ -2,6 +2,7 @@ export type FmRentalOrderSummary = {
   id: number;
   status: string;
   cancelReason: string | null;
+  cancelNote: string | null;
   expiresAt: string | null;
   unitId: number | null;
   unitCode: string | null;
@@ -240,6 +241,7 @@ export type FmRentalOrder = {
   id: number;
   status: string;
   cancelReason: string | null;
+  cancelNote: string | null;
   expiresAt: string | null;
   unitId: number | null;
   facilityId: number;

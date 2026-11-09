@@ -19,8 +19,9 @@ cần. Đây là nơi theo dõi đơn sau khi `RentalRequest` đã convert — k
 ## Dữ liệu hiển thị
 
 - Nguồn: `GET /api/fm/rental-orders?facilityId=&page=0&size=100`; cơ sở lấy từ `GET /api/fm/facility`.
-- Mỗi dòng: `id`, `status`, `cancelReason`, `expiresAt`, `unitCode`, khách (`customerName`,
-  `customerEmail`, `customerPhone`), `lastProposal`, `rejectionCount`/`maxRejectionCount`.
+- Mỗi dòng: `id`, `status`, `cancelReason`, `cancelNote`, `expiresAt`, `unitCode`, khách
+  (`customerName`, `customerEmail`, `customerPhone`), `lastProposal`,
+  `rejectionCount`/`maxRejectionCount`.
 - `status`: `Pending` / `Deposited` / `Scheduled` / `InProgress` / `Done` / `Canceled`; `Canceled`
   kèm `cancelReason`.
 - Badge **Cần đề xuất lại** khi `needsRepropose = true` — flag BE tính sẵn, cùng điều kiện với
@@ -32,6 +33,9 @@ cần. Đây là nơi theo dõi đơn sau khi `RentalRequest` đã convert — k
 - Lọc theo trạng thái ở client; tìm theo mã đơn / tên khách / email / mã khoang.
 - Mở detail panel (thông tin khách, khoang, hạn đơn, lý do huỷ, đề xuất gần nhất, số lần từ chối).
 - `Đề xuất lại khoang` khi `needsRepropose = true` → `/fm/rental-orders/{id}/re-propose`.
+- `Huỷ đơn` khi đơn chưa đóng (`Pending`, `Deposited`, `Scheduled`, `InProgress`): nhập `reason`
+  (bắt buộc, khách thấy) + `note` (tuỳ chọn, chỉ audit) → `POST /api/fm/rental-orders/{id}/cancel`;
+  200 tải lại danh sách, 409/403/404 hiện message BE.
 - Deep link `?orderId={id}` mở đúng detail panel của đơn đó.
 
 ## States / UI trạng thái
@@ -39,13 +43,17 @@ cần. Đây là nơi theo dõi đơn sau khi `RentalRequest` đã convert — k
 - Loading: "Đang tải đơn thuê…".
 - Empty: "Không có đơn phù hợp bộ lọc".
 - Error: SurfaceState lỗi + "Thử lại"; 403/404 → forbidden "Bạn không có quyền xem đơn thuê cơ sở".
-- Đơn `Done` / `Canceled`: không có nút re-propose.
+- Đơn `Canceled`: detail hiện `cancelReason`, kèm "Ghi chú nội bộ" khi có `cancelNote`.
+- Đơn `Done` / `Canceled`: không có nút re-propose và không có nút huỷ.
+- Form huỷ: nút xác nhận disable khi `reason` rỗng; đang gửi thì disable cả hai nút; lỗi hiện dưới ô
+  nhập.
 
 ## API liên quan
 
 - `GET /api/fm/facility` — cơ sở FM đang phụ trách (`facilityId`).
 - `GET /api/fm/rental-orders?facilityId=&status=&page=&size=` — danh sách đơn của cơ sở.
 - `GET /api/fm/rental-orders/{id}` — chi tiết đơn, dùng cho trang re-propose.
+- `POST /api/fm/rental-orders/{id}/cancel` — body `{reason, note?}`.
 
 ## Edge case / Lưu ý UX
 
