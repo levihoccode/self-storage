@@ -31,5 +31,10 @@ React 19 · TypeScript 5.8 · Vite 6 · Prettier
 - Styling: check `package.json` and the file you are editing first. Tailwind branches carry
   `src/tailwind.css`, plain-CSS branches carry `src/styles.css` + `src/theme.css`, and some pages
   have their own `.css`. Never mix both systems in one file.
+- **Keep UI copy minimal; no lore.** Write text only where the UI is hard to understand or a
+  component cannot explain itself (a disclaimer, a rule the user must know, an error cause).
+  No slogan headings, no lead paragraph under a heading, no kicker label above a title, no
+  text that restates what the layout already shows. A heading names its section plainly.
+  If removing a sentence loses nothing the user needs to act, remove it.
 - FE validation is UX only; the real rules live in the backend — do not duplicate business rules.
 - Do not call the real API at build time; never commit `.env`.

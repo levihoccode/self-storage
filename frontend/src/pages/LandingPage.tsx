@@ -12,7 +12,7 @@ import {
   type UnitType,
 } from "../app/catalog";
 import { SurfaceState } from "../components/ui/SurfaceState";
-import { UnitBox3D, boxMetrics } from "./landing/UnitBox3D";
+import { UnitBox3D } from "./landing/UnitBox3D";
 import "./landing/landing.css";
 
 /** Nội dung tĩnh: API loại khoang chưa trả mô tả (khoảng trống G2 trong data contract). */
@@ -87,7 +87,7 @@ const STEPS = [
 ];
 
 const VIEWER_SCALE = 62;
-const CARD_SCALE = 30;
+const THUMB_SCALE = 16;
 
 type CatalogData = {
   facilities: Facility[];
@@ -121,40 +121,32 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function SectionHeading({ label, title, lead }: { label: string; title: string; lead?: string }) {
+function SectionHeading({ title }: { title: string }) {
   return (
-    <div className="mb-9">
-      <p className="lp-eyebrow text-[var(--lp-teal)]">{label}</p>
-      <h2 className="mt-2.5 max-w-[22ch] text-balance text-[clamp(1.875rem,4vw,2.875rem)] leading-[1.05] tracking-[-0.03em]">
-        {title}
-      </h2>
-      {lead && (
-        <p className="mt-3.5 max-w-[62ch] text-[1.0625rem] leading-relaxed text-[var(--lp-text-2)]">
-          {lead}
-        </p>
-      )}
-    </div>
+    <h2 className="mb-7 text-[clamp(1.75rem,3.6vw,2.5rem)] leading-[1.08] tracking-[-0.02em]">
+      {title}
+    </h2>
   );
 }
 
 function SiteChips({ codes }: { codes: string[] }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[0.8125rem] text-[var(--lp-muted)]">Cung cấp tại</span>
+    <span className="flex flex-wrap gap-1.5">
       {codes.map((code) => (
-        <span
-          key={code}
-          className="lp-mono rounded border border-[var(--lp-teal)] px-2 py-0.5 text-xs"
-        >
+        <span key={code} className="border border-[var(--lp-line)] px-2 py-0.5 text-sm font-bold">
           {code}
         </span>
       ))}
-    </div>
+    </span>
   );
 }
 
+const FIELD_LABEL = "mb-1.5 block text-sm font-semibold text-[var(--lp-text-2)]";
 const SELECT_CLASS =
-  "min-h-[46px] w-full rounded-md border border-[var(--lp-line)] bg-[var(--lp-surface-2)] px-3 text-base text-[var(--lp-ink)]";
+  "min-h-[46px] w-full rounded-[2px] border-2 border-[var(--lp-line)] bg-[var(--lp-surface-2)] px-3 text-base text-[var(--lp-ink)]";
+const ICON_BUTTON =
+  "grid h-11 w-11 place-items-center border-2 border-[var(--lp-line)] bg-[var(--lp-surface-2)]";
+const BLOCK = "border border-[var(--lp-line)] bg-[var(--lp-surface)]";
 
 export function LandingPage({ navigate }: { navigate: Navigate }) {
   const [load, setLoad] = useState<
@@ -235,12 +227,8 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
   const availableTypes = typesBySite[currentSiteId] ?? [];
   const current = availableTypes.find((unit) => unit.id === typeId) ?? availableTypes[0];
   const viewerUnit = unitTypes.find((unit) => unit.id === typeId) ?? unitTypes[1] ?? unitTypes[0];
-  const areas = unitTypes.map((unit) => unit.area);
-  const hoursSet = new Set(facilities.map((facility) => facility.operatingHours));
-  const hours = hoursSet.size === 1 ? [...hoursSet][0].split(" ")[0] : "Xem từng cơ sở";
   const codesOf = (unit: UnitType) =>
     facilities.filter((facility) => facility.unitTypeIds.includes(unit.id)).map((f) => f.code);
-  const viewerShadow = boxMetrics(viewerUnit, VIEWER_SCALE).shadow;
 
   function rotate(delta: number) {
     setAutoRotate(false);
@@ -265,57 +253,36 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
   return (
     <div className="lp">
-      <section id="top" className="lp-grid-bg scroll-mt-24 bg-[var(--lp-hero)]">
+      <section id="top" className="scroll-mt-24 bg-[var(--lp-hero)]">
         <div
-          className={`${CONTAINER} grid grid-cols-[minmax(0,1.05fr)_minmax(360px,1fr)] items-center gap-[clamp(32px,5vw,64px)] py-[clamp(40px,6vw,72px)] max-[960px]:grid-cols-1`}
+          className={`${CONTAINER} grid grid-cols-[minmax(0,1fr)_minmax(360px,1fr)] items-center gap-[clamp(32px,5vw,64px)] py-[clamp(40px,6vw,72px)] max-[960px]:grid-cols-1`}
         >
           <div className="min-w-0">
-            <p className="lp-eyebrow text-[var(--lp-teal)]">Kho tự quản · TP. Hồ Chí Minh</p>
-            <h1 className="mt-4 text-[clamp(2.375rem,5.6vw,4.25rem)] leading-[1.02] tracking-[-0.035em]">
-              Thấy đúng cỡ kho
-              <span className="block text-[var(--lp-teal)]">trước khi thuê.</span>
+            <h1 className="text-[clamp(2.25rem,5vw,3.75rem)] leading-[1.05] tracking-[-0.03em]">
+              Thuê kho tự quản theo diện tích thật
             </h1>
-            <p className="mt-5 max-w-[50ch] text-lg leading-relaxed text-[var(--lp-text-2)]">
-              Mỗi cỡ khoang có mô hình 3D theo kích thước thật, giá và điều khoản ghi rõ. Dành cho
-              cửa hàng, đơn vị bán hàng và văn phòng cần chỗ chứa hàng tồn, hồ sơ, vật tư.
+            <p className="mt-5 max-w-[46ch] text-lg leading-relaxed text-[var(--lp-text-2)]">
+              Cho cửa hàng, đơn vị bán hàng và văn phòng cần chỗ chứa hàng tồn, hồ sơ, vật tư.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <button
                 type="button"
-                className="lp-btn lp-btn-primary px-6"
+                className="lp-btn lp-btn-primary"
                 onClick={() => navigate("/rental-requests/new")}
               >
                 Gửi yêu cầu thuê kho
               </button>
               <button
                 type="button"
-                className="lp-btn lp-btn-ghost px-6"
+                className="lp-btn lp-btn-ghost"
                 onClick={() => scrollToSection("estimate")}
               >
                 Ước tính chi phí
               </button>
             </div>
-            <div className="mt-8 flex flex-wrap gap-x-11 gap-y-5">
-              <div>
-                <strong className="lp-mono block text-3xl">
-                  {String(facilities.length).padStart(2, "0")}
-                </strong>
-                <span className="text-[0.8125rem] text-[var(--lp-muted)]">cơ sở đang mở</span>
-              </div>
-              <div>
-                <strong className="lp-mono block text-3xl">
-                  {`${Math.min(...areas)}–${Math.max(...areas)} m²`.replace(/\./g, ",")}
-                </strong>
-                <span className="text-[0.8125rem] text-[var(--lp-muted)]">diện tích khoang</span>
-              </div>
-              <div>
-                <strong className="lp-mono block text-3xl">{hours}</strong>
-                <span className="text-[0.8125rem] text-[var(--lp-muted)]">giờ tiếp nhận</span>
-              </div>
-            </div>
           </div>
 
-          <div className="min-w-0 rounded-xl border border-[var(--lp-line)] bg-[var(--lp-surface)] p-5">
+          <div className={`min-w-0 p-5 ${BLOCK}`}>
             <div
               className="flex flex-wrap gap-2"
               role="group"
@@ -329,14 +296,14 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                     type="button"
                     aria-pressed={on}
                     onClick={() => setTypeId(unit.id)}
-                    className={`min-h-[44px] rounded-md border px-4 py-2 text-left text-[0.9375rem] font-bold ${
+                    className={`min-h-[44px] border-2 px-4 py-1.5 text-left text-[0.9375rem] font-bold ${
                       on
                         ? "border-[var(--brand)] bg-[var(--brand)] text-[var(--signal-ink)]"
                         : "border-[var(--lp-line)] bg-[var(--lp-surface-2)] text-[var(--lp-ink)]"
                     }`}
                   >
                     {unit.name}
-                    <span className="lp-mono block text-[0.6875rem] font-medium opacity-85">
+                    <span className="lp-num block text-xs font-medium">
                       {formatArea(unit.area)}
                     </span>
                   </button>
@@ -345,8 +312,9 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
             </div>
 
             <div
-              className="relative mt-2.5 flex h-[340px] items-center justify-center overflow-hidden [perspective:1000px]"
-              aria-hidden="true"
+              className="lp-grid-bg relative mt-3 flex h-[320px] items-center justify-center overflow-hidden border border-[var(--lp-line)] [perspective:1000px]"
+              role="img"
+              aria-label={`Mô hình 3D khoang ${viewerUnit.name}, ${formatDimensions(viewerUnit)}`}
             >
               <div
                 className={`flex items-center justify-center [transform-style:preserve-3d] ${
@@ -355,20 +323,14 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               >
                 <UnitBox3D unit={viewerUnit} scale={VIEWER_SCALE} angle={angle} />
               </div>
-              <div className="absolute inset-x-0 bottom-3.5 flex justify-center">
-                <div
-                  className="h-3.5 rounded-full bg-[var(--lp-shade)] blur-[6px]"
-                  style={{ width: viewerShadow }}
-                />
-              </div>
             </div>
 
-            <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 aria-label="Xoay sang trái"
                 onClick={() => rotate(-30)}
-                className="grid h-11 w-11 place-items-center rounded-md border border-[var(--lp-line)] bg-[var(--lp-surface-2)]"
+                className={ICON_BUTTON}
               >
                 <RotateCcw size={18} />
               </button>
@@ -376,7 +338,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                 type="button"
                 aria-label="Xoay sang phải"
                 onClick={() => rotate(30)}
-                className="grid h-11 w-11 place-items-center rounded-md border border-[var(--lp-line)] bg-[var(--lp-surface-2)]"
+                className={ICON_BUTTON}
               >
                 <RotateCw size={18} />
               </button>
@@ -384,81 +346,74 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                 type="button"
                 aria-pressed={autoRotate}
                 onClick={() => setAutoRotate((value) => !value)}
-                className="min-h-[44px] rounded-md border border-[var(--lp-line)] bg-[var(--lp-surface-2)] px-4 text-sm font-semibold"
+                className="min-h-[44px] border-2 border-[var(--lp-line)] bg-[var(--lp-surface-2)] px-4 text-sm font-semibold"
               >
                 {autoRotate ? "Dừng xoay" : "Tự xoay"}
               </button>
-              <span className="min-w-[160px] flex-1 text-xs text-[var(--lp-muted)]">
-                Mô phỏng 3D đúng tỷ lệ kích thước thật. Dáng cửa mang tính minh hoạ, không phải ảnh
-                chụp khoang.
+              <span className="text-xs text-[var(--lp-muted)]">
+                Mô hình minh hoạ, không phải ảnh khoang.
               </span>
             </div>
 
-            <div className="mt-3.5 flex flex-wrap items-end gap-x-7 gap-y-3 border-t border-[var(--lp-line)] pt-3.5">
-              <div className="min-w-[200px] flex-1">
-                <span className="lp-eyebrow text-[var(--lp-teal)]">Kích thước</span>
-                <p className="lp-mono mt-1 text-base">{formatDimensions(viewerUnit)}</p>
-                <p className="mt-0.5 text-[0.8125rem] text-[var(--lp-muted)]">
-                  rộng × sâu × cao · {formatArea(viewerUnit.area)}
-                </p>
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-[var(--lp-line)] pt-4 max-[480px]:grid-cols-1">
+              <div>
+                <dt className="text-sm text-[var(--lp-muted)]">Rộng × sâu × cao</dt>
+                <dd className="lp-num mt-0.5 text-base">{formatDimensions(viewerUnit)}</dd>
               </div>
               <div>
-                <span className="lp-eyebrow text-[var(--lp-teal)]">Giá / tháng</span>
-                <p className="lp-mono mt-1 text-2xl">{formatVnd(viewerUnit.monthlyPrice)}</p>
+                <dt className="text-sm text-[var(--lp-muted)]">Giá / tháng</dt>
+                <dd className="lp-num mt-0.5 text-xl">{formatVnd(viewerUnit.monthlyPrice)}</dd>
               </div>
-            </div>
-            <div className="mt-3">
-              <SiteChips codes={codesOf(viewerUnit)} />
-            </div>
+              <div>
+                <dt className="text-sm text-[var(--lp-muted)]">Diện tích</dt>
+                <dd className="lp-num mt-0.5 text-base">{formatArea(viewerUnit.area)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm text-[var(--lp-muted)]">Cung cấp tại</dt>
+                <dd className="mt-0.5">
+                  <SiteChips codes={codesOf(viewerUnit)} />
+                </dd>
+              </div>
+            </dl>
           </div>
         </div>
       </section>
 
-      <section id="unit-types" className="scroll-mt-24 bg-[var(--lp-bg)] py-[clamp(52px,7vw,84px)]">
+      <section id="unit-types" className="scroll-mt-24 bg-[var(--lp-bg)] py-[clamp(48px,6vw,76px)]">
         <div className={CONTAINER}>
-          <SectionHeading
-            label="Các cỡ kho"
-            title="Ba cỡ, cùng một tỷ lệ."
-            lead="Cả ba vẽ cùng một tỷ lệ, để bạn thấy khác biệt thật giữa 2 m² và 7,5 m². Số khoang trống không hiển thị công khai; quản lý cơ sở chọn khoang phù hợp sau khi nhận yêu cầu."
-          />
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
+          <SectionHeading title="Các cỡ kho" />
+          <div className="grid gap-2">
             {unitTypes.map((unit) => (
               <div
                 key={unit.id}
-                className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--lp-line)] bg-[var(--lp-surface)]"
+                className={`grid grid-cols-[120px_minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto] items-center gap-5 p-4 max-[900px]:grid-cols-[120px_minmax(0,1fr)] ${BLOCK}`}
               >
-                <div className="lp-grid-bg flex h-[210px] items-center justify-center bg-[var(--lp-hero)] [perspective:700px]">
-                  <UnitBox3D unit={unit} scale={CARD_SCALE} angle={-38} tilt={-22} />
+                <div className="lp-grid-bg flex h-[104px] items-center justify-center border border-[var(--lp-line)] [perspective:500px]">
+                  <UnitBox3D unit={unit} scale={THUMB_SCALE} angle={-38} tilt={-22} />
                 </div>
-                <div className="flex flex-1 flex-col gap-2.5 p-5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-2xl tracking-[-0.02em]">{unit.name}</h3>
-                    <span className="lp-mono text-[0.9375rem] text-[var(--lp-teal)]">
-                      {formatArea(unit.area)}
-                    </span>
-                  </div>
-                  <p className="lp-mono text-[0.8125rem] text-[var(--lp-muted)]">
-                    {formatDimensions(unit)} (rộng × sâu × cao)
+                <div className="min-w-0">
+                  <h3 className="text-xl">{unit.name}</h3>
+                  <p className="lp-num mt-1 text-sm">
+                    {formatArea(unit.area)} · {formatDimensions(unit)}
                   </p>
-                  <p className="text-[0.9375rem] leading-normal text-[var(--lp-text-2)]">
-                    {FIT_BY_TYPE[unit.name] ?? "—"}
-                  </p>
-                  <div className="mt-auto flex items-baseline justify-between border-t border-[var(--lp-line)] pt-3">
-                    <span className="text-[0.8125rem] text-[var(--lp-muted)]">Giá / tháng</span>
-                    <strong className="lp-mono text-xl">{formatVnd(unit.monthlyPrice)}</strong>
-                  </div>
-                  <SiteChips codes={codesOf(unit)} />
-                  <button
-                    type="button"
-                    className="lp-btn lp-btn-solid"
-                    onClick={() => {
-                      pickType(unit);
-                      scrollToSection("top");
-                    }}
-                  >
-                    Xem cỡ này ở khung 3D
-                  </button>
                 </div>
+                <p className="text-[0.9375rem] text-[var(--lp-text-2)]">
+                  {FIT_BY_TYPE[unit.name] ?? "—"}
+                </p>
+                <div>
+                  <strong className="lp-num block text-lg">{formatVnd(unit.monthlyPrice)}</strong>
+                  <span className="text-sm text-[var(--lp-muted)]">/ tháng</span>
+                  <div className="mt-1.5">
+                    <SiteChips codes={codesOf(unit)} />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="lp-btn lp-btn-ghost max-[900px]:col-span-2"
+                  onClick={() => pickType(unit, "top")}
+                >
+                  Xem 3D
+                </button>
               </div>
             ))}
           </div>
@@ -467,25 +422,13 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
 
       <section
         id="estimate"
-        className="scroll-mt-24 border-y border-[var(--lp-line)] bg-[var(--lp-bg-alt)] py-[clamp(52px,7vw,84px)]"
+        className="scroll-mt-24 bg-[var(--lp-bg-alt)] py-[clamp(48px,6vw,76px)]"
       >
-        <div className={`${CONTAINER} flex flex-wrap items-start gap-x-10 gap-y-8`}>
-          <div className="min-w-[300px] flex-[1_1_360px]">
-            <p className="lp-eyebrow text-[var(--lp-teal)]">Ước tính</p>
-            <h2 className="mt-2.5 text-[clamp(1.875rem,4vw,2.875rem)] leading-[1.05] tracking-[-0.03em]">
-              Tính chi phí trong 10 giây.
-            </h2>
-            <p className="mt-3.5 max-w-[46ch] text-[1.0625rem] leading-relaxed text-[var(--lp-text-2)]">
-              Chọn cơ sở, loại khoang và số tháng. Đây là ước tính từ bảng giá hiện tại, không phải
-              báo giá. Giá có thể khác giá chốt trong hợp đồng tại thời điểm ký.
-            </p>
-          </div>
-          <div className="flex min-w-[300px] flex-[1_1_440px] flex-col gap-[18px] rounded-xl border border-[var(--lp-line)] bg-[var(--lp-surface)] p-6">
+        <div className={`${CONTAINER} max-w-[640px]`}>
+          <SectionHeading title="Ước tính chi phí thuê" />
+          <div className={`flex flex-col gap-5 p-6 ${BLOCK}`}>
             <div>
-              <label
-                htmlFor="estimate-site"
-                className="lp-eyebrow mb-1.5 block text-[var(--lp-teal)]"
-              >
+              <label htmlFor="estimate-site" className={FIELD_LABEL}>
                 Cơ sở
               </label>
               <select
@@ -502,10 +445,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
               </select>
             </div>
             <div>
-              <label
-                htmlFor="estimate-type"
-                className="lp-eyebrow mb-1.5 block text-[var(--lp-teal)]"
-              >
+              <label htmlFor="estimate-type" className={FIELD_LABEL}>
                 Loại khoang
               </label>
               <select
@@ -520,12 +460,9 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   </option>
                 ))}
               </select>
-              <p className="mt-1.5 text-[0.8125rem] text-[var(--lp-muted)]">
-                Cơ sở này cung cấp {availableTypes.length}/{unitTypes.length} loại khoang.
-              </p>
             </div>
             <div>
-              <span id="estimate-months" className="lp-eyebrow mb-1.5 block text-[var(--lp-teal)]">
+              <span id="estimate-months" className={FIELD_LABEL}>
                 Thời hạn thuê dự kiến
               </span>
               <div className="flex items-center" role="group" aria-labelledby="estimate-months">
@@ -533,12 +470,12 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   type="button"
                   aria-label="Giảm một tháng"
                   onClick={() => setPeriod((value) => Math.max(1, value - 1))}
-                  className="h-12 w-12 rounded-l-md border border-[var(--lp-line)] bg-[var(--lp-surface-2)] text-[1.375rem] font-bold"
+                  className="h-12 w-12 border-2 border-[var(--lp-line)] bg-[var(--lp-surface-2)] text-[1.375rem] font-bold"
                 >
                   −
                 </button>
                 <div
-                  className="lp-mono flex h-12 min-w-[130px] items-center justify-center border-y border-[var(--lp-line)] text-lg"
+                  className="lp-num flex h-12 min-w-[130px] items-center justify-center border-y-2 border-[var(--lp-line)] text-lg"
                   aria-live="polite"
                 >
                   {period} tháng
@@ -547,35 +484,36 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
                   type="button"
                   aria-label="Tăng một tháng"
                   onClick={() => setPeriod((value) => Math.min(24, value + 1))}
-                  className="h-12 w-12 rounded-r-md border border-[var(--lp-line)] bg-[var(--lp-surface-2)] text-[1.375rem] font-bold"
+                  className="h-12 w-12 border-2 border-[var(--lp-line)] bg-[var(--lp-surface-2)] text-[1.375rem] font-bold"
                 >
                   +
                 </button>
               </div>
             </div>
             {current && (
-              <div className="overflow-hidden rounded-lg border border-[var(--lp-line)] text-[0.9375rem]">
-                <div className="flex justify-between gap-3 border-b border-[var(--lp-line)] px-4 py-3">
-                  <span className="text-[var(--lp-muted)]">Giá niêm yết / tháng</span>
-                  <strong className="lp-mono">{formatVnd(current.monthlyPrice)}</strong>
+              <div className="border border-[var(--lp-line)] text-[0.9375rem]">
+                <div className="flex justify-between gap-3 px-4 py-3">
+                  <span className="text-[var(--lp-muted)]">Giá / tháng</span>
+                  <strong className="lp-num">{formatVnd(current.monthlyPrice)}</strong>
                 </div>
-                <div className="flex justify-between gap-3 border-b border-[var(--lp-line)] px-4 py-3">
-                  <span className="text-[var(--lp-muted)]">
-                    Thuê {period} tháng (giá × số tháng)
-                  </span>
-                  <strong className="lp-mono">{formatVnd(current.monthlyPrice * period)}</strong>
+                <div className="flex justify-between gap-3 px-4 py-3">
+                  <span className="text-[var(--lp-muted)]">Thuê {period} tháng</span>
+                  <strong className="lp-num">{formatVnd(current.monthlyPrice * period)}</strong>
                 </div>
                 <div className="flex justify-between gap-3 bg-[var(--lp-surface-2)] px-4 py-3">
                   <span>Tiền cọc dự kiến ({DEPOSIT_MONTHS} tháng giá thuê)</span>
-                  <strong className="lp-mono">
+                  <strong className="lp-num">
                     {formatVnd(current.monthlyPrice * DEPOSIT_MONTHS)}
                   </strong>
                 </div>
               </div>
             )}
+            <p className="text-sm text-[var(--lp-muted)]">
+              Ước tính theo bảng giá hiện tại, không phải báo giá.
+            </p>
             <button
               type="button"
-              className="lp-btn lp-btn-primary min-h-[50px] w-full"
+              className="lp-btn lp-btn-primary w-full"
               onClick={() => navigate("/rental-requests/new")}
             >
               Gửi yêu cầu thuê kho <ArrowRight size={16} />
@@ -584,82 +522,70 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section id="terms" className="scroll-mt-24 bg-[var(--lp-bg)] py-[clamp(52px,7vw,84px)]">
+      <section id="terms" className="scroll-mt-24 bg-[var(--lp-bg)] py-[clamp(48px,6vw,76px)]">
         <div className={CONTAINER}>
-          <SectionHeading
-            label="Điều khoản đang áp dụng"
-            title="Quy tắc nằm ngay trên trang."
-            lead="Không cần gọi hỏi. Thuế và phí khác, điều kiện hoàn cọc sẽ được bổ sung khi nhóm chốt."
-          />
-          <div className="grid grid-cols-4 gap-3.5 max-[1000px]:grid-cols-2 max-[600px]:grid-cols-1">
+          <SectionHeading title="Điều khoản" />
+          <div className="grid gap-2">
             {RULES.map((rule) => (
               <div
                 key={rule.big}
-                className="rounded-xl border border-[var(--lp-line)] bg-[var(--lp-surface)] p-5"
+                className={`grid grid-cols-[160px_minmax(0,1fr)] items-baseline gap-5 p-4 max-[600px]:grid-cols-1 max-[600px]:gap-1 ${BLOCK}`}
               >
-                <strong className="lp-mono block text-3xl leading-tight">{rule.big}</strong>
-                <span className="mt-2.5 block text-[0.9375rem] leading-relaxed text-[var(--lp-text-2)]">
-                  {rule.text}
-                </span>
+                <strong className="lp-num text-lg">{rule.big}</strong>
+                <span className="text-[0.9375rem] text-[var(--lp-text-2)]">{rule.text}</span>
               </div>
             ))}
           </div>
+          <p className="mt-3 text-sm text-[var(--lp-muted)]">
+            Thuế, phí khác và điều kiện hoàn cọc: chưa công bố.
+          </p>
         </div>
       </section>
 
       <section
         id="how-it-works"
-        className="scroll-mt-24 border-y border-[var(--lp-line)] bg-[var(--lp-bg-alt)] py-[clamp(52px,7vw,84px)]"
+        className="scroll-mt-24 bg-[var(--lp-bg-alt)] py-[clamp(48px,6vw,76px)]"
       >
         <div className={CONTAINER}>
-          <SectionHeading label="Quy trình" title="Sáu bước, ai làm gì, hạn bao lâu." />
-          <ol className="grid list-none grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3.5 p-0">
+          <SectionHeading title="Quy trình thuê kho" />
+          <ol className="grid list-none gap-2 p-0">
             {STEPS.map((step) => (
               <li
                 key={step.n}
-                className="flex min-w-0 flex-col gap-1.5 border-t-[3px] border-[var(--lp-teal)] pt-3.5"
+                className={`grid grid-cols-[48px_minmax(0,1.1fr)_minmax(0,2fr)_minmax(0,1.2fr)] items-baseline gap-5 p-4 max-[900px]:grid-cols-[48px_minmax(0,1fr)] max-[900px]:gap-y-1 ${BLOCK}`}
               >
-                <span className="lp-mono text-[1.375rem] text-[var(--lp-teal)]">{step.n}</span>
-                <strong className="text-[1.0625rem] leading-tight">{step.title}</strong>
-                <span className="lp-eyebrow text-[var(--lp-muted)]">{step.who}</span>
-                <span className="text-sm leading-normal text-[var(--lp-text-2)]">
+                <span className="lp-num text-lg text-[var(--lp-teal)]">{step.n}</span>
+                <div>
+                  <strong>{step.title}</strong>
+                  <span className="block text-sm text-[var(--lp-muted)]">{step.who}</span>
+                </div>
+                <span className="text-[0.9375rem] text-[var(--lp-text-2)] max-[900px]:col-start-2">
                   {step.detail}
                 </span>
-                <span className="lp-mono mt-0.5 text-xs">{step.limit}</span>
+                <span className="lp-num text-sm max-[900px]:col-start-2">{step.limit}</span>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      <section id="locations" className="scroll-mt-24 bg-[var(--lp-bg)] py-[clamp(52px,7vw,84px)]">
+      <section id="locations" className="scroll-mt-24 bg-[var(--lp-bg)] py-[clamp(48px,6vw,76px)]">
         <div className={CONTAINER}>
-          <SectionHeading label="Cơ sở" title="Chọn nơi hàng đến." />
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-5">
+          <SectionHeading title="Cơ sở" />
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-2">
             {facilities.map((facility) => (
-              <div
-                key={facility.id}
-                className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--lp-line)] bg-[var(--lp-surface)] p-5"
-              >
-                <div>
-                  <span className="lp-eyebrow text-[var(--lp-teal)]">{facility.code}</span>
-                  <h3 className="mt-1 text-2xl tracking-[-0.02em]">{facility.name}</h3>
-                </div>
+              <div key={facility.id} className={`flex min-w-0 flex-col gap-2.5 p-5 ${BLOCK}`}>
+                <h3 className="text-xl">
+                  {facility.code} · {facility.name}
+                </h3>
                 <p className="text-[0.9375rem] text-[var(--lp-text-2)]">{facility.address}</p>
                 <p className="text-[0.9375rem]">
                   Giờ tiếp nhận: <strong>{facility.operatingHours}</strong>
                 </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[0.8125rem] text-[var(--lp-muted)]">Loại khoang</span>
-                  {(typesBySite[facility.id] ?? []).map((unit) => (
-                    <span
-                      key={unit.id}
-                      className="lp-mono rounded border border-[var(--lp-teal)] px-2 py-0.5 text-xs"
-                    >
-                      {unit.name}
-                    </span>
-                  ))}
-                </div>
+                <p className="flex flex-wrap items-center gap-1.5 text-[0.9375rem]">
+                  Loại khoang:
+                  <SiteChips codes={(typesBySite[facility.id] ?? []).map((unit) => unit.name)} />
+                </p>
                 <button
                   type="button"
                   className="lp-btn lp-btn-ghost mt-auto"
@@ -673,17 +599,17 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
         </div>
       </section>
 
-      <section className="bg-[var(--brand)] py-[clamp(44px,6vw,64px)] text-[var(--signal-ink)]">
-        <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-6`}>
-          <h2 className="min-w-[280px] max-w-[30ch] flex-[1_1_440px] text-[clamp(1.75rem,3.8vw,2.75rem)] leading-[1.05] tracking-[-0.03em]">
-            Chưa chắc cần bao nhiêu? Gửi nhu cầu, quản lý cơ sở sẽ đề xuất khoang phù hợp.
+      <section className="bg-[var(--dark)] py-[clamp(40px,5vw,60px)] text-[var(--on-dark-ink)]">
+        <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-5`}>
+          <h2 className="max-w-[34ch] text-[clamp(1.5rem,3vw,2rem)] leading-[1.15] tracking-[-0.02em] text-[var(--on-dark-ink)]">
+            Chưa chắc chọn cỡ nào? Gửi yêu cầu, quản lý cơ sở sẽ đề xuất khoang phù hợp.
           </h2>
           <button
             type="button"
-            className="lp-btn bg-[#0c1512] px-7 text-white"
+            className="lp-btn lp-btn-primary"
             onClick={() => navigate("/rental-requests/new")}
           >
-            Gửi yêu cầu đặt kho <ArrowRight size={16} />
+            Gửi yêu cầu thuê kho <ArrowRight size={16} />
           </button>
         </div>
       </section>

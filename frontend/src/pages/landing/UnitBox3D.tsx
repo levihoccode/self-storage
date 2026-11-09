@@ -79,7 +79,7 @@ export function boxMetrics(unit: UnitType, scale: number) {
       background: "var(--lp-floor)",
     },
   ];
-  return { width, depth, height, faces, shadow: Math.round(Math.max(width, depth) * 1.15) };
+  return { width, depth, height, faces };
 }
 
 export function UnitBox3D({
