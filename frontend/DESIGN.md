@@ -1,52 +1,52 @@
 ---
 name: Kho Mộc Frontend
-description: A concrete-and-signal interface for finding, renting, and operating self-storage.
+description: A paper-and-signal interface for finding, renting, and operating self-storage.
 colors:
-  concrete: "#E9EAE6"
-  concrete-deep: "#DFE1DC"
+  concrete: "#F5F7F4"
+  concrete-deep: "#E6F2EE"
   surface: "#FFFFFF"
-  surface-muted: "#F3F4F1"
-  ink: "#101413"
-  ink-2: "#333B38"
-  steel: "#5A625F"
-  rule: "#C9CCC6"
-  rule-strong: "#AEB3AC"
+  surface-muted: "#EEF4F0"
+  ink: "#0C1512"
+  ink-2: "#33433C"
+  steel: "#56655E"
+  rule: "#C9D6CF"
+  rule-strong: "#AEBDB5"
   signal: "#F2C300"
   signal-strong: "#D9AE00"
-  signal-ink: "#101413"
-  link: "#1F5A66"
+  signal-ink: "#0C1512"
+  link: "#0F766E"
   success: "#2F6B4F"
   success-soft: "#E4ECE5"
   warning: "#7A5A00"
   warning-soft: "#F7E9B0"
   danger: "#B3261E"
   danger-soft: "#F7E3E0"
-  info: "#1F5A66"
-  info-soft: "#E3EDEE"
-  sidebar: "#101413"
-  bar-dark: "#070A07"
-  concrete-dark: "#0E1211"
-  surface-dark: "#1A201E"
-  ink-dark: "#EEF0EC"
-  steel-dark: "#9AA19C"
-  rule-dark: "#2B3330"
+  info: "#0F766E"
+  info-soft: "#E3F1EE"
+  sidebar: "#0C1512"
+  bar-dark: "#070D0A"
+  concrete-dark: "#0C1512"
+  surface-dark: "#121F1A"
+  ink-dark: "#E8EFE9"
+  steel-dark: "#9FB3AA"
+  rule-dark: "#26382F"
   signal-dark: "#FFD400"
-  link-dark: "#8FC4CC"
+  link-dark: "#7FD1C0"
 typography:
   display:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(2.75rem, 6.4vw, 4.875rem)"
     fontWeight: 700
     lineHeight: 0.95
     letterSpacing: "-0.02em"
   title:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.8125rem"
     fontWeight: 700
     lineHeight: 1.05
     letterSpacing: "-0.01em"
   section:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.25
@@ -67,25 +67,25 @@ typography:
     fontWeight: 400
     lineHeight: 1.45
   button:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: "0.01em"
   label:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.4
     letterSpacing: "0.01em"
   data:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: 1.4
     fontFeature: "tnum"
   stat:
-    fontFamily: "Saira Semi Condensed, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.375rem"
     fontWeight: 500
     lineHeight: 1.2
@@ -182,7 +182,7 @@ The core layout rule is structural: **a list is a stack of blocks, not a stack o
 
 - Light concrete ground, white item surfaces, near-black ink.
 - One saturated signal: hi-vis yellow (`#F2C300`), used for action and active state only.
-- Saira Semi Condensed for display and interface labels; Source Sans 3 for reading text.
+- Be Vietnam Pro for headings and interface labels; Source Sans 3 for reading text.
 - 0px corners on buttons, tags, panels and list items; form fields use a 2px radius.
 - Block lists with gaps; ruled tables only where cells must line up.
 - Flat surfaces; depth is tonal, not shadowed.
@@ -190,37 +190,37 @@ The core layout rule is structural: **a list is a stack of blocks, not a stack o
 
 ## Colors
 
-The palette is cool concrete and steel with one hi-vis marking colour. It is deliberately not warm cream, beige or terracotta.
+The palette is cool paper and technical-drawing teal with one hi-vis marking colour. It is deliberately not warm cream, beige or terracotta.
 
 ### Primary
 
 - **Signal Yellow** (`#F2C300`): the primary action, active navigation, focus halo and small attention markers. It is the only saturated colour in the system.
 - **Signal Strong** (`#D9AE00`): hover/pressed state for the primary action. Never a background for a whole section.
-- **Signal Ink** (`#101413`): text on signal yellow. Yellow never carries light text.
+- **Signal Ink** (`#0C1512`): text on signal yellow. Yellow never carries light text.
 
 ### Secondary
 
-- **Steel Teal** (`#1F5A66`): links, secondary emphasis, selected labels and informational focus. It replaces the old lime/teal accent as the "read more" colour, not the action colour.
+- **Drawing Teal** (`#0F766E`): links, secondary emphasis, selected labels and informational focus. It replaces the old lime/teal accent as the "read more" colour, not the action colour.
 
 ### Neutral
 
-- **Concrete** (`#E9EAE6`): page ground.
+- **Paper** (`#F5F7F4`): page ground.
 - **Surface** (`#FFFFFF`): list items, panels, table rows.
-- **Surface Muted** (`#F3F4F1`): nested panels, tasks, empty states.
-- **Ink** (`#101413`): primary text, sidebar, table headers, CTA band.
-- **Steel** (`#5A625F`): secondary text, metadata, table labels.
-- **Rule** (`#C9CCC6`): the only divider colour, and only inside data tables.
+- **Surface Muted** (`#EEF4F0`): nested panels, tasks, empty states.
+- **Ink** (`#0C1512`): primary text, sidebar, table headers, CTA band.
+- **Steel** (`#56655E`): secondary text, metadata, table labels.
+- **Rule** (`#C9D6CF`): the only divider colour, and only inside data tables.
 
 ### Status
 
 - **Success** (`#2F6B4F` on `#E4ECE5`): active, approved, available.
 - **Warning** (`#7A5A00` on `#F7E9B0`): pending, expiring, needs attention.
 - **Danger** (`#B3261E` on `#F7E3E0`): overdue, rejected, destructive.
-- **Info** (`#1F5A66` on `#E3EDEE`): neutral system messages.
+- **Info** (`#0F766E` on `#E3F1EE`): neutral system messages.
 
 ### Dark Theme
 
-Dark is an alternate theme, not the default. Concrete becomes `#0E1211`, surface `#1A201E`, ink `#EEF0EC`, steel `#9AA19C`, rule `#2B3330`, signal `#FFD400`, link `#8FC4CC`. Container and control borders use translucent light (`rgba(238,240,236,.22–.28)`); they never become solid white.
+Dark is an alternate theme, not the default. Paper becomes `#0C1512`, surface `#121F1A`, ink `#E8EFE9`, steel `#9FB3AA`, rule `#26382F`, signal `#FFD400`, link `#7FD1C0`. Container and control borders use translucent light (`rgba(127,209,192,.30)` for containers, `rgba(232,239,233,.30)` for controls); they never become solid white.
 
 ### Named Rules
 
@@ -232,11 +232,11 @@ Dark is an alternate theme, not the default. Concrete becomes `#0E1211`, surface
 
 ## Typography
 
-**Display Font:** Saira Semi Condensed (with system sans fallback)<br />
+**Display Font:** Be Vietnam Pro (with system sans fallback)<br />
 **Body Font:** Source Sans 3 (with system sans fallback)<br />
-**Data Font:** Saira Semi Condensed with tabular figures; monospace is allowed only inline for code paths.
+**Data Font:** Be Vietnam Pro with tabular figures; monospace is allowed only inline for code paths.
 
-**Character:** Saira's condensed signage forms make headings and controls read like wayfinding. Source Sans 3 carries Vietnamese paragraphs at 15px without the tight, tracked-out rhythm that made the previous system feel machine-set.
+**Character:** Be Vietnam Pro's wide, even forms make headings and controls read like a technical drawing label. Source Sans 3 carries Vietnamese paragraphs at 15px without the tight, tracked-out rhythm that made the previous system feel machine-set.
 
 ### Hierarchy
 
@@ -253,7 +253,7 @@ Dark is an alternate theme, not the default. Concrete becomes `#0E1211`, surface
 
 ### Named Rules
 
-**The No Mono Decoration Rule.** There are no monospace labels or 10px tracked-out uppercase kickers. Numbers use tabular figures in Saira; only actual code paths may use a system monospace inline.
+**The No Mono Decoration Rule.** There are no monospace labels or 10px tracked-out uppercase kickers. Numbers use tabular figures in Be Vietnam Pro; only actual code paths may use a system monospace inline.
 
 **The No Kicker Rule.** A section title stands on its own. Do not stack a small uppercase label, a slogan and a subtitle above one heading.
 
@@ -337,7 +337,7 @@ The dark theme swaps paper, surface, ink, steel, rule, signal and link tokens. B
 - **Do** use signal yellow for the primary action, active navigation and focus attention; keep it rare.
 - **Do** make each list item a surface block with 16px padding and an 8px gap.
 - **Do** use rules only inside a data table where cells align.
-- **Do** use Saira Semi Condensed for display and UI labels, Source Sans 3 for body copy, tabular figures for data.
+- **Do** use Be Vietnam Pro for display and UI labels, Source Sans 3 for body copy, tabular figures for data.
 - **Do** use translucent light borders in dark theme for containers and controls.
 - **Do** keep Vietnamese copy, real diacritics, `1.500.000 đ`, `dd/MM/yyyy`, visible focus and three states per screen.
 - **Do** let content decide section count; four process blocks are fine, three equal feature cards are not a default.

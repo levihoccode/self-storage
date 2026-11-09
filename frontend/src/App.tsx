@@ -35,7 +35,7 @@ import { ROLE_HOME, viewFromLocation } from "./app/routes";
 import { View } from "./app/types";
 
 const THEME_STORAGE_KEY = "kho-moc-theme";
-const THEME_COLOR: Record<Theme, string> = { light: "#e9eae6", dark: "#0e1211" };
+const THEME_COLOR: Record<Theme, string> = { light: "#f5f7f4", dark: "#0c1512" };
 
 function getInitialTheme(): Theme {
   try {

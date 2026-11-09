@@ -67,8 +67,8 @@
   --shadow-soft-token: var(--shadow-soft);
 
   --font-sans: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Saira Semi Condensed", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Saira Semi Condensed", ui-monospace, monospace;
+  --font-display: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
 
   /* Named text styles from DESIGN.md's typography hierarchy: font-size plus
      its paired weight/line-height/letter-spacing, so e.g. `text-title` alone

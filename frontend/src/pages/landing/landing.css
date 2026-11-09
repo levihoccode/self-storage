@@ -1,8 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap");
-
 /*
- * Giao diện trang chủ. Mọi biến nằm dưới `.lp` nên không đụng vào token dùng
- * chung; chế độ sáng/tối đi theo `data-theme` của <html> (công tắc ở header).
+ * Giao diện trang chủ: biến riêng của trang nằm dưới `.lp`; font Be Vietnam Pro
+ * được nạp ở index.html. Chế độ sáng/tối đi theo `data-theme` của <html> (công tắc ở header).
  * Màu hành động chính lấy từ --brand; góc vuông, không đổ bóng, không gradient.
  */
 .lp {
