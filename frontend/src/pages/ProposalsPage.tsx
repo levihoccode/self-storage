@@ -173,7 +173,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           />
         ) : (
           <div className="grid gap-2.5">
-            {items.map((proposal) => {
+            {items.map((proposal, index) => {
               const outcome = outcomes[proposal.id];
               const isBusy = busyId === proposal.id;
               const remaining = proposal.maxRejectionCount - proposal.rejectionCount;
@@ -183,7 +183,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                   <div className="flex items-start justify-between gap-5 max-[760px]:flex-col">
                     <div>
                       <span className="text-label text-muted">
-                        Khoang {proposal.unitCode} · {proposal.unitTypeName}
+                        Đề xuất {index + 1} · Khoang {proposal.unitCode} · {proposal.unitTypeName}
                       </span>
                       <h2 className="mt-1 text-section text-ink">{proposal.facilityName}</h2>
                       {proposal.facilityAddress && (
