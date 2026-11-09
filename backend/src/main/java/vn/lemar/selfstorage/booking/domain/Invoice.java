@@ -114,6 +114,26 @@ public class Invoice {
         this.refundRequestedAt = Instant.now();
     }
 
+    /** FS/FM đã đưa tiền; chờ khách xác nhận đã nhận. */
+    public void markRefundAwaitingConfirmation() {
+        if (refundStatus != InvoiceRefundStatus.REQUIRED
+                && refundStatus != InvoiceRefundStatus.PROCESSING) {
+            throw new IllegalStateException("Hoá đơn " + id + " không ở trạng thái cần hoàn: "
+                    + refundStatus);
+        }
+        this.refundStatus = InvoiceRefundStatus.AWAITING_CONFIRMATION;
+    }
+
+    /** Khách xác nhận đã nhận tiền — chỉ sau khi FS/FM đã đưa tiền. */
+    public void markRefunded() {
+        if (refundStatus != InvoiceRefundStatus.AWAITING_CONFIRMATION) {
+            throw new IllegalStateException("Hoá đơn " + id + " chưa chờ khách xác nhận: "
+                    + refundStatus);
+        }
+        this.refundStatus = InvoiceRefundStatus.REFUNDED;
+        this.refundedAt = Instant.now();
+    }
+
     public void cancel() {
         if (status != InvoiceStatus.UNPAID) {
             throw new IllegalStateException("Hoá đơn " + id + " không huỷ được ở trạng thái " + status);

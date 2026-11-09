@@ -101,7 +101,7 @@ export async function loadFmRefundCases(page: number, size = 20): Promise<Refund
     page: String(page),
     size: String(size),
   });
-  return apiRequest<RefundCasePage>(`/api/fm/invoices/refunds?${params.toString()}`, {
+  return apiRequest<RefundCasePage>(`/api/refunds/queues/invoices?${params.toString()}`, {
     accessToken,
   });
 }

@@ -27,6 +27,9 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundE
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderValidationException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
+import vn.lemar.selfstorage.booking.application.exception.RefundNotAllowedException;
+import vn.lemar.selfstorage.booking.application.exception.RefundObligationValidationException;
+import vn.lemar.selfstorage.booking.application.exception.RefundQueueForbiddenException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitFilterException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
@@ -119,6 +122,21 @@ public class BookingExceptionHandler {
     @ExceptionHandler(DepositNotAllowedException.class)
     public ResponseEntity<ApiError> handleDepositNotAllowed(DepositNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundNotAllowedException.class)
+    public ResponseEntity<ApiError> handleRefundNotAllowed(RefundNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundObligationValidationException.class)
+    public ResponseEntity<ApiError> handleRefundObligationValidation(RefundObligationValidationException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundQueueForbiddenException.class)
+    public ResponseEntity<ApiError> handleRefundQueueForbidden(RefundQueueForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
     }
 
     // ---- Lịch hẹn check-in (spec 1.5)
