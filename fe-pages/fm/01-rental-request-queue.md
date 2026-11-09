@@ -6,47 +6,45 @@
 
 ## Mục đích
 
-FM xử lý `RentalRequest` gửi tới cơ sở mình: duyệt/từ chối request mới, và tiếp tục xử lý
-request đã convert thành đơn (đề xuất lại, chờ khách phản hồi/thanh toán).
+FM xử lý `RentalRequest` gửi tới cơ sở mình: duyệt/từ chối request mới, và đề xuất lại khoang cho
+request đã convert khi khách từ chối đề xuất trước (`needsRepropose`).
 
 ## Dữ liệu hiển thị
 
 - Nguồn: `GET /api/fm/rental-requests?facilityId=&page=0&size=100`.
 - Mỗi dòng có `status` (trạng thái request), `orderId`/`orderStatus` (nếu đã convert),
-  `nextAction`, `lastProposal`, `rejectionCount`, `maxRejectionCount`.
-- Tab **Chờ xử lý**: `nextAction = APPROVE_REQUEST` hoặc `REPROPOSE_UNIT`.
-- Tab **Đã duyệt**: request `Approved`/`Converted` và `nextAction != REPROPOSE_UNIT`
-  (`WAIT_CUSTOMER`/`VIEW`).
+  `needsRepropose`, `lastProposal`, `rejectionCount`, `maxRejectionCount`.
+- Tab **Chờ xử lý**: request `Pending`, hoặc `needsRepropose = true`.
+- Tab **Đã duyệt**: request `Approved`/`Converted` với `needsRepropose = false`.
 - Tab **Từ chối**, **Hết hạn**: theo `status` request.
 - Không hiển thị cột `facility`; FM chỉ thấy cơ sở của mình.
 
 ## Nhãn hiển thị
 
-FE hiển thị nhãn theo `nextAction`, không hiển thị trạng thái kỹ thuật `Converted`:
+`needsRepropose` do BE tính từ trạng thái đơn + proposal gần nhất. FE chỉ render nhãn theo bảng
+dưới, không suy ra từ `orderStatus`.
 
 | Điều kiện | Nhãn |
 |---|---|
-| `APPROVE_REQUEST` | Chờ xử lý |
-| `REPROPOSE_UNIT` | Cần đề xuất lại |
-| `WAIT_CUSTOMER` | Chờ khách phản hồi |
-| `VIEW` + order `Pending` + proposal `Agreed` | Chờ khách thanh toán |
-| `VIEW` + order `Deposited` | Chờ khách đặt lịch |
-| `VIEW` + order `Scheduled`/`InProgress` | Đã có lịch |
-| `VIEW` + order `Canceled`/`Done` | Đã đóng |
-| `VIEW` + request `Approved` chưa có order | Chờ khách xác minh email |
-| còn lại | Nhãn theo trạng thái request |
+| `needsRepropose = true` | Cần đề xuất lại |
+| request `Pending` | Chờ xử lý |
+| request `Converted`, `needsRepropose = false` | Đã được xử lý — theo dõi ở Đơn thuê kho |
+| request `Rejected` / `Expired` | Đã từ chối / Hết hạn |
+
+Hàng đợi chỉ trả request. Các bước còn lại của đơn (chờ khách phản hồi, chờ thanh toán, chờ đặt
+lịch) thuộc màn Đơn thuê kho — hàng đợi không hiển thị nhãn cho các bước đó.
 
 `Converted` là trạng thái của `RentalRequest`, không phải `RentalOrder`; detail có thể hiện
-trạng thái request, nhưng row trong hàng đợi dùng nhãn hành động ở trên.
+trạng thái request, nhưng row trong hàng đợi dùng nhãn ở bảng trên.
 
 ## Actions
 
-- **Đề xuất** (`APPROVE_REQUEST`): mở form chọn khoang `Available` cùng cơ sở/loại khoang →
+- **Đề xuất** (request `Pending`): mở form chọn khoang `Available` cùng cơ sở/loại khoang →
   `POST /api/fm/rental-requests/{id}/approve` body `{unitId}`.
-- **Từ chối**: nhập lý do → `POST /api/fm/rental-requests/{id}/reject`
+- **Từ chối** (request `Pending`): nhập lý do → `POST /api/fm/rental-requests/{id}/reject`
   body `{rejectReason, rejectNote?}`.
-- **Đề xuất lại** (`REPROPOSE_UNIT`): điều hướng `/fm/rental-orders/{orderId}/re-propose`.
-- **Xem** (`WAIT_CUSTOMER`/`VIEW`): chỉ mở panel chi tiết; panel hiện proposal gần nhất,
+- **Đề xuất lại** (`needsRepropose = true`): điều hướng `/fm/rental-orders/{orderId}/re-propose`.
+- **Xem**: chỉ mở panel chi tiết; panel hiện proposal gần nhất,
   `rejectionCount`/`maxRejectionCount`.
 
 ## States / UI
@@ -69,5 +67,6 @@ trạng thái request, nhưng row trong hàng đợi dùng nhãn hành động �
 
 - Toàn bộ API kiểm tra facility scope ở BE, không chỉ ẩn ở FE.
 - Duyệt chạy trong một transaction, re-check khoang; FE disable nút khi đang gửi và vẫn xử lý 409.
-- Request `Converted` vẫn nằm trong hàng đợi để FM xử lý bước tiếp theo của đơn.
+- Request `Converted` vẫn nằm trong hàng đợi; khi `needsRepropose = false`, FM không còn thao tác
+  trên request — theo dõi đơn ở màn Đơn thuê kho.
 - Không có tab `Wishlisted` — API không trả trạng thái này.

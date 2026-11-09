@@ -62,9 +62,6 @@ export type RentalRequestStatus = "Pending" | "Rejected" | "Approved" | "Convert
 
 export type RejectReason = "UNIT_UNAVAILABLE" | "UNIT_MISMATCH" | "CUSTOMER_REQUEST" | "OTHER";
 
-export type RentalRequestNextAction =
-  "APPROVE_REQUEST" | "WAIT_CUSTOMER" | "REPROPOSE_UNIT" | "VIEW";
-
 export type RentalRequestSummary = {
   id: number;
   customerName: string;
@@ -78,7 +75,8 @@ export type RentalRequestSummary = {
   expiresAt: string | null;
   orderId: number | null;
   orderStatus: string | null;
-  nextAction: RentalRequestNextAction;
+  /** BE tính sẵn điều kiện đề xuất lại; FE không tự suy luận từ `orderStatus`. */
+  needsRepropose: boolean;
   lastProposal: {
     id: number;
     unitCode: string;
