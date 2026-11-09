@@ -3,6 +3,8 @@
 # Account
 - id
 - email (unique, normalized)
+- name (nullable) - tên hiển thị; backfill khách từ `RentalRequest.customer_name`, seed cho tài khoản hệ thống; account cũ/test có thể null, API fallback email
+- phone (nullable) - số điện thoại liên hệ; backfill từ `RentalRequest.customer_phone`
 - email_verified_at (nullable) - thời điểm xác minh email. Luồng đăng ký tự phục vụ chỉ tạo
   `Account` sau khi xác minh (field set ngay khi tạo); account có `null` (legacy/seed/admin tạo tay)
   bị chặn đăng nhập và mọi thao tác nghiệp vụ — chỉ luồng xác minh email hoạt động.
@@ -256,6 +258,10 @@ Các bước:
 - amount - snapshot của giá hiệu lực tại thời điểm tạo hóa đơn.
 - created_at
 - due_date
+- refund_status (None/Required/Processing/Refunded) — tiền đã vào nhưng cần hoàn; tách khỏi `status`
+- refund_reason (nullable)
+- refund_requested_at (nullable)
+- refunded_at (nullable)
 
 **Constraints**
 - Một `RentalOrder` tối đa một hoá đơn `Deposit` còn hiệu lực (`Unpaid`/`Paid`).
@@ -297,10 +303,10 @@ Các bước:
 - facility_id (N - 1: Facility)
 - staff_id (N - 1: Account, nullable khi chưa được phân công)
 - type (CHECKIN, HANDOVER, RETURN)
-- cancel_reason
+- cancel_reason (no-show ghi "Quá giờ và khách không đến")
 - date
-- started_at
-- end_at
+- started_at (NOT NULL từ V15)
+- end_at (NOT NULL từ V15)
 - arrived_at
 - status:
   - Pending: trạng thái mặc định, trước khi khách đến
@@ -429,7 +435,22 @@ Các bước:
 - failure_reason
 - paid_at
 - created_at
-- status (Pending/Failed/Success)
+- status (Pending/Failed/Success/Duplicate)
+# PaymentReconciliationCase
+- transaction_id (1 - 1: PaymentTransaction)
+- invoice_id
+- status (Open/Resolved)
+- detected_at
+- notified_at
+- resolved_at
+- resolved_by_email
+- resolution (Success/Failed/Duplicate)
+- gateway_transaction_no
+- paid_at
+- note
+- evidence_url
+- created_at
+- updated_at
 # AuditLog
 **Overview:** lưu lịch sử các thao tác nghiệp vụ nhạy cảm để đối chiếu khi có tranh chấp hoặc lỗi.
 
@@ -465,17 +486,20 @@ Các bước:
 | `PROPOSAL_CANCELED` | Proposal bị huỷ do khoang hết khả dụng lúc khách đồng ý hoặc đơn bị huỷ | `ProposalFeedback` | Customer/System |
 | `INVOICE_CREATED` | Hệ thống tạo hóa đơn cọc | `Invoice` | Customer/FM |
 | `INVOICE_CANCELED` | Hóa đơn bị vô hiệu hóa | `Invoice` | Customer/FM |
-| `PAYMENT_SUCCEEDED` | Thanh toán được xác nhận | `PaymentTransaction` | System/IPN |
-| `PAYMENT_FAILED` | Thanh toán thất bại | `PaymentTransaction` | System/IPN |
+| `INVOICE_REFUND_REQUIRED` | Tiền đã vào nhưng unit không còn giữ được; invoice Paid + refund Required | `Invoice` | System |
+| `PAYMENT_SUCCEEDED` | Thanh toán được xác nhận | `PaymentTransaction` | System/IPN/Admin |
+| `PAYMENT_FAILED` | Thanh toán thất bại | `PaymentTransaction` | System/IPN/Admin |
+| `PAYMENT_DUPLICATE` | Giao dịch Success thứ hai cho cùng invoice; không ghi Success lần hai | `PaymentTransaction` | System/IPN/Admin |
 | `RENTAL_ORDER_DEPOSITED` | Đơn chuyển sang đã đặt cọc | `RentalOrder` | System |
 | `STORAGE_UNIT_RESERVED` | Khoang chuyển sang Reserved | `StorageUnit` | System |
 | `MANUAL_REFUND_RECORDED` | Ghi nhận hoàn tiền thủ công | `PaymentTransaction` | Admin/FM |
 | `DEPOSIT_REFUND_REQUIRED` | Đổi khoang sau khi cọc dư — cần hoàn tiền | `RentalOrder` | Customer |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in | `Appointment` | System |
-| `FS_ASSIGNED` | FM phân công FS | `Appointment` | FM |
+| `FS_ASSIGNED` | FM phân công FS | `Appointment`, `RentalOrder` | FM |
 | `APPOINTMENT_RESCHEDULED` | Lịch hẹn được đặt lại | `Appointment` | Customer/FM |
 | `APPOINTMENT_CANCELED_NO_SHOW` | Cron xử lý khách không đến | `Appointment` | System |
-| `APPOINTMENT_CANCELED` | Hủy lịch chưa diễn ra khi đơn bị hủy (cancellation cascade) | `Appointment` | System |
+| `APPOINTMENT_CANCELED` | Hủy lịch Pending (cancellation cascade hoặc FS chủ động) | `Appointment` | System, FS |
+| `APPOINTMENT_ARRIVED` | FS xác nhận khách đến (Pending → Done) | `Appointment` | FS |
 | `IDENTITY_VERIFIED` | FS xác minh danh tính người đến | `HandoverRecord` | FS |
 | `UNIT_INSPECTED` | Khách xác nhận hiện trạng khoang | `HandoverRecord` | FS |
 | `HANDOVER_REJECTED` | Khách từ chối khoang tại chỗ | `HandoverRecord` | FS |
@@ -556,6 +580,10 @@ Các bước:
 | `PROPOSAL_REPROPOSAL_REQUIRED` | FM cần đề xuất lại khoang khác (nội dung gồm mã đơn và mã khoang cũ) | FM |
 | `PROPOSAL_REPROPOSED` | FM tạo proposal mới, nội dung gồm link xác nhận | Customer |
 | `DEPOSIT_PAYMENT_SUCCEEDED` | Đặt cọc thành công | Customer |
+| `PAYMENT_DUPLICATE_REFUND_REQUIRED` | Giao dịch Success thứ hai cho cùng invoice — FM cần hoàn tiền thủ công | FM |
+| `PAYMENT_PENDING_REVIEW_REQUIRED` | Giao dịch Pending quá hạn — ADMIN cần tra portal và đối soát | ADMIN |
+| `PAYMENT_REFUND_REQUIRED` | Tiền cọc đã vào nhưng unit không còn giữ được — FM cần hoàn tiền | FM |
+| `PAYMENT_REFUND_PENDING` | Khoản cọc sẽ được hoàn do unit không còn giữ được | Customer |
 | `APPOINTMENT_CREATED` | Tạo lịch hẹn check-in, nội dung khác nhau theo recipient (xem NOTES) | Customer, FM |
 | `APPOINTMENT_CANCELED_NO_SHOW` | Cron hủy lịch do khách không đến (nội dung gồm thời gian hẹn cũ và link đặt lịch mới) | Customer |
 | `FS_ASSIGNED` | FM phân công FS cho lịch hẹn, nội dung gồm thông tin lịch hẹn | FS |
@@ -569,3 +597,24 @@ Các bước:
 | `DEPOSIT_REFUND_PENDING` | Cọc dư sẽ được hoàn | Customer |
 | `HANDOVER_COMPLETED` | Hoàn tất check-in và bàn giao khoang | Customer |
 | `OTHER` | Thông báo khẩn cấp thủ công khi chưa có type phù hợp | Recipient do người tạo chọn |
+
+# MediaUpload
+
+- id
+- account_id (N - 1: Account)
+- batch_id (UUID; các file cùng một đợt upload dùng chung)
+- public_id (nullable)
+- url (nullable)
+- bytes (nullable)
+- format (nullable)
+- status (`Uploading` / `Pending` / `Attached` / `Canceled` / `Deleted`)
+- created_at
+- updated_at
+
+**NOTES:**
+- Row `Uploading` tạo trước khi gọi storage; `Pending` sau khi lưu xong.
+- `DELETE /api/media/uploads/batch/{batchId}` mark `Canceled` + xoá asset `Uploading`/`Pending`;
+  `POST .../attach` mark `Attached` để Hủy không xoá.
+- Row `Uploading` chưa có `public_id`: upload completion thấy `Canceled` thì xoá asset vừa lưu.
+- Unique `public_id` khi khác null; index `(account_id, batch_id, status)`. Không audit upload/delete;
+  audit nằm ở flow gắn URL vào entity.
