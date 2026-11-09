@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, PackageOpen, Receipt } from "lucide-react";
+import { Bell, CalendarDays, ClipboardCheck, PackageOpen, Receipt } from "lucide-react";
 import { authGateway } from "../../app/auth";
 import { useUnreadNotificationCount } from "../../app/notifications";
 import type { Navigate, View } from "../../app/types";
@@ -11,6 +11,12 @@ const navigation: (WorkspaceNavItem & { view: View })[] = [
     path: "/my-storage",
     view: "my-storage",
     icon: PackageOpen,
+  },
+  {
+    label: "Đề xuất khoang",
+    path: "/proposals",
+    view: "proposals",
+    icon: ClipboardCheck,
   },
   {
     label: "Hoá đơn & thanh toán",
