@@ -15,22 +15,15 @@ purpose: Cron no-show cho lịch check-in quá giờ chưa đến — guard, aud
   (actor System); notification khách của lịch `APPOINTMENT_CANCELED_NO_SHOW` (`appointmentTime` +
   `rescheduleLink = FRONTEND_URL/appointments/new`); lịch có đơn thì nối thêm order, không có đơn thì chỉ
   ghi notification. Idempotent: chỉ quét `Pending`.
-- Lịch có đơn (`rental_appointments`): phát `AppointmentNoShow(appointmentId, reason)` để `handover`
-  đóng phiên bàn giao — `HandoverRecord` đang mở → `CANCELED` + `reject_reason`, contract
-  `Draft`/`Signed` → `Canceled`, cùng lý do `"Quá giờ và khách không đến"`. Record do Flow 1.5 tạo
-  khi đặt lịch (chưa có code — #168); lịch chưa có record thì listener bỏ qua. Listener chạy ngay khi
-  publish (không phải `BEFORE_COMMIT`) nên thứ tự khoá là
-  `appointments → handover_records → rental_contracts → rental_orders`.
-  Phải đóng record ở đây vì record chưa `arrive` có `due_at = null` — cron quá hạn không bao giờ quét
-  (`r.dueAt < :now`), và partial unique index `uq_handover_records_open_per_order` chỉ cho một record
-  `IN_PROGRESS` mỗi đơn, nên record bỏ ngỏ sẽ chặn lần đặt lịch sau.
+- No-show **không đụng `HandoverRecord`/`RentalContract`**: record chỉ mở khi khách đến cơ sở
+  (Flow 2.1), nên lịch quá giờ chưa đến không có record để đóng.
 - Đơn của lịch (`rental_orders`, chỉ khi `InProgress`):
   - còn hạn giữ kho (`expires_at` null hoặc `now < expires_at`) → đơn về `Deposited`, audit
     `RENTAL_ORDER_DEPOSITED`, khoang giữ `Reserved` để khách đặt lịch mới;
   - hết hạn (`now >= expires_at`) → Cancellation Cascade với lý do `"Quá giờ và khách không đến"`,
     đơn/khoang/hoá đơn xử lý theo luồng huỷ; khách nhận thêm `RENTAL_ORDER_CANCELED`.
 - Đơn không `InProgress` (chưa phân công FS, đã `Done`/`Canceled`) hoặc lịch không có đơn: chỉ đóng
-  lịch/phiên bàn giao, log cảnh báo, không đoán trạng thái đơn.
+  lịch, log cảnh báo, không đoán trạng thái đơn.
 - Khách đến muộn phải trong khung giờ: `arrive` sau `end_at` → 409; `cancel` sau `end_at` → 409. Nếu
   cron chưa chạy, guard vẫn phản ánh qua `noShowDue`/409 — không đợi cron.
 - Read trả `noShowDue` (không side effect) và `cancelReason = "Quá giờ và khách không đến"`; FE ẩn 2 nút trên row

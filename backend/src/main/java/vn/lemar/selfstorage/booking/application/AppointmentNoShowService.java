@@ -9,7 +9,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
@@ -27,9 +26,9 @@ import vn.lemar.selfstorage.notification.application.NotificationType;
  * Cron no-show: lịch check-in Pending quá {@code end_at} → Canceled (Quá giờ và khách không đến), audit,
  * báo khách, đóng phiên bàn giao và đưa đơn về trạng thái đúng.
  *
- * <p>Thứ tự xử lý giữ đúng thứ tự khoá {@code appointments → handover_records → rental_orders}:
- * khoá lịch, huỷ lịch + audit, phát {@link AppointmentNoShow} cho {@code handover}, rồi mới cập nhật
- * đơn. Idempotent: chỉ lịch {@code Pending} quá hạn mới chạy; lần hai trả {@code false}.
+ * <p>Chỉ xử lý {@code Appointment} + {@code RentalOrder}; {@code HandoverRecord} chỉ tồn tại khi khách
+ * đã đến nên lịch quá giờ chưa đến không có record để đóng. Idempotent: chỉ lịch {@code Pending} quá
+ * hạn mới chạy; lần hai trả {@code false}.
  */
 @Service
 public class AppointmentNoShowService {
@@ -48,7 +47,6 @@ public class AppointmentNoShowService {
     private final RentalOrderCancellationService orderCancellation;
     private final OrderNotifier orderNotifier;
     private final AuditRecorder auditRecorder;
-    private final ApplicationEventPublisher events;
     private final String frontendUrl;
 
     AppointmentNoShowService(AppointmentRepository appointmentRepository,
@@ -56,7 +54,6 @@ public class AppointmentNoShowService {
                              RentalOrderLifecycle orderLifecycle,
                              RentalOrderCancellationService orderCancellation,
                              OrderNotifier orderNotifier, AuditRecorder auditRecorder,
-                             ApplicationEventPublisher events,
                              @Value("${app.frontend-url}") String frontendUrl) {
         this.appointmentRepository = appointmentRepository;
         this.readRepository = readRepository;
@@ -65,7 +62,6 @@ public class AppointmentNoShowService {
         this.orderCancellation = orderCancellation;
         this.orderNotifier = orderNotifier;
         this.auditRecorder = auditRecorder;
-        this.events = events;
         this.frontendUrl = frontendUrl;
     }
 
@@ -91,10 +87,6 @@ public class AppointmentNoShowService {
                 Map.of("status", AppointmentStatus.Pending.name()), newValue, REASON, null));
 
         appointmentRepository.flush();
-        // handover nghe event ngay trong transaction này (khoá handover_records) — chạy trước khi
-        // booking khoá rental_orders để giữ thứ tự khoá chung với cron handover quá hạn.
-        events.publishEvent(new AppointmentNoShow(appointmentId, REASON));
-
         AppointmentRow row = readRepository.findById(appointmentId).orElse(null);
         if (row != null) {
             applyOrderOutcome(row.orderId(), now);

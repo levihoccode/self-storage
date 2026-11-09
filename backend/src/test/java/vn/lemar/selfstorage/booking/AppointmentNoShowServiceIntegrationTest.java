@@ -165,82 +165,38 @@ class AppointmentNoShowServiceIntegrationTest {
     }
 
     @Test
-    void noShowClosesOpenHandoverAndReturnsOrderToDeposited() {
-        long unitId = jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
-        jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
-        long recordId = seedHandover(dueId, orderId, unitId, "Draft");
-
-        assertThat(service.cancelIfDue(dueId)).isTrue();
-        entityManager.flush();
-
-        assertThat(recordResult(recordId)).isEqualTo("CANCELED");
-        assertThat(rejectReason(recordId)).isEqualTo("Quá giờ và khách không đến");
-        assertThat(contractStatus(orderId)).isEqualTo("Canceled");
-        assertThat(orderStatus()).isEqualTo("Deposited");
-        assertThat(unitStatus(unitId)).isEqualTo("Reserved");
-        assertThat(auditCount("HANDOVER_CANCELED")).isEqualTo(1L);
-        assertThat(auditCount("CONTRACT_CANCELED")).isEqualTo(1L);
-        assertThat(auditCount("RENTAL_ORDER_DEPOSITED")).isEqualTo(1L);
-    }
-
-    @Test
     void noShowPastOrderExpiryRunsCancellationCascade() {
         long unitId = jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
         jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
-        long recordId = seedHandover(dueId, orderId, unitId, "Signed");
         jdbc.update("update rental_orders set expires_at = now() - interval '1 hour' where id = ?", orderId);
 
         assertThat(service.cancelIfDue(dueId)).isTrue();
         entityManager.flush();
 
-        assertThat(recordResult(recordId)).isEqualTo("CANCELED");
-        assertThat(contractStatus(orderId)).isEqualTo("Canceled");
         assertThat(orderStatus()).isEqualTo("Canceled");
         assertThat(jdbc.queryForObject("select cancel_reason from rental_orders where id = ?", String.class,
                 orderId)).isEqualTo("Quá giờ và khách không đến");
         assertThat(unitStatus(unitId)).isEqualTo("Available");
-        assertThat(auditCount("HANDOVER_CANCELED")).isEqualTo(1L);
-        assertThat(auditCount("CONTRACT_CANCELED")).isEqualTo(1L);
         assertThat(notificationCount("APPOINTMENT_CANCELED_NO_SHOW")).isEqualTo(1L);
         assertThat(notificationCount("RENTAL_ORDER_CANCELED")).isEqualTo(1L);
     }
 
     @Test
-    void noShowWithoutHandoverRecordStillUpdatesOrder() {
+    void noShowLeavesHandoverUntouched() {
+        long unitId = jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
+        long recordId = jdbc.queryForObject("""
+                insert into handover_records (order_id, appointment_id, unit_id, result)
+                values (?, ?, ?, 'IN_PROGRESS') returning id""",
+                Long.class, orderId, dueId, unitId);
+
         assertThat(service.cancelIfDue(dueId)).isTrue();
         entityManager.flush();
 
         assertThat(orderStatus()).isEqualTo("Deposited");
+        assertThat(jdbc.queryForObject("select result from handover_records where id = ?", String.class, recordId))
+                .isEqualTo("IN_PROGRESS");
         assertThat(auditCount("HANDOVER_CANCELED")).isZero();
-        assertThat(auditCount("CONTRACT_CANCELED")).isZero();
-        assertThat(notificationCount("APPOINTMENT_CANCELED_NO_SHOW")).isEqualTo(1L);
-    }
-
-    private long seedHandover(long appointmentId, long orderForAppointment, long unitId, String contractStatus) {
-        long recordId = jdbc.queryForObject("""
-                insert into handover_records (order_id, appointment_id, unit_id, result)
-                values (?, ?, ?, 'IN_PROGRESS') returning id""",
-                Long.class, orderForAppointment, appointmentId, unitId);
-        jdbc.update("""
-                insert into rental_contracts (order_id, customer_id, unit_id, code, terms_version,
-                    monthly_price, deposit_amount, period, start_date, status)
-                values (?, ?, ?, ?, 'v1', 500000, 500000, 3, current_date + 1, ?)""",
-                orderForAppointment, customerId, unitId, "CT-" + java.util.UUID.randomUUID(), contractStatus);
-        return recordId;
-    }
-
-    private String recordResult(long recordId) {
-        return jdbc.queryForObject("select result from handover_records where id = ?", String.class, recordId);
-    }
-
-    private String rejectReason(long recordId) {
-        return jdbc.queryForObject("select reject_reason from handover_records where id = ?",
-                String.class, recordId);
-    }
-
-    private String contractStatus(long orderForAppointment) {
-        return jdbc.queryForObject("select status from rental_contracts where order_id = ?",
-                String.class, orderForAppointment);
+        assertThat(auditCount("RENTAL_ORDER_DEPOSITED")).isEqualTo(1L);
     }
 
     private String orderStatus() {

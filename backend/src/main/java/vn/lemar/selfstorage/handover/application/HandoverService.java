@@ -31,8 +31,8 @@ import vn.lemar.selfstorage.pricing.application.PricingQuery;
  *       hợp đồng chưa bàn giao của đơn. Hai entry point chỉ khác khoá tra cứu; luật huỷ giống nhau.</li>
  * </ul>
  *
- * <p>Chưa có HTTP; cron quá hạn gọi {@code cancelByOrderId}, listener no-show gọi
- * {@code cancelByAppointmentId}.
+ * <p>Chưa có HTTP; cron quá hạn gọi {@code cancelByOrderId}, {@code cancelByAppointmentId} chưa có
+ * caller.
  */
 @Service
 public class HandoverService {
