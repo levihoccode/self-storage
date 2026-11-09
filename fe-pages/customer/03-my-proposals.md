@@ -14,9 +14,7 @@ Sau khi FM duyệt `RentalRequest` và chỉ định khoang, khách cần xác n
 
 ## Dữ liệu hiển thị
 - Danh sách `ProposalFeedback.status = Pending` của khách, mỗi entry gồm: thông tin khoang (`unit_id` → code, `unit_type`, `facility`), giá thuê, ngày đề xuất
-- Gợi ý chia 2 tab (theo NOTES của flow-1):
-  - **Đang sử dụng:** hợp đồng đã ký (`RentalOrder.status = Done` trở lên)
-  - **Chờ duyệt:** `ProposalFeedback.status = Pending`
+- Trang chỉ có một danh sách, **không chia tab**: màn này để khách xác nhận khoang FM đề xuất từ yêu cầu thuê. Kho đang thuê xem ở `06-my-contracts-dashboard.md` (`/my-storage`) — tab "Đang sử dụng" của bản cũ đã bỏ.
 
 ## Actions
 - [Đồng ý] → `ProposalFeedback.status = Agreed`, tạo `Invoice(type=Deposit)`, điều hướng sang trang Hóa đơn
@@ -30,7 +28,6 @@ Sau khi FM duyệt `RentalRequest` và chỉ định khoang, khách cần xác n
 
 ## API liên quan
 - `GET /api/proposals?status=Pending`
-- `GET /api/contracts` — tab **Đang sử dụng** đọc hợp đồng `Active` của chính khách
 - `POST /api/proposals/{id}/agree`
 - `POST /api/proposals/{id}/reject` (body: `note`)
 

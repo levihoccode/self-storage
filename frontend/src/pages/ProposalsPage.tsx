@@ -2,16 +2,9 @@ import { AlertTriangle, ArrowRight, Check, MapPin, Maximize2, X } from "lucide-r
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../app/api";
 import { formatDate, formatMoney } from "../app/format";
-import { listMyContracts } from "../app/contracts";
 import { agreeProposal, fetchMyProposals, rejectProposal } from "../app/proposals";
 import { listUnitTypes } from "../app/unitTypes";
-import type {
-  CustomerContract,
-  CustomerProposal,
-  DepositInvoice,
-  Navigate,
-  UnitTypeSummary,
-} from "../app/types";
+import type { CustomerProposal, DepositInvoice, Navigate, UnitTypeSummary } from "../app/types";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
@@ -19,7 +12,6 @@ import { SurfaceState } from "../components/ui/SurfaceState";
 import { UnitIllustration } from "../components/domain/UnitIllustration";
 import { UnitIllustrationLightbox } from "../components/domain/UnitIllustrationLightbox";
 
-type Tab = "active" | "pending";
 type LoadState = "loading" | "ready" | "error";
 
 type CardOutcome =
@@ -41,12 +33,7 @@ async function loadPendingProposals(): Promise<LoadResult> {
 }
 
 export function ProposalsPage({ navigate }: { navigate: Navigate }) {
-  const [tab, setTab] = useState<Tab>("pending");
   const [items, setItems] = useState<CustomerProposal[]>([]);
-  const [contracts, setContracts] = useState<CustomerContract[]>([]);
-  const [contractState, setContractState] = useState<LoadState>("loading");
-  const [contractError, setContractError] = useState("");
-  const [contractReloadKey, setContractReloadKey] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
   const [outcomes, setOutcomes] = useState<Record<number, CardOutcome>>({});
@@ -84,32 +71,6 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
     };
   }, [applyLoad]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    async function loadContracts() {
-      setContractState("loading");
-      setContractError("");
-      try {
-        const next = await listMyContracts(controller.signal);
-        if (!active) return;
-        setContracts(next);
-        setContractState("ready");
-      } catch (error) {
-        if (!active || controller.signal.aborted) return;
-        setContractError(
-          error instanceof Error ? error.message : "Không tải được kho đang sử dụng.",
-        );
-        setContractState("error");
-      }
-    }
-    void loadContracts();
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [contractReloadKey]);
-
   async function reload() {
     setLoadState("loading");
     applyLoad(await loadPendingProposals());
@@ -142,8 +103,6 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
     setDetailError("");
     setLightboxOpen(false);
   }
-
-  const awaitingCount = items.filter((proposal) => !outcomes[proposal.id]).length;
 
   async function agree(proposal: CustomerProposal) {
     setBusyId(proposal.id);
@@ -183,14 +142,6 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
     }
   }
 
-  function tabClass(active: boolean) {
-    return `inline-flex items-center gap-2 border-0 px-2.5 py-1.5 text-small font-semibold ${
-      active
-        ? "bg-brand text-signal-ink"
-        : "bg-transparent text-muted hover:bg-surface-subtle hover:text-ink"
-    }`;
-  }
-
   return (
     <div className="grid gap-6">
       <div>
@@ -200,75 +151,11 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        <button className={tabClass(tab === "active")} onClick={() => setTab("active")}>
-          Đang sử dụng
-          <span
-            className={`px-1.5 text-label ${
-              tab === "active" ? "bg-signal-ink text-brand" : "bg-surface text-muted"
-            }`}
-          >
-            {contracts.length}
-          </span>
-        </button>
-        <button className={tabClass(tab === "pending")} onClick={() => setTab("pending")}>
-          Chờ duyệt
-          <span
-            className={`px-1.5 text-label ${
-              tab === "pending" ? "bg-signal-ink text-brand" : "bg-surface text-muted"
-            }`}
-          >
-            {awaitingCount}
-          </span>
-        </button>
-      </div>
-
-      {tab === "active" && contractState === "loading" && (
-        <SurfaceState variant="loading" title="Đang tải kho đang sử dụng…" />
-      )}
-
-      {tab === "active" && contractState === "error" && (
-        <SurfaceState
-          variant="error"
-          title="Không tải được kho đang sử dụng"
-          description={contractError}
-          action={{ label: "Thử lại", onClick: () => setContractReloadKey((key) => key + 1) }}
-        />
-      )}
-
-      {tab === "active" && contractState === "ready" && contracts.length === 0 && (
-        <SurfaceState variant="empty" title="Chưa có kho đang sử dụng" />
-      )}
-
-      {tab === "active" && contractState === "ready" && contracts.length > 0 && (
-        <div className="grid gap-2.5">
-          {contracts.map((contract) => (
-            <div
-              key={contract.id}
-              className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
-            >
-              <div>
-                <span className="text-label text-muted">
-                  Khoang {contract.unitCode} · {contract.unitSize ?? contract.unitTypeName}
-                </span>
-                <h2 className="mt-1 text-[16px] font-semibold text-ink">{contract.facilityName}</h2>
-                <p className="mt-1 flex items-center gap-1.5 text-small text-muted">
-                  <MapPin size={14} /> {contract.facilityAddress ?? "—"}
-                </p>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => navigate("/my-storage")}>
-                Xem chi tiết <ArrowRight size={15} />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "pending" && loadState === "loading" && (
+      {loadState === "loading" && (
         <SurfaceState variant="loading" title="Đang tải đề xuất khoang…" />
       )}
 
-      {tab === "pending" && loadState === "error" && (
+      {loadState === "error" && (
         <SurfaceState
           variant="error"
           title="Không tải được đề xuất khoang"
@@ -277,8 +164,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         />
       )}
 
-      {tab === "pending" &&
-        loadState === "ready" &&
+      {loadState === "ready" &&
         (items.length === 0 ? (
           <SurfaceState
             variant="empty"
