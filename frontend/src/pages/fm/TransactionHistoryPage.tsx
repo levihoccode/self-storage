@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { loadFmRefundCases } from "../../app/fmRefunds";
 import { FmRefundQueuePanel } from "./FmRefundQueuePanel";
 import { TransactionLedgerPanel } from "./TransactionLedgerPanel";
@@ -7,6 +7,21 @@ type Tab = "ledger" | "refunds";
 
 export function TransactionHistoryPage() {
   const [tab, setTab] = useState<Tab>("ledger");
+  const [refundCount, setRefundCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadFmRefundCases(0, 1)
+      .then((page) => {
+        if (active) setRefundCount(page.totalElements);
+      })
+      .catch(() => {
+        if (active) setRefundCount(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [tab]);
 
   return (
     <div className="grid gap-6">
@@ -27,7 +42,7 @@ export function TransactionHistoryPage() {
           type="button"
           role="tab"
           aria-selected={tab === "ledger"}
-          className={`border-b-2 px-3 py-2 text-small font-semibold ${
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-small font-semibold ${
             tab === "ledger"
               ? "border-accent text-accent"
               : "border-transparent text-muted hover:text-ink"
@@ -40,7 +55,7 @@ export function TransactionHistoryPage() {
           type="button"
           role="tab"
           aria-selected={tab === "refunds"}
-          className={`border-b-2 px-3 py-2 text-small font-semibold ${
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-small font-semibold ${
             tab === "refunds"
               ? "border-accent text-accent"
               : "border-transparent text-muted hover:text-ink"
@@ -48,6 +63,15 @@ export function TransactionHistoryPage() {
           onClick={() => setTab("refunds")}
         >
           Chờ hoàn tiền
+          {refundCount !== null && (
+            <span
+              className={`inline-flex min-w-[18px] items-center justify-center px-1 py-0.5 text-[11px] font-bold ${
+                refundCount > 0 ? "bg-danger-soft text-danger" : "bg-surface-subtle text-muted"
+              }`}
+            >
+              {refundCount}
+            </span>
+          )}
         </button>
       </div>
 
