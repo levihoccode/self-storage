@@ -1,5 +1,6 @@
 package vn.lemar.selfstorage.booking.application;
 
+import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,10 +87,16 @@ public class ProposalQueryService {
         long rejections = proposals.stream()
                 .filter(proposal -> ProposalStatus.REJECTED.dbValue().equals(proposal.status()))
                 .count();
+        long pending = proposals.stream()
+                .filter(proposal -> ProposalStatus.PENDING.dbValue().equals(proposal.status()))
+                .count();
+        boolean needsRepropose = ReproposalPolicy.canRepropose(order.status(), order.expiresAt(),
+                order.needsReproposal(), proposals.isEmpty() ? null : proposals.get(0).status(), pending,
+                Instant.now());
         return new FmRentalOrderResponse(order.id(), order.status(), order.cancelReason(), order.expiresAt(),
                 order.unitId(), order.facilityId(), order.requestId(), order.requestStatus(),
-                order.needsReproposal(), order.customer(), order.requested(), rejections, maxRejection(),
-                proposals,
+                order.needsReproposal(), needsRepropose, order.customer(), order.requested(), rejections,
+                maxRejection(), proposals,
                 readRepository.findAvailableUnits(orderId, order.facilityId(), order.requested().unitTypeId()));
     }
 
@@ -105,18 +112,9 @@ public class ProposalQueryService {
                         row.lastProposalCreatedAt());
         return new FmRentalOrderSummaryResponse(row.id(), row.status(), row.cancelReason(), row.expiresAt(),
                 row.unitId(), row.unitCode(), row.requestId(), row.customerName(), row.customerEmail(),
-                row.customerPhone(), row.needsReproposal(), needsRepropose(row), row.rejectionCount(),
-                maxRejection, lastProposal);
-    }
-
-    private static boolean needsRepropose(BookingReadRepository.OrderListRow row) {
-        if ("Canceled".equals(row.status()) || "Done".equals(row.status())
-                || row.pendingCount() > 0 || "Agreed".equals(row.lastProposalStatus())) {
-            return false;
-        }
-        return ("Pending".equals(row.status()) || row.needsReproposal())
-                && (row.lastProposalStatus() == null
-                        || "Rejected".equals(row.lastProposalStatus())
-                        || "Canceled".equals(row.lastProposalStatus()));
+                row.customerPhone(), row.needsReproposal(),
+                ReproposalPolicy.canRepropose(row.status(), row.expiresAt(), row.needsReproposal(),
+                        row.lastProposalStatus(), row.pendingCount(), Instant.now()),
+                row.rejectionCount(), maxRejection, lastProposal);
     }
 }

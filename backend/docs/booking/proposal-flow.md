@@ -92,14 +92,25 @@ flowchart TB
 ## Hàng đợi FM — `needsRepropose`
 
 `GET /api/fm/rental-requests` trả `needsRepropose` cho từng request đã convert. Flag `true` khi
-order chưa đóng, không có proposal `Pending`, `(order.status = Pending || needs_reproposal)`,
-và proposal gần nhất là `null`/`Rejected`/`Canceled`.
+order chưa đóng, **chưa quá `expires_at`**, không có proposal `Pending`,
+`(order.status = Pending || needs_reproposal)`, và proposal gần nhất là `null`/`Rejected`/`Canceled`.
 
 - Áp dụng cả order `Pending` sau khi khách từ chối (không set `needs_reproposal`) và order đã cọc
   có `needs_reproposal = true`.
 - `lastProposal`, `rejectionCount`, `maxRejectionCount` đi kèm để FM thấy lần đề xuất gần nhất và
   ngưỡng từ chối trước khi quyết định.
 - Các action order-level khác (chờ khách phản hồi/thanh toán, lịch) thuộc màn Đơn thuê kho.
+
+### Ba cờ dễ nhầm
+
+| Tên | Ở đâu | Nghĩa |
+|---|---|---|
+| `rental_orders.needs_reproposal` | cột DB | tín hiệu nghiệp vụ: khách từ chối/không nhận được khoang trên đơn đã cọc, hoặc khoang bị chiếm lúc mở phiên thanh toán |
+| `needsReproposal` | response order list + order detail | echo nguyên giá trị cột trên, chỉ để hiển thị/đối soát |
+| `needsRepropose` | response queue + order list + order detail | **gate hành động**, tính từ đủ điều kiện ở trên |
+
+`needsRepropose` tính ở đúng một chỗ — `ReproposalPolicy.canRepropose` — và phải khớp guard của
+`POST /api/rental-orders/{id}/proposals`. Đừng suy lại điều kiện này ở nơi khác; FE chỉ render.
 
 ## Ranh giới
 

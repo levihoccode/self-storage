@@ -18,7 +18,10 @@ public record FmRentalOrderResponse(
         @Schema(description = "Id cơ sở", example = "1") Long facilityId,
         @Schema(description = "Id yêu cầu gốc") Long requestId,
         @Schema(description = "Trạng thái yêu cầu gốc", example = "Converted") String requestStatus,
-        @Schema(description = "Đơn đang cần FM đề xuất lại") boolean needsReproposal,
+        @Schema(description = "Cờ raw trên order — tín hiệu nghiệp vụ, không phải gate hành động")
+        boolean needsReproposal,
+        @Schema(description = "FM được đề xuất lại ngay (cùng điều kiện với endpoint đề xuất lại)")
+        boolean needsRepropose,
         @Schema(description = "Khách hàng") Customer customer,
         @Schema(description = "Nhu cầu khách gửi ở form yêu cầu") Requested requested,
         @Schema(description = "Số proposal Rejected của đơn", example = "1") long rejectionCount,
