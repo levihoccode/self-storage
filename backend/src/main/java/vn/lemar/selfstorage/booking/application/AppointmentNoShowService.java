@@ -34,6 +34,8 @@ import vn.lemar.selfstorage.notification.application.NotificationType;
 public class AppointmentNoShowService {
 
     static final String REASON = "Quá giờ và khách không đến";
+    /** Lý do huỷ đơn khi lịch no-show rơi vào nhánh đơn đã hết hạn giữ kho. */
+    static final String ORDER_CANCEL_REASON = "Đơn hết hạn và khách không đến theo lịch bàn giao";
 
     private static final Logger LOG = LoggerFactory.getLogger(AppointmentNoShowService.class);
     private static final ZoneId FACILITY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -116,7 +118,7 @@ public class AppointmentNoShowService {
         if (order.expiresAt() == null || now.isBefore(order.expiresAt())) {
             orderLifecycle.returnToDeposited(orderId, REASON);
         } else {
-            orderCancellation.cancel(orderId, REASON);
+            orderCancellation.cancel(orderId, ORDER_CANCEL_REASON);
         }
     }
 

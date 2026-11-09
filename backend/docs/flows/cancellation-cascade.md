@@ -3,9 +3,12 @@ purpose: Cancellation Cascade as-built trong booking — entity, khoang, audit, 
 ---
 # Cancellation Cascade
 
-Chạy khi `RentalOrder` chuyển `Canceled`. Hiện luồng từ chối quá số khoang cho phép là nơi gọi
-cascade; các nguyên nhân khác (khách huỷ, quá hạn, cron) chưa có code. Cascade chạy trong transaction
-của caller, đơn đã được caller khoá.
+Chạy khi `RentalOrder` chuyển `Canceled`. Cascade chạy trong transaction của caller, đơn đã được
+caller khoá. Entry point đang có:
+
+- `ProposalService` — khách từ chối quá số khoang cho phép;
+- `HandoverOverdueService` — cron handover quá `due_at`, sau khi đã đóng record/contract;
+- `AppointmentNoShowService` — cron no-show lịch check-in khi đơn đã hết hạn giữ kho.
 
 ## Sơ đồ
 
@@ -37,9 +40,8 @@ flowchart TB
 
 - `RentalContract` (`Draft`/`Signed → Canceled`) và `HandoverRecord` (`IN_PROGRESS → CANCELED`) do
   `handover/application/HandoverService` xử lý. Cron handover quá hạn gọi
-  `RentalOrderCancellationService.cancel` sau khi đã đóng record/contract, nên cascade từ cron có đủ
-  hai entity đó. Cascade từ các entry point khác của booking chưa gọi handover — `booking` không được
-  phụ thuộc `handover`; hướng nối là event từ booking. `Appointment` đã nối (bước 4).
+  `RentalOrderCancellationService.cancel` sau khi đã đóng record/contract, nên cascade từ cron này có
+  đủ hai entity đó. Cron no-show và luồng từ chối quá ngưỡng không gọi handover: `booking` không được
+  phụ thuộc `handover`, và lịch chưa đến thì chưa có record để đóng. `Appointment` đã nối (bước 4).
 - Hoàn cọc theo `cancel_reason` thuộc Flow 4; cascade chỉ dừng ở notification + audit.
-- Các nguyên nhân huỷ khác chưa có entry point: `Khách hủy đơn`, `Khách không còn nhu cầu`,
-  `Quá hạn …` (cron).
+- Chưa có entry point: `Khách hủy đơn`, `Khách không còn nhu cầu`.

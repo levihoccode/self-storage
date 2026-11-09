@@ -175,7 +175,7 @@ class AppointmentNoShowServiceIntegrationTest {
 
         assertThat(orderStatus()).isEqualTo("Canceled");
         assertThat(jdbc.queryForObject("select cancel_reason from rental_orders where id = ?", String.class,
-                orderId)).isEqualTo("Quá giờ và khách không đến");
+                orderId)).isEqualTo("Đơn hết hạn và khách không đến theo lịch bàn giao");
         assertThat(unitStatus(unitId)).isEqualTo("Available");
         assertThat(notificationCount("APPOINTMENT_CANCELED_NO_SHOW")).isEqualTo(1L);
         assertThat(notificationCount("RENTAL_ORDER_CANCELED")).isEqualTo(1L);

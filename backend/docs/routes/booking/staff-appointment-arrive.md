@@ -16,7 +16,8 @@ FS xác nhận khách đã đến; không body.
 1. Khoá lịch; lịch phải `Pending`, do chính FS phụ trách và **chưa quá `end_at`** → 403/409 nếu sai.
    Chỉ cho xác nhận sớm tối đa **15 phút** trước `started_at`; sớm hơn → 409
    `"Chưa tới giờ hẹn. Chỉ có thể xác nhận khách đến sớm tối đa 15 phút."`
-   Quá `end_at` → hệ thống huỷ no-show **ngay** (audit `APPOINTMENT_CANCELED_NO_SHOW`, notification khách)
+   Quá `end_at` → hệ thống huỷ no-show **ngay** (audit `APPOINTMENT_CANCELED_NO_SHOW`, notification khách,
+   cập nhật đơn theo hạn giữ kho — xem [appointment-no-show.md](../../booking/appointment-no-show.md))
    rồi trả 409; không đợi cron.
 2. `status = Done`, `arrived_at = now`; audit `APPOINTMENT_ARRIVED` (actor FS); phát event
    `AppointmentArrived`.
