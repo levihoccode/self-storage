@@ -1,7 +1,7 @@
 import { ArrowRight, CalendarClock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatDate, formatPrice } from "../app/format";
-import { listInvoices } from "../app/invoices";
+import { listInvoices, startDepositPayment } from "../app/invoices";
 import type { InvoiceStatus, InvoiceSummary, InvoiceType, Navigate } from "../app/types";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
@@ -39,6 +39,8 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,6 +75,18 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
   });
 
   const openInvoice = invoices.find((invoice) => invoice.id === openId) ?? null;
+
+  async function pay(invoice: InvoiceSummary) {
+    setPaying(true);
+    setPayError("");
+    try {
+      const { paymentUrl } = await startDepositPayment(invoice.id);
+      window.location.href = paymentUrl;
+    } catch (error) {
+      setPaying(false);
+      setPayError(error instanceof Error ? error.message : "Không mở được phiên thanh toán.");
+    }
+  }
 
   return (
     <div className="grid gap-6">
@@ -188,10 +202,19 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
 
           {openInvoice.status === "Unpaid" && (
             <div className="mt-5">
-              <DemoNotice tone="info">
-                Thanh toán trực tuyến sẽ được bật khi API thanh toán sẵn sàng. Hiện tại bạn có thể
-                theo dõi trạng thái hoá đơn tại đây.
-              </DemoNotice>
+              {payError && <DemoNotice tone="error">{payError}</DemoNotice>}
+              <Button
+                className={payError ? "mt-3 w-full" : "w-full"}
+                pending={paying}
+                onClick={() => pay(openInvoice)}
+              >
+                {!paying && <ArrowRight size={16} />}
+                Tiến hành thanh toán
+              </Button>
+              <p className="mt-2 text-label text-muted">
+                Bạn sẽ được chuyển sang cổng VNPay. Trạng thái hoá đơn cập nhật sau khi cổng báo về,
+                không ngay lập tức.
+              </p>
             </div>
           )}
 
