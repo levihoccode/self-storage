@@ -83,7 +83,8 @@ public class FmRentalOrderController {
     }
 
     @Operation(summary = "FM huỷ đơn thuê",
-            description = "Body `{reason}` do FM nhập (bắt buộc, tối đa 255 ký tự). Chạy Cancellation Cascade: "
+            description = "Body `{reason, note?}`; `reason` bắt buộc (≤255) và hiển thị cho khách, `note` tuỳ chọn "
+                    + "(≤500) chỉ lưu audit. Chạy Cancellation Cascade: "
                     + "đơn `Canceled` + `cancel_reason`, proposal `Pending`/`Agreed` → `Canceled`, hoá đơn "
                     + "`Unpaid` → `Canceled`, khoang `Reserved` → `Available`, AuditLog từng entity, khách + FM "
                     + "nhận `RENTAL_ORDER_CANCELED`. Quyền `rental_order.cancel` theo cơ sở của đơn.")
@@ -99,7 +100,7 @@ public class FmRentalOrderController {
     public ResponseEntity<ApiEnvelope<RentalOrderView>> cancel(Authentication authentication,
                                                                @PathVariable Long orderId,
                                                                @Valid @RequestBody CancelRentalOrderRequest body) {
-        RentalOrderView order = rentalOrderService.cancelByFacilityManager(orderId, body.reason(),
+        RentalOrderView order = rentalOrderService.cancelByFacilityManager(orderId, body.reason(), body.note(),
                 accountQueryService.requireIdByEmail(authentication.getName()));
         return ResponseEntity.ok(ApiEnvelope.ok(CANCEL_MESSAGE, order));
     }

@@ -33,7 +33,8 @@ public class RentalOrderService {
      * {@code rental_order.cancel} theo cơ sở của đơn; đơn đã đóng → 409.
      */
     @Transactional
-    public RentalOrderView cancelByFacilityManager(Long orderId, String reason, Long actorAccountId) {
+    public RentalOrderView cancelByFacilityManager(Long orderId, String reason, String note,
+                                                   Long actorAccountId) {
         Long facilityId = orderRepository.findFacilityId(orderId).orElseThrow(RentalOrderNotFoundException::new);
         access.can(PERMISSION_CANCEL, facilityId);
 
@@ -41,7 +42,8 @@ public class RentalOrderService {
         if (order.getStatus().isClosed()) {
             throw new ProposalConflictException("Đơn thuê đã đóng, không thể huỷ");
         }
-        orderCancellation.cancel(order, reason.strip(), actorAccountId);
+        String trimmedNote = note == null || note.isBlank() ? null : note.strip();
+        orderCancellation.cancel(order, reason.strip(), actorAccountId, trimmedNote);
         return RentalOrderView.of(order);
     }
 }

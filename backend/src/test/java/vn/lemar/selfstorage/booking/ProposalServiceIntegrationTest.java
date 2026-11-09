@@ -756,7 +756,8 @@ class ProposalServiceIntegrationTest {
         loginAs("fm1@lemar.vn");
 
         String reason = "Khách báo không còn nhu cầu thuê khoang";
-        RentalOrderView result = orderService.cancelByFacilityManager(orderId, reason, fmId);
+        String note = "Đã gọi 3 lần, không liên hệ được";
+        RentalOrderView result = orderService.cancelByFacilityManager(orderId, reason, note, fmId);
 
         assertThat(result.status()).isEqualTo("Canceled");
         assertThat(result.cancelReason()).isEqualTo(reason);
@@ -774,9 +775,11 @@ class ProposalServiceIntegrationTest {
         assertThat(auditActions("StorageUnit", unitId("B-01"))).containsExactly("RENTAL_ORDER_CANCELED");
         assertThat(jdbc.queryForObject("select actor_account_id from audit_logs where entity_type = 'RentalOrder' "
                 + "and entity_id = ?", Long.class, String.valueOf(orderId))).isEqualTo(fmId);
+        assertThat(jdbc.queryForObject("select new_value ->> 'note' from audit_logs where entity_type = 'RentalOrder' "
+                + "and entity_id = ?", String.class, String.valueOf(orderId))).isEqualTo(note);
         assertThat(notificationsOf(customerId)).singleElement().satisfies(row -> {
             assertThat(row.get("type")).isEqualTo("RENTAL_ORDER_CANCELED");
-            assertThat((String) row.get("body")).contains(reason);
+            assertThat((String) row.get("body")).contains(reason).doesNotContain(note);
         });
         assertThat(notificationsOf(fmId)).extracting(row -> row.get("type"))
                 .containsExactly("RENTAL_ORDER_CANCELED");
@@ -787,7 +790,7 @@ class ProposalServiceIntegrationTest {
         jdbc.update("update rental_orders set status = 'Done' where id = ?", orderId);
         loginAs("fm1@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", fmId))
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null, fmId))
                 .isInstanceOf(ProposalConflictException.class)
                 .hasMessage("Đơn thuê đã đóng, không thể huỷ");
         assertThat(auditActions("RentalOrder", orderId)).isEmpty();
@@ -797,7 +800,7 @@ class ProposalServiceIntegrationTest {
     void fmCancelByFmOfAnotherFacilityIsForbidden() {
         loginAs("fm2@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu",
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null,
                         accountId("fm2@lemar.vn")))
                 .isInstanceOf(ForbiddenException.class);
         assertThat(orderStatus()).isEqualTo("Pending");
@@ -807,7 +810,8 @@ class ProposalServiceIntegrationTest {
     void cancelWithoutPermissionIsForbidden() {
         loginAs("customer1@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", customerId))
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null,
+                        customerId))
                 .isInstanceOf(ForbiddenException.class);
     }
 
@@ -815,7 +819,7 @@ class ProposalServiceIntegrationTest {
     void fmCancelOnUnknownOrderIsNotFound() {
         loginAs("fm1@lemar.vn");
 
-        assertThatThrownBy(() -> orderService.cancelByFacilityManager(-1L, "Khách không còn nhu cầu", fmId))
+        assertThatThrownBy(() -> orderService.cancelByFacilityManager(-1L, "Khách không còn nhu cầu", null, fmId))
                 .isInstanceOf(RentalOrderNotFoundException.class);
     }
 

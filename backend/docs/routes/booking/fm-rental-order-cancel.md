@@ -4,7 +4,12 @@ purpose: FM huỷ đơn thuê với lý do do FM nhập.
 ---
 # POST /api/fm/rental-orders/{orderId}/cancel
 
-Body `{"reason": "..."}` — bắt buộc, tối đa 255 ký tự, service `trim()` trước khi dùng.
+Body `{"reason": "...", "note": "..."}`:
+
+- `reason` — bắt buộc, tối đa 255 ký tự; hiển thị cho khách trong notification.
+- `note` — tuỳ chọn, tối đa 500 ký tự; **ghi chú nội bộ**, chỉ lưu `audit_logs.new_value.note`, không gửi khách.
+
+Service `trim()` cả hai; `note` rỗng được bỏ.
 
 - **Actor / quyền:** role FM (namespace `/api/fm/**`) + permission `rental_order.cancel` theo cơ sở của đơn
   (seed V3, scope `FACILITY`). FM cơ sở khác → 403.
@@ -13,10 +18,10 @@ Body `{"reason": "..."}` — bắt buộc, tối đa 255 ký tự, service `trim
 
 ## Luồng / hành vi
 
-- Thiếu/blank `reason` → 400 (qua `@Valid`); quá 255 ký tự → 400.
+- Thiếu/blank `reason` → 400 (qua `@Valid`); quá 255 ký tự → 400; `note` quá 500 ký tự → 400.
 - Kiểm quyền theo cơ sở của đơn, rồi khoá row đơn. Đơn `Canceled`/`Done` → 409.
 - Lý do FM nhập được ghi vào `rental_orders.cancel_reason`, `audit_logs.reason` và body notification
-  `RENTAL_ORDER_CANCELED` gửi khách + FM.
+  `RENTAL_ORDER_CANCELED` gửi khách + FM. `note` chỉ vào `audit_logs.new_value.note` của `RentalOrder`.
 - Chạy Cancellation Cascade dùng chung với lần từ chối thứ 3 (`RentalOrderCancellation`): đơn `Canceled` +
   `cancel_reason`, proposal `Pending`/`Agreed` → `Canceled`, hoá đơn `Unpaid` → `Canceled`, khoang `Reserved` →
   `Available`, AuditLog từng entity (actor = FM), khách + FM nhận `RENTAL_ORDER_CANCELED`.
@@ -33,7 +38,7 @@ Body `{"reason": "..."}` — bắt buộc, tối đa 255 ký tự, service `trim
 TOKEN='<token của fm1@lemar.vn>'
 
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"reason":"Khách không còn nhu cầu thuê khoang"}' \
+  -d '{"reason":"Khách không còn nhu cầu thuê khoang","note":"Đã gọi 3 lần, không liên hệ được"}' \
   http://localhost:8080/api/fm/rental-orders/1/cancel
 # 200 {"message":"Đã huỷ đơn thuê","data":{"id":1,"customerId":6,"unitId":1,"status":"Canceled","cancelReason":"Khách không còn nhu cầu thuê khoang"}}
 
