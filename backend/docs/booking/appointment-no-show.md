@@ -17,9 +17,13 @@ purpose: Cron no-show cho lịch check-in quá giờ chưa đến — guard, aud
   ghi notification. Idempotent: chỉ quét `Pending`.
 - Lịch có đơn (`rental_appointments`): phát `AppointmentNoShow(appointmentId, reason)` để `handover`
   đóng phiên bàn giao — `HandoverRecord` đang mở → `CANCELED` + `reject_reason`, contract
-  `Draft`/`Signed` → `Canceled`, cùng lý do `"Quá giờ và khách không đến"`. Listener chạy ngay khi
+  `Draft`/`Signed` → `Canceled`, cùng lý do `"Quá giờ và khách không đến"`. Record do Flow 1.5 tạo
+  khi đặt lịch (chưa có code — #168); lịch chưa có record thì listener bỏ qua. Listener chạy ngay khi
   publish (không phải `BEFORE_COMMIT`) nên thứ tự khoá là
   `appointments → handover_records → rental_contracts → rental_orders`.
+  Phải đóng record ở đây vì record chưa `arrive` có `due_at = null` — cron quá hạn không bao giờ quét
+  (`r.dueAt < :now`), và partial unique index `uq_handover_records_open_per_order` chỉ cho một record
+  `IN_PROGRESS` mỗi đơn, nên record bỏ ngỏ sẽ chặn lần đặt lịch sau.
 - Đơn của lịch (`rental_orders`, chỉ khi `InProgress`):
   - còn hạn giữ kho (`expires_at` null hoặc `now < expires_at`) → đơn về `Deposited`, audit
     `RENTAL_ORDER_DEPOSITED`, khoang giữ `Reserved` để khách đặt lịch mới;
