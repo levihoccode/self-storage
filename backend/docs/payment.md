@@ -158,8 +158,10 @@ Required/Processing
 - `calculationVersion` + `calculationInput` là snapshot để giải thích/recompute.
 - `formulaText` chỉ để hiển thị/audit, không dùng để tính tiền.
 - Obligation lưu `amount`, `formulaText`, lines; audit `REFUND_OBLIGATION_CREATED` trên `RefundObligation`.
-- Obligation ở trạng thái `Open`; handover hiện tại chưa nối với obligation này — cần một PR
-  chuyển handover sang `refundObligationId` trước khi dùng trong vận hành.
+- Obligation ở trạng thái `Open`; handover hiện tại chưa nối với obligation này — cần chuyển
+  handover sang `refundObligationId` trước khi dùng trong vận hành.
+- Route `POST /api/refunds/obligations` đang gate sau profile `refund-obligation`, mặc định không
+  expose; bật khi có luồng chi tiền cho obligation.
 
 ### Phạm vi route handover
 
@@ -197,6 +199,14 @@ permission tương ứng.
   khoang không tự release theo hạn.
 - **Chưa có hoàn tiền tự động qua VNPay** (Flow 4). Handover/confirm thủ công đã có; VNPay
   `vnp_Command=refund` và querydr vẫn tách issue riêng.
+- **Refund obligation chưa nối chi tiền.** `POST /api/refunds/obligations` chỉ ghi obligation/lines;
+  order-only obligation không có disbursement/queue/confirm. Invoice-bound vẫn dùng handover invoice
+  với `invoice.amount`, chưa dùng `obligation.amount`; `refund_transactions` chưa có
+  `refund_obligation_id`. Route đang gate sau profile `refund-obligation`, mặc định tắt.
+- **Obligation state mới `Open`.** `Approved`/`Disbursed`/`Canceled` chưa có endpoint; invoice
+  `Processing` không code nào set. Không có idempotency/cancel cho order-only.
+- **Một invoice chỉ handover một lần.** Mỗi `source_transaction_id` tối đa một `Success`; duplicate
+  khác cần obligation/transaction riêng. Chưa có API lịch sử ledger.
 - **Chưa có support request/Flow 7** để phân công FS và theo dõi dispute; hiện dispute chỉ ghi audit
   + notification một lần.
 - **Chỉ VNPay.** Chưa provider-neutral; `PaymentTransaction` chưa có cột provider; chưa có ZaloPay/payOS.

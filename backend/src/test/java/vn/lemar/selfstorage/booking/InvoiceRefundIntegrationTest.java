@@ -7,6 +7,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -316,6 +323,176 @@ class InvoiceRefundIntegrationTest {
                         .param("view", "unknown")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf(ADMIN)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void concurrentHandoverCreatesOneRefund() throws Exception {
+        String token = bearerOf(FS);
+
+        List<Integer> statuses = runConcurrently(() -> mockMvc.perform(
+                        post("/api/refunds/invoices/{id}/handover", invoiceId)
+                                .header(HttpHeaders.AUTHORIZATION, token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(handoverBody()))
+                .andReturn().getResponse().getStatus());
+
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from refund_transactions where invoice_id = ?", Integer.class, invoiceId))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select refund_status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("AwaitingConfirmation");
+    }
+
+    @Test
+    void concurrentConfirmIsIdempotent() throws Exception {
+        handoverOnce();
+        String token = bearerOf(USER);
+
+        List<Integer> statuses = runConcurrently(() -> mockMvc.perform(
+                        post("/api/refunds/invoices/{id}/confirm", invoiceId)
+                                .header(HttpHeaders.AUTHORIZATION, token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andReturn().getResponse().getStatus());
+
+        assertThat(statuses).containsOnly(200);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from audit_logs where action = 'REFUND_CUSTOMER_CONFIRMED'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select refund_status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("Refunded");
+    }
+
+    @Test
+    void concurrentDisputeIsIdempotent() throws Exception {
+        handoverOnce();
+        String token = bearerOf(USER);
+
+        List<Integer> statuses = runConcurrently(() -> mockMvc.perform(
+                        post("/api/refunds/invoices/{id}/dispute", invoiceId)
+                                .header(HttpHeaders.AUTHORIZATION, token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"note\":\"Chua nhan duoc tien\"}"))
+                .andReturn().getResponse().getStatus());
+
+        assertThat(statuses).containsOnly(200);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from audit_logs where action = 'REFUND_CUSTOMER_DISPUTED'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from notifications where type = 'REFUND_DISPUTE_RECORDED'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select refund_status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("AwaitingConfirmation");
+    }
+
+    @Test
+    void otherAccountCannotConfirmOrDispute() throws Exception {
+        handoverOnce();
+        String other = bearerOf(FS);
+
+        mockMvc.perform(post("/api/refunds/invoices/{id}/confirm", invoiceId)
+                        .header(HttpHeaders.AUTHORIZATION, other)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/refunds/invoices/{id}/dispute", invoiceId)
+                        .header(HttpHeaders.AUTHORIZATION, other)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\":\"Khong phai chu\"}"))
+                .andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject(
+                "select refund_status from invoices where id = ?", String.class, invoiceId))
+                .isEqualTo("AwaitingConfirmation");
+    }
+
+    @Test
+    void handoverRejectsAmountAboveSource() throws Exception {
+        jdbc.update("update invoices set amount = 600000 where id = ?", invoiceId);
+
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(handoverBody()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void handoverRejectsSourceFromAnotherInvoice() throws Exception {
+        Long otherSourceId = seedOtherInvoiceWithPayment();
+
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"method":"CASH","evidenceUrl":"https://example.com/receipt.jpg",
+                                 "sourceTransactionId":%d}
+                                """.formatted(otherSourceId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    private void handoverOnce() throws Exception {
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf(FS))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(handoverBody()))
+                .andExpect(status().isOk());
+    }
+
+    private List<Integer> runConcurrently(Callable<Integer> task) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<Integer> gated = () -> {
+            ready.countDown();
+            start.await();
+            return task.call();
+        };
+        Future<Integer> first = pool.submit(gated);
+        Future<Integer> second = pool.submit(gated);
+        try {
+            if (!ready.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Concurrent tasks did not become ready");
+            }
+            start.countDown();
+            return List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private Long seedOtherInvoiceWithPayment() {
+        Long requestId = jdbc.queryForObject("""
+                insert into rental_requests (facility_id, customer_name, normalized_customer_email,
+                    customer_phone, unit_type_id, start_date, period, status)
+                values (1, 'Khách khác', 'customer1@lemar.vn', '0901234567', 1, current_date, 6, 'Converted')
+                returning id
+                """, Long.class);
+        Long otherOrderId = jdbc.queryForObject("""
+                insert into rental_orders (request_id, customer_id, unit_id, status)
+                values (?, (select id from accounts where email = 'customer1@lemar.vn'), 2, 'Deposited')
+                returning id
+                """, Long.class, requestId);
+        Long otherInvoiceId = jdbc.queryForObject("""
+                insert into invoices (order_id, customer_id, code, title, type, status, amount,
+                    created_at, due_date)
+                values (?, (select id from accounts where email = 'customer1@lemar.vn'),
+                    'INV-OTHER-SOURCE', 'Đặt cọc', 'Deposit', 'Paid', 500000,
+                    now() - interval '1 hour', now() + interval '2 days')
+                returning id
+                """, Long.class, otherOrderId);
+        jdbc.update("""
+                insert into payment_transactions (invoice_id, vnp_txn_ref, amount, direction, status,
+                    gateway_transaction_no, paid_at, created_at)
+                values (?, 'TXN-OTHER-SOURCE', 500000, 'PAY', 'Success', 'GW-OTHER-SOURCE',
+                    now(), now())
+                """, otherInvoiceId);
+        return jdbc.queryForObject(
+                "select id from payment_transactions where vnp_txn_ref = 'TXN-OTHER-SOURCE'", Long.class);
     }
 
     private static String handoverBody() {

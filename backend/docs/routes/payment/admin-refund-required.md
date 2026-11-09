@@ -19,6 +19,7 @@ Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 - `view=active` (mặc định): `Required`, `Processing`, `AwaitingConfirmation`.
 - `view=history`: `Refunded` (ADMIN). FM chỉ nhận `view=active`; `history` → `400`.
 - Query đọc từ `invoices`, không đọc từ case: khoản cần hoàn vẫn hiện dù chưa từng có case đối soát.
+- Queue chỉ invoice; order-only obligation không xuất hiện ở đây.
 - Mỗi dòng: `invoiceId`, `invoiceCode`, `orderId`, `amount`, `refundStatus`, `refundReason`,
   `refundRequestedAt`, `vnpTxnRef`, `gatewayTransactionNo`, `paidAt`.
 - `vnpTxnRef`/`gatewayTransactionNo`/`paidAt` lấy từ giao dịch `PAY` gần nhất; ADMIN lấy

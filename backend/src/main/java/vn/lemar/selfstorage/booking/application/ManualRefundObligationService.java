@@ -7,6 +7,7 @@ import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundExc
 import vn.lemar.selfstorage.booking.application.exception.RefundNotAllowedException;
 import vn.lemar.selfstorage.booking.domain.Invoice;
 import vn.lemar.selfstorage.booking.domain.InvoiceRefundStatus;
+import vn.lemar.selfstorage.booking.domain.InvoiceStatus;
 import vn.lemar.selfstorage.booking.repository.BookingReadRepository;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.identity.application.Access;
@@ -50,6 +51,9 @@ public class ManualRefundObligationService {
         if (invoiceId != null) {
             Invoice invoice = invoices.findByIdForUpdate(invoiceId)
                     .orElseThrow(InvoiceNotFoundException::new);
+            if (invoice.getStatus() != InvoiceStatus.PAID) {
+                throw new RefundNotAllowedException("Hoá đơn chưa thanh toán");
+            }
             if (invoice.getRefundStatus() != InvoiceRefundStatus.NONE) {
                 throw new RefundNotAllowedException(
                         "Hoá đơn đã có nghĩa vụ hoàn tiền");

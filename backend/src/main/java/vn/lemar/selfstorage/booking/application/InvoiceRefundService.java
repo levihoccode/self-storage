@@ -16,9 +16,11 @@ import vn.lemar.selfstorage.booking.repository.BookingReadRepository;
 import vn.lemar.selfstorage.booking.repository.InvoiceRepository;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
+import vn.lemar.selfstorage.payment.application.RefundObligationService;
 import vn.lemar.selfstorage.payment.application.RefundTransactionService;
 import vn.lemar.selfstorage.payment.application.dto.RefundDisputeResult;
 import vn.lemar.selfstorage.payment.application.dto.RefundTransactionView;
+import vn.lemar.selfstorage.payment.application.RefundReason;
 
 /**
  * Điều phối hoàn tiền thủ công trên invoice. Ledger tiền ra nằm ở payment; invoice state và quyền
@@ -33,16 +35,19 @@ public class InvoiceRefundService {
     private final InvoiceRepository invoices;
     private final BookingReadRepository readRepository;
     private final RefundTransactionService refunds;
+    private final RefundObligationService refundObligations;
     private final Access access;
     private final CurrentAccountProvider currentAccount;
     private final ApplicationEventPublisher events;
 
     public InvoiceRefundService(InvoiceRepository invoices, BookingReadRepository readRepository,
-            RefundTransactionService refunds, Access access, CurrentAccountProvider currentAccount,
+            RefundTransactionService refunds, RefundObligationService refundObligations,
+            Access access, CurrentAccountProvider currentAccount,
             ApplicationEventPublisher events) {
         this.invoices = invoices;
         this.readRepository = readRepository;
         this.refunds = refunds;
+        this.refundObligations = refundObligations;
         this.access = access;
         this.currentAccount = currentAccount;
         this.events = events;
@@ -60,8 +65,12 @@ public class InvoiceRefundService {
                 && invoice.getRefundStatus() != InvoiceRefundStatus.PROCESSING) {
             throw new RefundNotAllowedException("Hoá đơn không ở trạng thái cần hoàn tiền");
         }
+        if (refundObligations.hasActiveForInvoice(invoiceId)) {
+            throw new RefundNotAllowedException(
+                    "Hoá đơn đang có nghĩa vụ hoàn tiền; không thể handover trực tiếp");
+        }
 
-        String reasonCode = normalizeReason(invoice.getRefundReason());
+        RefundReason reasonCode = normalizeReason(invoice.getRefundReason());
         RefundTransactionView refund = refunds.recordSuccess(invoiceId, request.sourceTransactionId(),
                 invoice.getAmount(), request.method(), reasonCode, request.reasonNote(),
                 request.gatewayRef(), request.evidenceUrl(), request.note(),
@@ -133,13 +142,7 @@ public class InvoiceRefundService {
         access.canAnyFacility(facilityId, HANDOVER_PERMISSION, FM_REFUND_PERMISSION);
     }
 
-    private static String normalizeReason(String reason) {
-        if (reason == null || reason.isBlank()) {
-            return "OTHER";
-        }
-        return switch (reason) {
-            case "UNIT_UNAVAILABLE", "DUPLICATE_PAYMENT", "DEPOSIT_SURPLUS", "OTHER" -> reason;
-            default -> "OTHER";
-        };
+    private static RefundReason normalizeReason(String reason) {
+        return RefundReason.fromInvoiceReason(reason);
     }
 }

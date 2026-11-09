@@ -5,6 +5,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,6 +14,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import vn.lemar.selfstorage.payment.application.RefundReason;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +47,9 @@ public class RefundObligation {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "reason_code", nullable = false, length = 30)
-    private String reasonCode;
+    private RefundReason reasonCode;
 
     @Column(name = "reason_note")
     private String reasonNote;
@@ -77,7 +81,7 @@ public class RefundObligation {
     @OrderBy("sortOrder ASC, id ASC")
     private List<RefundObligationLine> lines = new ArrayList<>();
 
-    public static RefundObligation create(Long invoiceId, Long orderId, String reasonCode,
+    public static RefundObligation create(Long invoiceId, Long orderId, RefundReason reasonCode,
             String reasonNote, String calculationVersion, JsonNode calculationInput,
             Long createdByAccountId) {
         RefundObligation obligation = new RefundObligation();

@@ -131,6 +131,15 @@ class AdminRefundPaymentIntegrationTest {
     }
 
     @Test
+    void fmHistoryViewIsRejected() throws Exception {
+        mockMvc.perform(get("/api/refunds/queues/invoices")
+                        .param("facilityId", "1")
+                        .param("view", "history")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void customerCannotSeeFmRefundQueue() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")

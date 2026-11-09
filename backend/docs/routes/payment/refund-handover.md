@@ -43,6 +43,9 @@ Route này là **xác nhận đã chi tiền cho nghĩa vụ hoàn tiền của 
 nghĩa vụ hoàn tiền và không phải route riêng cho từng lý do. Nghĩa vụ phải có trước với
 `invoice.refund_status = Required`/`Processing`.
 
+- Route **invoice-bound**: order-only obligation không dùng route này; invoice đang có obligation active
+  trả `409`. Một invoice chỉ handover một lần; duplicate khác cần obligation/transaction riêng.
+
 Các loại hoàn tiền sau này (trả cọc khi kết thúc thuê, dư phí, chi phí sửa chữa) phải tạo nghĩa vụ
 trước rồi dùng lại route này. Nếu cần tính toán hoặc duyệt riêng, thêm endpoint `settle`/`approve`
 trước bước handover; không thêm một route handover thứ hai.

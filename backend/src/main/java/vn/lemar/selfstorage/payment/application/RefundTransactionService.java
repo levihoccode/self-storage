@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,9 +35,6 @@ import vn.lemar.selfstorage.payment.repository.RefundTransactionRepository;
 @Service
 public class RefundTransactionService {
 
-    private static final Set<String> REASON_CODES = Set.of(
-            "UNIT_UNAVAILABLE", "DUPLICATE_PAYMENT", "DEPOSIT_SURPLUS", "OTHER");
-
     private final PaymentTransactionRepository paymentTransactions;
     private final RefundTransactionRepository refundTransactions;
     private final AuditRecorder auditRecorder;
@@ -57,15 +53,15 @@ public class RefundTransactionService {
      */
     @Transactional
     public RefundTransactionView recordSuccess(Long invoiceId, Long sourceTransactionId,
-            BigDecimal amount, String methodCode, String reasonCode, String reasonNote,
+            BigDecimal amount, String methodCode, RefundReason reasonCode, String reasonNote,
             String gatewayRef, String evidenceUrl, String note, Long handledByAccountId) {
         if (invoiceId == null || methodCode == null || methodCode.isBlank()) {
             throw new RefundTransactionValidationException("Thiếu hoá đơn hoặc phương thức hoàn tiền");
         }
-        if (reasonCode == null || !REASON_CODES.contains(reasonCode)) {
+        if (reasonCode == null) {
             throw new RefundTransactionValidationException("Lý do hoàn tiền không hợp lệ");
         }
-        if ("OTHER".equals(reasonCode) && (reasonNote == null || reasonNote.isBlank())) {
+        if (reasonCode == RefundReason.OTHER && (reasonNote == null || reasonNote.isBlank())) {
             throw new RefundTransactionValidationException("Lý do OTHER phải có ghi chú");
         }
         validateEvidenceUrl(evidenceUrl);
@@ -193,12 +189,12 @@ public class RefundTransactionService {
         newValue.put("sourceTransactionId", refund.getSourceTransactionId());
         newValue.put("amount", refund.getAmount());
         newValue.put("method", refund.getMethod().name());
-        newValue.put("reasonCode", refund.getReasonCode());
+        newValue.put("reasonCode", refund.getReasonCode().name());
         newValue.put("status", refund.getStatus().dbValue());
         newValue.put("disbursedAt", refund.getDisbursedAt());
         auditRecorder.record(new AuditEntry(AuditAction.MANUAL_REFUND_RECORDED,
                 AuditEntityType.REFUND_TRANSACTION, String.valueOf(refund.getId()),
-                null, newValue, refund.getReasonCode(), actorAccountId));
+                null, newValue, refund.getReasonCode().name(), actorAccountId));
     }
 
     private static void validateEvidenceUrl(String evidenceUrl) {

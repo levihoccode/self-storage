@@ -24,7 +24,7 @@ public record RefundObligationView(
 
     public static RefundObligationView from(RefundObligation obligation) {
         return new RefundObligationView(obligation.getId(), obligation.getInvoiceId(), obligation.getOrderId(),
-                obligation.getAmount(), obligation.getReasonCode(), obligation.getReasonNote(),
+                obligation.getAmount(), obligation.getReasonCode().name(), obligation.getReasonNote(),
                 obligation.getStatus().dbValue(), obligation.getCalculationVersion(),
                 obligation.getCalculationInput(), obligation.getFormulaText(),
                 obligation.getCreatedByAccountId(), obligation.getCreatedAt(), obligation.getUpdatedAt(),

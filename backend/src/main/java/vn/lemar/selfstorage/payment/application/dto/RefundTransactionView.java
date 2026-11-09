@@ -34,7 +34,7 @@ public record RefundTransactionView(
                 refund.getAmount(),
                 refund.getMethod() == null ? null : refund.getMethod().name(),
                 refund.getStatus() == null ? null : refund.getStatus().dbValue(),
-                refund.getReasonCode(),
+                refund.getReasonCode().name(),
                 refund.getReasonNote(),
                 refund.getGatewayRef(),
                 refund.getEvidenceUrl(),

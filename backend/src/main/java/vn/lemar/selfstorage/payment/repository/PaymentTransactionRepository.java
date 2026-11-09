@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.payment.repository;
 
 import jakarta.persistence.LockModeType;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -62,6 +63,13 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     /** Giao dịch PAY/Success gần nhất của invoice — job booking dùng để sửa state sau listener lỗi. */
     Optional<PaymentTransaction> findFirstByInvoiceIdAndDirectionAndStatusOrderByPaidAtDesc(
             Long invoiceId, PaymentDirection direction, PaymentStatus status);
+
+    /** Tổng tiền đã vào của invoice theo các trạng thái — cap cho refund obligation. */
+    @Query("select coalesce(sum(p.amount), 0) from PaymentTransaction p "
+            + "where p.invoiceId = :invoiceId and p.direction = :direction and p.status in :statuses")
+    BigDecimal sumAmountByInvoiceIdAndDirectionAndStatusIn(
+            @Param("invoiceId") Long invoiceId, @Param("direction") PaymentDirection direction,
+            @Param("statuses") Collection<PaymentStatus> statuses);
 
     /** Giao dịch gốc gần nhất có thể hoàn: Success hoặc Duplicate. */
     Optional<PaymentTransaction> findFirstByInvoiceIdAndDirectionAndStatusInOrderByPaidAtDesc(

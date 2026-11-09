@@ -34,9 +34,10 @@ thì mở issue theo workflow; file này không thay thế issue.
 
 - **Queue vận hành:** `GET /api/refunds/queues/invoices` — ADMIN cross-facility; FM theo
   `facilityId`, chỉ `view=active`. Admin chỉ nên giữ cross-facility oversight.
-- **Refund obligation:** `POST /api/refunds/obligations` đã tạo obligation/lines/formula snapshot nhưng
-  chưa nối handover. Cần đổi handover sang `refundObligationId` và chuyển obligation `Open → Disbursed`
-  trước khi dùng vận hành.
+- **Refund obligation:** `POST /api/refunds/obligations` đang gate sau profile `refund-obligation`
+  (mặc định tắt) và chỉ tạo obligation/lines/formula snapshot. Cần nối obligation vào disbursement
+  (`refund_obligation_id`), thêm route transaction/confirm/queue, chuyển `Open → Disbursed`; order-only
+  chưa có đường chi tiền.
 - **Hoàn cọc khi kết thúc thuê:** flow quyết toán tạo obligation với lines cọc/khấu trừ; sau đó dùng
   handover theo obligation. Nếu cần duyệt, thêm `approve` trước handover, không thêm endpoint handover
   trùng.

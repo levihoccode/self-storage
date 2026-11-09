@@ -3,6 +3,7 @@ package vn.lemar.selfstorage.booking.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.context.annotation.Profile;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +17,7 @@ import vn.lemar.selfstorage.payment.application.dto.RefundObligationView;
 
 /** FM/Admin tạo nghĩa vụ hoàn tiền thủ công, có breakdown và snapshot cách tính. */
 @RestController
+@Profile("refund-obligation")
 @RequestMapping("/api/refunds/obligations")
 public class RefundObligationController {
 

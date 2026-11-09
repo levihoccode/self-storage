@@ -17,9 +17,12 @@ import vn.lemar.selfstorage.payment.application.dto.RefundObligationLineInput;
 import vn.lemar.selfstorage.payment.application.dto.RefundObligationView;
 import vn.lemar.selfstorage.payment.application.exception.RefundObligationConflictException;
 import vn.lemar.selfstorage.payment.application.exception.RefundObligationValidationException;
+import vn.lemar.selfstorage.payment.domain.PaymentDirection;
+import vn.lemar.selfstorage.payment.domain.PaymentStatus;
 import vn.lemar.selfstorage.payment.domain.RefundLineDirection;
 import vn.lemar.selfstorage.payment.domain.RefundObligation;
 import vn.lemar.selfstorage.payment.domain.RefundObligationStatus;
+import vn.lemar.selfstorage.payment.repository.PaymentTransactionRepository;
 import vn.lemar.selfstorage.payment.repository.RefundObligationRepository;
 
 /**
@@ -29,8 +32,6 @@ import vn.lemar.selfstorage.payment.repository.RefundObligationRepository;
 @Service
 public class RefundObligationService {
 
-    private static final Set<String> REASON_CODES = Set.of(
-            "UNIT_UNAVAILABLE", "DUPLICATE_PAYMENT", "DEPOSIT_SURPLUS", "OTHER");
     private static final Set<String> COMPONENT_CODES = Set.of(
             "DEPOSIT_PAID", "DEPOSIT_REQUIRED", "UNIT_CHANGE_FEE", "UNPAID_RENT",
             "REPAIR_FEE", "CLEANING_FEE", "PRIOR_REFUND", "GOODWILL", "ADJUSTMENT", "OTHER");
@@ -38,16 +39,25 @@ public class RefundObligationService {
             RefundObligationStatus.OPEN, RefundObligationStatus.APPROVED);
 
     private final RefundObligationRepository obligations;
+    private final PaymentTransactionRepository paymentTransactions;
     private final AuditRecorder auditRecorder;
 
-    public RefundObligationService(RefundObligationRepository obligations, AuditRecorder auditRecorder) {
+    public RefundObligationService(RefundObligationRepository obligations,
+            PaymentTransactionRepository paymentTransactions, AuditRecorder auditRecorder) {
         this.obligations = obligations;
+        this.paymentTransactions = paymentTransactions;
         this.auditRecorder = auditRecorder;
     }
 
     @Transactional
     public RefundObligationView create(CreateRefundObligation input, Long actorAccountId) {
         validate(input);
+        if (input.invoiceId() != null
+                && !paymentTransactions.existsByInvoiceIdAndDirectionAndStatus(
+                        input.invoiceId(), PaymentDirection.PAY, PaymentStatus.SUCCESS)) {
+            throw new RefundObligationValidationException(
+                    "Hoá đơn chưa có giao dịch thanh toán thành công");
+        }
         if (input.invoiceId() != null
                 && obligations.existsByInvoiceIdAndStatusIn(input.invoiceId(), ACTIVE)) {
             throw new RefundObligationConflictException(
@@ -66,6 +76,7 @@ public class RefundObligationService {
         }
         try {
             obligation.calculate();
+            assertWithinPaidAmount(obligation, input.invoiceId());
             obligations.saveAndFlush(obligation);
         } catch (DataIntegrityViolationException ex) {
             throw new RefundObligationConflictException(
@@ -78,15 +89,34 @@ public class RefundObligationService {
         newValue.put("invoiceId", obligation.getInvoiceId());
         newValue.put("orderId", obligation.getOrderId());
         newValue.put("amount", obligation.getAmount());
-        newValue.put("reasonCode", obligation.getReasonCode());
+        newValue.put("reasonCode", obligation.getReasonCode().name());
         newValue.put("status", obligation.getStatus().dbValue());
         newValue.put("calculationVersion", obligation.getCalculationVersion());
         newValue.put("formulaText", obligation.getFormulaText());
         newValue.put("lineCount", obligation.getLines().size());
         auditRecorder.record(new AuditEntry(AuditAction.REFUND_OBLIGATION_CREATED,
                 AuditEntityType.REFUND_OBLIGATION, String.valueOf(obligation.getId()),
-                null, newValue, obligation.getReasonCode(), actorAccountId));
+                null, newValue, obligation.getReasonCode().name(), actorAccountId));
         return RefundObligationView.from(obligation);
+    }
+
+    /** Guard cho invoice handover: không dùng route invoice khi đang có obligation active. */
+    @Transactional(readOnly = true)
+    public boolean hasActiveForInvoice(Long invoiceId) {
+        return obligations.existsByInvoiceIdAndStatusIn(invoiceId, ACTIVE);
+    }
+
+    private void assertWithinPaidAmount(RefundObligation obligation, Long invoiceId) {
+        if (invoiceId == null) {
+            return;
+        }
+        var paid = paymentTransactions.sumAmountByInvoiceIdAndDirectionAndStatusIn(
+                invoiceId, PaymentDirection.PAY,
+                List.of(PaymentStatus.SUCCESS, PaymentStatus.DUPLICATE));
+        if (paid == null || obligation.getAmount().compareTo(paid) > 0) {
+            throw new RefundObligationValidationException(
+                    "Số tiền hoàn vượt quá tiền đã thu");
+        }
     }
 
     private static void validate(CreateRefundObligation input) {
@@ -94,10 +124,10 @@ public class RefundObligationService {
             throw new RefundObligationValidationException(
                     "Phải có invoiceId hoặc orderId");
         }
-        if (!REASON_CODES.contains(input.reasonCode())) {
+        if (input.reasonCode() == null) {
             throw new RefundObligationValidationException("Lý do hoàn tiền không hợp lệ");
         }
-        if ("OTHER".equals(input.reasonCode())
+        if (input.reasonCode() == RefundReason.OTHER
                 && (input.reasonNote() == null || input.reasonNote().isBlank())) {
             throw new RefundObligationValidationException("Lý do OTHER phải có ghi chú");
         }

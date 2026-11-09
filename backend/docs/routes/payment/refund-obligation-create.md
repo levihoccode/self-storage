@@ -1,8 +1,11 @@
 ---
 auth-model: permission-bound
-purpose: FM/ADMIN tạo nghĩa vụ hoàn tiền thủ công với breakdown và snapshot cách tính; chưa chi tiền.
+purpose: FM/ADMIN tạo nghĩa vụ hoàn tiền thủ công với breakdown và snapshot cách tính; route đang gate, chưa chi tiền.
 ---
 # POST /api/refunds/obligations
+
+> Route chỉ được đăng ký khi profile `refund-obligation` được bật. Mặc định route không tồn tại
+> (404); bật khi có luồng disbursement cho obligation.
 
 Tạo **refund obligation** — nghĩa vụ hoàn tiền có final amount do server tính từ các dòng. Route
 không tạo `refund_transactions`, không đổi invoice state và chưa phải bước handover.
@@ -56,7 +59,7 @@ Server tính, lưu `amount`, và render `formulaText`; `formulaText` chỉ để
 3. Validate component code, direction, amount, reason; `OTHER` phải có note.
 4. Tạo `refund_obligations` + `refund_obligation_lines`, tính final amount.
 5. Audit `REFUND_OBLIGATION_CREATED` trên `RefundObligation`.
-6. Obligation ở `Open`; chưa chi tiền.
+6. Obligation ở `Open`; chưa chi tiền, chưa có queue/confirm/cancel.
 
 ## Lỗi
 
@@ -64,7 +67,7 @@ Server tính, lưu `amount`, và render `formulaText`; `formulaText` chỉ để
 |---|---|
 | 400 | thiếu invoice/order, line/reason không hợp lệ, final amount ≤ 0 |
 | 403 | không có permission tại facility |
-| 404 | không thấy invoice/đơn |
+| 404 | route chưa bật (profile `refund-obligation`), hoặc không thấy invoice/đơn |
 | 409 | invoice đã có obligation đang mở |
 
 ## Liên quan

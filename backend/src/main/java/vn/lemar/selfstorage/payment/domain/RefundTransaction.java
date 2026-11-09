@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import vn.lemar.selfstorage.payment.application.RefundReason;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -47,8 +48,9 @@ public class RefundTransaction {
     @Column(nullable = false, length = 20)
     private RefundTransactionStatus status;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "reason_code", nullable = false, length = 30)
-    private String reasonCode;
+    private RefundReason reasonCode;
 
     @Column(name = "reason_note")
     private String reasonNote;
@@ -88,12 +90,12 @@ public class RefundTransaction {
      * sẽ tạo {@code Pending} ở luồng VNPay sau này.
      */
     public static RefundTransaction success(Long invoiceId, Long sourceTransactionId, BigDecimal amount,
-            RefundMethod method, String reasonCode, String reasonNote, String gatewayRef,
+            RefundMethod method, RefundReason reasonCode, String reasonNote, String gatewayRef,
             String evidenceUrl, String note, Long handledByAccountId, Instant disbursedAt) {
         if (amount == null || amount.signum() <= 0) {
             throw new IllegalArgumentException("Số tiền hoàn phải lớn hơn 0");
         }
-        if ("OTHER".equals(reasonCode) && (reasonNote == null || reasonNote.isBlank())) {
+        if (reasonCode == RefundReason.OTHER && (reasonNote == null || reasonNote.isBlank())) {
             throw new IllegalArgumentException("Lý do OTHER phải có ghi chú");
         }
         RefundTransaction refund = new RefundTransaction();

@@ -15,6 +15,7 @@ khi refund ledger mở rộng sẽ thêm active/history.
 - `facilityId` bắt buộc; FM phải thuộc facility đó. ADMIN không cần `facilityId`.
 - `view` mặc định `active`; FM chỉ hỗ trợ `active`, `history` trả `400`.
 - Chỉ invoice có `refund_status='Required'` và thuộc facility.
+- Queue chỉ invoice; order-only obligation không xuất hiện ở đây.
 - Mỗi dòng: `invoiceId`, `invoiceCode`, `orderId`, `amount`, `refundStatus`, `refundReason`,
   `refundRequestedAt`, `vnpTxnRef`, `gatewayTransactionNo`, `paidAt`.
 - Read-only; handover/confirm dùng route refund riêng.

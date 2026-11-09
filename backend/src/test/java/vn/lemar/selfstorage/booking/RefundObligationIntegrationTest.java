@@ -14,6 +14,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("refund-obligation")
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional
 @TestPropertySource(properties = {
@@ -71,6 +73,12 @@ class RefundObligationIntegrationTest {
                     now() - interval '1 hour', now() + interval '2 days')
                 returning id
                 """, Long.class, orderId);
+        jdbc.update("""
+                insert into payment_transactions (invoice_id, vnp_txn_ref, amount, direction, status,
+                    gateway_transaction_no, paid_at, created_at)
+                values (?, 'TXN-OBLIGATION-TEST', 1000000, 'PAY', 'Success', 'GW-OBLIGATION-TEST',
+                    now(), now())
+                """, invoiceId);
     }
 
     @Test
@@ -197,6 +205,58 @@ class RefundObligationIntegrationTest {
     @Test
     void otherReasonRequiresNote() throws Exception {
         String json = body(invoiceId).replace("\"reasonNote\": \"Điều chỉnh đặc biệt\"", "\"reasonNote\": \"\"");
+        mockMvc.perform(post("/api/refunds/obligations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void invoiceBoundObligationRequiresPaidInvoice() throws Exception {
+        jdbc.update("update invoices set status = 'Unpaid' where id = ?", invoiceId);
+
+        mockMvc.perform(post("/api/refunds/obligations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(invoiceId)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void amountAbovePaidAmountIsRejected() throws Exception {
+        String json = body(invoiceId).replace("\"amount\":1000000", "\"amount\":1500000");
+
+        mockMvc.perform(post("/api/refunds/obligations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void handoverRejectedWhenObligationIsActive() throws Exception {
+        mockMvc.perform(post("/api/refunds/obligations")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(invoiceId)))
+                .andExpect(status().isOk());
+        jdbc.update("update invoices set refund_status = 'Required', refund_reason = 'UNIT_UNAVAILABLE' "
+                + "where id = ?", invoiceId);
+
+        mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fs1@lemar.vn"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"method":"CASH","evidenceUrl":"https://example.com/receipt.jpg"}
+                                """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void invalidReasonCodeIsRejected() throws Exception {
+        String json = body(invoiceId).replace("\"reasonCode\": \"OTHER\"", "\"reasonCode\": \"BOGUS\"");
+
         mockMvc.perform(post("/api/refunds/obligations")
                         .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
                         .contentType(MediaType.APPLICATION_JSON)
