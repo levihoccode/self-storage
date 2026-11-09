@@ -50,6 +50,20 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
     };
   }, [reloadKey]);
 
+  // Flow 3.1: nhóm theo cơ sở, giữ thứ tự hạn gần nhất của endpoint.
+  const byFacility = contracts.reduce<{ id: number; name: string; items: CustomerContract[] }[]>(
+    (groups, contract) => {
+      const group = groups.find((item) => item.id === contract.facilityId);
+      if (group) {
+        group.items.push(contract);
+      } else {
+        groups.push({ id: contract.facilityId, name: contract.facilityName, items: [contract] });
+      }
+      return groups;
+    },
+    [],
+  );
+
   const overdue = contracts.filter((contract) => contract.overdue);
   const expiringSoon = contracts.filter((contract) => contract.expiringSoon);
   const needsAttention = [...overdue, ...expiringSoon];
@@ -126,92 +140,100 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
                 </h2>
                 <span className="text-label text-muted">{contracts.length} hợp đồng</span>
               </div>
-              <div className="grid gap-3">
-                {contracts.map((contract) => (
-                  <article key={contract.id} className="border border-border bg-surface p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <strong className="whitespace-nowrap text-stat text-ink">
-                            {contract.unitCode}
-                          </strong>
-                          <span className="text-label text-muted">
-                            {contract.unitSize ?? contract.unitTypeName}
-                          </span>
-                        </div>
-                        <strong className="mt-1 block truncate text-small font-semibold text-ink">
-                          {contract.facilityName}
-                        </strong>
-                        <span className="mt-0.5 block truncate text-label text-muted">
-                          {contract.facilityAddress ?? "—"}
-                        </span>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-2">
-                        <StatusTag
-                          tone={
-                            contract.overdue
-                              ? "danger"
-                              : contract.expiringSoon
-                                ? "warning"
-                                : "success"
-                          }
-                        >
-                          {contract.overdue
-                            ? "Đã quá hạn"
-                            : contract.expiringSoon
-                              ? "Sắp đến hạn"
-                              : "Đang thuê"}
-                        </StatusTag>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => navigate(`/my-storage/${contract.id}`)}
-                        >
-                          Xem
-                        </Button>
-                      </div>
+              <div className="grid gap-5">
+                {byFacility.map((group) => (
+                  <div key={group.id} className="grid gap-3">
+                    <div className="flex items-center justify-between gap-3 border-b border-border pb-1.5">
+                      <span className="text-small font-semibold text-ink">{group.name}</span>
+                      <span className="text-label text-muted">{group.items.length} khoang</span>
                     </div>
-                    <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 max-[760px]:grid-cols-1">
-                      <div>
-                        <dt className="text-label text-muted">Thời hạn</dt>
-                        <dd className="m-0 mt-1 whitespace-nowrap text-small text-ink">
-                          {formatDate(contract.startDate)} →{" "}
-                          {contract.endDate ? formatDate(contract.endDate) : "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-label text-muted">Giá thuê</dt>
-                        <dd className="m-0 mt-1 text-small font-semibold text-ink">
-                          {formatMoney(contract.monthlyPrice)} / tháng
-                        </dd>
-                      </div>
-                    </dl>
-                    {/* Chưa có dữ liệu hoá đơn trong `GET /api/contracts` — chỉ cảnh báo hạn hợp đồng. */}
-                    {(contract.overdue || contract.expiringSoon) && (
-                      <div
-                        className={`mt-4 flex items-center justify-between gap-4 px-3 py-2.5 ${
-                          contract.overdue
-                            ? "bg-danger-soft text-danger"
-                            : "bg-warning-soft text-warning"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2 text-small font-semibold">
-                          <AlertTriangle size={16} />
-                          {contract.overdue
-                            ? "Hợp đồng đã quá hạn, liên hệ cơ sở để gia hạn"
-                            : `Hợp đồng sắp hết hạn${
-                                contract.endDate ? ` ngày ${formatDate(contract.endDate)}` : ""
-                              }`}
-                        </span>
-                        <button
-                          className="inline-flex shrink-0 items-center gap-1 border-0 bg-transparent p-0 text-label font-bold hover:underline"
-                          onClick={() => navigate("/invoices")}
-                        >
-                          Hoá đơn <ArrowRight size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </article>
+                    {group.items.map((contract) => (
+                      <article key={contract.id} className="border border-border bg-surface p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <strong className="whitespace-nowrap text-stat text-ink">
+                                {contract.unitCode}
+                              </strong>
+                              <span className="text-label text-muted">
+                                {contract.unitSize ?? contract.unitTypeName}
+                              </span>
+                            </div>
+                            <strong className="mt-1 block truncate text-small font-semibold text-ink">
+                              {contract.facilityName}
+                            </strong>
+                            <span className="mt-0.5 block truncate text-label text-muted">
+                              {contract.facilityAddress ?? "—"}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            <StatusTag
+                              tone={
+                                contract.overdue
+                                  ? "danger"
+                                  : contract.expiringSoon
+                                    ? "warning"
+                                    : "success"
+                              }
+                            >
+                              {contract.overdue
+                                ? "Đã quá hạn"
+                                : contract.expiringSoon
+                                  ? "Sắp đến hạn"
+                                  : "Đang thuê"}
+                            </StatusTag>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => navigate(`/my-storage/${contract.id}`)}
+                            >
+                              Xem
+                            </Button>
+                          </div>
+                        </div>
+                        <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 max-[760px]:grid-cols-1">
+                          <div>
+                            <dt className="text-label text-muted">Thời hạn</dt>
+                            <dd className="m-0 mt-1 whitespace-nowrap text-small text-ink">
+                              {formatDate(contract.startDate)} →{" "}
+                              {contract.endDate ? formatDate(contract.endDate) : "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-label text-muted">Giá thuê</dt>
+                            <dd className="m-0 mt-1 text-small font-semibold text-ink">
+                              {formatMoney(contract.monthlyPrice)} / tháng
+                            </dd>
+                          </div>
+                        </dl>
+                        {/* Chưa có dữ liệu hoá đơn trong `GET /api/contracts` — chỉ cảnh báo hạn hợp đồng. */}
+                        {(contract.overdue || contract.expiringSoon) && (
+                          <div
+                            className={`mt-4 flex items-center justify-between gap-4 px-3 py-2.5 ${
+                              contract.overdue
+                                ? "bg-danger-soft text-danger"
+                                : "bg-warning-soft text-warning"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 text-small font-semibold">
+                              <AlertTriangle size={16} />
+                              {contract.overdue
+                                ? "Hợp đồng đã quá hạn, liên hệ cơ sở để gia hạn"
+                                : `Hợp đồng sắp hết hạn${
+                                    contract.endDate ? ` ngày ${formatDate(contract.endDate)}` : ""
+                                  }`}
+                            </span>
+                            <button
+                              className="inline-flex shrink-0 items-center gap-1 border-0 bg-transparent p-0 text-label font-bold hover:underline"
+                              onClick={() => navigate("/invoices")}
+                            >
+                              Hoá đơn <ArrowRight size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 ))}
               </div>
             </section>
