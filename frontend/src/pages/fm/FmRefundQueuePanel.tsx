@@ -121,7 +121,11 @@ export function FmRefundQueuePanel({ loadCases }: FmRefundQueuePanelProps) {
                 <span className="block text-label">Yêu cầu lúc</span>
                 <span className="text-ink">{formatDateTime(item.refundRequestedAt)}</span>
               </div>
-              <StatusTag tone="warning">Chờ hoàn tiền</StatusTag>
+              {item.refundStatus === "Processing" ? (
+                <StatusTag tone="warning">Đang xử lý hoàn</StatusTag>
+              ) : (
+                <StatusTag tone="danger">Cần hoàn tiền</StatusTag>
+              )}
             </button>
           ))}
         </div>
@@ -161,7 +165,9 @@ export function FmRefundQueuePanel({ loadCases }: FmRefundQueuePanelProps) {
       {selected && (
         <DetailPanel
           title={selected.invoiceCode}
-          eyebrow={`Invoice #${selected.invoiceId} · Chờ hoàn tiền`}
+          eyebrow={`Invoice #${selected.invoiceId} · ${
+            selected.refundStatus === "Processing" ? "Đang xử lý hoàn" : "Chờ hoàn tiền"
+          }`}
           onClose={() => setSelected(null)}
         >
           <div className="grid gap-4">

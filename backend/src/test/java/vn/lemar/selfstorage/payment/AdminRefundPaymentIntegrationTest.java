@@ -123,6 +123,18 @@ class AdminRefundPaymentIntegrationTest {
     }
 
     @Test
+    void fmSeesProcessingRefundForOwnFacility() throws Exception {
+        jdbc.update("update invoices set refund_status = 'Processing' where code = 'INV-ADMIN-REFUND'");
+
+        mockMvc.perform(get("/api/refunds/queues/invoices")
+                        .param("facilityId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].refundStatus").value("Processing"));
+    }
+
+    @Test
     void fmOfOtherFacilityCannotSeeRefundQueue() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")

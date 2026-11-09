@@ -142,7 +142,7 @@ Required/Processing
   một phần.
 - **Queue:** `GET /api/refunds/queues/invoices`; ADMIN dùng `view=active|history` (active gồm
   `Required`, `Processing`, `AwaitingConfirmation`; history gồm `Refunded`). FM dùng
-  `facilityId=...&view=active`, chỉ thấy invoice `Required` của cơ sở.
+  `facilityId=...&view=active`, chỉ thấy invoice `Required`/`Processing` của cơ sở.
 - **Notification:** sau khi handover commit, listener gửi `REFUND_AWAITING_CONFIRMATION` cho khách
   (in-app + email). Gửi lỗi không rollback nghiệp vụ.
 
