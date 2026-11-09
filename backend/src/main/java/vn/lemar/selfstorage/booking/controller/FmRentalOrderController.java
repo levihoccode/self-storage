@@ -3,11 +3,13 @@ package vn.lemar.selfstorage.booking.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +17,7 @@ import vn.lemar.selfstorage.ApiEnvelope;
 import vn.lemar.selfstorage.booking.application.ProposalQueryService;
 import vn.lemar.selfstorage.booking.application.RentalOrderService;
 import vn.lemar.selfstorage.booking.application.RentalOrderView;
+import vn.lemar.selfstorage.booking.application.dto.CancelRentalOrderRequest;
 import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderPageResponse;
 import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderResponse;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
@@ -80,11 +83,10 @@ public class FmRentalOrderController {
     }
 
     @Operation(summary = "FM huỷ đơn thuê",
-            description = "Không body. Lý do cố định \"Khách không còn nhu cầu\" (khách không phản hồi proposal, FM "
-                    + "liên hệ ngoài hệ thống không được). Chạy Cancellation Cascade: đơn `Canceled`, proposal "
-                    + "`Pending`/`Agreed` → `Canceled`, hoá đơn `Unpaid` → `Canceled`, khoang `Reserved` → "
-                    + "`Available`, AuditLog từng entity, khách + FM nhận `RENTAL_ORDER_CANCELED`. Quyền "
-                    + "`rental_order.cancel` theo cơ sở của đơn.")
+            description = "Body `{reason}` do FM nhập (bắt buộc, tối đa 255 ký tự). Chạy Cancellation Cascade: "
+                    + "đơn `Canceled` + `cancel_reason`, proposal `Pending`/`Agreed` → `Canceled`, hoá đơn "
+                    + "`Unpaid` → `Canceled`, khoang `Reserved` → `Available`, AuditLog từng entity, khách + FM "
+                    + "nhận `RENTAL_ORDER_CANCELED`. Quyền `rental_order.cancel` theo cơ sở của đơn.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Đã huỷ đơn"),
             @ApiResponse(responseCode = "401", description = "Thiếu / sai / hết hạn token"),
@@ -95,8 +97,9 @@ public class FmRentalOrderController {
     })
     @PostMapping("/{orderId}/cancel")
     public ResponseEntity<ApiEnvelope<RentalOrderView>> cancel(Authentication authentication,
-                                                               @PathVariable Long orderId) {
-        RentalOrderView order = rentalOrderService.cancelByFacilityManager(orderId,
+                                                               @PathVariable Long orderId,
+                                                               @Valid @RequestBody CancelRentalOrderRequest body) {
+        RentalOrderView order = rentalOrderService.cancelByFacilityManager(orderId, body.reason(),
                 accountQueryService.requireIdByEmail(authentication.getName()));
         return ResponseEntity.ok(ApiEnvelope.ok(CANCEL_MESSAGE, order));
     }

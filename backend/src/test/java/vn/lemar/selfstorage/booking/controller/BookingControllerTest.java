@@ -305,10 +305,12 @@ class BookingControllerTest {
     void fmCancelReturnsCanceledOrder() throws Exception {
         authenticate(FM, "FM");
         when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
-        when(rentalOrderService.cancelByFacilityManager(1L, 3L))
+        when(rentalOrderService.cancelByFacilityManager(1L, "Khách không còn nhu cầu", 3L))
                 .thenReturn(new RentalOrderView(1L, 6L, 2L, "Canceled", "Khách không còn nhu cầu"));
 
-        mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), FM))
+        mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), FM)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Khách không còn nhu cầu\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value(FmRentalOrderController.CANCEL_MESSAGE))
                 .andExpect(jsonPath("$.data.status").value("Canceled"))
@@ -319,17 +321,39 @@ class BookingControllerTest {
     void fmCancelMapsBusinessErrorsToStatusCodes() throws Exception {
         authenticate(FM, "FM");
         when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
-        when(rentalOrderService.cancelByFacilityManager(9L, 3L)).thenThrow(new RentalOrderNotFoundException());
-        when(rentalOrderService.cancelByFacilityManager(8L, 3L))
+        when(rentalOrderService.cancelByFacilityManager(9L, "Khách không còn nhu cầu", 3L))
+                .thenThrow(new RentalOrderNotFoundException());
+        when(rentalOrderService.cancelByFacilityManager(8L, "Khách không còn nhu cầu", 3L))
                 .thenThrow(new ForbiddenException("Bạn không được gán vào cơ sở này"));
-        when(rentalOrderService.cancelByFacilityManager(7L, 3L))
+        when(rentalOrderService.cancelByFacilityManager(7L, "Khách không còn nhu cầu", 3L))
                 .thenThrow(new ProposalConflictException("Đơn thuê đã đóng, không thể huỷ"));
 
-        mockMvc.perform(as(post("/api/fm/rental-orders/9/cancel"), FM)).andExpect(status().isNotFound());
-        mockMvc.perform(as(post("/api/fm/rental-orders/8/cancel"), FM)).andExpect(status().isForbidden());
-        mockMvc.perform(as(post("/api/fm/rental-orders/7/cancel"), FM))
+        String body = "{\"reason\":\"Khách không còn nhu cầu\"}";
+        mockMvc.perform(as(post("/api/fm/rental-orders/9/cancel"), FM)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(as(post("/api/fm/rental-orders/8/cancel"), FM)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/fm/rental-orders/7/cancel"), FM)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Đơn thuê đã đóng, không thể huỷ"));
+    }
+
+    @Test
+    void fmCancelRequiresReason() throws Exception {
+        authenticate(FM, "FM");
+        when(accountQueryService.requireIdByEmail(FM)).thenReturn(3L);
+
+        mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), FM)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(as(post("/api/fm/rental-orders/1/cancel"), FM)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

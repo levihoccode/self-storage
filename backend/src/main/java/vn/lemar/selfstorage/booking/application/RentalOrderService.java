@@ -16,7 +16,6 @@ import vn.lemar.selfstorage.identity.application.Access;
 public class RentalOrderService {
 
     static final String PERMISSION_CANCEL = "rental_order.cancel";
-    static final String CANCEL_REASON_NO_LONGER_NEEDED = "Khách không còn nhu cầu";
 
     private final RentalOrderRepository orderRepository;
     private final Access access;
@@ -30,11 +29,11 @@ public class RentalOrderService {
     }
 
     /**
-     * FM huỷ đơn với lý do cố định {@value #CANCEL_REASON_NO_LONGER_NEEDED}, chạy đủ Cancellation Cascade.
-     * Quyền {@code rental_order.cancel} theo cơ sở của đơn; đơn đã đóng → 409.
+     * FM huỷ đơn với lý do do FM nhập, chạy đủ Cancellation Cascade. Quyền
+     * {@code rental_order.cancel} theo cơ sở của đơn; đơn đã đóng → 409.
      */
     @Transactional
-    public RentalOrderView cancelByFacilityManager(Long orderId, Long actorAccountId) {
+    public RentalOrderView cancelByFacilityManager(Long orderId, String reason, Long actorAccountId) {
         Long facilityId = orderRepository.findFacilityId(orderId).orElseThrow(RentalOrderNotFoundException::new);
         access.can(PERMISSION_CANCEL, facilityId);
 
@@ -42,7 +41,7 @@ public class RentalOrderService {
         if (order.getStatus().isClosed()) {
             throw new ProposalConflictException("Đơn thuê đã đóng, không thể huỷ");
         }
-        orderCancellation.cancel(order, CANCEL_REASON_NO_LONGER_NEEDED, actorAccountId);
+        orderCancellation.cancel(order, reason.strip(), actorAccountId);
         return RentalOrderView.of(order);
     }
 }
