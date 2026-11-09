@@ -7,7 +7,8 @@ purpose: ADMIN xem queue hoàn tiền đang mở và lịch sử; read-only.
 Trả các invoice trong queue hoàn tiền, kèm giao dịch `PAY` gần nhất (`Success` hoặc `Duplicate`).
 Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 
-- **Actor / quyền:** role `ADMIN`.
+- **Actor / quyền:** role `ADMIN`; đây là queue oversight. FM dùng
+  `GET /api/fm/invoices/refunds` theo facility.
 - **Contract chi tiết:** annotation tại `AdminRefundPaymentController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 

@@ -48,6 +48,12 @@ thì mở issue theo workflow; file này không thay thế issue.
   role/task/reason ở service; không tạo permission cho từng `reason_code`.
 - **VNPay auto refund:** `vnp_Command=refund` vẫn tách riêng; không dùng permission thủ công.
 
+## FS tasks
+
+- Chưa có bảng task/assignment cho FS. Refund queue FM hiện read-only; chưa biết FS nào xử lý
+  invoice nào. Cần bảng `fs_tasks` dùng chung cho refund, handover, return, support…; tách issue riêng.
+- Khi có assignment, handover refund phải kiểm `assigned_fs_id`, không chỉ facility permission.
+
 ## Audit
 
 - AuditLog đi theo hướng service ghi audit gọi tường minh từ call site. Hướng AOP interceptor
