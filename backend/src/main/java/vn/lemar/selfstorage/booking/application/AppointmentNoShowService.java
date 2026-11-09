@@ -108,12 +108,9 @@ public class AppointmentNoShowService {
             return;
         }
         RentalOrderQuery.Snapshot order = orderQuery.find(orderId).orElse(null);
-        if (order == null) {
-            LOG.warn("Lịch no-show trỏ đơn không tồn tại {}", orderId);
-            return;
-        }
-        if (!order.inProgress()) {
-            LOG.warn("Đơn {} không InProgress ({}) — chỉ đóng lịch/phiên bàn giao", orderId, order.status());
+        if (order == null || !order.inProgress()) {
+            LOG.warn("Bỏ qua đơn {} của lịch no-show ({})", orderId,
+                    order == null ? "không tồn tại" : order.status());
             return;
         }
         if (order.expiresAt() == null || now.isBefore(order.expiresAt())) {

@@ -182,6 +182,18 @@ class AppointmentNoShowServiceIntegrationTest {
     }
 
     @Test
+    void noShowLeavesScheduledOrderUntouched() {
+        jdbc.update("update rental_orders set status = 'Scheduled' where id = ?", orderId);
+
+        assertThat(service.cancelIfDue(dueId)).isTrue();
+        entityManager.flush();
+
+        assertThat(orderStatus()).isEqualTo("Scheduled");
+        assertThat(auditCount("RENTAL_ORDER_DEPOSITED")).isZero();
+        assertThat(auditCount("APPOINTMENT_CANCELED_NO_SHOW")).isEqualTo(1L);
+    }
+
+    @Test
     void noShowLeavesHandoverUntouched() {
         long unitId = jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
         long recordId = jdbc.queryForObject("""
