@@ -26,10 +26,12 @@ Trang trung tâm để khách xem và thanh toán mọi loại hóa đơn phát 
 - Trang kết quả thanh toán (return từ VNPay): Thành công / Thất bại — chỉ mang tính hiển thị, trạng thái thật lấy từ IPN webhook (không tin `vnp_ReturnUrl` để cập nhật UI ngay, cần poll hoặc refetch trạng thái hóa đơn)
 
 ## API liên quan
-- `GET /api/customer/invoices?type=&status=`
-- `GET /api/customer/invoices/{id}`
-- `POST /api/invoices/{id}/pay` → tạo `PaymentTransaction(Pending)`, trả URL redirect VNPay
-- Webhook `POST /api/webhooks/vnpay` (BE xử lý, FE không gọi trực tiếp)
+- `GET /api/invoices` (MVP không lọc, không phân trang — FE tự lọc `type`/`status`)
+- `GET /api/invoices/{invoiceId}` — refetch trạng thái thật sau khi cổng thanh toán redirect về
+- `POST /api/invoices/{invoiceId}/pay` → tạo `PaymentTransaction(Pending)`, trả `{paymentUrl}` để
+  redirect sang VNPay; số tiền lấy từ hóa đơn trong DB, không nhận từ client
+- `GET /api/payments/vnpay/return` + `/ipn` (BE xử lý; `return` chỉ hiển thị, trạng thái hóa đơn
+  do `ipn` chốt)
 
 ## Edge case / Lưu ý UX
 - Trước khi cho thanh toán hóa đơn Deposit, BE kiểm tra lại trạng thái khoang (đã bị người khác cọc / đang bảo trì / đang có giao dịch khác xử lý) — FE cần hiển thị đúng 3 thông báo lỗi cụ thể theo flow 1.4 thay vì lỗi chung chung

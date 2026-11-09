@@ -28,8 +28,8 @@ Trang giới thiệu để khách vãng lai tìm hiểu dịch vụ trước khi
 - Empty state nếu chưa có `Facility.status = Active` nào
 
 ## API liên quan
-- `GET /api/public/facilities` (chỉ trả facility `Active`)
-- `GET /api/public/unit-types`
+- `GET /api/facilities` (cơ sở `Active`, kèm `unitTypeIds`)
+- `GET /api/unit-types?facilityId=` (loại khoang cơ sở cung cấp)
 
 ## Edge case / Lưu ý UX
 - Không cần đăng nhập để xem trang này (theo draft.md 1.1: "khách hàng điền form không cần đăng nhập")
