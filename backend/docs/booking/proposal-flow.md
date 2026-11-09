@@ -89,6 +89,18 @@ flowchart TB
 - Khoang mới **chưa reserve** ở luồng này — thanh toán cọc/follow-up reserve sau khi thu đủ.
 - Audit một bản ghi mỗi entity thay đổi.
 
+## Hàng đợi FM — `needsRepropose`
+
+`GET /api/fm/rental-requests` trả `needsRepropose` cho từng request đã convert. Flag `true` khi
+order chưa đóng, không có proposal `Pending`, `(order.status = Pending || needs_reproposal)`,
+và proposal gần nhất là `null`/`Rejected`/`Canceled`.
+
+- Áp dụng cả order `Pending` sau khi khách từ chối (không set `needs_reproposal`) và order đã cọc
+  có `needs_reproposal = true`.
+- `lastProposal`, `rejectionCount`, `maxRejectionCount` đi kèm để FM thấy lần đề xuất gần nhất và
+  ngưỡng từ chối trước khi quyết định.
+- Các action order-level khác (chờ khách phản hồi/thanh toán, lịch) thuộc màn Đơn thuê kho.
+
 ## Ranh giới
 
 - **Flow 2** set `needs_reproposal` + gửi `HANDOVER_REJECTED` khi khách từ chối khoang tại check-in; chưa nối.
