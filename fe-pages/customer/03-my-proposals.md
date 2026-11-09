@@ -30,6 +30,7 @@ Sau khi FM duyệt `RentalRequest` và chỉ định khoang, khách cần xác n
 
 ## API liên quan
 - `GET /api/proposals?status=Pending`
+- `GET /api/contracts` — tab **Đang sử dụng** đọc hợp đồng `Active` của chính khách
 - `POST /api/proposals/{id}/agree`
 - `POST /api/proposals/{id}/reject` (body: `note`)
 

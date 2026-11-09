@@ -29,7 +29,9 @@ Trang tổng quan để khách xem toàn bộ hợp đồng đang `Active`, nhó
 - Loading state khi fetch
 
 ## API liên quan
-- `GET /api/customer/contracts` — trả về đã nhóm theo `facility_id`, kèm cờ `is_overdue`/`is_expiring_soon` tính sẵn ở BE
+- `GET /api/contracts` — hợp đồng `Active` của tôi, danh sách phẳng kèm `facilityId`/`facilityName`
+  (FE nhóm theo cơ sở), cờ `overdue` và `expiringSoon` tính sẵn ở BE theo
+  `contract.expiring_soon_days` (seed V22 = 7 ngày).
 
 ## Edge case / Lưu ý UX
 - So sánh theo **ngày** (`today`), không phải timestamp `now` — tránh hiển thị quá hạn sớm ngay trong ngày cuối hợp đồng

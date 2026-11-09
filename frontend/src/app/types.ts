@@ -186,6 +186,30 @@ export type InvoiceSummary = {
 
 export type ProposalStatus = "Pending" | "Agreed" | "Rejected" | "Canceled";
 
+export type CustomerContract = {
+  id: number;
+  code: string;
+  status: string;
+  orderId: number;
+  unitId: number;
+  unitCode: string;
+  unitSize: string | null;
+  unitTypeName: string;
+  facilityId: number;
+  facilityName: string;
+  facilityAddress: string | null;
+  monthlyPrice: number;
+  depositAmount: number;
+  period: number;
+  startDate: string;
+  endDate: string | null;
+  signedAt: string | null;
+  /** BE tính theo ngày ở Asia/Ho_Chi_Minh; FE không tự so `endDate`. */
+  overdue: boolean;
+  /** Còn `contract.expiring_soon_days` ngày trở xuống tới `endDate`, chưa quá hạn. */
+  expiringSoon: boolean;
+};
+
 export type CustomerProposal = {
   id: number;
   orderId: number;

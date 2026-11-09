@@ -2,10 +2,16 @@ import { AlertTriangle, ArrowRight, Check, MapPin, Maximize2, X } from "lucide-r
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../app/api";
 import { formatDate, formatMoney } from "../app/format";
+import { listMyContracts } from "../app/contracts";
 import { agreeProposal, fetchMyProposals, rejectProposal } from "../app/proposals";
 import { listUnitTypes } from "../app/unitTypes";
-import type { CustomerProposal, DepositInvoice, Navigate, UnitTypeSummary } from "../app/types";
-import { rentedStorage } from "../mocks/customer";
+import type {
+  CustomerContract,
+  CustomerProposal,
+  DepositInvoice,
+  Navigate,
+  UnitTypeSummary,
+} from "../app/types";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
@@ -37,6 +43,10 @@ async function loadPendingProposals(): Promise<LoadResult> {
 export function ProposalsPage({ navigate }: { navigate: Navigate }) {
   const [tab, setTab] = useState<Tab>("pending");
   const [items, setItems] = useState<CustomerProposal[]>([]);
+  const [contracts, setContracts] = useState<CustomerContract[]>([]);
+  const [contractState, setContractState] = useState<LoadState>("loading");
+  const [contractError, setContractError] = useState("");
+  const [contractReloadKey, setContractReloadKey] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
   const [outcomes, setOutcomes] = useState<Record<number, CardOutcome>>({});
@@ -73,6 +83,32 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
       active = false;
     };
   }, [applyLoad]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    async function loadContracts() {
+      setContractState("loading");
+      setContractError("");
+      try {
+        const next = await listMyContracts(controller.signal);
+        if (!active) return;
+        setContracts(next);
+        setContractState("ready");
+      } catch (error) {
+        if (!active || controller.signal.aborted) return;
+        setContractError(
+          error instanceof Error ? error.message : "Không tải được kho đang sử dụng.",
+        );
+        setContractState("error");
+      }
+    }
+    void loadContracts();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [contractReloadKey]);
 
   async function reload() {
     setLoadState("loading");
@@ -172,7 +208,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
               tab === "active" ? "bg-signal-ink text-brand" : "bg-surface text-muted"
             }`}
           >
-            {rentedStorage.length}
+            {contracts.length}
           </span>
         </button>
         <button className={tabClass(tab === "pending")} onClick={() => setTab("pending")}>
@@ -187,37 +223,45 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         </button>
       </div>
 
-      {tab === "active" && (
-        <>
-          <DemoNotice tone="info">
-            Danh sách kho đang sử dụng chưa có API — tab này đang dùng dữ liệu minh hoạ.
-          </DemoNotice>
-          {rentedStorage.length === 0 ? (
-            <SurfaceState variant="empty" title="Chưa có kho đang sử dụng" />
-          ) : (
-            <div className="grid gap-2.5">
-              {rentedStorage.map((storage) => (
-                <div
-                  key={storage.id}
-                  className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
-                >
-                  <div>
-                    <span className="text-label text-muted">
-                      Khoang {storage.unitCode} · {storage.size}
-                    </span>
-                    <h2 className="mt-1 text-[16px] font-semibold text-ink">{storage.facility}</h2>
-                    <p className="mt-1 flex items-center gap-1.5 text-small text-muted">
-                      <MapPin size={14} /> {storage.district}
-                    </p>
-                  </div>
-                  <Button variant="secondary" size="sm" onClick={() => navigate("/my-storage")}>
-                    Xem chi tiết <ArrowRight size={15} />
-                  </Button>
-                </div>
-              ))}
+      {tab === "active" && contractState === "loading" && (
+        <SurfaceState variant="loading" title="Đang tải kho đang sử dụng…" />
+      )}
+
+      {tab === "active" && contractState === "error" && (
+        <SurfaceState
+          variant="error"
+          title="Không tải được kho đang sử dụng"
+          description={contractError}
+          action={{ label: "Thử lại", onClick: () => setContractReloadKey((key) => key + 1) }}
+        />
+      )}
+
+      {tab === "active" && contractState === "ready" && contracts.length === 0 && (
+        <SurfaceState variant="empty" title="Chưa có kho đang sử dụng" />
+      )}
+
+      {tab === "active" && contractState === "ready" && contracts.length > 0 && (
+        <div className="grid gap-2.5">
+          {contracts.map((contract) => (
+            <div
+              key={contract.id}
+              className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
+            >
+              <div>
+                <span className="text-label text-muted">
+                  Khoang {contract.unitCode} · {contract.unitSize ?? contract.unitTypeName}
+                </span>
+                <h2 className="mt-1 text-[16px] font-semibold text-ink">{contract.facilityName}</h2>
+                <p className="mt-1 flex items-center gap-1.5 text-small text-muted">
+                  <MapPin size={14} /> {contract.facilityAddress ?? "—"}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => navigate("/my-storage")}>
+                Xem chi tiết <ArrowRight size={15} />
+              </Button>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
       {tab === "pending" && loadState === "loading" && (
