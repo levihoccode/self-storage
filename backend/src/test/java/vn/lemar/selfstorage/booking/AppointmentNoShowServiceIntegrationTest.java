@@ -205,6 +205,9 @@ class AppointmentNoShowServiceIntegrationTest {
         entityManager.flush();
 
         assertThat(orderStatus()).isEqualTo("Deposited");
+        assertThat(jdbc.queryForObject("select reason from audit_logs where action = 'RENTAL_ORDER_DEPOSITED'",
+                String.class))
+                .isEqualTo("Đơn quay về Đặt cọc do khách không đến theo lịch hẹn bàn giao");
         assertThat(jdbc.queryForObject("select result from handover_records where id = ?", String.class, recordId))
                 .isEqualTo("IN_PROGRESS");
         assertThat(auditCount("HANDOVER_CANCELED")).isZero();

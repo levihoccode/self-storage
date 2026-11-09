@@ -18,8 +18,9 @@ purpose: Cron no-show cho lịch check-in quá giờ chưa đến — guard, aud
 - No-show **không đụng `HandoverRecord`/`RentalContract`**: record chỉ mở khi khách đến cơ sở
   (Flow 2.1), nên lịch quá giờ chưa đến không có record để đóng.
 - Đơn của lịch (`rental_orders`, chỉ khi `InProgress`):
-  - còn hạn giữ kho (`expires_at` null hoặc `now < expires_at`) → đơn về `Deposited`, audit
-    `RENTAL_ORDER_DEPOSITED`, khoang giữ `Reserved` để khách đặt lịch mới;
+  - còn hạn giữ kho (`expires_at` null hoặc `now < expires_at`) → đơn về `Deposited` với lý do
+    `"Đơn quay về Đặt cọc do khách không đến theo lịch hẹn bàn giao"`, audit `RENTAL_ORDER_DEPOSITED`,
+    khoang giữ `Reserved` để khách đặt lịch mới;
   - hết hạn (`now >= expires_at`) → Cancellation Cascade với lý do
     `"Đơn hết hạn và khách không đến theo lịch bàn giao"` (tách khỏi lý do của lịch), đơn/khoang/hoá
     đơn xử lý theo luồng huỷ; khách nhận thêm `RENTAL_ORDER_CANCELED`.
