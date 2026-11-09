@@ -491,22 +491,24 @@ export function RentalRequestQueuePage({ navigate }: { navigate: Navigate }) {
             </Button>
           )}
 
-          {openRequest.status === "Converted" && !openRequest.needsRepropose && (
-            <div className="mt-4 grid gap-3">
-              <DemoNotice tone="success">
-                Yêu cầu đã được xử lý. Theo dõi đơn ở mục Đơn thuê kho.
-              </DemoNotice>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setOpenId(null);
-                  navigate("/fm/rental-orders");
-                }}
-              >
-                Mở Đơn thuê kho <ArrowRight size={16} />
-              </Button>
-            </div>
-          )}
+          {openRequest.status === "Converted" &&
+            !openRequest.needsRepropose &&
+            openRequest.orderId && (
+              <div className="mt-4 grid gap-3">
+                <DemoNotice tone="success">
+                  Yêu cầu đã được xử lý. Theo dõi đơn ở mục Đơn thuê kho.
+                </DemoNotice>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setOpenId(null);
+                    navigate(`/fm/rental-orders?orderId=${openRequest.orderId}`);
+                  }}
+                >
+                  Mở Đơn thuê kho <ArrowRight size={16} />
+                </Button>
+              </div>
+            )}
 
           {actionError && (
             <div className="mt-4">

@@ -42,7 +42,7 @@ trạng thái request, nhưng row dùng nhãn ở trên.
 - **Từ chối**: nhập lý do → `POST /api/fm/rental-requests/{id}/reject`
   body `{rejectReason, rejectNote?}`.
 - **Đề xuất lại** (`needsRepropose = true`): điều hướng `/fm/rental-orders/{orderId}/re-propose`.
-- **Đã được xử lý**: chỉ mở chi tiết; nút **Mở Đơn thuê kho** → `/fm/rental-orders`.
+- **Đã được xử lý**: chỉ mở chi tiết; nút **Mở Đơn thuê kho** → `/fm/rental-orders?orderId={orderId}`.
 - Panel chi tiết hiện proposal gần nhất, `rejectionCount`/`maxRejectionCount`.
 
 ## States / UI
