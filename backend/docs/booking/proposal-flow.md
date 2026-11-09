@@ -89,6 +89,31 @@ flowchart TB
 - Khoang mới **chưa reserve** ở luồng này — thanh toán cọc/follow-up reserve sau khi thu đủ.
 - Audit một bản ghi mỗi entity thay đổi.
 
+## Hàng đợi FM — `needsRepropose`
+
+`GET /api/fm/rental-requests` trả `needsRepropose` cho từng request đã convert. Flag `true` khi
+order chưa đóng, **chưa quá `expires_at`**, không có proposal `Pending`,
+`(order.status = Pending || needs_reproposal)`, và proposal gần nhất là `null`/`Rejected`/`Canceled`.
+
+- Áp dụng cả order `Pending` sau khi khách từ chối (không set `needs_reproposal`) và order đã cọc
+  có `needs_reproposal = true`.
+- `lastProposal`, `rejectionCount`, `maxRejectionCount` đi kèm để FM thấy lần đề xuất gần nhất và
+  ngưỡng từ chối trước khi quyết định.
+- Các action order-level khác (chờ khách phản hồi/thanh toán, lịch) thuộc màn Đơn thuê kho.
+
+### Cột `needs_reproposal` và field `needsRepropose`
+
+| Tên | Phạm vi | Nghĩa |
+|---|---|---|
+| `rental_orders.needs_reproposal` | cột DB, **nội bộ BE** | tín hiệu nghiệp vụ: khách từ chối/không nhận được khoang trên đơn đã cọc, hoặc khoang bị chiếm lúc mở phiên thanh toán |
+| `needsRepropose` | field của queue + order list + order detail | **gate hành động**, tính từ đủ điều kiện ở trên |
+
+Cột raw không trả ra response: nó là `true` ở những ca vẫn bị chặn đề xuất lại (đơn đã có proposal
+`Pending`, đơn quá hạn, đơn đóng), nên đọc thẳng cột là mời FM bấm vào một nút chắc chắn 409.
+
+`needsRepropose` tính ở đúng một chỗ — `ReproposalPolicy.canRepropose` — và phải khớp guard của
+`POST /api/rental-orders/{id}/proposals`. Đừng suy lại điều kiện này ở nơi khác; FE chỉ render.
+
 ## Ranh giới
 
 - **Flow 2** set `needs_reproposal` + gửi `HANDOVER_REJECTED` khi khách từ chối khoang tại check-in; chưa nối.

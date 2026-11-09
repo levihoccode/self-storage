@@ -4,10 +4,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import vn.lemar.selfstorage.booking.application.InvoiceListView;
 import vn.lemar.selfstorage.booking.application.dto.CustomerProposalResponse;
 import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderResponse;
 
@@ -19,6 +25,23 @@ import vn.lemar.selfstorage.booking.application.dto.FmRentalOrderResponse;
 public class BookingReadRepository {
 
     private static final String EFFECTIVE_PRICE = "coalesce(u.monthly_price, t.monthly_price)";
+
+    /** Projection hoá đơn dùng chung cho danh sách và chi tiết — một hợp đồng, một chỗ sửa. */
+    private static final String INVOICE_SELECT =
+            "select i.id, i.order_id, i.code, i.title, i.description, i.type, i.status, i.amount, "
+                    + "i.created_at, i.due_date, o.unit_id, u.code as unit_code, f.id as facility_id, "
+                    + "f.name as facility_name "
+                    + "from invoices i "
+                    + "left join rental_orders o on o.id = i.order_id "
+                    + "left join storage_units u on u.id = o.unit_id "
+                    + "left join facilities f on f.id = u.facility_id ";
+
+    private static final RowMapper<InvoiceListView> INVOICE_MAPPER = (rs, rowNum) -> new InvoiceListView(
+            rs.getLong("id"), (Long) rs.getObject("order_id"), rs.getString("code"), rs.getString("title"),
+            rs.getString("description"), rs.getString("type"), rs.getString("status"),
+            rs.getBigDecimal("amount"), instant(rs, "created_at"), instant(rs, "due_date"),
+            (Long) rs.getObject("unit_id"), rs.getString("unit_code"), (Long) rs.getObject("facility_id"),
+            rs.getString("facility_name"));
 
     private final JdbcTemplate jdbc;
 
@@ -47,16 +70,122 @@ public class BookingReadRepository {
                 customerId, status, status);
     }
 
+    /** Hoá đơn của một khách, mới nhất trước; join đơn/khoang/cơ sở để FE hiển thị. */
+    public List<InvoiceListView> findCustomerInvoices(Long customerId) {
+        return jdbc.query(INVOICE_SELECT + "where i.customer_id = ? order by i.created_at desc, i.id desc",
+                INVOICE_MAPPER, customerId);
+    }
+
+    /**
+     * Một hoá đơn của khách. Rỗng khi hoá đơn không tồn tại <em>và</em> khi nó thuộc người khác —
+     * hai ca trả về như nhau để không lộ sự tồn tại của hoá đơn.
+     */
+    public Optional<InvoiceListView> findCustomerInvoice(Long customerId, Long invoiceId) {
+        return jdbc.query(INVOICE_SELECT + "where i.customer_id = ? and i.id = ?",
+                INVOICE_MAPPER, customerId, invoiceId).stream().findFirst();
+    }
+
+    private static final String FACILITY_INVOICE_SELECT =
+            "select i.id, i.order_id, i.code, i.title, i.description, i.type, i.status, i.amount, "
+                    + "i.created_at, i.due_date, coalesce(o.unit_id, c.unit_id) as unit_id, "
+                    + "u.code as unit_code, f.id as facility_id, f.name as facility_name, "
+                    + "i.customer_id, a.email as customer_email, "
+                    + "coalesce(r.customer_name, a.email) as customer_name, "
+                    + "p.status as payment_status, p.vnp_txn_ref, p.created_at as payment_created_at, p.paid_at "
+                    + "from invoices i "
+                    + "left join rental_orders o on o.id = i.order_id "
+                    + "left join rental_contracts c on c.id = i.contract_id "
+                    + "left join storage_units u on u.id = coalesce(o.unit_id, c.unit_id) "
+                    + "left join facilities f on f.id = u.facility_id "
+                    + "join accounts a on a.id = i.customer_id "
+                    + "left join rental_requests r on r.id = o.request_id "
+                    + "left join lateral ("
+                    + "  select pt.status, pt.vnp_txn_ref, pt.created_at, pt.paid_at "
+                    + "  from payment_transactions pt where pt.invoice_id = i.id and pt.direction = 'PAY' "
+                    + "  order by pt.created_at desc, pt.id desc limit 1"
+                    + ") p on true ";
+
+    private static final String FACILITY_INVOICE_WHERE =
+            "where f.id = ? "
+                    + "and (cast(? as varchar) is null or i.status = ?) "
+                    + "and (cast(? as varchar) is null or i.type = ?) "
+                    + "and (cast(? as varchar) is null or p.status = ?) "
+                    + "and (cast(? as varchar) is null or "
+                    + "(p.status = 'Pending' and p.created_at <= now() - (cast(? as bigint) * interval '1 minute'))) ";
+
+    /** Một trang hoá đơn của cơ sở, mới nhất trước; join đơn/hợp đồng/khoang/khách/payment. */
+    public List<FacilityInvoiceRow> findFacilityInvoices(Long facilityId, String status, String type,
+                                                         String paymentStatus, Long olderThanMinutes,
+                                                         long offset, int limit) {
+        String sql = FACILITY_INVOICE_SELECT + FACILITY_INVOICE_WHERE
+                + "order by i.created_at desc, i.id desc limit ? offset ?";
+        return jdbc.query(sql, (rs, rowNum) -> new FacilityInvoiceRow(
+                rs.getLong("id"), (Long) rs.getObject("order_id"), rs.getString("code"),
+                rs.getString("title"), rs.getString("description"), rs.getString("type"),
+                rs.getString("status"), rs.getBigDecimal("amount"), instant(rs, "created_at"),
+                instant(rs, "due_date"), (Long) rs.getObject("unit_id"), rs.getString("unit_code"),
+                rs.getLong("facility_id"), rs.getString("facility_name"), rs.getLong("customer_id"),
+                rs.getString("customer_name"), rs.getString("customer_email"),
+                rs.getString("payment_status"), rs.getString("vnp_txn_ref"),
+                instant(rs, "payment_created_at"), instant(rs, "paid_at")),
+                facilityId, status, status, type, type, paymentStatus, paymentStatus,
+                olderThanMinutes, olderThanMinutes, limit, offset);
+    }
+
+    public long countFacilityInvoices(Long facilityId, String status, String type,
+                                      String paymentStatus, Long olderThanMinutes) {
+        String sql = "select count(*) from (" + FACILITY_INVOICE_SELECT + FACILITY_INVOICE_WHERE + ") counted";
+        Long count = jdbc.queryForObject(sql, Long.class, facilityId, status, status, type, type,
+                paymentStatus, paymentStatus, olderThanMinutes, olderThanMinutes);
+        return count == null ? 0 : count;
+    }
+
+    /**
+     * Trạng thái đơn/proposal cho từng request trong hàng đợi FM — một query cho cả trang,
+     * không N+1. Request chưa convert không có entry trong map.
+     */
+    public Map<Long, QueueEnrichment> findQueueEnrichments(List<Long> requestIds) {
+        if (requestIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(requestIds.size(), "?"));
+        String sql = "select o.request_id, o.id as order_id, o.status as order_status, o.needs_reproposal, "
+                + "o.expires_at as order_expires_at, "
+                + "p.id as last_proposal_id, u.code as last_unit_code, p.status as last_proposal_status, "
+                + "p.note as last_note, p.created_at as last_created_at, "
+                + "(select count(*) from proposal_feedbacks x where x.order_id = o.id "
+                + "and x.status = 'Rejected') as rejection_count, "
+                + "(select count(*) from proposal_feedbacks x where x.order_id = o.id "
+                + "and x.status = 'Pending') as pending_count "
+                + "from rental_orders o "
+                + "left join lateral (select p.id, p.unit_id, p.status, p.note, p.created_at "
+                + "from proposal_feedbacks p where p.order_id = o.id "
+                + "order by p.created_at desc, p.id desc limit 1) p on true "
+                + "left join storage_units u on u.id = p.unit_id "
+                + "where o.request_id in (" + placeholders + ")";
+        Map<Long, QueueEnrichment> result = new HashMap<>();
+        jdbc.query(sql, (RowCallbackHandler) rs -> result.put(rs.getLong("request_id"), new QueueEnrichment(
+                rs.getLong("request_id"), rs.getLong("order_id"), rs.getString("order_status"),
+                rs.getBoolean("needs_reproposal"), instant(rs, "order_expires_at"),
+                (Long) rs.getObject("last_proposal_id"),
+                rs.getString("last_unit_code"), rs.getString("last_proposal_status"), rs.getString("last_note"),
+                instant(rs, "last_created_at"), rs.getLong("rejection_count"), rs.getLong("pending_count"))),
+                requestIds.toArray());
+        return result;
+    }
+
     /** Đơn + thông tin form yêu cầu; rỗng nếu đơn không tồn tại. */
     public Optional<OrderRow> findOrder(Long orderId) {
         String sql = "select o.id, o.status, o.cancel_reason, o.expires_at, o.unit_id, o.customer_id, "
-                + "r.facility_id, r.customer_name, r.normalized_customer_email, r.customer_phone, "
-                + "r.unit_type_id, t.name as type_name, r.start_date, r.period "
+                + "o.needs_reproposal, r.id as request_id, r.status as request_status, r.facility_id, r.customer_name, "
+                + "r.normalized_customer_email, r.customer_phone, r.unit_type_id, t.name as type_name, "
+                + "r.start_date, r.period "
                 + "from rental_orders o join rental_requests r on r.id = o.request_id "
                 + "join unit_types t on t.id = r.unit_type_id where o.id = ?";
         return jdbc.query(sql, (rs, rowNum) -> new OrderRow(
                 rs.getLong("id"), rs.getString("status"), rs.getString("cancel_reason"), instant(rs, "expires_at"),
                 (Long) rs.getObject("unit_id"), rs.getLong("customer_id"), rs.getLong("facility_id"),
+                rs.getLong("request_id"), rs.getString("request_status"), rs.getBoolean("needs_reproposal"),
                 new FmRentalOrderResponse.Customer(rs.getLong("customer_id"), rs.getString("customer_name"),
                         rs.getString("normalized_customer_email"), rs.getString("customer_phone")),
                 new FmRentalOrderResponse.Requested(rs.getLong("unit_type_id"), rs.getString("type_name"),
@@ -92,9 +221,85 @@ public class BookingReadRepository {
         return value == null ? null : value.toInstant();
     }
 
-    /** Một dòng đơn thuê đã join form yêu cầu. */
+    /** Một dòng hoá đơn của cơ sở, kèm giao dịch PAY gần nhất. */
+    public record FacilityInvoiceRow(Long id, Long orderId, String code, String title, String description,
+                                     String type, String status, java.math.BigDecimal amount,
+                                     Instant createdAt, Instant dueDate, Long unitId, String unitCode,
+                                     Long facilityId, String facilityName, Long customerId,
+                                     String customerName, String customerEmail, String paymentStatus,
+                                     String vnpTxnRef, Instant paymentCreatedAt, Instant paidAt) {
+    }
+
+    /** Một trang đơn thuê của cơ sở cho FM; sort hạn đơn tăng dần (null cuối), rồi id. */
+    public List<OrderListRow> findOrders(Long facilityId, String status, int limit, long offset) {
+        String sql = """
+                select o.id, o.status, o.cancel_reason, o.expires_at, o.unit_id, u.code as unit_code,
+                       r.id as request_id, r.customer_name, r.normalized_customer_email, r.customer_phone,
+                       o.needs_reproposal,
+                       (select count(*) from proposal_feedbacks x
+                        where x.order_id = o.id and x.status = 'Rejected') as rejection_count,
+                       (select count(*) from proposal_feedbacks x
+                        where x.order_id = o.id and x.status = 'Pending') as pending_count,
+                       p.id as last_proposal_id, pu.code as last_unit_code, p.status as last_proposal_status,
+                       p.note as last_note, p.created_at as last_created_at
+                from rental_orders o
+                join rental_requests r on r.id = o.request_id
+                left join storage_units u on u.id = o.unit_id
+                left join lateral (
+                    select p.id, p.unit_id, p.status, p.note, p.created_at
+                    from proposal_feedbacks p where p.order_id = o.id
+                    order by p.created_at desc, p.id desc limit 1
+                ) p on true
+                left join storage_units pu on pu.id = p.unit_id
+                where r.facility_id = ?
+                  and (cast(? as varchar) is null or o.status = ?)
+                order by o.expires_at asc nulls last, o.id asc
+                limit ? offset ?
+                """;
+        return jdbc.query(sql, (rs, rowNum) -> new OrderListRow(
+                rs.getLong("id"), rs.getString("status"), rs.getString("cancel_reason"),
+                instant(rs, "expires_at"), (Long) rs.getObject("unit_id"), rs.getString("unit_code"),
+                rs.getLong("request_id"), rs.getString("customer_name"),
+                rs.getString("normalized_customer_email"), rs.getString("customer_phone"),
+                rs.getBoolean("needs_reproposal"), (Long) rs.getObject("last_proposal_id"),
+                rs.getString("last_unit_code"), rs.getString("last_proposal_status"),
+                rs.getString("last_note"), instant(rs, "last_created_at"),
+                rs.getLong("rejection_count"), rs.getLong("pending_count")),
+                facilityId, status, status, limit, offset);
+    }
+
+    public long countOrders(Long facilityId, String status) {
+        String sql = """
+                select count(*)
+                from rental_orders o
+                join rental_requests r on r.id = o.request_id
+                where r.facility_id = ?
+                  and (cast(? as varchar) is null or o.status = ?)
+                """;
+        Long count = jdbc.queryForObject(sql, Long.class, facilityId, status, status);
+        return count == null ? 0 : count;
+    }
+
+    /** Một dòng đơn thuê đã join form yêu cầu và trạng thái request. */
     public record OrderRow(Long id, String status, String cancelReason, Instant expiresAt, Long unitId,
-                           Long customerId, Long facilityId, FmRentalOrderResponse.Customer customer,
+                           Long customerId, Long facilityId, Long requestId, String requestStatus,
+                           boolean needsReproposal, FmRentalOrderResponse.Customer customer,
                            FmRentalOrderResponse.Requested requested) {
+    }
+
+    /** Trạng thái đơn/proposal gắn với một request đã convert. */
+    public record QueueEnrichment(Long requestId, Long orderId, String orderStatus, boolean needsReproposal,
+                                  Instant orderExpiresAt,
+                                  Long lastProposalId, String lastProposalUnitCode, String lastProposalStatus,
+                                  String lastProposalNote, Instant lastProposalCreatedAt, long rejectionCount,
+                                  long pendingProposalCount) {
+    }
+
+    /** Dòng list đơn thuê kèm proposal gần nhất/count cho FM. */
+    public record OrderListRow(Long id, String status, String cancelReason, Instant expiresAt, Long unitId,
+                               String unitCode, Long requestId, String customerName, String customerEmail,
+                               String customerPhone, boolean needsReproposal, Long lastProposalId,
+                               String lastProposalUnitCode, String lastProposalStatus, String lastProposalNote,
+                               Instant lastProposalCreatedAt, long rejectionCount, long pendingCount) {
     }
 }

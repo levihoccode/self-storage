@@ -96,8 +96,41 @@ public class RentalOrder {
     }
 
     /** Spec 1.3: {@code RentalOrder.unit_id} = {@code unit_id} của proposal {@code Agreed} mới nhất. */
+    /**
+     * Đã thu cọc (Flow 1.4). Chỉ đổi trạng thái: `expires_at` là hạn hoàn thành đơn,
+     * `db-table-draft.md` › RentalOrder ghi "set một lần khi tạo đơn", và hạn giữ kho là phần
+     * còn lại của chính hạn đó — cọc không gia hạn thêm.
+     */
+    public void markDeposited() {
+        this.status = RentalOrderStatus.DEPOSITED;
+    }
+
     public void assignUnit(Long agreedUnitId) {
         this.unitId = agreedUnitId;
+    }
+
+    /** Đơn đã có lịch check-in và đang chờ FM phân công FS. */
+    public boolean isScheduled() {
+        return status == RentalOrderStatus.SCHEDULED;
+    }
+
+    /** Spec 1.5: FM phân công FS cho lịch check-in → {@code Scheduled -> InProgress}. */
+    public void startProgress() {
+        if (status != RentalOrderStatus.SCHEDULED) {
+            throw new IllegalStateException("Đơn " + id + " không ở Scheduled: " + status);
+        }
+        this.status = RentalOrderStatus.IN_PROGRESS;
+    }
+
+    /**
+     * Flow 2 cron: phiên bàn giao quá hạn nhưng đơn còn hạn giữ kho — trả đơn về
+     * {@code Deposited} để khách đặt lịch check-in mới.
+     */
+    public void returnToDeposited() {
+        if (status != RentalOrderStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Đơn " + id + " không ở InProgress: " + status);
+        }
+        this.status = RentalOrderStatus.DEPOSITED;
     }
 
     /** Cancellation Cascade bước 1: {@code status -> Canceled}, ghi {@code cancel_reason}. */

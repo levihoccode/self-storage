@@ -1,84 +1,93 @@
 import { ArrowRight, CalendarClock } from "lucide-react";
-import { useState } from "react";
-import type { Navigate } from "../app/types";
-import { facilities, formatPrice } from "../mocks/catalog";
-import {
-  INVOICE_TYPE_LABEL,
-  type Invoice,
-  type InvoiceStatus,
-  type InvoiceType,
-  invoices,
-  isInvoicePaid,
-  markInvoicePaid,
-} from "../mocks/invoices";
+import { useEffect, useState } from "react";
+import { formatDate, formatPrice } from "../app/format";
+import { listInvoices } from "../app/invoices";
+import type { InvoiceStatus, InvoiceSummary, InvoiceType, Navigate } from "../app/types";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
+import { FilterSelect } from "../components/ui/FilterSelect";
+import { StatusTag } from "../components/ui/StatusTag";
 import { SurfaceState } from "../components/ui/SurfaceState";
 
-const STATUS_BADGE: Record<InvoiceStatus, string> = {
-  Unpaid: "bg-warning/18 text-warning",
-  Paid: "bg-success/18 text-success",
-  Canceled: "bg-surface-subtle text-muted",
+const INVOICE_TYPE_LABEL: Record<InvoiceType, string> = {
+  Deposit: "Đặt cọc",
+  DepositSupplement: "Bổ sung cọc",
+  Rental: "Tiền thuê",
+  Extension: "Gia hạn",
+  Penalty: "Phí phát sinh",
+  Service: "Dịch vụ",
 };
-const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  Unpaid: "Chưa thanh toán",
-  Paid: "Đã thanh toán",
-  Canceled: "Đã huỷ",
-};
-const FILTER_SELECT =
-  "min-w-[170px] rounded-sm border border-border bg-surface px-[11px] py-[10px] pr-[30px] text-[12px] font-semibold text-ink max-[760px]:w-full";
 
-function effectiveStatus(invoice: Invoice): InvoiceStatus {
-  if (invoice.status === "Canceled") return "Canceled";
-  return isInvoicePaid(invoice.id) ? "Paid" : "Unpaid";
-}
+const STATUS_META: Record<
+  InvoiceStatus,
+  { label: string; tone: "warning" | "success" | "neutral" | "danger" }
+> = {
+  Unpaid: { label: "Chưa thanh toán", tone: "warning" },
+  Paid: { label: "Đã thanh toán", tone: "success" },
+  Canceled: { label: "Đã huỷ", tone: "neutral" },
+  Expired: { label: "Đã hết hạn", tone: "danger" },
+};
+
+type LoadState = "loading" | "ready" | "error";
 
 export function InvoicesPage({ navigate }: { navigate: Navigate }) {
   const [typeFilter, setTypeFilter] = useState<"all" | InvoiceType>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | InvoiceStatus>("all");
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [payingId, setPayingId] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<{ id: string; ok: boolean } | null>(null);
-  const [, refresh] = useState(0);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function load() {
+      setLoadState("loading");
+      setLoadError("");
+      try {
+        const data = await listInvoices(controller.signal);
+        if (cancelled) return;
+        setInvoices(data);
+        setLoadState("ready");
+      } catch (error) {
+        if (cancelled || controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "Không thể tải danh sách hoá đơn.");
+        setLoadState("error");
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [reloadKey]);
 
   const list = invoices.filter((invoice) => {
     if (typeFilter !== "all" && invoice.type !== typeFilter) return false;
-    if (statusFilter !== "all" && effectiveStatus(invoice) !== statusFilter) return false;
+    if (statusFilter !== "all" && invoice.status !== statusFilter) return false;
     return true;
   });
 
   const openInvoice = invoices.find((invoice) => invoice.id === openId) ?? null;
 
-  function pay(invoice: Invoice) {
-    setPayingId(invoice.id);
-    setOutcome(null);
-    window.setTimeout(() => {
-      setPayingId(null);
-      if (invoice.simulateFailure) {
-        setOutcome({ id: invoice.id, ok: false });
-        return;
-      }
-      markInvoicePaid(invoice.id);
-      refresh((n) => n + 1);
-      setOutcome({ id: invoice.id, ok: true });
-    }, 900);
-  }
-
   return (
-    <main>
-      <div className="mb-8">
-        <h1 className="m-0 text-[28px] tracking-[-0.03em] text-ink">Hóa đơn &amp; thanh toán</h1>
-        <p className="mt-2 text-[13px] text-muted">
+    <div className="grid gap-6">
+      <div>
+        <h1 className="m-0 text-title text-ink">Hoá đơn &amp; thanh toán</h1>
+        <p className="mt-1.5 text-small text-muted">
           Theo dõi và thanh toán mọi khoản phát sinh trong suốt vòng đời thuê kho.
         </p>
       </div>
 
-      <div className="mb-6 flex items-center gap-2.5 max-[760px]:flex-col max-[760px]:items-stretch">
-        <select
-          className={FILTER_SELECT}
+      <div className="grid grid-cols-2 items-end gap-3 max-[760px]:grid-cols-1">
+        <FilterSelect
+          label="Loại hoá đơn"
           value={typeFilter}
-          onChange={(event) => setTypeFilter(event.target.value as "all" | InvoiceType)}
+          onChange={(value) => setTypeFilter(value as "all" | InvoiceType)}
         >
           <option value="all">Tất cả loại hoá đơn</option>
           {Object.entries(INVOICE_TYPE_LABEL).map(([value, label]) => (
@@ -86,55 +95,76 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
               {label}
             </option>
           ))}
-        </select>
-        <select
-          className={FILTER_SELECT}
+        </FilterSelect>
+        <FilterSelect
+          label="Trạng thái"
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value as "all" | InvoiceStatus)}
+          onChange={(value) => setStatusFilter(value as "all" | InvoiceStatus)}
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="Unpaid">Chưa thanh toán</option>
           <option value="Paid">Đã thanh toán</option>
           <option value="Canceled">Đã huỷ</option>
-        </select>
+          <option value="Expired">Đã hết hạn</option>
+        </FilterSelect>
       </div>
 
-      {list.length === 0 ? (
-        <SurfaceState variant="empty" title="Không có hoá đơn phù hợp bộ lọc" />
-      ) : (
-        <div className="grid gap-3">
-          {list.map((invoice) => {
-            const status = effectiveStatus(invoice);
-            return (
-              <button
-                key={invoice.id}
-                className="flex items-center justify-between gap-5 border border-border bg-surface p-5 text-left transition-colors hover:border-brand max-[760px]:flex-col max-[760px]:items-stretch"
-                onClick={() => {
-                  setOpenId(invoice.id);
-                  setOutcome(null);
-                }}
-              >
-                <div>
-                  <p className="m-0 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-brand">
-                    {invoice.code} · {INVOICE_TYPE_LABEL[invoice.type]}
-                  </p>
-                  <h3 className="mb-0 mt-1 text-[16px] tracking-[-0.02em]">{invoice.title}</h3>
-                  <p className="mb-0 mt-1.5 flex items-center gap-[6px] text-[12px] text-muted">
-                    <CalendarClock size={14} /> Hạn thanh toán {invoice.dueDate}
-                  </p>
-                </div>
-                <div className="flex items-center gap-5 max-[760px]:justify-between">
-                  <strong className="text-[16px]">{formatPrice(invoice.amount)}đ</strong>
-                  <span
-                    className={`whitespace-nowrap rounded-full px-[9px] py-[6px] text-[11px] font-extrabold ${STATUS_BADGE[status]}`}
+      {loadState === "loading" && (
+        <SurfaceState variant="loading" title="Đang tải danh sách hoá đơn…" />
+      )}
+
+      {loadState === "error" && (
+        <SurfaceState
+          variant="error"
+          title="Không tải được danh sách hoá đơn"
+          description={loadError}
+          action={{ label: "Thử lại", onClick: () => setReloadKey((key) => key + 1) }}
+        />
+      )}
+
+      {loadState === "ready" && invoices.length === 0 && (
+        <SurfaceState
+          variant="empty"
+          title="Chưa có hoá đơn nào"
+          description="Hoá đơn sẽ xuất hiện khi bạn đồng ý đề xuất khoang hoặc phát sinh khoản thu khác."
+          action={{ label: "Xem kho", onClick: () => navigate("/units") }}
+        />
+      )}
+
+      {loadState === "ready" && invoices.length > 0 && (
+        <>
+          {list.length === 0 ? (
+            <SurfaceState variant="empty" title="Không có hoá đơn phù hợp bộ lọc" />
+          ) : (
+            <div className="grid gap-2">
+              {list.map((invoice) => {
+                const meta = STATUS_META[invoice.status];
+                return (
+                  <button
+                    key={invoice.id}
+                    className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_auto] items-center gap-4 bg-surface p-4 text-left transition-colors hover:bg-surface-subtle max-[760px]:grid-cols-1 max-[760px]:gap-2"
+                    onClick={() => setOpenId(invoice.id)}
                   >
-                    {STATUS_LABEL[status]}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                    <div>
+                      <span className="text-label text-muted">
+                        {invoice.code} · {INVOICE_TYPE_LABEL[invoice.type]}
+                      </span>
+                      <h2 className="mt-1 text-section text-ink">{invoice.title}</h2>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-label text-muted">
+                      <CalendarClock size={14} /> Hạn{" "}
+                      {invoice.dueDate ? formatDate(invoice.dueDate) : "—"}
+                    </span>
+                    <strong className="text-[18px] font-semibold text-ink">
+                      {formatPrice(invoice.amount)} đ
+                    </strong>
+                    <StatusTag tone={meta.tone}>{meta.label}</StatusTag>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {openInvoice && (
@@ -143,72 +173,72 @@ export function InvoicesPage({ navigate }: { navigate: Navigate }) {
           eyebrow={`${openInvoice.code} · ${INVOICE_TYPE_LABEL[openInvoice.type]}`}
           onClose={() => setOpenId(null)}
         >
-          <p className="m-0 text-[13px] leading-[1.6] text-muted">{openInvoice.description}</p>
-          <dl className="mt-5 grid gap-3">
-            <div className="flex items-center justify-between gap-4 text-[13px]">
-              <dt className="text-muted">Khoang liên quan</dt>
-              <dd className="m-0 font-bold text-ink">{openInvoice.unitCode}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 text-[13px]">
-              <dt className="text-muted">Cơ sở</dt>
-              <dd className="m-0 font-bold text-ink">
-                {facilities.find((facility) => facility.id === openInvoice.facilityId)?.name ?? "—"}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 text-[13px]">
-              <dt className="text-muted">Số tiền</dt>
-              <dd className="m-0 font-bold text-ink">{formatPrice(openInvoice.amount)}đ</dd>
-            </div>
-            {openInvoice.discountAmount > 0 && (
-              <div className="flex items-center justify-between gap-4 text-[13px]">
-                <dt className="text-muted">Giảm giá</dt>
-                <dd className="m-0 font-bold text-success">
-                  -{formatPrice(openInvoice.discountAmount)}đ
-                </dd>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-4 text-[13px]">
-              <dt className="text-muted">Hạn thanh toán</dt>
-              <dd className="m-0 font-bold text-ink">{openInvoice.dueDate}</dd>
-            </div>
+          <p className="text-small leading-relaxed text-muted">
+            {openInvoice.description ?? "Không có mô tả."}
+          </p>
+          <dl className="mt-5 grid gap-2.5">
+            <DetailRow label="Khoang liên quan" value={openInvoice.unitCode ?? "—"} />
+            <DetailRow label="Cơ sở" value={openInvoice.facilityName ?? "—"} />
+            <DetailRow label="Số tiền" value={`${formatPrice(openInvoice.amount)} đ`} />
+            <DetailRow
+              label="Hạn thanh toán"
+              value={openInvoice.dueDate ? formatDate(openInvoice.dueDate) : "—"}
+            />
           </dl>
 
-          {outcome?.id === openInvoice.id && outcome.ok && (
+          {openInvoice.status === "Unpaid" && (
             <div className="mt-5">
-              <DemoNotice tone="success">Thanh toán thành công.</DemoNotice>
-              {openInvoice.type === "Deposit" && (
-                <Button
-                  className="mt-3.5"
-                  onClick={() => navigate(`/appointments/new?orderId=${openInvoice.orderId}`)}
-                >
-                  Đặt lịch check-in <ArrowRight size={16} />
-                </Button>
-              )}
-            </div>
-          )}
-
-          {outcome?.id === openInvoice.id && !outcome.ok && (
-            <div className="mt-5">
-              <DemoNotice tone="error">
-                Khoang {openInvoice.unitCode} vừa có người khác đặt cọc trước. Đội ngũ vận hành sẽ
-                gửi đề xuất khoang khác cho bạn.
+              <DemoNotice tone="info">
+                Thanh toán trực tuyến sẽ được bật khi API thanh toán sẵn sàng. Hiện tại bạn có thể
+                theo dõi trạng thái hoá đơn tại đây.
               </DemoNotice>
             </div>
           )}
 
-          {effectiveStatus(openInvoice) === "Unpaid" && !outcome && (
+          {openInvoice.status === "Paid" && (
+            <div className="mt-5">
+              <DemoNotice tone="success">Hoá đơn đã được thanh toán.</DemoNotice>
+            </div>
+          )}
+
+          {openInvoice.status === "Expired" && (
+            <div className="mt-5">
+              <DemoNotice tone="error">
+                Hoá đơn đã hết hạn thanh toán. Vui lòng liên hệ cơ sở để được hỗ trợ.
+              </DemoNotice>
+            </div>
+          )}
+
+          {openInvoice.status === "Unpaid" && openInvoice.orderId !== null && (
             <Button
-              className="mt-6 w-full"
-              pending={payingId === openInvoice.id}
-              onClick={() => pay(openInvoice)}
+              className="mt-3 w-full"
+              variant="secondary"
+              onClick={() => navigate("/my-storage")}
             >
-              {payingId === openInvoice.id
-                ? "Đang chuyển đến cổng thanh toán…"
-                : "Tiến hành thanh toán"}
+              Về Kho của tôi <ArrowRight size={16} />
             </Button>
           )}
         </DetailPanel>
       )}
-    </main>
+    </div>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "success";
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-small">
+      <dt className="text-muted">{label}</dt>
+      <dd className={`m-0 font-semibold ${tone === "success" ? "text-success" : "text-ink"}`}>
+        {value}
+      </dd>
+    </div>
   );
 }

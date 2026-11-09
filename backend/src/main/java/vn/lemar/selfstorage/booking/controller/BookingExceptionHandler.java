@@ -7,7 +7,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.lemar.selfstorage.ApiError;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentConflictException;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentForbiddenException;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentValidationException;
+import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
+import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.FacilityNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.InvoiceFilterException;
+import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalForbiddenException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalNotFoundException;
@@ -17,7 +25,9 @@ import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicate
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestExpiredException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalOrderNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.RentalOrderValidationException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestValidationException;
+import vn.lemar.selfstorage.booking.application.exception.StorageUnitFilterException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.StorageUnitUnavailableException;
 
@@ -54,6 +64,11 @@ public class BookingExceptionHandler {
         return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 
+    @ExceptionHandler(RentalOrderValidationException.class)
+    public ResponseEntity<ApiError> handleOrderValidation(RentalOrderValidationException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
+    }
+
     @ExceptionHandler(FacilityNotFoundException.class)
     public ResponseEntity<ApiError> handleFacilityNotFound(FacilityNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
@@ -87,6 +102,55 @@ public class BookingExceptionHandler {
     @ExceptionHandler(StorageUnitUnavailableException.class)
     public ResponseEntity<ApiError> handleUnitUnavailable(StorageUnitUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    /** Không tồn tại và không phải của mình trả về như nhau — không lộ sự tồn tại của hóa đơn. */
+    @ExceptionHandler(InvoiceNotFoundException.class)
+    public ResponseEntity<ApiError> handleInvoiceNotFound(InvoiceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiError> handleUnverified(EmailNotVerifiedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
+    }
+
+    /** 409: hóa đơn hợp lệ nhưng hoàn cảnh hiện tại không cho thanh toán (Flow 1.4). */
+    @ExceptionHandler(DepositNotAllowedException.class)
+    public ResponseEntity<ApiError> handleDepositNotAllowed(DepositNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    // ---- Lịch hẹn check-in (spec 1.5)
+
+    @ExceptionHandler(AppointmentNotFoundException.class)
+    public ResponseEntity<ApiError> handleAppointmentNotFound(AppointmentNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AppointmentConflictException.class)
+    public ResponseEntity<ApiError> handleAppointmentConflict(AppointmentConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AppointmentForbiddenException.class)
+    public ResponseEntity<ApiError> handleAppointmentForbidden(AppointmentForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AppointmentValidationException.class)
+    public ResponseEntity<ApiError> handleAppointmentValidation(AppointmentValidationException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(StorageUnitFilterException.class)
+    public ResponseEntity<ApiError> handleStorageUnitFilter(StorageUnitFilterException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvoiceFilterException.class)
+    public ResponseEntity<ApiError> handleInvoiceFilter(InvoiceFilterException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 }
 

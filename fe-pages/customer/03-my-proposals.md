@@ -29,9 +29,9 @@ Sau khi FM duyệt `RentalRequest` và chỉ định khoang, khách cần xác n
 - Empty state: chưa có đề xuất nào
 
 ## API liên quan
-- `GET /api/customer/proposals?status=Pending`
-- `POST /api/customer/proposals/{id}/agree`
-- `POST /api/customer/proposals/{id}/reject` (body: `note`)
+- `GET /api/proposals?status=Pending`
+- `POST /api/proposals/{id}/agree`
+- `POST /api/proposals/{id}/reject` (body: `note`)
 
 ## Edge case / Lưu ý UX
 - Khi [Đồng ý] trả lỗi do khoang không còn `Available`, KHÔNG hủy đơn — chỉ báo khách chờ FM đề xuất khoang khác (proposal hiện tại tự chuyển `Expired`)

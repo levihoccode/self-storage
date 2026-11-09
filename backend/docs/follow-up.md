@@ -14,6 +14,10 @@ thì mở issue theo workflow; file này không thay thế issue.
 - Quản trị hệ thống (`/api/admin/**`) chưa có endpoint nào; permission catalog mở rộng dần theo
   Flow 3–7 — xem [permission-catalog.md](permission-catalog.md).
 
+## Booking
+
+- No-show `RentalOrder`/`HandoverRecord` chưa xử lý — issue #222 (ngoài scope PR cron `Appointment`).
+
 ## Notification
 
 - Caller nghiệp vụ đầu tiên: luồng convert gửi `RENTAL_REQUEST_APPROVED` (có `orderId`) —
@@ -26,6 +30,12 @@ thì mở issue theo workflow; file này không thay thế issue.
 - Phân trang list trả mảng không kèm `total` — FE tải thêm tới khi trang rỗng; nếu cần
   `total`/`hasMore` phải mở issue đổi contract.
 
+## FS tasks
+
+- Chưa có bảng task/assignment cho FS. Refund queue FM hiện read-only; chưa biết FS nào xử lý
+  invoice nào. Cần bảng `fs_tasks` dùng chung cho refund, handover, return, support…; tách issue riêng.
+- Khi có assignment, handover refund phải kiểm `assigned_fs_id`, không chỉ facility permission.
+
 ## Audit
 
 - AuditLog đi theo hướng service ghi audit gọi tường minh từ call site. Hướng AOP interceptor
@@ -35,7 +45,11 @@ thì mở issue theo workflow; file này không thay thế issue.
 
 ## Media
 
-- **File mồ côi**: FE upload xong nhưng flow không submit (bỏ ngang) → asset không được entity nào
-  trỏ tới. Đã truy vết được theo folder `uploads/acc-{id}`; chưa có job dọn — cân nhắc sweep định kỳ
-  khi hạ tầng scheduler xong, hoặc bảng `media_uploads` (pending/attached) nếu cần relink tự động.
+- **File mồ côi**: batch delete/attach đã có (`media_uploads`); FE chỉ xoá khi người dùng bấm X
+  trên file trong phase hiện tại. Batch Pending bị bỏ ngang (rời trang/Hủy) vẫn mồ côi — chưa có
+  job sweep `Uploading`/`Pending` quá hạn; cân nhắc khi hạ tầng scheduler xong.
 - Không rate limit upload; trùng file tạo nhiều asset (không dedup) — chấp nhận ở MVP.
+- Batch delete không xoá asset `Attached`; nếu phase đã submit rồi mới phát hiện sai thì cần flow xử
+  lý riêng (hiện chưa có route delete theo `publicId`).
+- Xoá media khi order bị **hard-delete** hoặc theo retention policy chưa có; chưa nên tự xoá khi
+  đơn chỉ bị Canceled vì media là bằng chứng/audit.
