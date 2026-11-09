@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /** Một dòng client gửi lên để server dựng final amount. */
-public record RefundRequestLineInput(
+public record RefundObligationLineInput(
         @NotBlank @Size(max = 40) String componentCode,
         @NotBlank @Size(max = 10) String direction,
         @NotNull @DecimalMin("0.01") BigDecimal amount,

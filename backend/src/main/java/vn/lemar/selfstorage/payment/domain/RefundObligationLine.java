@@ -16,20 +16,20 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** Một dòng cấu thành final amount của refund request. */
+/** Một dòng cấu thành final amount của refund obligation. */
 @Entity
-@Table(name = "refund_request_lines")
+@Table(name = "refund_obligation_lines")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RefundRequestLine {
+public class RefundObligationLine {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "refund_request_id", nullable = false)
-    private RefundRequest refundRequest;
+    @JoinColumn(name = "refund_obligation_id", nullable = false)
+    private RefundObligation refundObligation;
 
     @Column(name = "component_code", nullable = false, length = 40)
     private String componentCode;
@@ -56,11 +56,11 @@ public class RefundRequestLine {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    static RefundRequestLine create(RefundRequest request, String componentCode,
+    static RefundObligationLine create(RefundObligation obligation, String componentCode,
             RefundLineDirection direction, BigDecimal amount, String label, String sourceType,
             Long sourceId, String note, int sortOrder) {
-        RefundRequestLine line = new RefundRequestLine();
-        line.refundRequest = request;
+        RefundObligationLine line = new RefundObligationLine();
+        line.refundObligation = obligation;
         line.componentCode = componentCode;
         line.direction = direction;
         line.amount = amount;

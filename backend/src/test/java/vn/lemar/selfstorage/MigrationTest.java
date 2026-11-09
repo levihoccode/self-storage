@@ -32,7 +32,7 @@ class MigrationTest {
             "rental_requests", "rental_orders", "rental_contracts", "invoices",
             "proposal_feedbacks", "appointments", "rental_appointments",
             "handover_records", "unit_access_keys", "payment_transactions",
-            "refund_transactions", "refund_requests", "refund_request_lines", "audit_logs",
+            "refund_transactions", "refund_obligations", "refund_obligation_lines", "audit_logs",
             "notifications", "order_notifications");
 
     @Container

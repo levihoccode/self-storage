@@ -15,8 +15,8 @@ import vn.lemar.selfstorage.payment.application.exception.RefundTransactionConfl
 import vn.lemar.selfstorage.payment.application.exception.RefundTransactionNotFoundException;
 import vn.lemar.selfstorage.payment.application.exception.RefundTransactionValidationException;
 import vn.lemar.selfstorage.payment.application.exception.RefundQueueFilterException;
-import vn.lemar.selfstorage.payment.application.exception.RefundRequestConflictException;
-import vn.lemar.selfstorage.payment.application.exception.RefundRequestValidationException;
+import vn.lemar.selfstorage.payment.application.exception.RefundObligationConflictException;
+import vn.lemar.selfstorage.payment.application.exception.RefundObligationValidationException;
 
 /** Lỗi riêng của endpoint đối soát thủ công, trước handler 500 chung. */
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -63,13 +63,13 @@ public class PaymentAdminExceptionHandler {
         return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(RefundRequestConflictException.class)
-    public ResponseEntity<ApiError> refundRequestConflict(RefundRequestConflictException ex) {
+    @ExceptionHandler(RefundObligationConflictException.class)
+    public ResponseEntity<ApiError> refundObligationConflict(RefundObligationConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.now(ex.getMessage()));
     }
 
-    @ExceptionHandler(RefundRequestValidationException.class)
-    public ResponseEntity<ApiError> refundRequestBadRequest(RefundRequestValidationException ex) {
+    @ExceptionHandler(RefundObligationValidationException.class)
+    public ResponseEntity<ApiError> refundObligationBadRequest(RefundObligationValidationException ex) {
         return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 }

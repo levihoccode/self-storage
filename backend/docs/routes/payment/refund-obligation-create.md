@@ -2,13 +2,13 @@
 auth-model: permission-bound
 purpose: FM/ADMIN tạo nghĩa vụ hoàn tiền thủ công với breakdown và snapshot cách tính; chưa chi tiền.
 ---
-# POST /api/refund-requests
+# POST /api/refund-obligations
 
-Tạo **refund request** — nghĩa vụ hoàn tiền có final amount do server tính từ các dòng. Route
+Tạo **refund obligation** — nghĩa vụ hoàn tiền có final amount do server tính từ các dòng. Route
 không tạo `refund_transactions`, không đổi invoice state và chưa phải bước handover.
 
-- **Actor / quyền:** FM `refund_transaction.request` + facility scope; ADMIN override.
-- **Contract chi tiết:** annotation tại `RefundRequestController.java`; Swagger UI —
+- **Actor / quyền:** FM `refund_obligation.create` + facility scope; ADMIN override.
+- **Contract chi tiết:** annotation tại `RefundObligationController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
 ## Request
@@ -52,11 +52,11 @@ Server tính, lưu `amount`, và render `formulaText`; `formulaText` chỉ để
 ## Hành vi
 
 1. Xác định facility từ invoice/order; kiểm permission facility.
-2. Chặn request active thứ hai cho cùng invoice; nhiều request order-only cho cùng đơn được phép.
+2. Chặn obligation active thứ hai cho cùng invoice; nhiều obligation order-only cho cùng đơn được phép.
 3. Validate component code, direction, amount, reason; `OTHER` phải có note.
-4. Tạo `refund_requests` + `refund_request_lines`, tính final amount.
-5. Audit `REFUND_REQUESTED` trên `RefundRequest`.
-6. Request ở `Requested`; chưa chi tiền.
+4. Tạo `refund_obligations` + `refund_obligation_lines`, tính final amount.
+5. Audit `REFUND_OBLIGATION_CREATED` trên `RefundObligation`.
+6. Obligation ở `Open`; chưa chi tiền.
 
 ## Lỗi
 
@@ -65,10 +65,10 @@ Server tính, lưu `amount`, và render `formulaText`; `formulaText` chỉ để
 | 400 | thiếu invoice/order, line/reason không hợp lệ, final amount ≤ 0 |
 | 403 | không có permission tại facility |
 | 404 | không thấy invoice/đơn |
-| 409 | invoice đã có request đang mở |
+| 409 | invoice đã có obligation đang mở |
 
 ## Liên quan
 
-- [payment.md](../../payment.md) › Refund request
+- [payment.md](../../payment.md) › Refund obligation
 - [refund-handover.md](refund-handover.md)
 - [follow-up.md](../../follow-up.md) › Refund

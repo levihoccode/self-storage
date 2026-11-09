@@ -93,7 +93,7 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V25__refund_requests_allow_multiple_per_order.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V26__refund_obligations_rename.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -140,9 +140,14 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
 - V23 thêm `refund_transactions.disputed_at/dispute_note` để khách chỉ ghi nhận báo chưa nhận
   một lần; lần gọi lặp không tạo audit/notification trùng.
 - V24 thêm `refund_requests` + `refund_request_lines` cho nghĩa vụ hoàn tiền có breakdown, và
-  permission `refund_transaction.request` cho FM/ADMIN. Request chưa nối handover.
+  permission `refund_transaction.request` cho FM/ADMIN. Obligation chưa nối handover.
 - V25 bỏ unique index order-only của `refund_requests` — một order có thể có nhiều nghĩa vụ hoàn
   tiền; trùng chỉ bị chặn theo invoice.
+- V26 đổi tên `refund_requests` → `refund_obligations`, `refund_request_lines` →
+  `refund_obligation_lines`, `refund_request_id` → `refund_obligation_id`,
+  `requested_by_account_id` → `created_by_account_id`, status `Requested` → `Open`, permission
+  `refund_transaction.request` → `refund_obligation.create`, audit `REFUND_REQUESTED` →
+  `REFUND_OBLIGATION_CREATED` và entity `RefundObligation`.
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào

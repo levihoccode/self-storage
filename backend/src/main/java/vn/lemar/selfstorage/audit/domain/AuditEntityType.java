@@ -16,7 +16,7 @@ public enum AuditEntityType {
     INVOICE("Invoice"),
     PAYMENT_TRANSACTION("PaymentTransaction"),
     REFUND_TRANSACTION("RefundTransaction"),
-    REFUND_REQUEST("RefundRequest"),
+    REFUND_OBLIGATION("RefundObligation"),
     RENTAL_ORDER("RentalOrder"),
     STORAGE_UNIT("StorageUnit"),
     APPOINTMENT("Appointment"),

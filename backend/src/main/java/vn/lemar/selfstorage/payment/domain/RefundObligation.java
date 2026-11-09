@@ -26,10 +26,10 @@ import org.hibernate.type.SqlTypes;
  * tính từ các dòng; {@code calculationInput} là snapshot input/policy để giải thích lại.
  */
 @Entity
-@Table(name = "refund_requests")
+@Table(name = "refund_obligations")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RefundRequest {
+public class RefundObligation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,9 +50,9 @@ public class RefundRequest {
     @Column(name = "reason_note")
     private String reasonNote;
 
-    @Convert(converter = RefundRequestStatusConverter.class)
+    @Convert(converter = RefundObligationStatusConverter.class)
     @Column(nullable = false, length = 20)
-    private RefundRequestStatus status = RefundRequestStatus.REQUESTED;
+    private RefundObligationStatus status = RefundObligationStatus.OPEN;
 
     @Column(name = "calculation_version", nullable = false, length = 50)
     private String calculationVersion;
@@ -64,8 +64,8 @@ public class RefundRequest {
     @Column(name = "formula_text", nullable = false, columnDefinition = "text")
     private String formulaText;
 
-    @Column(name = "requested_by_account_id")
-    private Long requestedByAccountId;
+    @Column(name = "created_by_account_id")
+    private Long createdByAccountId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -73,27 +73,27 @@ public class RefundRequest {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    @OneToMany(mappedBy = "refundRequest", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "refundObligation", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC, id ASC")
-    private List<RefundRequestLine> lines = new ArrayList<>();
+    private List<RefundObligationLine> lines = new ArrayList<>();
 
-    public static RefundRequest create(Long invoiceId, Long orderId, String reasonCode,
+    public static RefundObligation create(Long invoiceId, Long orderId, String reasonCode,
             String reasonNote, String calculationVersion, JsonNode calculationInput,
-            Long requestedByAccountId) {
-        RefundRequest request = new RefundRequest();
-        request.invoiceId = invoiceId;
-        request.orderId = orderId;
-        request.reasonCode = reasonCode;
-        request.reasonNote = reasonNote;
-        request.calculationVersion = calculationVersion;
-        request.calculationInput = calculationInput;
-        request.requestedByAccountId = requestedByAccountId;
-        return request;
+            Long createdByAccountId) {
+        RefundObligation obligation = new RefundObligation();
+        obligation.invoiceId = invoiceId;
+        obligation.orderId = orderId;
+        obligation.reasonCode = reasonCode;
+        obligation.reasonNote = reasonNote;
+        obligation.calculationVersion = calculationVersion;
+        obligation.calculationInput = calculationInput;
+        obligation.createdByAccountId = createdByAccountId;
+        return obligation;
     }
 
     public void addLine(String componentCode, RefundLineDirection direction, BigDecimal amount,
             String label, String sourceType, Long sourceId, String note, int sortOrder) {
-        lines.add(RefundRequestLine.create(this, componentCode, direction, amount, label,
+        lines.add(RefundObligationLine.create(this, componentCode, direction, amount, label,
                 sourceType, sourceId, note, sortOrder));
     }
 
@@ -101,7 +101,7 @@ public class RefundRequest {
     public void calculate() {
         BigDecimal total = BigDecimal.ZERO;
         StringBuilder formula = new StringBuilder();
-        for (RefundRequestLine line : lines) {
+        for (RefundObligationLine line : lines) {
             if (line.getDirection() == RefundLineDirection.ADD) {
                 total = total.add(line.getAmount());
                 if (formula.length() > 0) {

@@ -1,9 +1,9 @@
 package vn.lemar.selfstorage.payment.application.dto;
 
 import java.math.BigDecimal;
-import vn.lemar.selfstorage.payment.domain.RefundRequestLine;
+import vn.lemar.selfstorage.payment.domain.RefundObligationLine;
 
-public record RefundRequestLineView(
+public record RefundObligationLineView(
         Long id,
         String componentCode,
         String direction,
@@ -14,8 +14,8 @@ public record RefundRequestLineView(
         String note,
         int sortOrder) {
 
-    public static RefundRequestLineView from(RefundRequestLine line) {
-        return new RefundRequestLineView(line.getId(), line.getComponentCode(),
+    public static RefundObligationLineView from(RefundObligationLine line) {
+        return new RefundObligationLineView(line.getId(), line.getComponentCode(),
                 line.getDirection().name(), line.getAmount(), line.getLabel(), line.getSourceType(),
                 line.getSourceId(), line.getNote(), line.getSortOrder());
     }

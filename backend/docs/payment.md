@@ -145,20 +145,20 @@ Required/Processing
 - **Notification:** sau khi handover commit, listener gửi `REFUND_AWAITING_CONFIRMATION` cho khách
   (in-app + email). Gửi lỗi không rollback nghiệp vụ.
 
-### Refund request — nghĩa vụ trước khi chi tiền
+### Refund obligation — nghĩa vụ trước khi chi tiền
 
-`POST /api/refund-requests` tạo **refund obligation** thủ công, chưa chi tiền và chưa tạo
+`POST /api/refund-obligations` tạo **refund obligation** thủ công, chưa chi tiền và chưa tạo
 `refund_transactions`. Dùng cho case đặc biệt không có obligation tự động hoặc amount khác invoice.
 
-- FM theo facility; ADMIN override; permission `refund_transaction.request`.
-- Request có thể gắn `invoiceId`, `orderId`, hoặc cả hai; ít nhất một cái.
+- FM theo facility; ADMIN override; permission `refund_obligation.create`.
+- Obligation có thể gắn `invoiceId`, `orderId`, hoặc cả hai; ít nhất một cái.
 - Server tính final amount từ `lines`, không nhận amount từ client:
   `final = sum(ADD) - sum(SUBTRACT)`.
 - `calculationVersion` + `calculationInput` là snapshot để giải thích/recompute.
 - `formulaText` chỉ để hiển thị/audit, không dùng để tính tiền.
-- Request lưu `amount`, `formulaText`, lines; audit `REFUND_REQUESTED` trên `RefundRequest`.
-- Request ở trạng thái `Requested`; handover hiện tại chưa nối với request này — cần một PR
-  chuyển handover sang `refundRequestId` trước khi dùng trong vận hành.
+- Obligation lưu `amount`, `formulaText`, lines; audit `REFUND_OBLIGATION_CREATED` trên `RefundObligation`.
+- Obligation ở trạng thái `Open`; handover hiện tại chưa nối với obligation này — cần một PR
+  chuyển handover sang `refundObligationId` trước khi dùng trong vận hành.
 
 ### Phạm vi route handover
 
