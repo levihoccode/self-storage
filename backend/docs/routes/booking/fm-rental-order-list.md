@@ -42,7 +42,7 @@ curl -s "http://localhost:8080/api/fm/rental-orders?facilityId=1&status=Pending&
 # {"message":"Lấy danh sách đơn thuê thành công","data":{"items":[
 #   {"id":3,"status":"Pending","cancelReason":null,"expiresAt":"2026-12-09T...","unitId":1,
 #    "unitCode":"A-01","requestId":4,"customerName":"Khách Demo","customerEmail":"...",
-#    "customerPhone":"...","needsReproposal":false,"needsRepropose":true,
+#    "customerPhone":"...","needsRepropose":true,
 #    "rejectionCount":1,"maxRejectionCount":3,
 #    "lastProposal":{"id":3,"unitCode":"A-01","status":"Rejected","note":"...","createdAt":"..."}}
 # ],"page":0,"size":20,"total":1}}
