@@ -8,6 +8,7 @@ public record FmRentalOrderSummaryResponse(
         @Schema(description = "Id đơn thuê") Long id,
         @Schema(description = "Trạng thái đơn", example = "Pending") String status,
         @Schema(description = "Lý do huỷ nếu đơn Canceled") String cancelReason,
+        @Schema(description = "Ghi chú nội bộ của lần huỷ (chỉ FM thấy); null nếu không có") String cancelNote,
         @Schema(description = "Hạn hoàn thành đơn") Instant expiresAt,
         @Schema(description = "Khoang đang gán cho đơn") Long unitId,
         @Schema(description = "Mã khoang") String unitCode,

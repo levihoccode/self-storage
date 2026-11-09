@@ -110,7 +110,8 @@ public class ProposalQueryService {
                 : new FmRentalOrderSummaryResponse.LastProposal(row.lastProposalId(),
                         row.lastProposalUnitCode(), row.lastProposalStatus(), row.lastProposalNote(),
                         row.lastProposalCreatedAt());
-        return new FmRentalOrderSummaryResponse(row.id(), row.status(), row.cancelReason(), row.expiresAt(),
+        return new FmRentalOrderSummaryResponse(row.id(), row.status(), row.cancelReason(), row.cancelNote(),
+                row.expiresAt(),
                 row.unitId(), row.unitCode(), row.requestId(), row.customerName(), row.customerEmail(),
                 row.customerPhone(),
                 ReproposalPolicy.canRepropose(row.status(), row.expiresAt(), row.needsReproposal(),

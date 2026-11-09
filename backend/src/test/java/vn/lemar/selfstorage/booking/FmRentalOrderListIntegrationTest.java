@@ -119,6 +119,35 @@ class FmRentalOrderListIntegrationTest {
                 .isInstanceOf(vn.lemar.selfstorage.identity.application.exception.ForbiddenException.class);
     }
 
+    @Test
+    void listReturnsCancelNoteFromCancellationAudit() {
+        long canceled = seedOrder(q7, "Canceled", base, false, null, null);
+        jdbc.update("""
+                insert into audit_logs (action, entity_type, entity_id, old_value, new_value, reason)
+                values ('RENTAL_ORDER_CANCELED', 'RentalOrder', ?, '{}'::jsonb,
+                    '{"status":"Canceled","cancelReason":"Khách báo không còn nhu cầu","note":"Đã gọi 3 lần"}'::jsonb,
+                    'Khách báo không còn nhu cầu')""", String.valueOf(canceled));
+
+        FmRentalOrderPageResponse page = service.ordersForFacilityManager(q7, "Canceled", 0, 20);
+
+        assertThat(page.items()).singleElement().satisfies(item -> {
+            assertThat(item.cancelReason()).isNull();
+            assertThat(item.cancelNote()).isEqualTo("Đã gọi 3 lần");
+        });
+    }
+
+    @Test
+    void listReturnsNullCancelNoteWhenAuditHasNoNote() {
+        long canceled = seedOrder(q7, "Canceled", base, false, null, null);
+        jdbc.update("""
+                insert into audit_logs (action, entity_type, entity_id, old_value, new_value, reason)
+                values ('RENTAL_ORDER_CANCELED', 'RentalOrder', ?, '{}'::jsonb,
+                    '{"status":"Canceled"}'::jsonb, null)""", String.valueOf(canceled));
+
+        assertThat(service.ordersForFacilityManager(q7, "Canceled", 0, 20).items())
+                .singleElement().satisfies(item -> assertThat(item.cancelNote()).isNull());
+    }
+
     private long seedOrder(long facilityId, String status, Instant expiresAt, boolean needsReproposal,
                            String proposalStatus, String note) {
         Long requestId = jdbc.queryForObject("""
