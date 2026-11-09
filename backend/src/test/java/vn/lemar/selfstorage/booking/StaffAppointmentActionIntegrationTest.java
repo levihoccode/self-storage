@@ -181,7 +181,7 @@ class StaffAppointmentActionIntegrationTest {
                 + "where entity_id = ? and action = 'APPOINTMENT_CANCELED_NO_SHOW'", String.valueOf(appointmentId));
         assertThat(audit.get("actor_account_id")).isNull();
         assertThat(jdbc.queryForObject("select count(*) from notifications where account_id = ? and type = "
-                + "'APPOINTMENT_CANCELED_NO_SHOW'", Long.class, customerId)).isEqualTo(1L);
+                + "'APPOINTMENT_NO_SHOW_ORDER_OUTCOME'", Long.class, customerId)).isEqualTo(1L);
     }
 
     @Test

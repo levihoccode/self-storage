@@ -87,6 +87,11 @@ public class NotificationTemplateCatalog {
         put(NotificationType.APPOINTMENT_CANCELED_NO_SHOW, NotificationRecipient.CUSTOMER,
                 "Lịch hẹn check-in đã bị hủy do bạn không đến",
                 "Lịch hẹn cũ: {{appointmentTime}}. Bạn có thể đặt lịch mới tại {{rescheduleLink}}.");
+        put(NotificationType.APPOINTMENT_NO_SHOW_ORDER_OUTCOME, NotificationRecipient.CUSTOMER,
+                "Lịch hẹn bị hủy do bạn không đến",
+                "Lịch hẹn {{appointmentTime}} đã bị hủy vì bạn không đến. "
+                        + "Đơn {{orderCode}} {{orderOutcome}}. Lý do: {{reason}}. "
+                        + "Bạn có thể đặt lịch mới tại {{rescheduleLink}}.");
         put(NotificationType.FS_ASSIGNED, NotificationRecipient.FS,
                 "Bạn được phân công lịch check-in",
                 "Đơn {{orderCode}}: lịch hẹn {{appointmentTime}} tại {{facilityAddress}}, khoang {{unitCode}}.");

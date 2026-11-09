@@ -57,6 +57,10 @@ class RentalOrderCancellation {
      * @param actorAccountId người gây ra việc huỷ; {@code null} = hệ thống/cron
      */
     void cancel(RentalOrder order, String reason, Long actorAccountId) {
+        cancel(order, reason, actorAccountId, true);
+    }
+
+    void cancel(RentalOrder order, String reason, Long actorAccountId, boolean notifyCustomer) {
         String oldStatus = order.getStatus().dbValue();
         // Chụp trước khi đổi status: đơn chỉ giữ khoang khi đang ở Deposited/Scheduled/InProgress.
         boolean heldUnit = order.holdsUnit();
@@ -101,7 +105,9 @@ class RentalOrderCancellation {
                 ? reason + ". Tiền cọc không được hoàn" : reason;
         Map<String, String> values = Map.of("orderCode", OrderNotifier.orderCode(order),
                 "outcome", OUTCOME_CANCELED, "reason", notifyReason);
-        orderNotifier.notifyCustomer(order, NotificationType.RENTAL_ORDER_CANCELED, values);
+        if (notifyCustomer) {
+            orderNotifier.notifyCustomer(order, NotificationType.RENTAL_ORDER_CANCELED, values);
+        }
         orderNotifier.notifyFacilityManager(order.getId(), NotificationType.RENTAL_ORDER_CANCELED, values);
     }
 

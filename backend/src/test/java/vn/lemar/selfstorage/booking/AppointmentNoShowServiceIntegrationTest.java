@@ -114,10 +114,14 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat(audit.get("new_status")).isEqualTo("Canceled");
         assertThat(audit.get("reason")).isEqualTo("Quá giờ và khách không đến");
 
+        assertThat(orderStatus()).isEqualTo("Deposited");
         Map<String, Object> notification = jdbc.queryForMap(
                 "select type, title, body from notifications where account_id = ?", customerId);
-        assertThat(notification.get("type")).isEqualTo("APPOINTMENT_CANCELED_NO_SHOW");
-        assertThat((String) notification.get("body")).contains("http://localhost:5173/appointments/new");
+        assertThat(notification.get("type")).isEqualTo("APPOINTMENT_NO_SHOW_ORDER_OUTCOME");
+        assertThat((String) notification.get("body"))
+                .contains(String.valueOf(orderId))
+                .contains("vẫn được giữ ở trạng thái Đã cọc")
+                .contains("http://localhost:5173/appointments/new");
         assertThat(jdbc.queryForObject("select order_id from order_notifications where notification_id = "
                 + "(select id from notifications where account_id = ?)", Long.class, customerId)).isEqualTo(orderId);
     }
@@ -162,6 +166,85 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat(service.findDueIds()).containsExactly(dueId);
         assertThat(jdbc.queryForObject("select count(*) from notifications where account_id = ?", Long.class,
                 customerId)).isZero();
+    }
+
+    @Test
+    void noShowPastOrderExpiryRunsCancellationCascade() {
+        long unitId = jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
+        jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
+        jdbc.update("update rental_orders set expires_at = now() - interval '1 hour' where id = ?", orderId);
+
+        assertThat(service.cancelIfDue(dueId)).isTrue();
+        entityManager.flush();
+
+        assertThat(orderStatus()).isEqualTo("Canceled");
+        assertThat(jdbc.queryForObject("select cancel_reason from rental_orders where id = ?", String.class,
+                orderId)).isEqualTo("Đơn hết hạn và khách không đến theo lịch bàn giao");
+        assertThat(unitStatus(unitId)).isEqualTo("Available");
+        assertThat(notificationCount("APPOINTMENT_NO_SHOW_ORDER_OUTCOME")).isEqualTo(1L);
+        assertThat(notificationCount("RENTAL_ORDER_CANCELED")).isZero();
+        assertThat(notificationCountFor("fm1@lemar.vn", "RENTAL_ORDER_CANCELED")).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select body from notifications where account_id = ? "
+                + "and type = 'APPOINTMENT_NO_SHOW_ORDER_OUTCOME'", String.class, customerId))
+                .contains("đã bị hủy vì hết hạn giữ kho");
+    }
+
+    @Test
+    void noShowLeavesScheduledOrderUntouched() {
+        jdbc.update("update rental_orders set status = 'Scheduled' where id = ?", orderId);
+
+        assertThat(service.cancelIfDue(dueId)).isTrue();
+        entityManager.flush();
+
+        assertThat(orderStatus()).isEqualTo("Scheduled");
+        assertThat(auditCount("RENTAL_ORDER_DEPOSITED")).isZero();
+        assertThat(auditCount("APPOINTMENT_CANCELED_NO_SHOW")).isEqualTo(1L);
+    }
+
+    @Test
+    void noShowLeavesHandoverUntouched() {
+        long unitId = jdbc.queryForObject("select unit_id from rental_orders where id = ?", Long.class, orderId);
+        long recordId = jdbc.queryForObject("""
+                insert into handover_records (order_id, appointment_id, unit_id, result)
+                values (?, ?, ?, 'IN_PROGRESS') returning id""",
+                Long.class, orderId, dueId, unitId);
+
+        assertThat(service.cancelIfDue(dueId)).isTrue();
+        entityManager.flush();
+
+        assertThat(orderStatus()).isEqualTo("Deposited");
+        assertThat(jdbc.queryForObject("select reason from audit_logs where action = 'RENTAL_ORDER_DEPOSITED'",
+                String.class))
+                .isEqualTo("Đơn quay về Đặt cọc do khách không đến theo lịch hẹn bàn giao");
+        assertThat(jdbc.queryForObject("select result from handover_records where id = ?", String.class, recordId))
+                .isEqualTo("IN_PROGRESS");
+        assertThat(auditCount("HANDOVER_CANCELED")).isZero();
+        assertThat(auditCount("RENTAL_ORDER_DEPOSITED")).isEqualTo(1L);
+    }
+
+    private String orderStatus() {
+        return jdbc.queryForObject("select status from rental_orders where id = ?", String.class, orderId);
+    }
+
+    private String unitStatus(long unitId) {
+        return jdbc.queryForObject("select status from storage_units where id = ?", String.class, unitId);
+    }
+
+    private long auditCount(String action) {
+        return jdbc.queryForObject("select count(*) from audit_logs where action = ?", Long.class, action);
+    }
+
+    private long notificationCount(String type) {
+        return jdbc.queryForObject("select count(*) from notifications where account_id = ? and type = ?",
+                Long.class, customerId, type);
+    }
+
+    private long notificationCountFor(String email, String type) {
+        return jdbc.queryForObject("""
+                select count(*) from notifications n
+                join accounts a on a.id = n.account_id
+                where a.email = ? and n.type = ?
+                """, Long.class, email, type);
     }
 
     private long accountId(String email) {
