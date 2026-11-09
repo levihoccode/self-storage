@@ -27,7 +27,7 @@ import { SupportRequestQueuePage } from "./pages/fm/SupportRequestQueuePage";
 import { StorageUnitManagementPage } from "./pages/fm/StorageUnitManagementPage";
 import { StaffListPage } from "./pages/fm/StaffListPage";
 import { FacilityReportPage } from "./pages/fm/FacilityReportPage";
-import { FacilityInvoicesPage } from "./pages/fm/FacilityInvoicesPage";
+import { TransactionHistoryPage } from "./pages/fm/TransactionHistoryPage";
 import { CustomerContractOverviewPage } from "./pages/fm/CustomerContractOverviewPage";
 import { DailySchedulePage } from "./pages/fs/DailySchedulePage";
 import { HandoverChecklistPage } from "./pages/fs/HandoverChecklistPage";
@@ -139,7 +139,7 @@ function App() {
     view === "fm-storage-units" ||
     view === "fm-staff" ||
     view === "fm-reports" ||
-    view === "fm-invoices" ||
+    view === "fm-transactions" ||
     view === "fm-contracts";
   const isFsView = view === "fs-schedule" || view === "fs-handover";
   const isAdminView = view === "admin-payments";
@@ -226,7 +226,7 @@ function App() {
           {view === "fm-storage-units" && <StorageUnitManagementPage navigate={navigate} />}
           {view === "fm-staff" && <StaffListPage />}
           {view === "fm-reports" && <FacilityReportPage navigate={navigate} />}
-          {view === "fm-invoices" && <FacilityInvoicesPage />}
+          {view === "fm-transactions" && <TransactionHistoryPage />}
           {view === "fm-contracts" && <CustomerContractOverviewPage navigate={navigate} />}
           {isNotificationView && <NotificationsPage navigate={navigate} />}
         </FmShell>

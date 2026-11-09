@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   BarChart3,
   Bell,
   CalendarClock,
@@ -6,7 +7,6 @@ import {
   ClipboardList,
   Inbox,
   LifeBuoy,
-  Receipt,
   Undo2,
   UserSquare2,
   Users,
@@ -72,7 +72,13 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
   },
   { label: "Nhân viên FS", path: "/fm/staff", view: "fm-staff", icon: Users, ready: true },
   { label: "Báo cáo cơ sở", path: "/fm/reports", view: "fm-reports", icon: BarChart3, ready: true },
-  { label: "Hoá đơn cơ sở", path: "/fm/invoices", view: "fm-invoices", icon: Receipt, ready: true },
+  {
+    label: "Lịch sử giao dịch",
+    path: "/fm/transactions",
+    view: "fm-transactions",
+    icon: ArrowLeftRight,
+    ready: true,
+  },
   {
     label: "Khách hàng & hợp đồng",
     path: "/fm/contracts",

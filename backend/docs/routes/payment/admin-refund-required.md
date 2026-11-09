@@ -8,7 +8,9 @@ Trả các invoice trong queue hoàn tiền, kèm giao dịch `PAY` gần nhất
 Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 
 - **Actor / quyền:** ADMIN: cross-facility, `view=active|history`. FM: bắt buộc `facilityId`,
-  `payment_transaction.refund` + facility scope, chỉ `view=active`.
+  `payment_transaction.refund` + facility scope, chỉ `view=active`. FS: không thuộc route này
+  (`403`); FS vào hoàn tiền từ task được gán, không qua queue — xem
+  [follow-up.md](../../follow-up.md) › FS tasks.
 - **Contract chi tiết:** annotation tại `RefundQueueController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 

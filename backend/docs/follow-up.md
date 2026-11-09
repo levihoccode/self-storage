@@ -52,6 +52,10 @@ thì mở issue theo workflow; file này không thay thế issue.
 
 - Chưa có bảng task/assignment cho FS. Refund queue FM hiện read-only; chưa biết FS nào xử lý
   invoice nào. Cần bảng `fs_tasks` dùng chung cho refund, handover, return, support…; tách issue riêng.
+- FS **không đọc** `GET /api/refunds/queues/invoices` (chỉ ADMIN/FM). Refund task mang sẵn
+  `invoiceId`, amount, reason, requestedAt; bấm task mở thẳng form handover, không cần màn danh sách
+  refund riêng. Task phải được tạo khi invoice vào `Required`/`Processing` — nếu chỉ dựa vào
+  assignment thủ công, khoản hoàn có thể mồ côi.
 - Khi có assignment, handover refund phải kiểm `assigned_fs_id`, không chỉ facility permission.
 
 ## Audit
