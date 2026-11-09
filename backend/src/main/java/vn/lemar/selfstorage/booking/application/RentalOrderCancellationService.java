@@ -24,8 +24,17 @@ public class RentalOrderCancellationService {
 
     @Transactional
     public void cancel(Long orderId, String reason) {
+        cancel(orderId, reason, true);
+    }
+
+    /**
+     * @param notifyCustomer false khi caller đã gửi notification tổng hợp cho khách; FM vẫn nhận
+     *                       {@code RENTAL_ORDER_CANCELED}.
+     */
+    @Transactional
+    public void cancel(Long orderId, String reason, boolean notifyCustomer) {
         RentalOrder order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(RentalOrderNotFoundException::new);
-        cancellation.cancel(order, reason, null);
+        cancellation.cancel(order, reason, null, notifyCustomer);
     }
 }

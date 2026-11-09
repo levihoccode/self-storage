@@ -114,10 +114,14 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat(audit.get("new_status")).isEqualTo("Canceled");
         assertThat(audit.get("reason")).isEqualTo("Quá giờ và khách không đến");
 
+        assertThat(orderStatus()).isEqualTo("Deposited");
         Map<String, Object> notification = jdbc.queryForMap(
                 "select type, title, body from notifications where account_id = ?", customerId);
-        assertThat(notification.get("type")).isEqualTo("APPOINTMENT_CANCELED_NO_SHOW");
-        assertThat((String) notification.get("body")).contains("http://localhost:5173/appointments/new");
+        assertThat(notification.get("type")).isEqualTo("APPOINTMENT_NO_SHOW_ORDER_OUTCOME");
+        assertThat((String) notification.get("body"))
+                .contains(String.valueOf(orderId))
+                .contains("vẫn được giữ ở trạng thái Đã cọc")
+                .contains("http://localhost:5173/appointments/new");
         assertThat(jdbc.queryForObject("select order_id from order_notifications where notification_id = "
                 + "(select id from notifications where account_id = ?)", Long.class, customerId)).isEqualTo(orderId);
     }
@@ -177,8 +181,12 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat(jdbc.queryForObject("select cancel_reason from rental_orders where id = ?", String.class,
                 orderId)).isEqualTo("Đơn hết hạn và khách không đến theo lịch bàn giao");
         assertThat(unitStatus(unitId)).isEqualTo("Available");
-        assertThat(notificationCount("APPOINTMENT_CANCELED_NO_SHOW")).isEqualTo(1L);
-        assertThat(notificationCount("RENTAL_ORDER_CANCELED")).isEqualTo(1L);
+        assertThat(notificationCount("APPOINTMENT_NO_SHOW_ORDER_OUTCOME")).isEqualTo(1L);
+        assertThat(notificationCount("RENTAL_ORDER_CANCELED")).isZero();
+        assertThat(notificationCountFor("fm1@lemar.vn", "RENTAL_ORDER_CANCELED")).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select body from notifications where account_id = ? "
+                + "and type = 'APPOINTMENT_NO_SHOW_ORDER_OUTCOME'", String.class, customerId))
+                .contains("đã bị hủy vì hết hạn giữ kho");
     }
 
     @Test
@@ -229,6 +237,14 @@ class AppointmentNoShowServiceIntegrationTest {
     private long notificationCount(String type) {
         return jdbc.queryForObject("select count(*) from notifications where account_id = ? and type = ?",
                 Long.class, customerId, type);
+    }
+
+    private long notificationCountFor(String email, String type) {
+        return jdbc.queryForObject("""
+                select count(*) from notifications n
+                join accounts a on a.id = n.account_id
+                where a.email = ? and n.type = ?
+                """, Long.class, email, type);
     }
 
     private long accountId(String email) {
