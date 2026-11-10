@@ -19,13 +19,13 @@ class AdminRecipientQueryTest {
 
     @Test
     void returnsActiveAdminRecipients() {
-        Account admin = new Account("admin@lemar.vn", "hash", new Role(RoleName.ADMIN.name()));
+        Account admin = new Account("admin@example.com", "hash", new Role(RoleName.ADMIN.name()));
         when(accounts.findByRoleNameAndStatus(RoleName.ADMIN.name(), AccountStatus.ACTIVE))
                 .thenReturn(List.of(admin));
 
         List<AdminRecipient> result = query.activeAdmins();
 
         assertThat(result).singleElement()
-                .satisfies(recipient -> assertThat(recipient.email()).isEqualTo("admin@lemar.vn"));
+                .satisfies(recipient -> assertThat(recipient.email()).isEqualTo("admin@example.com"));
     }
 }

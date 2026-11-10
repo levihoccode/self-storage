@@ -33,8 +33,8 @@ purpose: Đăng nhập bằng email + mật khẩu, trả access token (JWT).
 - Token chỉ chứa claim `email`; role/status đọc từ DB ở mỗi request — xem
   [authentication.md › Xác thực mỗi request](../../authentication.md#xác-thực-mỗi-request).
 - FE lấy role qua [GET /api/auth/me](me.md) — role **không** có trong response login.
-- Account seed để test: `customer1@lemar.vn` / `Test@1234`; `unverified@lemar.vn` (403 — chưa xác
-  minh email) và `banned@lemar.vn` (403 — bị chặn).
+- Account seed để test: `customer1@example.com` / `Test@1234`; `unverified@example.com` (403 — chưa xác
+  minh email) và `banned@example.com` (403 — bị chặn).
 
 ## Ví dụ
 
@@ -42,19 +42,19 @@ purpose: Đăng nhập bằng email + mật khẩu, trả access token (JWT).
 # 200 — account seed
 curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"customer1@lemar.vn","password":"Test@1234"}'
-# {"message":"Đăng nhập thành công","data":{"accountId":6,"email":"customer1@lemar.vn","token":"eyJhbGciOiJIUzI1NiJ9..."}}
+  -d '{"email":"customer1@example.com","password":"Test@1234"}'
+# {"message":"Đăng nhập thành công","data":{"accountId":6,"email":"customer1@example.com","token":"eyJhbGciOiJIUzI1NiJ9..."}}
 
 # 401 — sai mật khẩu
 curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"customer1@lemar.vn","password":"sai-mat-khau"}'
+  -d '{"email":"customer1@example.com","password":"sai-mat-khau"}'
 # {"message":"Email hoặc mật khẩu không đúng","timestamp":"2026-10-04T08:14:27.947381536Z"}
 
-# 403 — account bị chặn (account seed: banned@lemar.vn)
+# 403 — account bị chặn (account seed: banned@example.com)
 # {"message":"Tài khoản đã bị chặn","timestamp":"2026-10-04T08:14:28.027349693Z"}
 
-# 403 — chưa xác minh email (account seed: unverified@lemar.vn)
+# 403 — chưa xác minh email (account seed: unverified@example.com)
 # {"message":"Tài khoản chưa xác minh email","timestamp":"2026-10-04T08:14:28.027349693Z"}
 
 # 429 — sai quá ngưỡng (5 lần/15 phút theo email hoặc 20 lần/15 phút theo IP)

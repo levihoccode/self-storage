@@ -44,10 +44,10 @@ class AppointmentAssignConcurrencyTest {
 
     @Test
     void twoConcurrentAssignsOnlyOneWins() throws Exception {
-        long fmId = accountId("fm1@lemar.vn");
-        long fs1 = accountId("fs1@lemar.vn");
+        long fmId = accountId("fm1@example.com");
+        long fs1 = accountId("fs1@example.com");
         long fs2 = secondStaffOfQ7(fs1);
-        long customerId = accountId("customer1@lemar.vn");
+        long customerId = accountId("customer1@example.com");
         long q7 = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
@@ -55,7 +55,7 @@ class AppointmentAssignConcurrencyTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                         (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, q7, unitId);
         long orderId = jdbc.queryForObject("""
@@ -106,7 +106,7 @@ class AppointmentAssignConcurrencyTest {
         return () -> {
             start.await();
             SecurityContextHolder.getContext().setAuthentication(
-                    UsernamePasswordAuthenticationToken.authenticated("fm1@lemar.vn", null, List.of()));
+                    UsernamePasswordAuthenticationToken.authenticated("fm1@example.com", null, List.of()));
             try {
                 return service.assignStaff(appointmentId, staffId, actorId);
             } catch (RuntimeException ex) {
@@ -124,7 +124,7 @@ class AppointmentAssignConcurrencyTest {
     private long secondStaffOfQ7(long fsId) {
         long id = jdbc.queryForObject("""
                 insert into accounts (email, password_hash, email_verified_at, role_id, status)
-                values ('fs2@lemar.vn', (select password_hash from accounts where id = ?), now(),
+                values ('fs2@example.com', (select password_hash from accounts where id = ?), now(),
                         (select id from roles where name = 'FS'), 'ACTIVE') returning id""", Long.class, fsId);
         jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, "
                 + "(select id from facilities where code = 'Q7'))", id);

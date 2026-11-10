@@ -31,14 +31,14 @@ class BookingReadRepositoryQueueTest {
 
     @Test
     void enrichesRequestWithOrderAndLastProposal() {
-        long customer = accountId("customer1@lemar.vn");
+        long customer = accountId("customer1@example.com");
         long facility = facilityId("Q7");
         long unitType = unitTypeId("Small");
         long unit = unitId("A-01");
         long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, status)
-                values (?, 'Read Test', 'customer1@lemar.vn', '0901234567', ?, current_date, 6, 'Converted')
+                values (?, 'Read Test', 'customer1@example.com', '0901234567', ?, current_date, 6, 'Converted')
                 returning id
                 """, Long.class, facility, unitType);
         long orderId = jdbc.queryForObject("""
@@ -69,14 +69,14 @@ class BookingReadRepositoryQueueTest {
 
     @Test
     void enrichmentUsesLatestProposal() {
-        long customer = accountId("customer1@lemar.vn");
+        long customer = accountId("customer1@example.com");
         long facility = facilityId("Q7");
         long unitType = unitTypeId("Small");
         long unit = unitId("A-01");
         long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, status)
-                values (?, 'Read Test', 'customer1@lemar.vn', '0901234567', ?, current_date, 6, 'Converted')
+                values (?, 'Read Test', 'customer1@example.com', '0901234567', ?, current_date, 6, 'Converted')
                 returning id
                 """, Long.class, facility, unitType);
         long orderId = jdbc.queryForObject("""

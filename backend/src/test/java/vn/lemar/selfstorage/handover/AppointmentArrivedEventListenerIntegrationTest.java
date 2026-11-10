@@ -49,7 +49,7 @@ class AppointmentArrivedEventListenerIntegrationTest {
     void arriveSetsDueAtThroughPublishedEvent() {
         Fixture fixture = fixture();
         seedHandover(fixture);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         appointmentActions.arrive(fixture.appointmentId());
 
@@ -66,7 +66,7 @@ class AppointmentArrivedEventListenerIntegrationTest {
     @Test
     void arriveWithoutHandoverRecordStillSucceeds() {
         Fixture fixture = fixture();
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         appointmentActions.arrive(fixture.appointmentId());
 
@@ -90,14 +90,14 @@ class AppointmentArrivedEventListenerIntegrationTest {
     }
 
     private Fixture fixture() {
-        long fsId = accountId("fs1@lemar.vn");
-        long customerId = accountId("customer1@lemar.vn");
+        long fsId = accountId("fs1@example.com");
+        long customerId = accountId("customer1@example.com");
         long facilityId = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-02'", Long.class);
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                     (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, facilityId, unitId);
         long orderId = jdbc.queryForObject("""

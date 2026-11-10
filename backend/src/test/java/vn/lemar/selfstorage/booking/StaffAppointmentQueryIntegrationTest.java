@@ -52,15 +52,15 @@ class StaffAppointmentQueryIntegrationTest {
 
     @BeforeEach
     void seed() {
-        fsId = accountId("fs1@lemar.vn");
-        customerId = accountId("customer1@lemar.vn");
+        fsId = accountId("fs1@example.com");
+        customerId = accountId("customer1@example.com");
         q7 = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
 
         fs2Id = jdbc.queryForObject("""
                 insert into accounts (email, password_hash, email_verified_at, role_id, status, name)
-                values ('fs2@lemar.vn', (select password_hash from accounts where id = ?), now(),
+                values ('fs2@example.com', (select password_hash from accounts where id = ?), now(),
                         (select id from roles where name = 'FS'), 'ACTIVE', 'FS 2') returning id""",
                 Long.class, fsId);
         jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, ?)",
@@ -69,7 +69,7 @@ class StaffAppointmentQueryIntegrationTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                         (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, q7, unitId);
         orderId = jdbc.queryForObject("""
@@ -96,7 +96,7 @@ class StaffAppointmentQueryIntegrationTest {
 
     @Test
     void returnsOnlyCurrentStaffAppointments() {
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         List<StaffAppointmentResponse> result = service.listForCurrentStaff(day);
 
@@ -113,7 +113,7 @@ class StaffAppointmentQueryIntegrationTest {
             assertThat(row.facility().id()).isEqualTo(q7);
             assertThat(row.facility().name()).isEqualTo("Self Storage Quận 7");
             assertThat(row.customer().name()).isEqualTo("Khách Demo");
-            assertThat(row.customer().email()).isEqualTo("customer1@lemar.vn");
+            assertThat(row.customer().email()).isEqualTo("customer1@example.com");
             assertThat(row.customer().phone()).isEqualTo("0900000000");
         });
         assertThat(result).extracting(StaffAppointmentResponse::id).doesNotContain(otherAppointmentId);
@@ -127,7 +127,7 @@ class StaffAppointmentQueryIntegrationTest {
                 values (?, ?, ?, 'CHECKIN', ?, now() - interval '3 hours', now() - interval '1 hour',
                         'Pending') returning id""",
                 Long.class, customerId, q7, fsId, today);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         List<StaffAppointmentResponse> result = service.listForCurrentStaff(today);
 
@@ -143,7 +143,7 @@ class StaffAppointmentQueryIntegrationTest {
         jdbc.update("update appointments set status = 'Canceled', "
                 + "cancel_reason = 'Quá giờ và khách không đến' where id = ?",
                 appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         List<StaffAppointmentResponse> result = service.listForCurrentStaff(day);
 
@@ -160,7 +160,7 @@ class StaffAppointmentQueryIntegrationTest {
                 insert into appointments (customer_id, facility_id, staff_id, type, date, started_at, end_at, status)
                 values (?, ?, ?, 'CHECKIN', ?, ?::timestamptz, ?::timestamptz, 'Pending') returning id""",
                 Long.class, customerId, q7, fsId, today, today + "T08:00:00+07:00", today + "T10:00:00+07:00");
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         List<StaffAppointmentResponse> result = service.listForCurrentStaff(null);
 

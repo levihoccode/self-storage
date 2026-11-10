@@ -50,7 +50,7 @@ class DepositPaymentListenerTest {
     private static final Long ORDER_ID = 200L;
     private static final Long UNIT_ID = 300L;
     private static final Long CUSTOMER_ID = 7L;
-    private static final String CUSTOMER_EMAIL = "customer1@lemar.vn";
+    private static final String CUSTOMER_EMAIL = "customer1@example.com";
 
     private final InvoiceRepository invoices = mock(InvoiceRepository.class);
     private final RentalOrderRepository orders = mock(RentalOrderRepository.class);

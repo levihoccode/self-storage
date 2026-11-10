@@ -35,6 +35,14 @@ class MigrationTest {
             "refund_transactions", "refund_obligations", "refund_obligation_lines", "audit_logs",
             "notifications", "order_notifications");
 
+    /**
+     * Khách seed duy nhất {@code ACTIVE} + đã xác minh. Chọn theo vai trò/trạng thái để test chạy được ở mốc
+     * migration trước V27 (lúc email seed còn tên miền cũ).
+     */
+    private static final String SEED_CUSTOMER = "select id from accounts"
+            + " where role_id = (select id from roles where name = 'CUSTOMER')"
+            + " and status = 'ACTIVE' and email_verified_at is not null";
+
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
@@ -99,8 +107,8 @@ class MigrationTest {
             long orderId;
             try (PreparedStatement statement = connection.prepareStatement("""
                     insert into rental_orders (request_id, customer_id, unit_id, status)
-                    values (?, (select id from accounts where email = 'customer1@lemar.vn'), 1, 'Deposited')
-                    returning id""")) {
+                    values (?, (%s), 1, 'Deposited')
+                    returning id""".formatted(SEED_CUSTOMER))) {
                 statement.setLong(1, requestId);
                 try (ResultSet rs = statement.executeQuery()) {
                     rs.next();
@@ -109,7 +117,7 @@ class MigrationTest {
             }
             try (PreparedStatement statement = connection.prepareStatement("""
                     insert into proposal_feedbacks (order_id, customer_id, unit_id, status)
-                    values (?, (select id from accounts where email = 'customer1@lemar.vn'), 1, 'Expired')""")) {
+                    values (?, (%s), 1, 'Expired')""".formatted(SEED_CUSTOMER))) {
                 statement.setLong(1, orderId);
                 statement.executeUpdate();
             }
@@ -148,6 +156,8 @@ class MigrationTest {
             assertThat(count(connection, "notifications")).isZero();
             assertThat(count(connection, "roles")).isEqualTo(5);
             assertThat(count(connection, "accounts")).isEqualTo(8);
+            // V27: cả 8 account seed đã chuyển sang tên miền example.com.
+            assertThat(countWhere(connection, "accounts", "email like '%@example.com'")).isEqualTo(8);
             assertThat(count(connection, "facilities")).isEqualTo(2);
             assertThat(count(connection, "unit_types")).isEqualTo(3);
             assertThat(count(connection, "storage_units")).isEqualTo(8);

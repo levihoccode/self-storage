@@ -8,7 +8,7 @@
 --   Get-Content backend\sql\dev\proposal-sample.sql -Raw |
 --     docker compose exec -T postgres psql -U self_storage -d self_storage
 --
--- Tạo ra (cơ sở Q7, FM = fm1@lemar.vn, khách = customer1@lemar.vn):
+-- Tạo ra (cơ sở Q7, FM = fm1@example.com, khách = customer1@example.com):
 --   Đơn 1: proposal A-01 Pending           → thử khách Đồng ý / Từ chối
 --   Đơn 2: proposal C-01 Pending (khoang Maintenance) → thử nhánh khoang hết Available
 --   Đơn 3: proposal A-02 Rejected          → thử FM đề xuất lại (chọn lại A-02 cần lý do override)
@@ -20,7 +20,7 @@ BEGIN;
 WITH ctx AS (
     SELECT (SELECT id FROM facilities WHERE code = 'Q7')                  AS facility_id,
            (SELECT id FROM unit_types WHERE name = 'Small')               AS small_type,
-           (SELECT id FROM accounts WHERE email = 'customer1@lemar.vn')   AS customer_id
+           (SELECT id FROM accounts WHERE email = 'customer1@example.com')   AS customer_id
 ),
 sample (label, unit_code, proposal_status, note) AS (
     VALUES ('don-1', 'A-01', 'Pending',  NULL),
@@ -30,7 +30,7 @@ sample (label, unit_code, proposal_status, note) AS (
 req AS (
     INSERT INTO rental_requests (facility_id, customer_name, normalized_customer_email, customer_phone,
                                  unit_type_id, start_date, period, unit_id, status)
-    SELECT ctx.facility_id, 'Khách mẫu ' || s.label, 'customer1@lemar.vn', '0900000000', ctx.small_type,
+    SELECT ctx.facility_id, 'Khách mẫu ' || s.label, 'customer1@example.com', '0900000000', ctx.small_type,
            current_date + 7, 3, (SELECT id FROM storage_units WHERE code = s.unit_code), 'Converted'
     FROM ctx CROSS JOIN sample s
     RETURNING id, customer_name

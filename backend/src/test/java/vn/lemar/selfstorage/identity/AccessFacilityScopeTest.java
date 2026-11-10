@@ -72,40 +72,40 @@ class AccessFacilityScopeTest {
 
     @Test
     void fmAccessesOwnFacilityViaFmAccountId() throws Exception {
-        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fm1@lemar.vn")))
+        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("pong"))
                 .andExpect(jsonPath("$.data.facilityId").value(q7));
-        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fm2@lemar.vn")))
+        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fm2@example.com")))
                 .andExpect(status().isOk());
     }
 
     @Test
     void fmBlockedOnOtherFacility() throws Exception {
-        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fm1@lemar.vn")))
+        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fm1@example.com")))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fm2@lemar.vn")))
+        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fm2@example.com")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void fsAccessesAssignedFacilityOnly() throws Exception {
-        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fs1@lemar.vn")))
+        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("fs1@example.com")))
                 .andExpect(status().isOk());
-        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fs1@lemar.vn")))
+        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("fs1@example.com")))
                 .andExpect(status().isForbidden());
     }
     @Test
     void customerBlocked() throws Exception {
-        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("customer1@lemar.vn")))
+        mockMvc.perform(get(PING + q7).header("Authorization", bearerOf("customer1@example.com")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void adminAndBomAccessAnyFacilityWithoutAssignment() throws Exception {
-        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("admin@lemar.vn")))
+        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("admin@example.com")))
                 .andExpect(status().isOk());
-        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("bom1@lemar.vn")))
+        mockMvc.perform(get(PING + td).header("Authorization", bearerOf("bom1@example.com")))
                 .andExpect(status().isOk());
     }
     @Test
@@ -116,18 +116,18 @@ class AccessFacilityScopeTest {
 
     @Test
     void unknownFacilityReturns404AfterPermissionCheck() throws Exception {
-        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("fm1@lemar.vn")))
+        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("fm1@example.com")))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("admin@lemar.vn")))
+        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("admin@example.com")))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("customer1@lemar.vn")))
+        mockMvc.perform(get(PING + 999999L).header("Authorization", bearerOf("customer1@example.com")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void fmBlockedFromCreatingOtherNotification() throws Exception {
         mockMvc.perform(post("/api/notifications")
-                        .header("Authorization", bearerOf("fm1@lemar.vn"))
+                        .header("Authorization", bearerOf("fm1@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(otherBody()))
                 .andExpect(status().isForbidden());
@@ -136,7 +136,7 @@ class AccessFacilityScopeTest {
     @Test
     void bomCreatesOtherNotification() throws Exception {
         mockMvc.perform(post("/api/notifications")
-                        .header("Authorization", bearerOf("bom1@lemar.vn"))
+                        .header("Authorization", bearerOf("bom1@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(otherBody()))
                 .andExpect(status().isOk())
@@ -144,6 +144,6 @@ class AccessFacilityScopeTest {
     }
 
     private String otherBody() {
-        return "{\"recipientEmail\":\"customer1@lemar.vn\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
+        return "{\"recipientEmail\":\"customer1@example.com\",\"title\":\"Bảo trì\",\"body\":\"Nội dung\"}";
     }
 }

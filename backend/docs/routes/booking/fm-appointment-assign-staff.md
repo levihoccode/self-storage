@@ -32,7 +32,7 @@ Body `{ "staffId": 5 }`.
 ## Ví dụ
 
 ```bash
-TOKEN='<token của fm1@lemar.vn>'
+TOKEN='<token của fm1@example.com>'
 
 # 400 — staffId là tài khoản FM, không phải FS của cơ sở
 curl -s -X POST http://localhost:8080/api/fm/appointments/1/staff -H "Authorization: Bearer $TOKEN" \
@@ -42,14 +42,14 @@ curl -s -X POST http://localhost:8080/api/fm/appointments/1/staff -H "Authorizat
 # 200 — gán fs1
 curl -s -X POST http://localhost:8080/api/fm/appointments/1/staff -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"staffId":5}'
-# {"message":"Đã phân công nhân viên phụ trách lịch hẹn","data":{"id":1,"type":"CHECKIN","status":"Pending","date":"2026-10-27","startedAt":"2026-10-27T01:00:00Z","endAt":"2026-10-27T03:00:00Z","orderId":1,"orderStatus":"InProgress","unitCode":"A-01","customerEmail":"customer1@lemar.vn","staffId":5,"staffEmail":"fs1@lemar.vn"}}
+# {"message":"Đã phân công nhân viên phụ trách lịch hẹn","data":{"id":1,"type":"CHECKIN","status":"Pending","date":"2026-10-27","startedAt":"2026-10-27T01:00:00Z","endAt":"2026-10-27T03:00:00Z","orderId":1,"orderStatus":"InProgress","unitCode":"A-01","customerEmail":"customer1@example.com","staffId":5,"staffEmail":"fs1@example.com"}}
 
 # 409 — gọi lại khi lịch đã có FS (đúng FS đó, hoặc đổi sang FS khác như staffId 9 — cùng một câu)
 curl -s -X POST http://localhost:8080/api/fm/appointments/1/staff -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"staffId":5}'
 # {"message":"Lịch hẹn đã có FS phụ trách","timestamp":"2026-11-03T09:02:55.556912500Z"}
 
-# 403 — fm2@lemar.vn (cơ sở TD)
+# 403 — fm2@example.com (cơ sở TD)
 # {"message":"Bạn không được gán vào cơ sở này","timestamp":"2026-10-23T08:44:52.890730500Z"}
 
 # 404 — lịch không tồn tại

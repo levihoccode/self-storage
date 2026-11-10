@@ -36,7 +36,7 @@ Body `{ "unitId": 3, "overrideReason": "..." }` — tạo `ProposalFeedback` `Pe
 ## Ví dụ
 
 ```bash
-TOKEN='<token của fm1@lemar.vn>'
+TOKEN='<token của fm1@example.com>'
 
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"unitId":2}' http://localhost:8080/api/rental-orders/3/proposals
@@ -49,7 +49,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 # Gọi tiếp khi proposal 4 còn Pending
 # {"message":"Đơn đang có đề xuất chờ khách phản hồi","timestamp":"2026-10-15T15:04:26.673177400Z"}
 
-# customer1@lemar.vn gọi (không có permission proposal_feedback.repropose)
+# customer1@example.com gọi (không có permission proposal_feedback.repropose)
 # {"message":"Bạn không có quyền thực hiện thao tác này","timestamp":"2026-10-15T15:04:26.829600200Z"}
 
 # Đơn 1: khách đã đồng ý A-01, hoá đơn cọc INV-DEP-Q7-261015-FCGZ4F còn Unpaid → FM đề xuất A-04

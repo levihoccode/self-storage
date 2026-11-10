@@ -49,7 +49,7 @@ class AdminRefundPaymentIntegrationTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, status)
-                values (1, 'Khách refund', 'customer1@lemar.vn', '0901234567', 1, current_date, 6, 'Converted')
+                values (1, 'Khách refund', 'customer1@example.com', '0901234567', 1, current_date, 6, 'Converted')
                 returning id
                 """, Long.class);
         Long orderId = jdbc.queryForObject("""
@@ -75,7 +75,7 @@ class AdminRefundPaymentIntegrationTest {
     @Test
     void adminSeesRefundRequiredInvoice() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy danh sách khoản cần hoàn tiền thành công"))
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -90,7 +90,7 @@ class AdminRefundPaymentIntegrationTest {
     @Test
     void refundDoesNotLeakIntoPendingQueue() throws Exception {
         mockMvc.perform(get("/api/admin/payments/pending")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(0))
                 .andExpect(jsonPath("$.data.totalElements").value(0));
@@ -101,14 +101,14 @@ class AdminRefundPaymentIntegrationTest {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("page", "0")
                         .param("size", "0")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void fmWithoutFacilityIsRejected() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -116,7 +116,7 @@ class AdminRefundPaymentIntegrationTest {
     void fmSeesRefundRequiredForOwnFacility() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].invoiceCode").value("INV-ADMIN-REFUND"));
@@ -126,7 +126,7 @@ class AdminRefundPaymentIntegrationTest {
     void fmOfOtherFacilityCannotSeeRefundQueue() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@example.com")))
                 .andExpect(status().isForbidden());
     }
 
@@ -135,7 +135,7 @@ class AdminRefundPaymentIntegrationTest {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
                         .param("view", "history")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -143,7 +143,7 @@ class AdminRefundPaymentIntegrationTest {
     void customerCannotSeeFmRefundQueue() throws Exception {
         mockMvc.perform(get("/api/refunds/queues/invoices")
                         .param("facilityId", "1")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@example.com")))
                 .andExpect(status().isForbidden());
     }
 

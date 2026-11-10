@@ -18,7 +18,7 @@ Chi tiết một thông báo của account đang đăng nhập — gồm đầy 
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications/5
 # {"message":"Lấy chi tiết thông báo thành công","data":{"id":5,"type":"OTHER","title":"Bảo trì khẩn cấp","body":"Cơ sở tạm đóng để bảo trì ngày mai.","readAt":null,"createdAt":"2026-10-05T12:20:39.012401Z","orderId":null}}

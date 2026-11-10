@@ -44,7 +44,7 @@ class ProposalAgreeConcurrencyTest {
     @Test
     void twoConcurrentAgreesCreateOnlyOneDepositInvoice() throws Exception {
         long customerId = jdbc.queryForObject(
-                "select id from accounts where email = 'customer1@lemar.vn'", Long.class);
+                "select id from accounts where email = 'customer1@example.com'", Long.class);
         long facilityId = jdbc.queryForObject(
                 "select id from facilities where code = 'Q7'", Long.class);
         long smallType = jdbc.queryForObject(
@@ -57,7 +57,7 @@ class ProposalAgreeConcurrencyTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Concurrent', 'customer1@lemar.vn', '0900000000', ?, current_date + 1, 3, ?, 'Converted')
+                values (?, 'Concurrent', 'customer1@example.com', '0900000000', ?, current_date + 1, 3, ?, 'Converted')
                 returning id""", Long.class, facilityId, smallType, unitA);
         long orderId = jdbc.queryForObject("""
                 insert into rental_orders (request_id, customer_id, status, expires_at)

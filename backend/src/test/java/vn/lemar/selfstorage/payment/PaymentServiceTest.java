@@ -268,7 +268,7 @@ class PaymentServiceTest {
 
         var response = service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", paidAt, "79357284"), "admin@lemar.vn");
+                        "portal says paid", paidAt, "79357284"), "admin@example.com");
 
         assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(transaction.getGatewayTransactionNo()).isEqualTo("79357284");
@@ -281,7 +281,7 @@ class PaymentServiceTest {
 
         ArgumentCaptor<AuditEntry> auditEntry = ArgumentCaptor.forClass(AuditEntry.class);
         verify(audit).record(auditEntry.capture());
-        assertThat(auditEntry.getValue().reason()).contains("admin@lemar.vn");
+        assertThat(auditEntry.getValue().reason()).contains("admin@example.com");
         assertThat(auditEntry.getValue().newValue().toString())
                 .contains("paidAt", paidAt.toString());
     }
@@ -292,7 +292,7 @@ class PaymentServiceTest {
 
         var response = service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", paidAt, "GW-SAME-SECOND"), "admin@lemar.vn");
+                        "portal says paid", paidAt, "GW-SAME-SECOND"), "admin@example.com");
 
         assertThat(response.status()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(transaction.getPaidAt()).isEqualTo(paidAt);
@@ -305,7 +305,7 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", Instant.now(), "GW-RACE"), "admin@lemar.vn"))
+                        "portal says paid", Instant.now(), "GW-RACE"), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationConflictException.class)
                 .hasMessageContaining("xung đột");
     }
@@ -318,7 +318,7 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", Instant.now(), "GW-CHECK"), "admin@lemar.vn"))
+                        "portal says paid", Instant.now(), "GW-CHECK"), "admin@example.com"))
                 .isSameAs(failure);
     }
 
@@ -326,7 +326,7 @@ class PaymentServiceTest {
     void manualSuccessRequiresPaidAt() {
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", null, "GW-NO-PAIDAT"), "admin@lemar.vn"))
+                        "portal says paid", null, "GW-NO-PAIDAT"), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationValidationException.class)
                 .hasMessageContaining("paidAt");
 
@@ -339,7 +339,7 @@ class PaymentServiceTest {
     void manualSuccessRequiresGatewayTransactionNo() {
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", Instant.now(), "  "), "admin@lemar.vn"))
+                        "portal says paid", Instant.now(), "  "), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationValidationException.class)
                 .hasMessageContaining("gatewayTransactionNo");
 
@@ -353,7 +353,7 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
                         "portal says paid", Instant.now().plusSeconds(60), "GW-FUTURE"),
-                "admin@lemar.vn"))
+                "admin@example.com"))
                 .isInstanceOf(ManualReconciliationValidationException.class)
                 .hasMessageContaining("tương lai");
 
@@ -367,7 +367,7 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
                         "portal says paid", Instant.now().minusSeconds(60), "GW-PAST"),
-                "admin@lemar.vn"))
+                "admin@example.com"))
                 .isInstanceOf(ManualReconciliationValidationException.class)
                 .hasMessageContaining("trước thời điểm tạo giao dịch");
 
@@ -384,7 +384,7 @@ class PaymentServiceTest {
 
         var response = service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", paidAt, "GW-NEW"), "admin@lemar.vn");
+                        "portal says paid", paidAt, "GW-NEW"), "admin@example.com");
 
         assertThat(response.status()).isEqualTo(PaymentStatus.DUPLICATE);
         assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.DUPLICATE);
@@ -420,7 +420,7 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "portal says paid", Instant.now(), "GW-DUP"), "admin@lemar.vn"))
+                        "portal says paid", Instant.now(), "GW-DUP"), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationConflictException.class)
                 .hasMessageContaining("đã được dùng cho giao dịch khác");
 
@@ -433,7 +433,7 @@ class PaymentServiceTest {
     void manualFailureMarksTransactionFailedAndPublishesEvent() {
         var response = service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.FAILED,
-                        "portal says failed", null, null), "admin@lemar.vn");
+                        "portal says failed", null, null), "admin@example.com");
 
         assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.FAILED);
         assertThat(transaction.getFailureReason()).isEqualTo("manual: portal says failed");
@@ -445,24 +445,24 @@ class PaymentServiceTest {
     void manualFailureAuditRecordsTheAdminActor() {
         service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.FAILED,
-                        "portal says failed", null, null), "admin@lemar.vn");
+                        "portal says failed", null, null), "admin@example.com");
 
         ArgumentCaptor<AuditEntry> auditEntry = ArgumentCaptor.forClass(AuditEntry.class);
         verify(audit).record(auditEntry.capture());
         assertThat(auditEntry.getValue().action()).isEqualTo(AuditAction.PAYMENT_FAILED);
-        assertThat(auditEntry.getValue().reason()).contains("admin@lemar.vn");
+        assertThat(auditEntry.getValue().reason()).contains("admin@example.com");
     }
 
     @Test
     void manualReconcileRefusesAlreadySettledTransaction() {
         service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "first", Instant.now(), "GW-1"), "admin@lemar.vn");
+                        "first", Instant.now(), "GW-1"), "admin@example.com");
         reset(events);
 
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "second", Instant.now(), "GW-2"), "admin@lemar.vn"))
+                        "second", Instant.now(), "GW-2"), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationConflictException.class);
         verify(events, never()).publishEvent(any());
     }
@@ -473,7 +473,7 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> service.reconcileManually(TXN_REF,
                 new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                        "retry", Instant.now(), "GW-NEW"), "admin@lemar.vn"))
+                        "retry", Instant.now(), "GW-NEW"), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationConflictException.class)
                 .hasMessageContaining("Duplicate");
     }
@@ -484,7 +484,7 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> service.reconcileManually("missing",
                 new ManualReconciliationRequest(ManualReconciliationOutcome.FAILED,
-                        "not found", null, null), "admin@lemar.vn"))
+                        "not found", null, null), "admin@example.com"))
                 .isInstanceOf(ManualReconciliationNotFoundException.class);
     }
 

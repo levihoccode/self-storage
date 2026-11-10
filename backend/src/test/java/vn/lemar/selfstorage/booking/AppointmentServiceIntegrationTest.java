@@ -61,16 +61,16 @@ class AppointmentServiceIntegrationTest {
 
     @BeforeEach
     void seedScheduledOrderWithCheckinAppointment() {
-        fmId = accountId("fm1@lemar.vn");
-        fsId = accountId("fs1@lemar.vn");
-        long customerId = accountId("customer1@lemar.vn");
+        fmId = accountId("fm1@example.com");
+        fsId = accountId("fs1@example.com");
+        long customerId = accountId("customer1@example.com");
         q7 = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email, customer_phone,
                     unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                         (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, q7, unitId);
         orderId = jdbc.queryForObject("""
@@ -94,12 +94,12 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void assignStaffMovesOrderToInProgressAuditsAndNotifiesStaff() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         FmAppointmentResponse result = service.assignStaff(appointmentId, fsId, fmId);
 
         assertThat(result.staffId()).isEqualTo(fsId);
-        assertThat(result.staffEmail()).isEqualTo("fs1@lemar.vn");
+        assertThat(result.staffEmail()).isEqualTo("fs1@example.com");
         assertThat(result.orderStatus()).isEqualTo("InProgress");
         assertThat(jdbc.queryForObject("select staff_id from appointments where id = ?", Long.class, appointmentId))
                 .isEqualTo(fsId);
@@ -118,7 +118,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void assignStaffWritesOneAuditPerChangedEntity() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
         service.assignStaff(appointmentId, fsId, fmId);
 
         List<Map<String, Object>> audits = jdbc.queryForList(
@@ -142,7 +142,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void appointmentWithStaffCannotBeAssignedAgain() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
         service.assignStaff(appointmentId, fsId, fmId);
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, fmId))
@@ -154,7 +154,7 @@ class AppointmentServiceIntegrationTest {
     @Test
     void appointmentWithStaffCannotBeReassignedToAnotherStaff() {
         long otherFsId = secondStaffOfQ7();
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
         service.assignStaff(appointmentId, fsId, fmId);
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, otherFsId, fmId))
@@ -170,7 +170,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void accountThatIsNotStaffOfTheFacilityIsRejected() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, fmId, fmId))
                 .isInstanceOf(AppointmentValidationException.class)
@@ -180,16 +180,16 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void managerOfAnotherFacilityIsForbidden() {
-        loginAs("fm2@lemar.vn");
+        loginAs("fm2@example.com");
 
-        assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, accountId("fm2@lemar.vn")))
+        assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, accountId("fm2@example.com")))
                 .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
     void orderNotWaitingForAssignmentConflicts() {
         jdbc.update("update rental_orders set status = 'Deposited' where id = ?", orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, fmId))
                 .isInstanceOf(AppointmentConflictException.class)
@@ -201,7 +201,7 @@ class AppointmentServiceIntegrationTest {
     @Test
     void canceledAppointmentConflicts() {
         jdbc.update("update appointments set status = 'Canceled' where id = ?", appointmentId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, fmId))
                 .isInstanceOf(AppointmentConflictException.class)
@@ -211,7 +211,7 @@ class AppointmentServiceIntegrationTest {
     @Test
     void nonCheckinAppointmentCannotBeAssigned() {
         jdbc.update("update appointments set type = 'HANDOVER' where id = ?", appointmentId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.assignStaff(appointmentId, fsId, fmId))
                 .isInstanceOf(AppointmentConflictException.class)
@@ -225,8 +225,9 @@ class AppointmentServiceIntegrationTest {
         long orphanId = jdbc.queryForObject("""
                 insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status)
                 values (?, ?, 'CHECKIN', ?, ?::timestamptz, ?::timestamptz, 'Pending') returning id""",
-                Long.class, accountId("customer1@lemar.vn"), q7, day, day + "T08:00:00+07:00", day + "T10:00:00+07:00");
-        loginAs("fm1@lemar.vn");
+                Long.class, accountId("customer1@example.com"), q7, day,
+                day + "T08:00:00+07:00", day + "T10:00:00+07:00");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.assignStaff(orphanId, fsId, fmId))
                 .isInstanceOf(AppointmentConflictException.class)
@@ -235,7 +236,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void unknownAppointmentIsNotFound() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.assignStaff(-1L, fsId, fmId))
                 .isInstanceOf(AppointmentNotFoundException.class);
@@ -245,7 +246,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void dayListShowsOrderUnitCustomerAndStaff() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         List<FmAppointmentResponse> before = queryService.listForFacility(q7, day);
         service.assignStaff(appointmentId, fsId, fmId);
@@ -258,14 +259,14 @@ class AppointmentServiceIntegrationTest {
             assertThat(row.orderStatus()).isEqualTo("Scheduled");
             assertThat(row.unitCode()).isEqualTo("A-01");
             assertThat(row.customerName()).isEqualTo("Khách Demo");
-            assertThat(row.customerEmail()).isEqualTo("customer1@lemar.vn");
+            assertThat(row.customerEmail()).isEqualTo("customer1@example.com");
             assertThat(row.staffId()).isNull();
             assertThat(row.attempt()).isEqualTo(1);
             assertThat(row.rebooked()).isFalse();
             assertThat(row.rebookReason()).isNull();
             assertThat(row.previousCancelReason()).isNull();
         });
-        assertThat(after).singleElement().satisfies(row -> assertThat(row.staffEmail()).isEqualTo("fs1@lemar.vn"));
+        assertThat(after).singleElement().satisfies(row -> assertThat(row.staffEmail()).isEqualTo("fs1@example.com"));
         assertThat(queryService.listForFacility(q7, day.plusDays(1))).isEmpty();
     }
 
@@ -274,8 +275,8 @@ class AppointmentServiceIntegrationTest {
         jdbc.update("""
                 insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status)
                 values (?, ?, 'HANDOVER', ?, ?::timestamptz, ?::timestamptz, 'Pending')""",
-                accountId("customer1@lemar.vn"), q7, day, day + "T08:00:00+07:00", day + "T10:00:00+07:00");
-        loginAs("fm1@lemar.vn");
+                accountId("customer1@example.com"), q7, day, day + "T08:00:00+07:00", day + "T10:00:00+07:00");
+        loginAs("fm1@example.com");
 
         assertThat(queryService.listForFacility(q7, day)).extracting(FmAppointmentResponse::id)
                 .containsExactly(appointmentId);
@@ -283,7 +284,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void dayListSkipsCanceledAndDoneAppointments() {
-        long customerId = accountId("customer1@lemar.vn");
+        long customerId = accountId("customer1@example.com");
         jdbc.update("""
                 insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status)
                 values (?, ?, 'CHECKIN', ?, ?::timestamptz, ?::timestamptz, 'Canceled')""", customerId, q7, day,
@@ -292,7 +293,7 @@ class AppointmentServiceIntegrationTest {
                 insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status)
                 values (?, ?, 'CHECKIN', ?, ?::timestamptz, ?::timestamptz, 'Done')""", customerId, q7, day,
                 day + "T08:00:00+07:00", day + "T10:00:00+07:00");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThat(queryService.listForFacility(q7, day)).extracting(FmAppointmentResponse::id)
                 .containsExactly(appointmentId);
@@ -300,7 +301,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void dayListMarksRebookFromPreviousCanceledAppointmentOnAnotherDay() {
-        long customerId = accountId("customer1@lemar.vn");
+        long customerId = accountId("customer1@example.com");
         LocalDate previousDay = day.minusDays(2);
         long previousId = jdbc.queryForObject("""
                 insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status,
@@ -310,7 +311,7 @@ class AppointmentServiceIntegrationTest {
                 Long.class, customerId, q7, previousDay, previousDay + "T08:00:00+07:00",
                 previousDay + "T10:00:00+07:00");
         jdbc.update("insert into rental_appointments (appointment_id, order_id) values (?, ?)", previousId, orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         FmAppointmentResponse row = queryService.listForFacility(q7, day).get(0);
 
@@ -322,7 +323,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void dayListPrefersHandoverRejectReasonOverAppointmentCancelReason() {
-        long customerId = accountId("customer1@lemar.vn");
+        long customerId = accountId("customer1@example.com");
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         LocalDate previousDay = day.minusDays(1);
         long previousId = jdbc.queryForObject("""
@@ -337,7 +338,7 @@ class AppointmentServiceIntegrationTest {
                 insert into handover_records (order_id, appointment_id, unit_id, result, reject_reason)
                 values (?, ?, ?, 'CANCELED', 'Chưa hoàn tất bàn giao trong hạn')""",
                 orderId, previousId, unitId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         FmAppointmentResponse row = queryService.listForFacility(q7, day).get(0);
 
@@ -349,14 +350,14 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void dayListIsScopedToTheFacility() {
-        loginAs("fm2@lemar.vn");
+        loginAs("fm2@example.com");
 
         assertThatThrownBy(() -> queryService.listForFacility(q7, day)).isInstanceOf(ForbiddenException.class);
     }
 
     @Test
     void unknownFacilityIsNotFound() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> queryService.listForFacility(-1L, day))
                 .isInstanceOf(FacilityNotFoundException.class);
@@ -364,7 +365,7 @@ class AppointmentServiceIntegrationTest {
 
     @Test
     void staffListContainsOnlyActiveStaffOfTheFacility() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThat(queryService.staffOfFacility(q7)).singleElement().satisfies(staff -> {
             assertThat(staff.name()).isEqualTo("FS Quận 7");
@@ -385,7 +386,7 @@ class AppointmentServiceIntegrationTest {
     private long secondStaffOfQ7() {
         long id = jdbc.queryForObject("""
                 insert into accounts (email, password_hash, email_verified_at, role_id, status)
-                values ('fs2@lemar.vn', (select password_hash from accounts where id = ?), now(),
+                values ('fs2@example.com', (select password_hash from accounts where id = ?), now(),
                         (select id from roles where name = 'FS'), 'ACTIVE') returning id""", Long.class, fsId);
         jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, ?)", id, q7);
         return id;

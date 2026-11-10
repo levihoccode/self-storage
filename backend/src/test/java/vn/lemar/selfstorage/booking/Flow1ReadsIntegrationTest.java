@@ -62,9 +62,9 @@ class Flow1ReadsIntegrationTest {
     void loadSeed() {
         q7 = facilityId("Q7");
         td = facilityId("TD");
-        customer1 = accountId("customer1@lemar.vn");
-        fm1 = accountId("fm1@lemar.vn");
-        fm2 = accountId("fm2@lemar.vn");
+        customer1 = accountId("customer1@example.com");
+        fm1 = accountId("fm1@example.com");
+        fm2 = accountId("fm2@example.com");
         smallType = unitTypeId("Small");
         mediumType = unitTypeId("Medium");
         unitA01 = unitId("A-01");
@@ -84,7 +84,7 @@ class Flow1ReadsIntegrationTest {
         insertInvoice(depositOrder, fm1, "INV-OTHER", "Hoá đơn người khác", "Rental", "Paid", "100000",
                 "0 days");
 
-        mockMvc.perform(get("/api/invoices").header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@lemar.vn")))
+        mockMvc.perform(get("/api/invoices").header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy danh sách hoá đơn thành công"))
                 .andExpect(jsonPath("$.data.length()").value(2))
@@ -120,7 +120,7 @@ class Flow1ReadsIntegrationTest {
 
         mockMvc.perform(get("/api/fm/invoices")
                         .param("facilityId", String.valueOf(q7))
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy danh sách hoá đơn cơ sở thành công"))
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -149,7 +149,7 @@ class Flow1ReadsIntegrationTest {
                         .param("facilityId", String.valueOf(q7))
                         .param("paymentStatus", "Pending")
                         .param("olderThanMinutes", "15")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(0))
                 .andExpect(jsonPath("$.data.totalElements").value(0));
@@ -184,7 +184,7 @@ class Flow1ReadsIntegrationTest {
                         .param("facilityId", String.valueOf(q7))
                         .param("page", "0")
                         .param("size", "2")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(2))
                 .andExpect(jsonPath("$.data.totalElements").value(4))
@@ -194,7 +194,7 @@ class Flow1ReadsIntegrationTest {
                         .param("facilityId", String.valueOf(q7))
                         .param("page", "1")
                         .param("size", "2")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(2))
                 .andExpect(jsonPath("$.data.items[1].code").value("INV-FM-CONTRACT"));
@@ -202,7 +202,7 @@ class Flow1ReadsIntegrationTest {
         mockMvc.perform(get("/api/fm/invoices")
                         .param("facilityId", String.valueOf(q7))
                         .param("type", "Rental")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].code").value("INV-FM-CONTRACT"));
@@ -212,12 +212,12 @@ class Flow1ReadsIntegrationTest {
     void fmInvoiceListRejectsCrossFacilityAndCustomer() throws Exception {
         mockMvc.perform(get("/api/fm/invoices")
                         .param("facilityId", String.valueOf(td))
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/fm/invoices")
                         .param("facilityId", String.valueOf(q7))
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@example.com")))
                 .andExpect(status().isForbidden());
     }
 
@@ -226,14 +226,14 @@ class Flow1ReadsIntegrationTest {
         mockMvc.perform(get("/api/fm/invoices")
                         .param("facilityId", String.valueOf(q7))
                         .param("status", "Broken")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Trạng thái hoá đơn không hợp lệ: Broken"));
 
         mockMvc.perform(get("/api/fm/invoices")
                         .param("facilityId", String.valueOf(q7))
                         .param("paymentStatus", "Broken")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Trạng thái thanh toán không hợp lệ: Broken"));
     }
@@ -268,7 +268,7 @@ class Flow1ReadsIntegrationTest {
     @Test
     void fmFacilityReturnsManagedFacility() throws Exception {
         mockMvc.perform(get("/api/fm/facility")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy cơ sở của FM thành công"))
                 .andExpect(jsonPath("$.data.id").value(q7))
@@ -280,7 +280,7 @@ class Flow1ReadsIntegrationTest {
         jdbc.update("update facilities set fm_account_id = null where id = ?", td);
 
         mockMvc.perform(get("/api/fm/facility")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm2@example.com")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Tài khoản FM chưa được gán cơ sở"));
     }
@@ -288,7 +288,7 @@ class Flow1ReadsIntegrationTest {
     @Test
     void customerCannotReadFmFacility() throws Exception {
         mockMvc.perform(get("/api/fm/facility")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("customer1@example.com")))
                 .andExpect(status().isForbidden());
     }
 
@@ -298,7 +298,7 @@ class Flow1ReadsIntegrationTest {
     void storageUnitsReturnsFacilityUnitsWithEffectivePrice() throws Exception {
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", String.valueOf(q7))
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy danh sách khoang thành công"))
                 .andExpect(jsonPath("$.data.length()").value(8))
@@ -314,21 +314,21 @@ class Flow1ReadsIntegrationTest {
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", String.valueOf(q7))
                         .param("status", "Available")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(7));
 
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", String.valueOf(q7))
                         .param("unitTypeId", String.valueOf(mediumType))
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(3));
 
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", String.valueOf(q7))
                         .param("status", "Maintenance")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].id").value(unitC01));
@@ -339,7 +339,7 @@ class Flow1ReadsIntegrationTest {
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", String.valueOf(q7))
                         .param("status", "Broken")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Trạng thái khoang không hợp lệ: Broken"));
     }
@@ -348,7 +348,7 @@ class Flow1ReadsIntegrationTest {
     void storageUnitsRejectCrossFacility() throws Exception {
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", String.valueOf(td))
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Bạn không được gán vào cơ sở này"));
     }
@@ -357,7 +357,7 @@ class Flow1ReadsIntegrationTest {
     void storageUnitsReturn404ForUnknownFacility() throws Exception {
         mockMvc.perform(get("/api/fm/storage-units")
                         .param("facilityId", "99999")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isNotFound());
     }
 
@@ -394,7 +394,7 @@ class Flow1ReadsIntegrationTest {
                     customer_phone, unit_type_id, start_date, period, status)
                 values (?, 'Khách test', ?, '0901234567', ?, current_date, 6, 'Converted')
                 returning id
-                """, Long.class, q7, "customer1@lemar.vn", smallType);
+                """, Long.class, q7, "customer1@example.com", smallType);
         return jdbc.queryForObject("""
                 insert into rental_orders (request_id, customer_id, unit_id, status)
                 values (?, ?, ?, ?) returning id

@@ -50,8 +50,8 @@ import vn.lemar.selfstorage.payment.application.dto.ManualReconciliationRequest;
 @Testcontainers(disabledWithoutDocker = true)
 class ManualReconciliationIntegrationTest {
 
-    private static final String ADMIN_EMAIL = "admin@lemar.vn";
-    private static final String CUSTOMER_EMAIL = "customer1@lemar.vn";
+    private static final String ADMIN_EMAIL = "admin@example.com";
+    private static final String CUSTOMER_EMAIL = "customer1@example.com";
 
     @Container
     @ServiceConnection

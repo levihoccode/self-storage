@@ -45,7 +45,7 @@ không đổi payment, không gọi cổng.
 ```bash
 curl -s -H "Authorization: Bearer $FM_TOKEN" \
   "http://localhost:8080/api/fm/invoices?facilityId=1&page=0&size=20&paymentStatus=Pending&olderThanMinutes=15"
-# {"message":"Lấy danh sách hoá đơn cơ sở thành công","data":{"items":[{"id":1,"orderId":1,"code":"INV-FM-DEMO-001","title":"Đặt cọc khoang A-01","description":null,"type":"Deposit","status":"Unpaid","amount":500000.00,"createdAt":"2026-11-03T14:53:03.466638Z","dueDate":"2026-11-05T15:23:03.466638Z","unitId":1,"unitCode":"A-01","facilityId":1,"facilityName":"Self Storage Quận 7","customerId":6,"customerName":"Khách demo","customerEmail":"customer1@lemar.vn","paymentStatus":"Pending","vnpTxnRef":"TXN-FM-DEMO-001","paymentCreatedAt":"2026-11-03T15:03:03.530740Z","paidAt":null,"pendingAgeMinutes":95,"needsReconciliation":true,"duplicateRefundRequired":false}],"page":0,"size":20,"totalElements":1,"totalPages":1}}
+# {"message":"Lấy danh sách hoá đơn cơ sở thành công","data":{"items":[{"id":1,"orderId":1,"code":"INV-FM-DEMO-001","title":"Đặt cọc khoang A-01","description":null,"type":"Deposit","status":"Unpaid","amount":500000.00,"createdAt":"2026-11-03T14:53:03.466638Z","dueDate":"2026-11-05T15:23:03.466638Z","unitId":1,"unitCode":"A-01","facilityId":1,"facilityName":"Self Storage Quận 7","customerId":6,"customerName":"Khách demo","customerEmail":"customer1@example.com","paymentStatus":"Pending","vnpTxnRef":"TXN-FM-DEMO-001","paymentCreatedAt":"2026-11-03T15:03:03.530740Z","paidAt":null,"pendingAgeMinutes":95,"needsReconciliation":true,"duplicateRefundRequired":false}],"page":0,"size":20,"totalElements":1,"totalPages":1}}
 ```
 
 ## Liên quan

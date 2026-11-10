@@ -56,15 +56,15 @@ class StaffAppointmentActionIntegrationTest {
 
     @BeforeEach
     void seed() {
-        fsId = accountId("fs1@lemar.vn");
-        customerId = accountId("customer1@lemar.vn");
+        fsId = accountId("fs1@example.com");
+        customerId = accountId("customer1@example.com");
         q7 = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId);
 
         fs2Id = jdbc.queryForObject("""
                 insert into accounts (email, password_hash, email_verified_at, role_id, status, name)
-                values ('fs2@lemar.vn', (select password_hash from accounts where id = ?), now(),
+                values ('fs2@example.com', (select password_hash from accounts where id = ?), now(),
                         (select id from roles where name = 'FS'), 'ACTIVE', 'FS 2') returning id""",
                 Long.class, fsId);
         jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, ?)",
@@ -73,7 +73,7 @@ class StaffAppointmentActionIntegrationTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                         (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, q7, unitId);
         long orderId = jdbc.queryForObject("""
@@ -96,7 +96,7 @@ class StaffAppointmentActionIntegrationTest {
     @Test
     void arriveMarksDoneAuditsAndPublishesEvent() {
         scheduleStartingNow();
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.arrive(appointmentId);
 
@@ -120,7 +120,7 @@ class StaffAppointmentActionIntegrationTest {
 
     @Test
     void cancelMarksCanceledWithReasonAndAudit() {
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.cancel(appointmentId, "Khách yêu cầu huỷ");
 
@@ -144,7 +144,7 @@ class StaffAppointmentActionIntegrationTest {
 
     @Test
     void otherStaffCannotActOnTheAppointment() {
-        loginAs("fs2@lemar.vn");
+        loginAs("fs2@example.com");
 
         assertThatThrownBy(() -> service.arrive(appointmentId))
                 .isInstanceOf(AppointmentForbiddenException.class);
@@ -158,7 +158,7 @@ class StaffAppointmentActionIntegrationTest {
                 insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status)
                 values (?, ?, 'CHECKIN', ?, ?::timestamptz, ?::timestamptz, 'Pending') returning id""",
                 Long.class, customerId, q7, day, day + "T08:00:00+07:00", day + "T10:00:00+07:00");
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         assertThatThrownBy(() -> service.arrive(orphanId)).isInstanceOf(AppointmentForbiddenException.class);
     }
@@ -167,7 +167,7 @@ class StaffAppointmentActionIntegrationTest {
     void expiredCancelCancelsNoShowImmediately() {
         jdbc.update("update appointments set started_at = now() - interval '3 hours', "
                 + "end_at = now() - interval '1 hour' where id = ?", appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.cancel(appointmentId, "Quá giờ và khách không đến");
 
@@ -188,7 +188,7 @@ class StaffAppointmentActionIntegrationTest {
     void arrivingAfterTheSlotCancelsNoShowImmediately() {
         jdbc.update("update appointments set started_at = now() - interval '3 hours', "
                 + "end_at = now() - interval '1 hour' where id = ?", appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.arrive(appointmentId);
 
@@ -202,7 +202,7 @@ class StaffAppointmentActionIntegrationTest {
     void arrivingNonCheckinAfterTheSlotConflictsWithoutNoShow() {
         jdbc.update("update appointments set type = 'RETURN', started_at = now() - interval '3 hours', "
                 + "end_at = now() - interval '1 hour' where id = ?", appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.arrive(appointmentId);
 
@@ -216,7 +216,7 @@ class StaffAppointmentActionIntegrationTest {
     void cancellingNonCheckinAfterTheSlotConflictsWithoutNoShow() {
         jdbc.update("update appointments set type = 'RETURN', started_at = now() - interval '3 hours', "
                 + "end_at = now() - interval '1 hour' where id = ?", appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.cancel(appointmentId, "Quá giờ và khách không đến");
 
@@ -233,7 +233,7 @@ class StaffAppointmentActionIntegrationTest {
                 values (?, ?, ?, 'CHECKIN', ?, now() - interval '3 hours', now() - interval '1 hour',
                         'Pending') returning id""",
                 Long.class, customerId, q7, fsId, day);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.cancel(noOrderId, "Quá giờ và khách không đến");
 
@@ -250,7 +250,7 @@ class StaffAppointmentActionIntegrationTest {
     void arrivingEarlierThanTheFifteenMinuteGraceConflicts() {
         jdbc.update("update appointments set started_at = now() + interval '1 hour', "
                 + "end_at = now() + interval '2 hours' where id = ?", appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         assertThatThrownBy(() -> service.arrive(appointmentId))
                 .isInstanceOf(AppointmentConflictException.class)
@@ -266,7 +266,7 @@ class StaffAppointmentActionIntegrationTest {
     void arrivingWithinTheFifteenMinuteGraceSucceeds() {
         jdbc.update("update appointments set started_at = now() + interval '10 minutes', "
                 + "end_at = now() + interval '2 hours' where id = ?", appointmentId);
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
 
         StaffAppointmentActionService.ActionResult result = service.arrive(appointmentId);
 
@@ -278,7 +278,7 @@ class StaffAppointmentActionIntegrationTest {
     @Test
     void arrivingTwiceConflicts() {
         scheduleStartingNow();
-        loginAs("fs1@lemar.vn");
+        loginAs("fs1@example.com");
         service.arrive(appointmentId);
 
         assertThatThrownBy(() -> service.arrive(appointmentId))

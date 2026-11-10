@@ -125,13 +125,13 @@ class FmAppointmentControllerTest {
     void staffListReturnsFacilityStaff() throws Exception {
         authenticate(FM, "FM");
         when(queryService.staffOfFacility(1L)).thenReturn(List.of(new FmFacilityStaffResponse(4L, "FS Quận 7",
-                "fs1@lemar.vn", "0901234567", Instant.parse("2026-11-01T00:00:00Z"))));
+                "fs1@example.com", "0901234567", Instant.parse("2026-11-01T00:00:00Z"))));
 
         mockMvc.perform(as(get("/api/fm/facilities/1/staff"), FM))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value(FmAppointmentController.STAFF_MESSAGE))
                 .andExpect(jsonPath("$.data[0].name").value("FS Quận 7"))
-                .andExpect(jsonPath("$.data[0].email").value("fs1@lemar.vn"));
+                .andExpect(jsonPath("$.data[0].email").value("fs1@example.com"));
     }
 
     @Test
@@ -186,7 +186,7 @@ class FmAppointmentControllerTest {
     private static FmAppointmentResponse appointment(Long staffId) {
         return new FmAppointmentResponse(1L, "CHECKIN", "Pending", DAY, Instant.parse("2026-11-02T01:00:00Z"),
                 Instant.parse("2026-11-02T03:00:00Z"), 5L, staffId == null ? "Scheduled" : "InProgress", "A-01",
-                "Khách Demo", "customer1@lemar.vn", staffId, staffId == null ? null : "fs1@lemar.vn",
+                "Khách Demo", "customer1@example.com", staffId, staffId == null ? null : "fs1@example.com",
                 1, false, null, null);
     }
 

@@ -42,7 +42,7 @@ rejectNote?}`. Trả envelope `{message, data: {id, status, rejectReason, respon
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"fm1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+  -d '{"email":"fm1@example.com","password":"Test@1234"}' | jq -r .data.token)
 
 # 400 — OTHER thiếu ghi chú
 curl -s -X POST http://localhost:8080/api/fm/rental-requests/13/reject -H "Authorization: Bearer $TOKEN" \

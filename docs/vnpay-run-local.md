@@ -156,13 +156,13 @@ docker compose exec -T postgres psql -U self_storage -d self_storage \
       where i.status = 'Unpaid' and i.type = 'Deposit';"
 ```
 
-Không có dòng nào thì tạo (khoang `A-02`, khách `customer1@lemar.vn`, 10.000đ):
+Không có dòng nào thì tạo (khoang `A-02`, khách `customer1@example.com`, 10.000đ):
 
 ```bash
 docker compose exec -T postgres psql -U self_storage -d self_storage <<'SQL'
 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
         customer_phone, unit_type_id, start_date, period, unit_id, status)
-values (1, 'Nguyen Van A', 'customer1@lemar.vn', '0900000000', 1, current_date, 1, 2, 'Approved');
+values (1, 'Nguyen Van A', 'customer1@example.com', '0900000000', 1, current_date, 1, 2, 'Approved');
 
 insert into rental_orders (request_id, customer_id, unit_id, status, expires_at)
 values ((select max(id) from rental_requests), 6, 2, 'Pending', now() + interval '7 days');
@@ -201,7 +201,7 @@ Mở <http://localhost:8080/swagger-ui/index.html>.
 1. `POST /api/auth/login` → **Try it out** → body:
 
    ```json
-   { "email": "customer1@lemar.vn", "password": "Test@1234" }
+   { "email": "customer1@example.com", "password": "Test@1234" }
    ```
 
    → **Execute** → copy `accessToken` trong response.

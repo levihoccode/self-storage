@@ -38,4 +38,7 @@ psql "$DB_URL" -f sql/seed.sql
 
 ## Seed (V2) — mật khẩu dev
 
-Mọi account `@lemar.vn` dùng mật khẩu `Test@1234`: `admin`(ADMIN) · `bom1`(BOM) · `fm1`(FM, gán Q7) · `fm2`(FM, gán TD) · `fs1`(FS, gán Q7) · `customer1`(CUSTOMER) · `unverified`(CUSTOMER, chưa xác minh — login 403) · `banned`(CUSTOMER, BANNED — 403).
+Mọi account `@example.com` dùng mật khẩu `Test@1234`: `admin`(ADMIN) · `bom1`(BOM) · `fm1`(FM, gán Q7) · `fm2`(FM, gán TD) · `fs1`(FS, gán Q7) · `customer1`(CUSTOMER) · `unverified`(CUSTOMER, chưa xác minh — login 403) · `banned`(CUSTOMER, BANNED — 403).
+
+`seed.sql` là mirror của V2 nên vẫn chèn địa chỉ cũ; migration V27 đổi 8 địa chỉ đó sang `@example.com`.
+Seed tay bằng `psql` thì chạy thêm `src/main/resources/db/migration/V27__seed_accounts_example_domain.sql` sau `seed.sql`.

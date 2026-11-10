@@ -389,13 +389,13 @@ class HandoverFoundationIntegrationTest {
 
     private Fixture fixture(Instant expiresAt) {
         long customerId = jdbc.queryForObject(
-                "select id from accounts where email = 'customer1@lemar.vn'", Long.class);
+                "select id from accounts where email = 'customer1@example.com'", Long.class);
         long facilityId = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                     (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, facilityId, unitId);
         long orderId = jdbc.queryForObject("""

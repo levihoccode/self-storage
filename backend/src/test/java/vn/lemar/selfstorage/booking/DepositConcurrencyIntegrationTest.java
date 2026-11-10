@@ -45,7 +45,7 @@ import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedExcep
 @Testcontainers(disabledWithoutDocker = true)
 class DepositConcurrencyIntegrationTest {
 
-    private static final String CUSTOMER_EMAIL = "customer1@lemar.vn";
+    private static final String CUSTOMER_EMAIL = "customer1@example.com";
 
     @Container
     @ServiceConnection

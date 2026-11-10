@@ -31,7 +31,7 @@ Khách bấm "Từ chối" trên một proposal `Pending`, body `{ "note": "..."
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/proposals/4/reject
 # {"message":"Vui lòng nhập lý do từ chối","timestamp":"2026-10-15T15:04:27.286053200Z"}

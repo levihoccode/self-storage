@@ -25,7 +25,7 @@ Danh sách thông báo web của account đang đăng nhập — nguồn cho not
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications
 # {"message":"Lấy danh sách thông báo thành công","data":[{"id":6,"type":"OTHER","title":"Hello","readAt":null,"createdAt":"2026-10-05T12:20:45.673829Z","orderId":null},{"id":5,"type":"OTHER","title":"Bảo trì khẩn cấp","readAt":null,"createdAt":"2026-10-05T12:20:39.012401Z","orderId":null}]}

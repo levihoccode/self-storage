@@ -70,14 +70,14 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveReturnsApproved() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         Instant now = Instant.now();
         when(rentalRequestService.approve(eq(1L), eq(10L))).thenReturn(
                 new ApproveRentalRequestResponse(1L, "Approved", 10L, now,
                         now.plusSeconds(7L * 24L * 60L * 60L)));
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isOk())
@@ -88,13 +88,13 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveBannedReturnsRejectedMessage() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         Instant now = Instant.now();
         when(rentalRequestService.approve(eq(1L), eq(10L))).thenReturn(
                 new ApproveRentalRequestResponse(1L, "Rejected", null, now, null));
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isOk())
@@ -105,12 +105,12 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveHandledTwiceReturns409() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.approve(eq(1L), eq(10L)))
                 .thenThrow(new RentalRequestAlreadyHandledException());
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isConflict())
@@ -119,12 +119,12 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveExpiredReturns409() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.approve(eq(1L), eq(10L)))
                 .thenThrow(new RentalRequestExpiredException());
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isConflict())
@@ -133,12 +133,12 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveUnavailableUnitReturns409() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.approve(eq(1L), eq(11L)))
                 .thenThrow(new StorageUnitUnavailableException());
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":11}"))
                 .andExpect(status().isConflict())
@@ -148,12 +148,12 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveUnknownRequestReturns404() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.approve(eq(99L), eq(10L)))
                 .thenThrow(new RentalRequestNotFoundException());
 
         mockMvc.perform(post("/api/fm/rental-requests/99/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isNotFound());
@@ -161,12 +161,12 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void approveUnknownUnitReturns404() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.approve(eq(1L), eq(10L)))
                 .thenThrow(new StorageUnitNotFoundException());
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isNotFound())
@@ -175,12 +175,12 @@ class FmRentalRequestApproveControllerTest {
 
     @Test
     void crossFacilityReturns403() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.approve(eq(1L), eq(10L)))
                 .thenThrow(new ForbiddenException("Bạn không được gán vào cơ sở này"));
 
         mockMvc.perform(post("/api/fm/rental-requests/1/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":10}"))
                 .andExpect(status().isForbidden())
