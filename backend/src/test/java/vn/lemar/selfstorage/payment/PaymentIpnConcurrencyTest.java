@@ -133,7 +133,7 @@ class PaymentIpnConcurrencyTest {
                 startLine.await();
                 return service.reconcileManually("TXNRACE-MANUAL",
                         new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                                "race", Instant.now(), "GW-MANUAL"), "admin@lemar.vn")
+                                "race", Instant.now(), "GW-MANUAL"), "admin@example.com")
                         .status().name();
             });
             Future<IpnResponse> ipn = pool.submit(() -> {
@@ -171,7 +171,7 @@ class PaymentIpnConcurrencyTest {
                 try {
                     return service.reconcileManually("TXNRACE-SAME",
                             new ManualReconciliationRequest(ManualReconciliationOutcome.SUCCESS,
-                                    "race", Instant.now(), "GW-SAME"), "admin@lemar.vn")
+                                    "race", Instant.now(), "GW-SAME"), "admin@example.com")
                             .status().name();
                 } catch (ManualReconciliationConflictException e) {
                     return "CONFLICT";

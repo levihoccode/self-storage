@@ -24,7 +24,7 @@ Payload thật của token phát bởi `POST /api/auth/login`:
   "iss": "self-storage",
   "iat": 1791012361,
   "exp": 1791013261,
-  "email": "customer1@lemar.vn"
+  "email": "customer1@example.com"
 }
 ```
 

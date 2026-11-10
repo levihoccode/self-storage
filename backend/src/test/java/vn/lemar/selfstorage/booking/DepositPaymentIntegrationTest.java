@@ -52,7 +52,7 @@ import vn.lemar.selfstorage.booking.application.DepositStateRepairJob;
 @Testcontainers(disabledWithoutDocker = true)
 class DepositPaymentIntegrationTest {
 
-    private static final String CUSTOMER_EMAIL = "customer1@lemar.vn";
+    private static final String CUSTOMER_EMAIL = "customer1@example.com";
     private static final String TMN_CODE = "TESTTMN1";
     private static final String HASH_SECRET = "0123456789abcdef0123456789abcdef";
 
@@ -274,7 +274,7 @@ class DepositPaymentIntegrationTest {
 
         // Cờ đã commit nên FM đề xuất lại được thay vì nhận 409.
         mockMvc.perform(post("/api/rental-orders/{orderId}/proposals", orderId)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm1@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm1@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"unitId\":" + nextUnitId + "}"))
                 .andExpect(status().isOk());
@@ -294,7 +294,7 @@ class DepositPaymentIntegrationTest {
 
     @Test
     void someoneElsesInvoiceIsNotFound() throws Exception {
-        mockMvc.perform(payAs("fm1@lemar.vn"))
+        mockMvc.perform(payAs("fm1@example.com"))
                 .andExpect(status().isNotFound());
     }
 
@@ -359,7 +359,7 @@ class DepositPaymentIntegrationTest {
     /** Hóa đơn của người khác phải trả 404 như hóa đơn không tồn tại, không phải 403. */
     @Test
     void readingSomeoneElsesInvoiceIsNotFound() throws Exception {
-        mockMvc.perform(readInvoiceAs("fm1@lemar.vn"))
+        mockMvc.perform(readInvoiceAs("fm1@example.com"))
                 .andExpect(status().isNotFound());
 
         assertThat(statusOf("invoices", invoiceId)).isEqualTo("Unpaid");

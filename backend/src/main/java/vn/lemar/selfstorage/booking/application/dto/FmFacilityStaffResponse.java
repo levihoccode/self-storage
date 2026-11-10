@@ -7,7 +7,7 @@ import java.time.Instant;
 public record FmFacilityStaffResponse(
         @Schema(description = "Id tài khoản FS", example = "5") Long id,
         @Schema(description = "Tên FS", example = "FS Quận 7") String name,
-        @Schema(description = "Email FS", example = "fs1@lemar.vn") String email,
+        @Schema(description = "Email FS", example = "fs1@example.com") String email,
         @Schema(description = "Số điện thoại", example = "0901234567") String phone,
         @Schema(description = "Thời điểm gán vào cơ sở") Instant assignedAt) {
 }

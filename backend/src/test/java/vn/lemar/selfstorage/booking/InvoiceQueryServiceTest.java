@@ -62,7 +62,7 @@ class InvoiceQueryServiceTest {
         assertThat(view.unitId()).isEqualTo(5L);
         assertThat(view.unitCode()).isEqualTo("A-01");
         assertThat(view.facilityId()).isEqualTo(1L);
-        assertThat(view.facilityName()).isEqualTo("Lemar Quan 7");
+        assertThat(view.facilityName()).isEqualTo("Self Storage Quan 7");
     }
 
     /** Lọc theo người gọi phải nằm trong chính câu truy vấn, không phải lọc sau khi đã đọc. */
@@ -86,6 +86,6 @@ class InvoiceQueryServiceTest {
     private static InvoiceListView paidView() {
         return new InvoiceListView(INVOICE_ID, 200L, "INV-100", "Dat coc khoang A-01", null, "Deposit",
                 "Paid", new BigDecimal("10000.00"), Instant.parse("2026-11-01T00:00:00Z"),
-                Instant.parse("2026-11-05T00:00:00Z"), 5L, "A-01", 1L, "Lemar Quan 7");
+                Instant.parse("2026-11-05T00:00:00Z"), 5L, "A-01", 1L, "Self Storage Quan 7");
     }
 }

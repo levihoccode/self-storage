@@ -64,7 +64,7 @@ expiresAt}}`.
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"fm1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+  -d '{"email":"fm1@example.com","password":"Test@1234"}' | jq -r .data.token)
 
 # 409 — khoang C-01 đang Maintenance
 curl -s -X POST http://localhost:8080/api/fm/rental-requests/12/approve -H "Authorization: Bearer $TOKEN" \

@@ -285,7 +285,7 @@ class RegistrationIntegrationTest {
 
     @Test
     void loginResetsEmailCounterAfterSuccess() throws Exception {
-        String email = "customer1@lemar.vn";
+        String email = "customer1@example.com";
 
         login(email, "sai-mat-khau").andExpect(status().isUnauthorized());
         login(email, "sai-mat-khau").andExpect(status().isUnauthorized());

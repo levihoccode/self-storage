@@ -17,7 +17,7 @@ Số thông báo chưa đọc của account đang đăng nhập — cho badge tr
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications/unread-count
 # {"message":"Lấy số thông báo chưa đọc thành công","data":{"unreadCount":0}}

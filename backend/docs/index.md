@@ -93,13 +93,14 @@ hướng dẫn ở [docs/vnpay-sandbox.md](../../docs/vnpay-sandbox.md).
 
 ## Database & seed
 
-Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V26__refund_obligations_rename.sql`.
+Flyway chạy migration lúc khởi động: `V1__baseline_schema.sql` … `V27__seed_accounts_example_domain.sql`.
 V1/V2 có mirror ở `backend/sql/`
 — sửa thì sửa cả hai nơi (CI check đồng bộ); V3+ đọc trực tiếp trong `db/migration/`.
 
-Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
+Seed dev có 8 account `@example.com`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
 (chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
-Chi tiết: `backend/sql/README.md`.
+Chi tiết: `backend/sql/README.md`. V2/V13 (và mirror `backend/sql/seed.sql`) vẫn ghi địa chỉ cũ vì đã
+đóng băng; V27 đổi 8 địa chỉ đó sang `@example.com` sau khi seed.
 
 Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main có V7):
 
@@ -148,6 +149,9 @@ Schema Flow 1.3 đi bằng migration V8–V11 (V1/V2 đóng băng sau khi main c
   `requested_by_account_id` → `created_by_account_id`, status `Requested` → `Open`, permission
   `refund_transaction.request` → `refund_obligation.create`, audit `REFUND_REQUESTED` →
   `REFUND_OBLIGATION_CREATED` và entity `RefundObligation`.
+- V27 đổi email 8 account seed sang `@example.com` (tên miền dành cho ví dụ, không nhận thư) và đổi
+  theo `rental_requests.normalized_customer_email` của các địa chỉ đó. Địa chỉ mới đã thuộc account
+  khác thì bỏ qua dòng đó.
 
 Các migration khác trên main: V5 seed `order.expiry_days` (luồng convert), V6 bỏ `Expired` khỏi CHECK
 `rental_orders.status` (quá hạn cũng là `Canceled` + `cancel_reason`), V7 thêm 4 action convert vào
@@ -171,7 +175,7 @@ chạy tay `backend/sql/dev/proposal-sample.sql` — **không** phải migration
 - Có sẵn layout HTML chuẩn: `NotificationEmailLayout.wrap(title, body)` → truyền thẳng vào
   `sendHtml(...)`.
 - Cấu hình: `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD` (dev: MailHog `localhost:1025`,
-  xem thư tại `http://localhost:8025`), địa chỉ gửi `MAIL_FROM` (mặc định `noreply@lemar.vn`).
+  xem thư tại `http://localhost:8025`), địa chỉ gửi `MAIL_FROM` (mặc định `noreply@example.com`).
 - Caller tự dựng `subject` và `body`.
 - **Known limitation**:
   - Gửi best-effort, không retry/outbox. Process chết sau commit nhưng trước khi gửi xong thì
@@ -248,7 +252,7 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
   trực tiếp, không hardcode phía FE:
 
 ```json
-{ "message": "Đăng nhập thành công", "data": { "accountId": 6, "email": "customer1@lemar.vn", "token": "eyJ..." } }
+{ "message": "Đăng nhập thành công", "data": { "accountId": 6, "email": "customer1@example.com", "token": "eyJ..." } }
 ```
 
 - **Mọi lỗi 4xx/5xx** — `{message, timestamp}`; message set trong exception/handler tương ứng:

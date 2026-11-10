@@ -23,7 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class SmtpEmailSenderTest {
 
     private final JavaMailSender mailSender = mock(JavaMailSender.class);
-    private final SmtpEmailSender sender = new SmtpEmailSender(mailSender, "noreply@lemar.vn");
+    private final SmtpEmailSender sender = new SmtpEmailSender(mailSender, "noreply@example.com");
 
     @AfterEach
     void clearSynchronizations() {
@@ -40,7 +40,7 @@ class SmtpEmailSenderTest {
         verify(mailSender).send(captor.capture());
         SimpleMailMessage sent = captor.getValue();
         assertThat(result).isTrue();
-        assertThat(sent.getFrom()).isEqualTo("noreply@lemar.vn");
+        assertThat(sent.getFrom()).isEqualTo("noreply@example.com");
         assertThat(sent.getTo()).containsExactly("a@b.vn");
         assertThat(sent.getSubject()).isEqualTo("Tiêu đề");
         assertThat(sent.getText()).isEqualTo("Nội dung");

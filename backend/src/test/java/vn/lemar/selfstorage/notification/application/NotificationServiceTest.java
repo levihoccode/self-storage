@@ -59,20 +59,20 @@ class NotificationServiceTest {
     @Test
     void notifyRendersTemplateAndSendsEmail() {
         stubSaveAssignsId(1L);
-        Map<String, Object> values = Map.of("unitCode", "A-01", "proposalLink", "https://lemar.vn/p/1");
+        Map<String, Object> values = Map.of("unitCode", "A-01", "proposalLink", "https://example.com/p/1");
 
-        Notification result = notificationService.notify(1L, "customer1@lemar.vn", NotificationRecipient.CUSTOMER,
+        Notification result = notificationService.notify(1L, "customer1@example.com", NotificationRecipient.CUSTOMER,
                 NotificationType.RENTAL_REQUEST_APPROVED, values, null);
 
         assertThat(result.getType()).isEqualTo("RENTAL_REQUEST_APPROVED");
         assertThat(result.getTitle()).isEqualTo("Yêu cầu thuê kho đã được duyệt");
-        assertThat(result.getBody()).contains("A-01").contains("https://lemar.vn/p/1");
+        assertThat(result.getBody()).contains("A-01").contains("https://example.com/p/1");
         assertThat(result.getCreatedAt()).isNotNull();
         assertThat(result.getReadAt()).isNull();
         ArgumentCaptor<String> htmlCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailSender).sendHtml(
-                eq("customer1@lemar.vn"), eq("Yêu cầu thuê kho đã được duyệt"), htmlCaptor.capture());
-        assertThat(htmlCaptor.getValue()).contains("LEMAR SELF STORAGE").contains("A-01");
+                eq("customer1@example.com"), eq("Yêu cầu thuê kho đã được duyệt"), htmlCaptor.capture());
+        assertThat(htmlCaptor.getValue()).contains("SELF STORAGE").contains("A-01");
     }
 
     @Test
@@ -81,9 +81,9 @@ class NotificationServiceTest {
         Map<String, Object> values = Map.of(
                 "orderCode", "O-1", "appointmentTime", "10:00 06/10", "facilityAddress", "Q1");
 
-        Notification fmNotification = notificationService.notify(2L, "fm@lemar.vn", NotificationRecipient.FM,
+        Notification fmNotification = notificationService.notify(2L, "fm@example.com", NotificationRecipient.FM,
                 NotificationType.APPOINTMENT_CREATED, values, null);
-        Notification customerNotification = notificationService.notify(3L, "customer@lemar.vn",
+        Notification customerNotification = notificationService.notify(3L, "customer@example.com",
                 NotificationRecipient.CUSTOMER, NotificationType.APPOINTMENT_CREATED, values, null);
 
         assertThat(fmNotification.getTitle()).isEqualTo("Có lịch check-in mới cần phân công");
@@ -92,7 +92,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyRejectsMissingPlaceholder() {
-        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@lemar.vn",
+        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@example.com",
                 NotificationRecipient.CUSTOMER, NotificationType.RENTAL_REQUEST_APPROVED,
                 Map.of("unitCode", "A-01"), null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -105,7 +105,7 @@ class NotificationServiceTest {
     void notifyRejectsRecipientOutsideCatalog() {
         Map<String, Object> values = Map.of("unitCode", "A-01", "reason", "hết khoang");
 
-        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@lemar.vn",
+        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@example.com",
                 NotificationRecipient.CUSTOMER, NotificationType.PROPOSAL_REJECTED, values, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("PROPOSAL_REJECTED/CUSTOMER");
@@ -118,7 +118,7 @@ class NotificationServiceTest {
         stubSaveAssignsId(10L);
         Map<String, Object> values = Map.of("orderCode", "O-1", "expiresAt", "2026-11-01", "daysLeft", 3);
 
-        notificationService.notify(1L, "customer1@lemar.vn", NotificationRecipient.CUSTOMER,
+        notificationService.notify(1L, "customer1@example.com", NotificationRecipient.CUSTOMER,
                 NotificationType.RENTAL_ORDER_EXPIRING_SOON, values, 7L);
 
         ArgumentCaptor<OrderNotification> captor = ArgumentCaptor.forClass(OrderNotification.class);
@@ -131,13 +131,13 @@ class NotificationServiceTest {
     void createOtherStoresManualContent() {
         stubSaveAssignsId(11L);
 
-        Notification result = notificationService.createOther(1L, "customer1@lemar.vn",
+        Notification result = notificationService.createOther(1L, "customer1@example.com",
                 "Bảo trì khẩn cấp", "Cơ sở tạm đóng ngày mai");
 
         assertThat(result.getType()).isEqualTo("OTHER");
         assertThat(result.getTitle()).isEqualTo("Bảo trì khẩn cấp");
         verifyNoInteractions(orderNotificationRepository);
-        verify(emailSender).sendHtml(eq("customer1@lemar.vn"), eq("Bảo trì khẩn cấp"), any());
+        verify(emailSender).sendHtml(eq("customer1@example.com"), eq("Bảo trì khẩn cấp"), any());
     }
 
     @Test
@@ -145,12 +145,12 @@ class NotificationServiceTest {
         stubSaveAssignsId(1L);
         when(emailSender.sendHtml(any(), any(), any())).thenReturn(false);
 
-        Notification result = notificationService.notify(1L, "customer1@lemar.vn", NotificationRecipient.CUSTOMER,
+        Notification result = notificationService.notify(1L, "customer1@example.com", NotificationRecipient.CUSTOMER,
                 NotificationType.DEPOSIT_PAYMENT_SUCCEEDED, Map.of("orderCode", "O-1"), null);
 
         assertThat(result.getType()).isEqualTo("DEPOSIT_PAYMENT_SUCCEEDED");
         verify(notificationRepository).save(any(Notification.class));
-        verify(emailSender).sendHtml(eq("customer1@lemar.vn"), any(), any());
+        verify(emailSender).sendHtml(eq("customer1@example.com"), any(), any());
     }
 
     @Test
@@ -221,7 +221,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyRejectsOtherType() {
-        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@lemar.vn",
+        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@example.com",
                 NotificationRecipient.CUSTOMER, NotificationType.OTHER, Map.of(), null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("OTHER");
@@ -229,7 +229,7 @@ class NotificationServiceTest {
 
     @Test
     void notifyRejectsNullValues() {
-        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@lemar.vn",
+        assertThatThrownBy(() -> notificationService.notify(1L, "customer1@example.com",
                 NotificationRecipient.CUSTOMER, NotificationType.RENTAL_REQUEST_APPROVED, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("unitCode");

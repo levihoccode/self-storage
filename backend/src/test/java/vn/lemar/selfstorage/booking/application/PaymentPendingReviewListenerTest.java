@@ -33,8 +33,8 @@ class PaymentPendingReviewListenerTest {
     @Test
     void notifiesEveryActiveAdminAndMarksTheCase() {
         when(admins.activeAdmins()).thenReturn(List.of(
-                new AdminRecipient(1L, "admin1@lemar.vn"),
-                new AdminRecipient(2L, "admin2@lemar.vn")));
+                new AdminRecipient(1L, "admin1@example.com"),
+                new AdminRecipient(2L, "admin2@example.com")));
 
         listener.onPendingReview(event);
 
@@ -54,7 +54,7 @@ class PaymentPendingReviewListenerTest {
 
     @Test
     void notificationFailureDoesNotBreakTheListenerOrMarkTheCase() {
-        when(admins.activeAdmins()).thenReturn(List.of(new AdminRecipient(1L, "admin@lemar.vn")));
+        when(admins.activeAdmins()).thenReturn(List.of(new AdminRecipient(1L, "admin@example.com")));
         doThrow(new IllegalStateException("smtp down")).when(notifications)
                 .notify(any(), any(), any(), any(), any(), any());
 

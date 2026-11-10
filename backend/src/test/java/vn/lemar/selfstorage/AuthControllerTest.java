@@ -91,7 +91,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"banned@lemar.vn\",\"password\":\"Test@1234\"}"))
+                        .content("{\"email\":\"banned@example.com\",\"password\":\"Test@1234\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản đã bị chặn"));
     }
@@ -103,7 +103,7 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"unverified@lemar.vn\",\"password\":\"Test@1234\"}"))
+                        .content("{\"email\":\"unverified@example.com\",\"password\":\"Test@1234\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản chưa xác minh email"));
     }

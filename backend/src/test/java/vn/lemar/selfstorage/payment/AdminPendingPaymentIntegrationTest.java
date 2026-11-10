@@ -53,7 +53,7 @@ class AdminPendingPaymentIntegrationTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, status)
-                values (1, 'Khách pending', 'customer1@lemar.vn', '0901234567', 1, current_date, 6, 'Converted')
+                values (1, 'Khách pending', 'customer1@example.com', '0901234567', 1, current_date, 6, 'Converted')
                 returning id
                 """, Long.class);
         Long orderId = jdbc.queryForObject("""
@@ -82,7 +82,7 @@ class AdminPendingPaymentIntegrationTest {
 
         mockMvc.perform(get("/api/admin/payments/pending")
                         .param("olderThanMinutes", "15")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Lấy danh sách giao dịch Pending thành công"))
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -98,14 +98,14 @@ class AdminPendingPaymentIntegrationTest {
         mockMvc.perform(get("/api/admin/payments/pending")
                         .param("page", "0")
                         .param("size", "0")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void nonAdminCannotSeePendingCases() throws Exception {
         mockMvc.perform(get("/api/admin/payments/pending")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com")))
                 .andExpect(status().isForbidden());
     }
 
@@ -113,7 +113,7 @@ class AdminPendingPaymentIntegrationTest {
     void resolvedCaseLeavesTheOpenList() {
         Long transactionId = jdbc.queryForObject(
                 "select id from payment_transactions where vnp_txn_ref = 'TXN-ADMIN-PENDING'", Long.class);
-        cases.resolve(transactionId, "Failed", null, null, "portal says failed", null, "admin@lemar.vn");
+        cases.resolve(transactionId, "Failed", null, null, "portal says failed", null, "admin@example.com");
 
         org.assertj.core.api.Assertions.assertThat(cases.listOpen(15, 0, 20).items()).isEmpty();
     }
@@ -122,22 +122,22 @@ class AdminPendingPaymentIntegrationTest {
     void historyShowsResolvedCase() throws Exception {
         Long transactionId = jdbc.queryForObject(
                 "select id from payment_transactions where vnp_txn_ref = 'TXN-ADMIN-PENDING'", Long.class);
-        cases.resolve(transactionId, "Failed", null, null, "portal says failed", null, "admin@lemar.vn");
+        cases.resolve(transactionId, "Failed", null, null, "portal says failed", null, "admin@example.com");
 
         mockMvc.perform(get("/api/admin/payments/reconciliation")
                         .param("view", "history")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].status").value("Resolved"))
                 .andExpect(jsonPath("$.data.items[0].resolution").value("Failed"))
                 .andExpect(jsonPath("$.data.items[0].note").value("portal says failed"))
-                .andExpect(jsonPath("$.data.items[0].resolvedByEmail").value("admin@lemar.vn"))
+                .andExpect(jsonPath("$.data.items[0].resolvedByEmail").value("admin@example.com"))
                 .andExpect(jsonPath("$.data.items[0].resolvedAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.totalElements").value(1));
 
         mockMvc.perform(get("/api/admin/payments/reconciliation")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(0));
     }
@@ -146,7 +146,7 @@ class AdminPendingPaymentIntegrationTest {
     void invalidReconciliationViewIsRejected() throws Exception {
         mockMvc.perform(get("/api/admin/payments/reconciliation")
                         .param("view", "unknown")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isBadRequest());
     }
 
@@ -155,11 +155,11 @@ class AdminPendingPaymentIntegrationTest {
         Long transactionId = jdbc.queryForObject(
                 "select id from payment_transactions where vnp_txn_ref = 'TXN-ADMIN-PENDING'", Long.class);
         cases.resolve(transactionId, "Success", "GW-HISTORY", Instant.now(),
-                "portal success", null, "admin@lemar.vn");
+                "portal success", null, "admin@example.com");
 
         mockMvc.perform(get("/api/admin/payments/pending")
                         .param("view", "history")
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("admin@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].status").value("Resolved"))
                 .andExpect(jsonPath("$.data.items[0].resolution").value("Success"))

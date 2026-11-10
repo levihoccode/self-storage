@@ -66,7 +66,7 @@ thuộc màn Đơn thuê kho.
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"fm1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+  -d '{"email":"fm1@example.com","password":"Test@1234"}' | jq -r .data.token)
 
 # 200 — request Converted, order Pending, proposal gần nhất Rejected → cần đề xuất lại
 curl -s "http://localhost:8080/api/fm/rental-requests?facilityId=1&status=Converted&page=0&size=1" \

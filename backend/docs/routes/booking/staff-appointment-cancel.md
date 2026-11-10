@@ -24,11 +24,11 @@ Body `{ "reason": "Khách yêu cầu huỷ" }`.
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"fs1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+  -d '{"email":"fs1@example.com","password":"Test@1234"}' | jq -r .data.token)
 
 curl -s -X POST http://localhost:8080/api/staff/appointments/2/cancel -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"reason":"Khách yêu cầu huỷ"}'
-# {"message":"Đã huỷ lịch hẹn","data":{"id":2,"type":"CHECKIN","status":"Canceled","date":"2026-11-05","startedAt":"2026-11-05T06:00:00Z","endAt":"2026-11-05T08:00:00Z","arrivedAt":null,"orderId":1,"unitCode":"A-01","facility":{"id":1,"name":"Self Storage Quận 7"},"customer":{"name":"Khách Demo","email":"customer1@lemar.vn","phone":"0900000000"},"noShowDue":false,"cancelReason":"Khách yêu cầu huỷ"}}
+# {"message":"Đã huỷ lịch hẹn","data":{"id":2,"type":"CHECKIN","status":"Canceled","date":"2026-11-05","startedAt":"2026-11-05T06:00:00Z","endAt":"2026-11-05T08:00:00Z","arrivedAt":null,"orderId":1,"unitCode":"A-01","facility":{"id":1,"name":"Self Storage Quận 7"},"customer":{"name":"Khách Demo","email":"customer1@example.com","phone":"0900000000"},"noShowDue":false,"cancelReason":"Khách yêu cầu huỷ"}}
 
 # 409 — quá end_at
 # {"message":"Lịch đã quá giờ","timestamp":"2026-11-04T03:52:11.390999337Z"}

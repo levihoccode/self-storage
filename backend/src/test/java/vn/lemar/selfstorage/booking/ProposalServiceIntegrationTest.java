@@ -79,15 +79,15 @@ class ProposalServiceIntegrationTest {
 
     @BeforeEach
     void seedOrder() {
-        customerId = accountId("customer1@lemar.vn");
-        otherCustomerId = accountId("unverified@lemar.vn");
-        fmId = accountId("fm1@lemar.vn");
+        customerId = accountId("customer1@example.com");
+        otherCustomerId = accountId("unverified@example.com");
+        fmId = accountId("fm1@example.com");
         facilityId = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         Long smallType = jdbc.queryForObject("select id from unit_types where name = 'Small'", Long.class);
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email, customer_phone,
                     unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000', ?, current_date + 7, 3, ?, 'Converted')
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000', ?, current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, facilityId, smallType, unitId("A-01"));
         orderId = jdbc.queryForObject("""
                 insert into rental_orders (request_id, customer_id, status, expires_at)
@@ -292,7 +292,7 @@ class ProposalServiceIntegrationTest {
                 insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
                 values (?, ?, ?, 'Bổ sung cọc', 'DepositSupplement', 'Unpaid', 400000, now() + interval '1 day')""",
                 orderId, customerId, "INV-DEP-Q7-SUP-" + System.nanoTime());
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         service.repropose(orderId, unitId("A-02"), null, fmId);
 
@@ -430,7 +430,7 @@ class ProposalServiceIntegrationTest {
         Long otherRequest = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email, customer_phone,
                     unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Khác', 'unverified@lemar.vn', '0900000001',
+                values (?, 'Khách Khác', 'unverified@example.com', '0900000001',
                         (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, facilityId, unitId("A-01"));
         long otherOrder = jdbc.queryForObject("""
@@ -493,7 +493,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeCreatesPendingProposalAndNotifiesCustomer() {
         proposal("A-01", "Rejected");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         ProposalView view = service.repropose(orderId, unitId("A-02"), null, fmId);
 
@@ -511,7 +511,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeRejectedUnitRequiresOverrideReason() {
         proposal("A-01", "Rejected");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, unitId("A-01"), " ", fmId))
                 .isInstanceOf(ProposalValidationException.class)
@@ -521,7 +521,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeRejectedUnitWithReasonIsAuditedAsOverride() {
         proposal("A-01", "Rejected");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         ProposalView view = service.repropose(orderId, unitId("A-01"), "Khách gọi lại muốn lấy khoang này", fmId);
 
@@ -532,7 +532,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeWhileAProposalIsPendingConflicts() {
         proposal("A-01", "Pending");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, fmId))
                 .isInstanceOf(ProposalConflictException.class);
@@ -541,7 +541,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeUnavailableUnitConflicts() {
         proposal("A-01", "Rejected");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, unitId("C-01"), null, fmId))
                 .isInstanceOf(ProposalConflictException.class)
@@ -554,7 +554,7 @@ class ProposalServiceIntegrationTest {
                 insert into storage_units (code, facility_id, unit_type_id, status)
                 values ('TD-01', (select id from facilities where code = 'TD'),
                         (select id from unit_types where name = 'Small'), 'Available') returning id""", Long.class);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, tdUnit, null, fmId))
                 .isInstanceOf(StorageUnitNotFoundException.class);
@@ -563,7 +563,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeOnExpiredOrderConflicts() {
         jdbc.update("update rental_orders set expires_at = now() - interval '1 day' where id = ?", orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, fmId))
                 .isInstanceOf(ProposalConflictException.class)
@@ -574,7 +574,7 @@ class ProposalServiceIntegrationTest {
     void reproposeOnClosedOrderConflicts() {
         jdbc.update("update rental_orders set status = 'Canceled', cancel_reason = 'Khách không còn nhu cầu' "
                 + "where id = ?", orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, fmId))
                 .isInstanceOf(ProposalConflictException.class);
@@ -582,15 +582,15 @@ class ProposalServiceIntegrationTest {
 
     @Test
     void reproposeByFmOfAnotherFacilityIsForbidden() {
-        loginAs("fm2@lemar.vn");
+        loginAs("fm2@example.com");
 
-        assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, accountId("fm2@lemar.vn")))
+        assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, accountId("fm2@example.com")))
                 .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
     void reproposeOnUnknownOrderIsNotFound() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(-1L, unitId("A-02"), null, fmId))
                 .isInstanceOf(RentalOrderNotFoundException.class);
@@ -599,7 +599,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeIsBlockedWhenOrderLeftPendingWithoutFlag() {
         jdbc.update("update rental_orders set status = 'Deposited' where id = ?", orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> service.repropose(orderId, unitId("A-02"), null, fmId))
                 .isInstanceOf(ProposalConflictException.class)
@@ -609,7 +609,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void reproposeIsAllowedWhenOrderNeedsReproposal() {
         jdbc.update("update rental_orders set status = 'Deposited', needs_reproposal = true where id = ?", orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         ProposalView view = service.repropose(orderId, unitId("A-02"), null, fmId);
 
@@ -623,7 +623,7 @@ class ProposalServiceIntegrationTest {
         jdbc.update("update rental_orders set unit_id = ?, needs_reproposal = true where id = ?",
                 unitId("A-01"), orderId);
         paidDeposit(SMALL_MONTHLY_PRICE);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
         ProposalView reproposed = service.repropose(orderId, unitId("A-02"), null, fmId);
         assertThat(needsReproposal()).isFalse();
 
@@ -641,7 +641,7 @@ class ProposalServiceIntegrationTest {
                 unitId("A-01"), orderId);
         paidDeposit(SMALL_MONTHLY_PRICE);
         jdbc.update("update storage_units set status = 'Reserved' where id = ?", unitId("A-01"));
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
         ProposalView reproposed = service.repropose(orderId, unitId("A-02"), null, fmId);
         jdbc.update("update storage_units set status = 'Maintenance' where id = ?", unitId("A-02"));
         entityManager.clear();
@@ -660,7 +660,7 @@ class ProposalServiceIntegrationTest {
                 insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
                 values (?, ?, 'INV-DEP-Q7-TEST-000002', 'Đặt cọc khoang chứa A-01', 'Deposit', 'Unpaid', 500000,
                         now() + interval '3 days') returning id""", Long.class, orderId, customerId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         service.repropose(orderId, unitId("A-02"), null, fmId);
 
@@ -699,12 +699,12 @@ class ProposalServiceIntegrationTest {
     @Test
     void fmOrderDetailListsHistoryAndAvailableUnitsOfRequestedType() {
         proposal("A-01", "Rejected");
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         FmRentalOrderResponse order = queryService.orderForFacilityManager(orderId);
 
         assertThat(order.status()).isEqualTo("Pending");
-        assertThat(order.customer().email()).isEqualTo("customer1@lemar.vn");
+        assertThat(order.customer().email()).isEqualTo("customer1@example.com");
         assertThat(order.requested().unitTypeName()).isEqualTo("Small");
         assertThat(order.rejectionCount()).isEqualTo(1);
         assertThat(order.proposals()).singleElement().satisfies(row -> assertThat(row.note()).isEqualTo("Không hợp"));
@@ -716,7 +716,7 @@ class ProposalServiceIntegrationTest {
 
     @Test
     void fmOrderDetailIsScopedToTheFacility() {
-        loginAs("fm2@lemar.vn");
+        loginAs("fm2@example.com");
 
         assertThatThrownBy(() -> queryService.orderForFacilityManager(orderId)).isInstanceOf(ForbiddenException.class);
         assertThatThrownBy(() -> queryService.orderForFacilityManager(-1L))
@@ -754,7 +754,7 @@ class ProposalServiceIntegrationTest {
                 insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date)
                 values (?, ?, 'INV-DEP-Q7-TEST-000002', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Unpaid', 900000,
                         now() + interval '3 days') returning id""", Long.class, orderId, customerId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         String reason = "Khách báo không còn nhu cầu thuê khoang";
         String note = "Đã gọi 3 lần, không liên hệ được";
@@ -793,7 +793,7 @@ class ProposalServiceIntegrationTest {
                 values (?, ?, 'INV-CANCEL-REFUND', 'Đặt cọc khoang chứa B-01', 'Deposit', 'Paid', 900000,
                         now() + interval '3 days') returning id""", Long.class, orderId, customerId);
 
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
         orderService.cancelByFacilityManager(orderId, "Cơ sở không bàn giao được khoang", "Đổi lịch bảo trì",
                 true, fmId);
 
@@ -810,7 +810,7 @@ class ProposalServiceIntegrationTest {
 
     @Test
     void fmCancelWithRefundDepositRejectsUnpaidOrder() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Cơ sở không bàn giao được khoang",
                 null, true, fmId))
@@ -822,7 +822,7 @@ class ProposalServiceIntegrationTest {
     @Test
     void fmCancelOnClosedOrderConflicts() {
         jdbc.update("update rental_orders set status = 'Done' where id = ?", orderId);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null,
                         false, fmId))
@@ -833,17 +833,17 @@ class ProposalServiceIntegrationTest {
 
     @Test
     void fmCancelByFmOfAnotherFacilityIsForbidden() {
-        loginAs("fm2@lemar.vn");
+        loginAs("fm2@example.com");
 
         assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null, false,
-                        accountId("fm2@lemar.vn")))
+                        accountId("fm2@example.com")))
                 .isInstanceOf(ForbiddenException.class);
         assertThat(orderStatus()).isEqualTo("Pending");
     }
 
     @Test
     void cancelWithoutPermissionIsForbidden() {
-        loginAs("customer1@lemar.vn");
+        loginAs("customer1@example.com");
 
         assertThatThrownBy(() -> orderService.cancelByFacilityManager(orderId, "Khách không còn nhu cầu", null, false,
                         customerId))
@@ -852,7 +852,7 @@ class ProposalServiceIntegrationTest {
 
     @Test
     void fmCancelOnUnknownOrderIsNotFound() {
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
 
         assertThatThrownBy(() -> orderService.cancelByFacilityManager(-1L, "Khách không còn nhu cầu", null,
                         false, fmId))

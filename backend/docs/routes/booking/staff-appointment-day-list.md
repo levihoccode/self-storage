@@ -28,10 +28,10 @@ Lịch hẹn đã gán cho FS đang đăng nhập trong một ngày, kèm khách
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"fs1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+  -d '{"email":"fs1@example.com","password":"Test@1234"}' | jq -r .data.token)
 
 curl -s "http://localhost:8080/api/staff/appointments?date=2026-11-03" -H "Authorization: Bearer $TOKEN"
-# {"message":"Lấy lịch làm việc thành công","data":[{"id":1,"type":"CHECKIN","status":"Pending","date":"2026-11-03","startedAt":"2026-11-03T01:00:00Z","endAt":"2026-11-03T03:00:00Z","arrivedAt":null,"orderId":1,"unitCode":"A-01","facility":{"id":1,"name":"Self Storage Quận 7"},"customer":{"name":"Khách Demo","email":"customer1@lemar.vn","phone":"0900000000"},"noShowDue":false,"cancelReason":null}]}
+# {"message":"Lấy lịch làm việc thành công","data":[{"id":1,"type":"CHECKIN","status":"Pending","date":"2026-11-03","startedAt":"2026-11-03T01:00:00Z","endAt":"2026-11-03T03:00:00Z","arrivedAt":null,"orderId":1,"unitCode":"A-01","facility":{"id":1,"name":"Self Storage Quận 7"},"customer":{"name":"Khách Demo","email":"customer1@example.com","phone":"0900000000"},"noShowDue":false,"cancelReason":null}]}
 ```
 
 ## Liên quan

@@ -69,14 +69,14 @@ class FmRentalRequestRejectControllerTest {
 
     @Test
     void rejectReturnsRejected() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         Instant now = Instant.now();
         when(rentalRequestService.reject(eq(1L), eq(RentalRequestRejectReason.UNIT_UNAVAILABLE),
                 eq(null))).thenReturn(
                         new RejectRentalRequestResponse(1L, "Rejected", "UNIT_UNAVAILABLE", now));
 
         mockMvc.perform(post("/api/fm/rental-requests/1/reject")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rejectReason\":\"UNIT_UNAVAILABLE\"}"))
                 .andExpect(status().isOk())
@@ -87,13 +87,13 @@ class FmRentalRequestRejectControllerTest {
 
     @Test
     void rejectOtherWithoutNoteReturns400() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.reject(eq(1L), eq(RentalRequestRejectReason.OTHER), eq(null)))
                 .thenThrow(new RentalRequestValidationException(
                         "Ghi chú bắt buộc khi lý do là Khác"));
 
         mockMvc.perform(post("/api/fm/rental-requests/1/reject")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rejectReason\":\"OTHER\"}"))
                 .andExpect(status().isBadRequest())
@@ -102,12 +102,12 @@ class FmRentalRequestRejectControllerTest {
 
     @Test
     void rejectHandledTwiceReturns409() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.reject(eq(1L), eq(RentalRequestRejectReason.UNIT_MISMATCH),
                 eq("note"))).thenThrow(new RentalRequestAlreadyHandledException());
 
         mockMvc.perform(post("/api/fm/rental-requests/1/reject")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rejectReason\":\"UNIT_MISMATCH\",\"rejectNote\":\"note\"}"))
                 .andExpect(status().isConflict())
@@ -116,12 +116,12 @@ class FmRentalRequestRejectControllerTest {
 
     @Test
     void rejectUnknownRequestReturns404() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.reject(eq(99L), eq(RentalRequestRejectReason.CUSTOMER_REQUEST),
                 eq(null))).thenThrow(new RentalRequestNotFoundException());
 
         mockMvc.perform(post("/api/fm/rental-requests/99/reject")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rejectReason\":\"CUSTOMER_REQUEST\"}"))
                 .andExpect(status().isNotFound());
@@ -129,12 +129,12 @@ class FmRentalRequestRejectControllerTest {
 
     @Test
     void crossFacilityReturns403() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.reject(eq(1L), eq(RentalRequestRejectReason.UNIT_UNAVAILABLE),
                 eq(null))).thenThrow(new ForbiddenException("Bạn không được gán vào cơ sở này"));
 
         mockMvc.perform(post("/api/fm/rental-requests/1/reject")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rejectReason\":\"UNIT_UNAVAILABLE\"}"))
                 .andExpect(status().isForbidden())

@@ -50,14 +50,14 @@ class AppointmentNoShowServiceIntegrationTest {
 
     @BeforeEach
     void seed() {
-        customerId = accountId("customer1@lemar.vn");
-        long fsId = accountId("fs1@lemar.vn");
+        customerId = accountId("customer1@example.com");
+        long fsId = accountId("fs1@example.com");
         q7 = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         long unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, unit_id, status)
-                values (?, 'Khách Test', 'customer1@lemar.vn', '0900000000',
+                values (?, 'Khách Test', 'customer1@example.com', '0900000000',
                         (select id from unit_types where name = 'Small'), current_date + 7, 3, ?, 'Converted')
                 returning id""", Long.class, q7, unitId);
         orderId = jdbc.queryForObject("""
@@ -134,7 +134,7 @@ class AppointmentNoShowServiceIntegrationTest {
                 insert into appointments (customer_id, facility_id, staff_id, type, date, started_at, end_at, status)
                 values (?, ?, ?, 'CHECKIN', ?, now() - interval '3 hours', now() - interval '1 hour',
                         'Pending') returning id""",
-                Long.class, customerId, q7, accountId("fs1@lemar.vn"), LocalDate.now());
+                Long.class, customerId, q7, accountId("fs1@example.com"), LocalDate.now());
 
         assertThat(service.cancelIfDue(noOrderId)).isTrue();
         entityManager.flush();
@@ -185,7 +185,7 @@ class AppointmentNoShowServiceIntegrationTest {
         assertThat(unitStatus(unitId)).isEqualTo("Available");
         assertThat(notificationCount("APPOINTMENT_NO_SHOW_ORDER_OUTCOME")).isEqualTo(1L);
         assertThat(notificationCount("RENTAL_ORDER_CANCELED")).isZero();
-        assertThat(notificationCountFor("fm1@lemar.vn", "RENTAL_ORDER_CANCELED")).isEqualTo(1L);
+        assertThat(notificationCountFor("fm1@example.com", "RENTAL_ORDER_CANCELED")).isEqualTo(1L);
         assertThat(jdbc.queryForObject("select body from notifications where account_id = ? "
                 + "and type = 'APPOINTMENT_NO_SHOW_ORDER_OUTCOME'", String.class, customerId))
                 .contains("đã bị hủy vì hết hạn giữ kho")

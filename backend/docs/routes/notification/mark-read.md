@@ -19,10 +19,10 @@ purpose: Đánh dấu một thông báo của chủ tài nguyên là đã đọc
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -X PATCH -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications/6/read
-# {"message":"Đã đánh dấu thông báo là đã đọc","data":{"id":6,"type":"OTHER","title":"Hello","body":"Chào mừng bạn đến với LEMAR Self Storage.","readAt":"2026-10-05T12:20:50.937433514Z","createdAt":"2026-10-05T12:20:45.673829Z","orderId":null}}
+# {"message":"Đã đánh dấu thông báo là đã đọc","data":{"id":6,"type":"OTHER","title":"Hello","body":"Chào mừng bạn đến với Self Storage.","readAt":"2026-10-05T12:20:50.937433514Z","createdAt":"2026-10-05T12:20:45.673829Z","orderId":null}}
 ```
 
 ## Liên quan

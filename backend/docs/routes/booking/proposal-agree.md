@@ -58,7 +58,7 @@ delta       = required − paidDeposit
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/proposals/1/agree
 # {"message":"Đã đồng ý khoang. Vui lòng thanh toán hoá đơn đặt cọc","data":{"proposal":{"id":1,"orderId":1,"customerId":6,"unitId":1,"status":"Agreed","note":null,"createdAt":"2026-10-15T15:04:11.166429Z"},"invoice":{"id":1,"orderId":1,"code":"INV-DEP-Q7-261015-FCGZ4F","title":"Đặt cọc khoang chứa A-01","description":"Thanh toán đặt cọc khoang chứa A-01 để đảm bảo giữ chỗ.","type":"Deposit","status":"Unpaid","amount":500000.00,"dueDate":"2026-10-18T15:04:25.787241600Z"}}}
@@ -70,7 +70,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/prop
 curl -s -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/proposals/2/agree
 # {"message":"Khoang đã có người đặt cọc / không khả dụng","timestamp":"2026-10-15T15:04:25.656930900Z"}
 
-# fm1@lemar.vn gọi vào proposal của khách
+# fm1@example.com gọi vào proposal của khách
 # {"message":"Bạn không phải chủ của đơn thuê này","timestamp":"2026-10-15T15:04:26.051956Z"}
 ```
 

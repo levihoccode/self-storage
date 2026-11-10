@@ -61,7 +61,7 @@ class InvoicePaymentControllerTest {
     void detailReturnsTheInvoiceOfTheCaller() {
         InvoiceListView view = new InvoiceListView(7L, 3L, "INV-7", "Dat coc khoang A-01", null,
                 "Deposit", "Paid", new BigDecimal("10000.00"), Instant.parse("2026-11-01T00:00:00Z"),
-                Instant.parse("2026-11-05T00:00:00Z"), 5L, "A-01", 1L, "Lemar Quan 7");
+                Instant.parse("2026-11-05T00:00:00Z"), 5L, "A-01", 1L, "Self Storage Quan 7");
         when(invoiceQuery.findOwn(7L)).thenReturn(view);
 
         assertThat(controller.detail(7L).getBody().data()).isSameAs(view);
@@ -80,6 +80,6 @@ class InvoicePaymentControllerTest {
     private static InvoiceListView unpaidView() {
         return new InvoiceListView(9L, 3L, "INV-9", "Dat coc khoang A-02", null, "Deposit", "Unpaid",
                 new BigDecimal("10000.00"), Instant.parse("2026-11-01T00:00:00Z"),
-                Instant.parse("2026-11-05T00:00:00Z"), 6L, "A-02", 1L, "Lemar Quan 7");
+                Instant.parse("2026-11-05T00:00:00Z"), 6L, "A-02", 1L, "Self Storage Quan 7");
     }
 }

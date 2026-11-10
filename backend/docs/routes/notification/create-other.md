@@ -22,13 +22,13 @@ Tạo thông báo `OTHER` thủ công (khẩn cấp) cho một account theo emai
 ## Ví dụ
 
 ```bash
-ADMIN_TOKEN='<token của admin@lemar.vn>'
-CUST_TOKEN='<token của customer1@lemar.vn>'
+ADMIN_TOKEN='<token của admin@example.com>'
+CUST_TOKEN='<token của customer1@example.com>'
 
 # 200 — admin tạo cho khách theo email
 curl -s -X POST http://localhost:8080/api/notifications \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"recipientEmail":"customer1@lemar.vn","title":"Bảo trì khẩn cấp","body":"Kho tạm đóng để bảo trì ngày mai."}'
+  -d '{"recipientEmail":"customer1@example.com","title":"Bảo trì khẩn cấp","body":"Kho tạm đóng để bảo trì ngày mai."}'
 # {"message":"Tạo thông báo thành công","data":{"id":1,"type":"OTHER","title":"Bảo trì khẩn cấp","body":"Kho tạm đóng để bảo trì ngày mai.","readAt":null,"createdAt":"2026-10-08T14:33:41.699472688Z","orderId":null}}
 
 # 404 — email không thuộc account nào
@@ -40,7 +40,7 @@ curl -s -X POST http://localhost:8080/api/notifications \
 # 403 — customer không có quyền tạo
 curl -s -X POST http://localhost:8080/api/notifications \
   -H "Authorization: Bearer $CUST_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"recipientEmail":"customer1@lemar.vn","title":"x","body":"y"}'
+  -d '{"recipientEmail":"customer1@example.com","title":"x","body":"y"}'
 # {"message":"Bạn không có quyền thực hiện thao tác này","timestamp":"2026-10-08T14:33:48.836112910Z"}
 ```
 

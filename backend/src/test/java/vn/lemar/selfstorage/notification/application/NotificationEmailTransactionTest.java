@@ -55,7 +55,7 @@ class NotificationEmailTransactionTest {
         Map<String, Object> values = Map.of("orderCode", "O-1");
 
         new TransactionTemplate(transactionManager).execute(status ->
-                notificationService.notify(6L, "customer1@lemar.vn", NotificationRecipient.CUSTOMER,
+                notificationService.notify(6L, "customer1@example.com", NotificationRecipient.CUSTOMER,
                         NotificationType.DEPOSIT_PAYMENT_SUCCEEDED, values, null));
 
         verify(mailSender).send(any(MimeMessage.class));
@@ -66,7 +66,7 @@ class NotificationEmailTransactionTest {
         Map<String, Object> values = Map.of("orderCode", "O-1");
 
         new TransactionTemplate(transactionManager).execute(status -> {
-            notificationService.notify(6L, "customer1@lemar.vn", NotificationRecipient.CUSTOMER,
+            notificationService.notify(6L, "customer1@example.com", NotificationRecipient.CUSTOMER,
                     NotificationType.DEPOSIT_PAYMENT_SUCCEEDED, values, null);
             status.setRollbackOnly();
             return null;

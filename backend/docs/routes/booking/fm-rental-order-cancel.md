@@ -42,7 +42,7 @@ Service `trim()` cả hai; `note` rỗng được bỏ.
 ## Ví dụ
 
 ```bash
-TOKEN='<token của fm1@lemar.vn>'
+TOKEN='<token của fm1@example.com>'
 
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"reason":"Khách không còn nhu cầu thuê khoang","note":"Đã gọi 3 lần, không liên hệ được"}' \
@@ -64,10 +64,10 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/
 # Gọi lại
 # 409 {"message":"Đơn thuê đã đóng, không thể huỷ","timestamp":"2026-10-15T15:16:46.193969400Z"}
 
-# fm2@lemar.vn (cơ sở khác)
+# fm2@example.com (cơ sở khác)
 # 403 {"message":"Bạn không được gán vào cơ sở này","timestamp":"2026-10-15T15:16:45.341504600Z"}
 
-# customer1@lemar.vn
+# customer1@example.com
 # 403 {"message":"Bạn không có quyền truy cập","timestamp":"2026-10-15T15:16:45.466905900Z"}
 
 # Đơn không tồn tại

@@ -21,10 +21,10 @@ FS (role `FS`, tài khoản `ACTIVE`) được gán vào cơ sở qua `account_f
 ## Ví dụ
 
 ```bash
-TOKEN='<token của fm1@lemar.vn>'
+TOKEN='<token của fm1@example.com>'
 
 curl -s http://localhost:8080/api/fm/facilities/1/staff -H "Authorization: Bearer $TOKEN"
-# {"message":"Lấy danh sách nhân viên cơ sở thành công","data":[{"id":5,"name":"FS Quận 7","email":"fs1@lemar.vn","phone":null,"assignedAt":"2026-11-03T15:07:28.417133Z"}]}
+# {"message":"Lấy danh sách nhân viên cơ sở thành công","data":[{"id":5,"name":"FS Quận 7","email":"fs1@example.com","phone":null,"assignedAt":"2026-11-03T15:07:28.417133Z"}]}
 
 # 403 — fm1 hỏi FS của cơ sở TD
 curl -s http://localhost:8080/api/fm/facilities/2/staff -H "Authorization: Bearer $TOKEN"

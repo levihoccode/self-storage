@@ -44,9 +44,9 @@ class InvoiceRefundIntegrationTest {
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
-    private static final String USER = "customer1@lemar.vn";
-    private static final String FS = "fs1@lemar.vn";
-    private static final String ADMIN = "admin@lemar.vn";
+    private static final String USER = "customer1@example.com";
+    private static final String FS = "fs1@example.com";
+    private static final String ADMIN = "admin@example.com";
 
     @Autowired
     private MockMvc mockMvc;
@@ -74,7 +74,7 @@ class InvoiceRefundIntegrationTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, status)
-                values (1, 'Khách refund', 'customer1@lemar.vn', '0901234567', 1, current_date, 6, 'Converted')
+                values (1, 'Khách refund', 'customer1@example.com', '0901234567', 1, current_date, 6, 'Converted')
                 returning id
                 """, Long.class);
         Long orderId = jdbc.queryForObject("""
@@ -126,7 +126,7 @@ class InvoiceRefundIntegrationTest {
     @Test
     void fmCanHandoverUsingExistingRefundPermission() throws Exception {
         mockMvc.perform(post("/api/refunds/invoices/{id}/handover", invoiceId)
-                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@lemar.vn"))
+                        .header(HttpHeaders.AUTHORIZATION, bearerOf("fm1@example.com"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(handoverBody()))
                 .andExpect(status().isOk())
@@ -469,18 +469,18 @@ class InvoiceRefundIntegrationTest {
         Long requestId = jdbc.queryForObject("""
                 insert into rental_requests (facility_id, customer_name, normalized_customer_email,
                     customer_phone, unit_type_id, start_date, period, status)
-                values (1, 'Khách khác', 'customer1@lemar.vn', '0901234567', 1, current_date, 6, 'Converted')
+                values (1, 'Khách khác', 'customer1@example.com', '0901234567', 1, current_date, 6, 'Converted')
                 returning id
                 """, Long.class);
         Long otherOrderId = jdbc.queryForObject("""
                 insert into rental_orders (request_id, customer_id, unit_id, status)
-                values (?, (select id from accounts where email = 'customer1@lemar.vn'), 2, 'Deposited')
+                values (?, (select id from accounts where email = 'customer1@example.com'), 2, 'Deposited')
                 returning id
                 """, Long.class, requestId);
         Long otherInvoiceId = jdbc.queryForObject("""
                 insert into invoices (order_id, customer_id, code, title, type, status, amount,
                     created_at, due_date)
-                values (?, (select id from accounts where email = 'customer1@lemar.vn'),
+                values (?, (select id from accounts where email = 'customer1@example.com'),
                     'INV-OTHER-SOURCE', 'Đặt cọc', 'Deposit', 'Paid', 500000,
                     now() - interval '1 hour', now() + interval '2 days')
                 returning id

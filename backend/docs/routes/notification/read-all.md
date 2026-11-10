@@ -17,7 +17,7 @@ purpose: Đánh dấu tất cả thông báo của account hiện tại là đã
 ## Ví dụ
 
 ```bash
-TOKEN='<token của customer1@lemar.vn>'
+TOKEN='<token của customer1@example.com>'
 
 curl -s -X PATCH -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/notifications/read-all
 # {"message":"Đã đánh dấu tất cả thông báo là đã đọc","data":{"unreadCount":0}}

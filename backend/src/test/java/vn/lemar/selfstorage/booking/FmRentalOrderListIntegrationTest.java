@@ -51,13 +51,13 @@ class FmRentalOrderListIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        customerId = accountId("customer1@lemar.vn");
+        customerId = accountId("customer1@example.com");
         q7 = jdbc.queryForObject("select id from facilities where code = 'Q7'", Long.class);
         td = jdbc.queryForObject("select id from facilities where code = 'TD'", Long.class);
         unitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         tdUnitId = jdbc.queryForObject("select id from storage_units where code = 'A-01'", Long.class);
         base = Instant.now().plus(1, ChronoUnit.DAYS);
-        loginAs("fm1@lemar.vn");
+        loginAs("fm1@example.com");
     }
 
     @AfterEach

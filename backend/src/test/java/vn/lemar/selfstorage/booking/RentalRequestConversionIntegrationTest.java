@@ -60,8 +60,8 @@ import vn.lemar.selfstorage.identity.application.EmailVerified;
 @Testcontainers(disabledWithoutDocker = true)
 class RentalRequestConversionIntegrationTest {
 
-    private static final String VERIFIED = "customer1@lemar.vn";
-    private static final String UNVERIFIED = "unverified@lemar.vn";
+    private static final String VERIFIED = "customer1@example.com";
+    private static final String UNVERIFIED = "unverified@example.com";
 
     @Container
     @ServiceConnection
@@ -148,8 +148,8 @@ class RentalRequestConversionIntegrationTest {
 
     @Test
     void approvalForBannedAccountKeepsRequestApproved() {
-        // Seed: banned@lemar.vn đã xác minh nhưng status = BANNED.
-        long requestId = approvedRequest("banned@lemar.vn", "B-01", 7);
+        // Seed: banned@example.com đã xác minh nhưng status = BANNED.
+        long requestId = approvedRequest("banned@example.com", "B-01", 7);
 
         ConversionResult result = service.convertOnApproval(requestId);
 
@@ -160,17 +160,17 @@ class RentalRequestConversionIntegrationTest {
 
     @Test
     void claimForBannedAccountDoesNothing() {
-        long requestId = approvedRequest("banned@lemar.vn", "B-01", 7);
+        long requestId = approvedRequest("banned@example.com", "B-01", 7);
 
-        assertThat(service.claimForVerifiedAccount(accountId("banned@lemar.vn"))).isEmpty();
+        assertThat(service.claimForVerifiedAccount(accountId("banned@example.com"))).isEmpty();
         assertThat(requestStatus(requestId)).isEqualTo("Approved");
         assertNothingCreated();
     }
 
     @Test
     void fmApprovalThroughB1RejectsBannedCustomer() {
-        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
-        long requestId = request("banned@lemar.vn", "A-01", "Pending", 7);
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@example.com"));
+        long requestId = request("banned@example.com", "A-01", "Pending", 7);
 
         rentalRequestService.approve(requestId, unitId("A-01"));
 
@@ -443,7 +443,7 @@ class RentalRequestConversionIntegrationTest {
 
     @Test
     void fmApprovalThroughB1ConvertsForVerifiedCustomer() {
-        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@example.com"));
         long requestId = request(VERIFIED, "A-01", "Pending", 7);
 
         rentalRequestService.approve(requestId, unitId("A-01"));
@@ -466,7 +466,7 @@ class RentalRequestConversionIntegrationTest {
 
     @Test
     void fmApprovalThroughB1KeepsApprovedForUnverifiedCustomer() {
-        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@example.com"));
         long requestId = request(UNVERIFIED, "A-01", "Pending", 7);
 
         rentalRequestService.approve(requestId, unitId("A-01"));
@@ -477,7 +477,7 @@ class RentalRequestConversionIntegrationTest {
 
     @Test
     void concurrentApprovalsForSameCustomerSameUnitOneWinsAndLoserGets409() throws Exception {
-        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@example.com"));
         long first = request(VERIFIED, "A-01", "Pending", 7);
         long second = request(VERIFIED, "A-01", "Pending", 7);
 
@@ -500,7 +500,7 @@ class RentalRequestConversionIntegrationTest {
 
     @Test
     void fmApprovalAllowsUnitAgainOnceEarlierOrderIsClosed() {
-        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@lemar.vn"));
+        when(currentAccountProvider.getCurrentAccountId()).thenReturn(accountId("fm1@example.com"));
         long first = request(VERIFIED, "A-01", "Pending", 7);
         rentalRequestService.approve(first, unitId("A-01"));
         Long firstOrder = jdbc.queryForObject("select id from rental_orders", Long.class);

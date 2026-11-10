@@ -37,7 +37,7 @@ Danh sách `RentalOrder` của cơ sở, sort `expires_at` tăng dần (null cu�
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"fm1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
+  -d '{"email":"fm1@example.com","password":"Test@1234"}' | jq -r .data.token)
 
 curl -s "http://localhost:8080/api/fm/rental-orders?facilityId=1&status=Pending&page=0&size=20" \
   -H "Authorization: Bearer $TOKEN"

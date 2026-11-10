@@ -70,12 +70,12 @@ class FmRentalRequestControllerTest {
 
     @Test
     void fmQueueReturnsPage() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         when(rentalRequestService.queue(eq(1L), eq(null), eq(0), eq(20)))
                 .thenReturn(new RentalRequestPageResponse(List.of(), 0, 20, 0));
 
         mockMvc.perform(get("/api/fm/rental-requests?facilityId=1")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message")
                         .value("Lấy danh sách yêu cầu đặt kho thành công"))
@@ -84,12 +84,12 @@ class FmRentalRequestControllerTest {
 
     @Test
     void crossFacilityReturns403() throws Exception {
-        authenticate("fm@lemar.vn", "FM");
+        authenticate("fm@example.com", "FM");
         doThrow(new ForbiddenException("Bạn không được gán vào cơ sở này"))
                 .when(access).can(eq("rental_request.read"), eq(2L));
 
         mockMvc.perform(get("/api/fm/rental-requests?facilityId=2")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@lemar.vn")))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor("fm@example.com")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Bạn không được gán vào cơ sở này"));
     }
