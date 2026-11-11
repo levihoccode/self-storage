@@ -72,12 +72,19 @@ export function FmRefundQueuePanel({ loadCases }: FmRefundQueuePanelProps) {
 
   return (
     <section className="grid gap-3">
-      <div>
-        <h2 className="m-0 text-section text-ink">Chờ hoàn tiền</h2>
-        <p className="mt-1.5 text-small text-muted">
-          Tiền đã vào nhưng khoang không còn giữ được. Danh sách chỉ để theo dõi; chưa có thao tác
-          ghi nhận hoàn tiền.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="m-0 text-section text-ink">Chờ hoàn tiền</h2>
+          <p className="mt-1.5 text-small text-muted">
+            Tiền đã vào nhưng khoang không còn giữ được. Danh sách chỉ để theo dõi; chưa có thao tác
+            ghi nhận hoàn tiền.
+          </p>
+        </div>
+        {!loading && !error && (
+          <span className="text-small text-muted">
+            <strong className="text-ink">{data.totalElements}</strong> khoản
+          </span>
+        )}
       </div>
 
       {loading ? (
@@ -114,7 +121,11 @@ export function FmRefundQueuePanel({ loadCases }: FmRefundQueuePanelProps) {
                 <span className="block text-label">Yêu cầu lúc</span>
                 <span className="text-ink">{formatDateTime(item.refundRequestedAt)}</span>
               </div>
-              <StatusTag tone="warning">Chờ hoàn tiền</StatusTag>
+              {item.refundStatus === "Processing" ? (
+                <StatusTag tone="warning">Đang xử lý hoàn</StatusTag>
+              ) : (
+                <StatusTag tone="danger">Cần hoàn tiền</StatusTag>
+              )}
             </button>
           ))}
         </div>
@@ -154,7 +165,9 @@ export function FmRefundQueuePanel({ loadCases }: FmRefundQueuePanelProps) {
       {selected && (
         <DetailPanel
           title={selected.invoiceCode}
-          eyebrow={`Invoice #${selected.invoiceId} · Chờ hoàn tiền`}
+          eyebrow={`Invoice #${selected.invoiceId} · ${
+            selected.refundStatus === "Processing" ? "Đang xử lý hoàn" : "Chờ hoàn tiền"
+          }`}
           onClose={() => setSelected(null)}
         >
           <div className="grid gap-4">

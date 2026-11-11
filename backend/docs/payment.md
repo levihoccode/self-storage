@@ -147,7 +147,7 @@ Required/Processing
   một phần.
 - **Queue:** `GET /api/refunds/queues/invoices`; ADMIN dùng `view=active|history` (active gồm
   `Required`, `Processing`, `AwaitingConfirmation`; history gồm `Refunded`). FM dùng
-  `facilityId=...&view=active`, chỉ thấy invoice `Required` của cơ sở.
+  `facilityId=...&view=active`, chỉ thấy invoice `Required`/`Processing` của cơ sở.
 - **Notification:** sau khi handover commit, listener gửi `REFUND_AWAITING_CONFIRMATION` cho khách
   (in-app + email). Gửi lỗi không rollback nghiệp vụ.
 
@@ -205,6 +205,10 @@ permission tương ứng.
   khoang không tự release theo hạn.
 - **Chưa có hoàn tiền tự động qua VNPay** (Flow 4). Handover/confirm thủ công đã có; VNPay
   `vnp_Command=refund` và querydr vẫn tách issue riêng.
+- **FS chưa có màn hoàn tiền.** FS có `refund_transaction.handover` nhưng
+  `GET /api/refunds/queues/invoices` chỉ mở cho ADMIN/FM, và FS shell chưa có trang refund. Khi có
+  module task, mỗi refund task mang sẵn invoice/amount/reason và mở thẳng form handover — FS không
+  cần màn danh sách refund riêng; xem [follow-up.md](follow-up.md) › FS tasks.
 - **Refund obligation chưa nối chi tiền.** `POST /api/refunds/obligations` chỉ ghi obligation/lines;
   order-only obligation không có disbursement/queue/confirm. Invoice-bound vẫn dùng handover invoice
   với `invoice.amount`, chưa dùng `obligation.amount`; `refund_transactions` chưa có
@@ -212,7 +216,8 @@ permission tương ứng.
 - **Obligation state mới `Open`.** `Approved`/`Disbursed`/`Canceled` chưa có endpoint; invoice
   `Processing` không code nào set. Không có idempotency/cancel cho order-only.
 - **Một invoice chỉ handover một lần.** Mỗi `source_transaction_id` tối đa một `Success`; duplicate
-  khác cần obligation/transaction riêng. Chưa có API lịch sử ledger.
+  khác cần obligation/transaction riêng. Lịch sử ledger của cơ sở đọc qua
+  `GET /api/fm/transactions` (invoice/fee + payment + refund); khách và ADMIN chưa có route tương ứng.
 - **Chưa có support request/Flow 7** để phân công FS và theo dõi dispute; hiện dispute chỉ ghi audit
   + notification một lần.
 - **Chỉ VNPay.** Chưa provider-neutral; `PaymentTransaction` chưa có cột provider; chưa có ZaloPay/payOS.

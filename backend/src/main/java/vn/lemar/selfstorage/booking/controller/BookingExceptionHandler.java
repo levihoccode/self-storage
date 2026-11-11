@@ -14,6 +14,7 @@ import vn.lemar.selfstorage.booking.application.exception.AppointmentValidationE
 import vn.lemar.selfstorage.booking.application.exception.DepositNotAllowedException;
 import vn.lemar.selfstorage.booking.application.exception.EmailNotVerifiedException;
 import vn.lemar.selfstorage.booking.application.exception.FacilityNotFoundException;
+import vn.lemar.selfstorage.booking.application.exception.FmTransactionFilterException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceFilterException;
 import vn.lemar.selfstorage.booking.application.exception.InvoiceNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.ProposalConflictException;
@@ -168,6 +169,11 @@ public class BookingExceptionHandler {
 
     @ExceptionHandler(InvoiceFilterException.class)
     public ResponseEntity<ApiError> handleInvoiceFilter(InvoiceFilterException ex) {
+        return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
+    }
+
+    @ExceptionHandler(FmTransactionFilterException.class)
+    public ResponseEntity<ApiError> handleFmTransactionFilter(FmTransactionFilterException ex) {
         return ResponseEntity.badRequest().body(ApiError.now(ex.getMessage()));
     }
 }

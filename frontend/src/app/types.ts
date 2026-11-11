@@ -52,7 +52,7 @@ export type View =
   | "fm-storage-units"
   | "fm-staff"
   | "fm-reports"
-  | "fm-invoices"
+  | "fm-transactions"
   | "fm-contracts"
   | "fm-orders"
   | "admin-payments"

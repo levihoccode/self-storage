@@ -29,7 +29,8 @@ không đổi payment, không gọi cổng.
 - `needsReconciliation=true` là tín hiệu để FE highlight; quyết định đối soát vẫn là thao tác
   ADMIN qua `POST /api/admin/payments/{txnRef}/reconcile`.
 - Không có hoá đơn → `200` với `data.items: []`, `totalElements: 0`.
-- FE `/fm/invoices` dùng route này cho tab `Hoá đơn`; tab `Hoàn tiền` gọi
+- Route này giữ cho tích hợp cũ; màn FM đã chuyển sang
+  [fm-transaction-history.md](fm-transaction-history.md). Queue invoice chờ hoàn vẫn là
   [fm-refund-queue.md](fm-refund-queue.md).
 
 ## Ghi chú nghiệp vụ

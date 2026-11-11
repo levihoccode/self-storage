@@ -193,7 +193,7 @@ public class PaymentReconciliationCaseRepository {
                     order by pt.paid_at desc nulls last, pt.id desc
                     limit 1
                 ) pt on true
-                where u.facility_id = ? and i.refund_status = 'Required'
+                where u.facility_id = ? and i.refund_status in ('Required', 'Processing')
                 order by i.refund_requested_at nulls last, i.id
                 limit ? offset ?
                 """;
@@ -215,7 +215,7 @@ public class PaymentReconciliationCaseRepository {
                 left join rental_orders o on o.id = i.order_id
                 left join rental_contracts c on c.id = i.contract_id
                 left join storage_units u on u.id = coalesce(o.unit_id, c.unit_id)
-                where u.facility_id = ? and i.refund_status = 'Required'
+                where u.facility_id = ? and i.refund_status in ('Required', 'Processing')
                 """;
         Long count = jdbc.queryForObject(sql, Long.class, facilityId);
         return count == null ? 0 : count;

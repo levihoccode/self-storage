@@ -1,6 +1,6 @@
 ---
 auth-model: permission-bound
-purpose: ADMIN xem toàn bộ queue hoàn tiền; FM xem invoice Required của facility; read-only.
+purpose: ADMIN xem toàn bộ queue hoàn tiền; FM xem invoice Required/Processing của facility; read-only.
 ---
 # GET /api/refunds/queues/invoices?facilityId=&page=&size=&view=
 
@@ -8,18 +8,20 @@ Trả các invoice trong queue hoàn tiền, kèm giao dịch `PAY` gần nhất
 Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 
 - **Actor / quyền:** ADMIN: cross-facility, `view=active|history`. FM: bắt buộc `facilityId`,
-  `payment_transaction.refund` + facility scope, chỉ `view=active`.
+  `payment_transaction.refund` + facility scope, chỉ `view=active`. FS: không thuộc route này
+  (`403`); FS vào hoàn tiền từ task được gán, không qua queue — xem
+  [follow-up.md](../../follow-up.md) › FS tasks.
 - **Contract chi tiết:** annotation tại `RefundQueueController.java`; Swagger UI —
   `http://localhost:8080/swagger-ui/index.html`.
 
 ## Luồng / hành vi
 
 - `page` bắt đầu từ 0; `size` mặc định 20, tối đa 100; sai → `400`.
-- ADMIN bỏ qua `facilityId`; FM bắt buộc `facilityId` và chỉ thấy invoice `Required` của facility.
+- ADMIN bỏ qua `facilityId`. FM bắt buộc `facilityId` và chỉ thấy invoice `Required`/`Processing` của facility.
 - `view=active` (mặc định): `Required`, `Processing`, `AwaitingConfirmation`.
 - `view=history`: `Refunded` (ADMIN). FM chỉ nhận `view=active`; `history` → `400`.
 - Query đọc từ `invoices`, không đọc từ case: khoản cần hoàn vẫn hiện dù chưa từng có case đối soát.
-- Queue chỉ invoice; order-only obligation không xuất hiện ở đây.
+- Queue chỉ invoice; order-only obligation không xuất hiện ở đây. `Processing` hiện chưa có flow nào set, nhưng FM thấy nếu có.
 - Mỗi dòng: `invoiceId`, `invoiceCode`, `orderId`, `amount`, `refundStatus`, `refundReason`,
   `refundRequestedAt`, `vnpTxnRef`, `gatewayTransactionNo`, `paidAt`.
 - `vnpTxnRef`/`gatewayTransactionNo`/`paidAt` lấy từ giao dịch `PAY` gần nhất; ADMIN lấy
@@ -31,7 +33,8 @@ Route read-only; thao tác handover/confirm nằm ở route khách/FS.
 - `refund_status=Required` được đặt khi tiền đã vào nhưng khoang không còn giữ được
   (`INVOICE_REFUND_REQUIRED`).
 - Queue active/history là query trên `invoices`; không có bảng history riêng.
-- Trạng thái: `Required → AwaitingConfirmation → Refunded` sau handover/confirm.
+- Trạng thái: `Required → [Processing] → AwaitingConfirmation → Refunded` sau handover/confirm.
+  `Processing` chưa có flow nào set; FM vẫn thấy nếu có.
 
 ## Liên quan
 

@@ -35,7 +35,7 @@ export function viewFromLocation(): View {
   if (path === "/fm/storage-units") return "fm-storage-units";
   if (path === "/fm/staff") return "fm-staff";
   if (path === "/fm/reports") return "fm-reports";
-  if (path === "/fm/invoices") return "fm-invoices";
+  if (path === "/fm/transactions") return "fm-transactions";
   if (path === "/fm/contracts") return "fm-contracts";
   if (path === "/admin/reconciliation" || path === "/admin/payments") {
     return "admin-payments";

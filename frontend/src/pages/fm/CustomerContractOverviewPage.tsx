@@ -139,8 +139,12 @@ export function CustomerContractOverviewPage({ navigate }: { navigate: Navigate 
           </div>
 
           <div className="mt-6 grid gap-2">
-            <Button variant="secondary" className="w-full" onClick={() => navigate("/fm/invoices")}>
-              <Wallet size={14} /> Xem hoá đơn liên quan
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => navigate("/fm/transactions")}
+            >
+              <Wallet size={14} /> Xem giao dịch liên quan
             </Button>
             {openContract.hasOpenExtendRequest && (
               <Button
