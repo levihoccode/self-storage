@@ -1,0 +1,697 @@
+// ============================================================================
+// Self Storage System — ERD tổng hợp cho dbdiagram.io
+// ============================================================================
+// Sinh từ db-table-draft-central.md (đối chiếu 5 branch specs/flow-1..5).
+// Cách dùng: vào https://dbdiagram.io -> New Diagram -> xoá nội dung mẫu
+// -> dán toàn bộ file này vào.
+//
+// Ở những chỗ db-table-draft-central.md còn ghi "⚠️ Xung đột chưa chốt",
+// file này áp dụng ĐÚNG phương án đã được khuyến nghị trong tài liệu đó để
+// có 1 schema render được — không đại diện cho quyết định cuối cùng của
+// team. Xem lại mục 8 (Tổng hợp xung đột) của db-table-draft-central.md
+// trước khi dùng làm schema thật để code BE.
+//
+// Mọi bảng đều được thêm khoá chính surrogate `id` (không table nguồn nào
+// tự khai báo id tường minh, đây là quy ước ngầm khi vẽ ERD).
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum rental_request_status {
+  Pending
+  Approved
+  Converted    // theo flow-1 — flow-3/main dùng "Approved AND customer_id IS NULL" thay vì status riêng (xem central doc mục 2.1)
+  Rejected
+  Expired
+}
+
+enum rental_order_status {
+  Pending
+  Deposited
+  Scheduled
+  InProgress
+  Done
+  Canceled
+  Expired
+  // ⚠️ Central doc mục 2.2: 3 branch có 3 bộ status khác nhau.
+  // Bộ này theo flow-1 (khuyến nghị) — CẦN team chốt lại trước khi code BE.
+}
+
+enum proposal_status {
+  Pending
+  Agreed
+  Rejected
+  Expired
+}
+
+enum appointment_type {
+  CHECKIN
+  RETURN
+  // bộ type chưa chốt cuối cùng, có thể mở rộng thêm (vd HANDOVER)
+}
+
+enum appointment_status {
+  Pending
+  Done
+  Canceled
+}
+
+enum handover_result {
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum rental_contract_status {
+  Draft
+  Signed
+  Active
+  Ended
+  Canceled
+  Terminated // đề xuất của Flow 3, chưa được Flow 2/4/6 xác nhận chính thức
+}
+
+enum access_type_enum {
+  PhysicalKey
+  AccessCode // MVP chỉ dùng PhysicalKey
+}
+
+enum unit_access_key_status {
+  Active
+  Revoked
+  Lost
+}
+
+enum checkout_result {
+  IN_PROGRESS
+  COMPLETED
+  PENDING_ITEMS
+}
+
+enum extend_request_status {
+  PendingApproval
+  Canceled
+  Rejected
+  ApprovedPendingPayment
+  Expired
+  Completed
+}
+
+enum return_request_status {
+  Pending
+  Assigned
+  Canceled
+  Completed
+}
+
+enum support_issue_type {
+  LostKey
+  AccessCode
+  UnitDamage
+  Other
+}
+
+enum support_request_status {
+  Open
+  Assigned
+  InProgress
+  Resolved
+  Closed
+}
+
+enum invoice_type {
+  Deposit
+  Rental
+  Extension
+  Penalty
+  Service
+  // Central doc mục 3.1: dùng field type tường minh theo khuyến nghị
+  // (thay vì suy luận nguồn gốc qua FK null như bản flow-1/4/5)
+}
+
+enum invoice_status {
+  Unpaid
+  Paid
+  Canceled
+  Expired
+}
+
+enum payment_method_enum {
+  BankTransferQR
+  Card
+}
+
+enum payment_direction_enum {
+  PAY
+  REFUND
+}
+
+enum payment_transaction_status {
+  Pending
+  Failed
+  Success
+}
+
+enum facility_status {
+  Active
+  Inactive
+}
+
+enum storage_unit_status {
+  Available
+  OnHold
+  Reserved
+  Rented
+  Maintenance
+  // theo bản đã chốt ở flow-5 (5 giá trị) — flow-3/main cần cập nhật theo (central doc mục 4.2)
+}
+
+enum account_status {
+  Active
+  Inactive
+  Locked
+}
+
+enum login_status {
+  Success
+  Failed
+}
+
+enum policy_value_type {
+  Number
+  Percent
+  Text
+  Boolean
+}
+
+enum fee_calculation {
+  fixed
+  daily
+  monthly
+  percent
+  lock
+  // Central doc mục 6.2: dùng bản "Fee" (flow-4) thay vì "ExtraFee" (flow-3)
+  // vì cần calculation linh hoạt cho phí trả trễ (Flow 2.5)
+}
+
+enum discount_type_enum {
+  Percent
+  Fixed
+}
+
+enum discount_apply_to_enum {
+  Deposit
+  Rental
+  Extension
+  All
+}
+
+enum notification_channel {
+  Web
+  Email
+}
+
+// ---------------------------------------------------------------------------
+// NHÓM A — VÒNG ĐỜI THUÊ KHO
+// ---------------------------------------------------------------------------
+
+Table RentalRequest {
+  id integer [pk, increment]
+  facility_id integer [ref: > Facility.id, not null]
+  customer_name varchar
+  normalized_customer_email varchar [not null, note: 'trim + lowercase, khoá định danh nối với Account']
+  customer_phone varchar
+  unit_type varchar [note: 'free-text loại kho mong muốn, không phải FK tới UnitType']
+  start_date date
+  period integer [note: 'số tháng thuê']
+  unit_id integer [ref: > StorageUnit.id, note: 'khoang FM chỉ định lúc duyệt, null cho tới khi duyệt']
+  processed_by integer [ref: > Account.id, note: 'FM xử lý yêu cầu']
+  processed_at timestamp
+  reject_reason varchar
+  created_at timestamp [not null]
+  responded_at timestamp
+  expires_at timestamp
+  status rental_request_status [not null, default: 'Pending']
+
+  Note: 'Owner: Flow 1. Dùng bởi: Flow 5 (FM duyệt).'
+}
+
+Table RentalOrder {
+  id integer [pk, increment]
+  request_id integer [ref: - RentalRequest.id, not null, note: '1-1']
+  customer_id integer [ref: > Account.id, not null]
+  unit_id integer [ref: > StorageUnit.id, not null, note: 'source of truth khoang hiện tại của đơn']
+  cancel_reason varchar
+  created_at timestamp [not null]
+  status rental_order_status [not null, default: 'Pending']
+
+  Note: 'Owner: Flow 1 (tạo) -> Flow 2 (đóng bằng Done). Dùng bởi: Flow 3 (đọc hoá đơn cọc).'
+}
+
+Table ProposalFeedback {
+  id integer [pk, increment]
+  order_id integer [ref: > RentalOrder.id, not null, note: 'N-1, 1 order có nhiều proposal theo thời gian']
+  customer_id integer [ref: > Account.id, not null]
+  unit_id integer [ref: > StorageUnit.id, not null]
+  status proposal_status [not null, default: 'Pending']
+  note text
+  created_at timestamp [not null]
+  expires_at timestamp
+
+  Note: 'Owner: Flow 1. Dùng bởi: Flow 2 (tạo mới khi khách từ chối lúc check-in).'
+}
+
+Table Appointment {
+  id integer [pk, increment]
+  customer_id integer [ref: > Account.id, not null]
+  staff_id integer [ref: > Account.id, note: 'null cho tới khi FM phân công']
+  type appointment_type [not null]
+  cancel_reason varchar
+  appointment_date date [not null]
+  started_at timestamp
+  end_at timestamp
+  arrived_at timestamp
+  status appointment_status [not null, default: 'Pending']
+
+  Note: 'Owner: Flow 2. Dùng bởi: Flow 1 (tạo lịch CHECKIN), Flow 3 (đọc lịch sử), Flow 5 (FM phân công).'
+}
+
+Table RentalAppointment {
+  id integer [pk, increment]
+  order_id integer [ref: > RentalOrder.id, not null]
+  appointment_id integer [ref: - Appointment.id, not null, note: '1-1']
+
+  Note: 'Bảng nối RentalOrder <-> Appointment. Owner: Flow 2.'
+}
+
+Table HandoverRecord {
+  id integer [pk, increment]
+  order_id integer [ref: > RentalOrder.id, not null, note: 'N-1, tối đa 1 bản ghi IN_PROGRESS/order']
+  unit_id integer [ref: > StorageUnit.id, not null]
+  staff_id integer [ref: > Account.id, not null]
+  is_identity_verified boolean [not null, default: false]
+  identity_verified_at timestamp
+  is_unit_inspected boolean [not null, default: false]
+  unit_inspected_at timestamp
+  inspection_notes text
+  inspection_photos text [note: 'List<String> dạng JSON/CSV']
+  is_contract_signed boolean [not null, default: false]
+  contract_signed_at timestamp
+  is_payment_settled boolean [not null, default: false]
+  payment_settled_at timestamp
+  result handover_result [not null, default: 'IN_PROGRESS']
+  completed_at timestamp
+  reject_reason varchar
+
+  Note: 'Owner: Flow 2. Dùng bởi: Flow 3 (đọc lịch sử), Flow 2.5 (đối chiếu hiện trạng lúc trả kho).'
+}
+
+Table RentalContract {
+  id integer [pk, increment]
+  order_id integer [ref: - RentalOrder.id, not null, note: '1-1']
+  customer_id integer [ref: > Account.id, not null]
+  unit_id integer [ref: > StorageUnit.id, not null]
+  code varchar [not null]
+  terms_version varchar
+  monthly_price decimal [not null, note: 'giá chốt lúc ký, không đổi theo UnitType sau này']
+  deposit_amount decimal [not null]
+  period integer [not null]
+  start_date date [not null]
+  end_date date [not null]
+  signed_at timestamp
+  signature varchar [note: 'URL ảnh chữ ký']
+  pdf_url varchar [note: 'bản scan hợp đồng, MVP không tự sinh PDF']
+  billing_day integer [note: 'đề xuất Flow 3, chờ Flow 2/4/6 xác nhận']
+  terminated_at timestamp [note: 'đề xuất Flow 3']
+  termination_reason varchar [note: 'đề xuất Flow 3']
+  status rental_contract_status [not null, default: 'Draft']
+
+  Note: 'Owner: Flow 2 (tạo + quản lý vòng đời). Dùng bởi: Flow 3 (đọc + update end_date), Flow 4 (đọc terms_version), Flow 6 (Terminated).'
+}
+
+Table UnitAccessKey {
+  id integer [pk, increment]
+  unit_id integer [ref: > StorageUnit.id, not null]
+  order_id integer [ref: > RentalOrder.id, not null]
+  access_type access_type_enum [not null]
+  quantity integer [note: 'dùng khi access_type = PhysicalKey']
+  code_hash varchar [note: 'dùng khi access_type = AccessCode']
+  issued_at timestamp
+  revoked_at timestamp
+  status unit_access_key_status [not null, default: 'Active']
+
+  Note: 'Owner: Flow 2. Dùng bởi: Flow 2.5 (thu hồi khi trả kho).'
+}
+
+Table CheckoutRecord {
+  id integer [pk, increment]
+  order_id integer [ref: - RentalOrder.id, not null, note: '1-1']
+  appointment_id integer [ref: - Appointment.id, not null, note: '1-1']
+  unit_id integer [ref: > StorageUnit.id, not null]
+  staff_id integer [ref: > Account.id, not null]
+  is_unit_emptied boolean [not null, default: false]
+  unit_emptied_at timestamp
+  is_inspected boolean [not null, default: false]
+  inspected_at timestamp
+  is_access_revoked boolean [not null, default: false]
+  access_revoked_at timestamp
+  is_fee_settled boolean [not null, default: false]
+  fee_settled_at timestamp
+  is_deposit_settled boolean [not null, default: false]
+  deposit_settled_at timestamp
+  cleanliness varchar
+  damages text
+  photos text
+  returned_key_quantity integer
+  customer_signature varchar
+  result checkout_result [not null, default: 'IN_PROGRESS']
+  completed_at timestamp
+  note text
+  created_at timestamp [not null]
+
+  Note: 'Owner: Flow 2.5. Tách riêng khỏi HandoverRecord có chủ đích (2 khâu trách nhiệm khác nhau).'
+}
+
+Table ExtendRequest {
+  id integer [pk, increment]
+  contract_id integer [ref: > RentalContract.id, not null]
+  extra_months integer [not null]
+  invoice_id integer [ref: - Invoice.id, note: '1-1, null cho tới khi FM duyệt']
+  approved_by integer [ref: > Account.id]
+  reject_reason varchar
+  cancel_reason varchar
+  requested_at timestamp [not null]
+  processed_at timestamp
+  status extend_request_status [not null, default: 'PendingApproval']
+
+  Note: 'Owner: Flow 3. Dùng bởi: Flow 4 (giá gia hạn), Flow 6 (duyệt/từ chối — chưa có tài liệu riêng).'
+}
+
+Table ReturnRequest {
+  id integer [pk, increment]
+  contract_id integer [ref: > RentalContract.id, not null]
+  assigned_staff_id integer [ref: > Account.id]
+  preferred_date date [not null]
+  reason varchar
+  cancel_reason varchar
+  created_at timestamp [not null]
+  completed_at timestamp
+  status return_request_status [not null, default: 'Pending']
+
+  Note: 'Owner: Flow 3. Dùng bởi: Flow 2.5 (xử lý on-site), Flow 5 (FM phân công FS).'
+}
+
+Table SupportRequest {
+  id integer [pk, increment]
+  unit_id integer [ref: > StorageUnit.id, not null]
+  contract_id integer [ref: > RentalContract.id, note: 'nullable — khoang không có hợp đồng Active']
+  reporter_id integer [ref: > Account.id, not null]
+  assigned_staff_id integer [ref: > Account.id]
+  invoice_id integer [ref: - Invoice.id, note: '1-1, gán nếu phát sinh phí']
+  issue_type support_issue_type [not null]
+  description text
+  created_at timestamp [not null]
+  resolved_at timestamp
+  status support_request_status [not null, default: 'Open']
+
+  Note: 'Owner (schema): Flow 3. Owner (xử lý on-site): Flow 7 (chưa có tài liệu riêng). Dùng bởi: Flow 5 (phân công).'
+}
+
+// ---------------------------------------------------------------------------
+// NHÓM B — THANH TOÁN & HOÁ ĐƠN
+// ---------------------------------------------------------------------------
+
+Table Invoice {
+  id integer [pk, increment]
+  order_id integer [ref: > RentalOrder.id, note: 'null default, gán nếu hoá đơn phát sinh từ RentalOrder']
+  contract_id integer [ref: > RentalContract.id, note: 'null default, gán nếu hoá đơn phát sinh từ RentalContract']
+  customer_id integer [ref: > Account.id, not null]
+  type invoice_type [not null]
+  code varchar [not null, unique, note: 'INV-{type_prefix}-{facility_code}-{YYMMDD}-{rand}']
+  title varchar
+  desc text
+  discount_amount decimal [default: 0]
+  amount decimal [not null]
+  status invoice_status [not null, default: 'Unpaid']
+  created_at timestamp [not null]
+  due_date timestamp
+  paid_at timestamp
+
+  Note: 'Owner: phát sinh lần đầu ở Flow 1 (Deposit), tiếp tục ở Flow 2/3/6/7. Dùng bởi: Flow 4 (doanh thu).'
+}
+
+Table PaymentTransaction {
+  id integer [pk, increment]
+  invoice_id integer [ref: > Invoice.id, not null]
+  method payment_method_enum
+  direction payment_direction_enum [not null, default: 'PAY']
+  gateway_transaction_no varchar [unique, note: 'nullable tới khi gateway trả về; unique để chặn xử lý trùng']
+  vnp_txn_ref varchar [note: 'mã tham chiếu merchant gửi VNPay']
+  transaction_content varchar
+  response_payload text [note: 'raw webhook/IPN, JSON/TEXT']
+  amount decimal [not null]
+  failure_reason varchar
+  paid_at timestamp
+  created_at timestamp [not null]
+  status payment_transaction_status [not null, default: 'Pending']
+
+  Note: 'Owner: Flow 1. Dùng bởi: Flow 2 (thanh toán tháng đầu), Flow 3 (đọc lịch sử). Bỏ ràng buộc visa-only (bản cũ flow-2.5/4/5).'
+}
+
+// ---------------------------------------------------------------------------
+// NHÓM C — CƠ SỞ VẬT CHẤT
+// ---------------------------------------------------------------------------
+
+Table Facility {
+  id integer [pk, increment]
+  code varchar [not null, unique, note: 'mã chi nhánh dùng trong Invoice.code/RentalContract.code']
+  name varchar [not null]
+  address varchar
+  phone varchar
+  operating_hours varchar
+  fm_account_id integer [ref: - Account.id, unique, note: '1-1, nguồn duy nhất lưu quan hệ FM-Facility']
+  status facility_status [not null, default: 'Inactive']
+  created_at timestamp [not null]
+
+  Note: 'Owner: Flow 5 (BOM tạo, gán FM). Dùng bởi: Flow 1/2/3/4 (đọc).'
+}
+
+Table StorageUnit {
+  id integer [pk, increment]
+  facility_id integer [ref: > Facility.id, not null]
+  unit_type_id integer [ref: > UnitType.id, not null]
+  code varchar [not null, note: 'unique trong phạm vi 1 facility']
+  location varchar
+  status storage_unit_status [not null, default: 'Available']
+  created_at timestamp [not null]
+  updated_at timestamp
+
+  Note: 'Owner: Flow 5 (owner enum status). Dùng bởi: Flow 1/2/2.5/3 (đổi status theo vòng đời thuê).'
+}
+
+Table UnitType {
+  id integer [pk, increment]
+  name varchar [not null, note: 'Small/Medium/Large']
+  width decimal
+  depth decimal
+  height decimal
+  area decimal
+  description text
+  monthly_price decimal [not null]
+  updated_by integer [ref: > Account.id]
+  updated_at timestamp
+
+  Note: 'Owner: Flow 4 (BOM quản lý giá). Dùng bởi: Flow 1 (hiển thị giá), Flow 5 (FM chọn khi tạo StorageUnit).'
+}
+
+// ---------------------------------------------------------------------------
+// NHÓM D — TÀI KHOẢN & PHÂN QUYỀN
+// ---------------------------------------------------------------------------
+
+Table Account {
+  id integer [pk, increment]
+  role_id integer [ref: > Role.id, not null]
+  email varchar [not null, unique]
+  phone varchar
+  password_hash varchar [not null]
+  full_name varchar [not null]
+  status account_status [not null, default: 'Active']
+  created_at timestamp [not null]
+  updated_at timestamp
+  activated_at timestamp [note: 'mốc kích hoạt sau xác minh email']
+
+  Note: 'Owner: Flow 5 (Admin thực thi kỹ thuật). Dùng bởi: mọi flow (customer_id/staff_id/approved_by...).'
+}
+
+Table Role {
+  id integer [pk, increment]
+  name varchar [not null, note: 'Customer/FacilityStaff/FacilityManager/BusinessOperationManager/SystemAdministrator']
+  description text
+
+  Note: 'Owner: Flow 5 (Admin).'
+}
+
+Table Permission {
+  id integer [pk, increment]
+  code varchar [not null, unique, note: 'vd rental_request.approve, invoice.read, policy.update']
+  description text
+
+  Note: 'Owner: Flow 5 (Admin).'
+}
+
+Table RolePermission {
+  id integer [pk, increment]
+  role_id integer [ref: > Role.id, not null]
+  permission_id integer [ref: > Permission.id, not null]
+
+  Note: 'Bảng N-N Role <-> Permission (RBAC data-driven). Owner: Flow 5 (Admin).'
+}
+
+Table AccountFacilityAssignment {
+  id integer [pk, increment]
+  account_id integer [ref: > Account.id, not null, note: 'role Facility Staff']
+  facility_id integer [ref: > Facility.id, not null]
+  assigned_at timestamp [not null]
+
+  Note: 'Owner: Flow 5 (Admin gán). Dùng bởi: Flow 2/3 (validate FS đúng facility). Chỉ dùng cho FS, không dùng cho FM.'
+}
+
+Table LoginHistory {
+  id integer [pk, increment]
+  account_id integer [ref: > Account.id, note: 'null khi đăng nhập bằng email không tồn tại']
+  email varchar [not null]
+  ip_address varchar
+  user_agent varchar
+  status login_status [not null]
+  failure_reason varchar
+  created_at timestamp [not null]
+
+  Note: 'Owner: Flow 5 (Admin theo dõi).'
+}
+
+Table AuditLog {
+  id integer [pk, increment]
+  account_id integer [ref: > Account.id, not null, note: 'người thực hiện']
+  action varchar [not null, note: 'vd RentalRequest.Approve, Policy.Update, Account.UpdateRole']
+  entity_type varchar [not null]
+  entity_id integer [not null]
+  old_value text [note: 'JSON']
+  new_value text [note: 'JSON']
+  created_at timestamp [not null]
+
+  Note: 'Dùng chung cấu trúc giữa Flow 3 và Flow 5 — mẫu tham khảo tốt cho việc đồng bộ schema giữa các flow.'
+}
+
+// ---------------------------------------------------------------------------
+// NHÓM E — CHÍNH SÁCH & PHÍ (BOM, dùng chung nhiều flow)
+// ---------------------------------------------------------------------------
+
+Table Policy {
+  id integer [pk, increment]
+  key varchar [not null, unique, note: 'vd contract.expiring_soon_days, overdue.fee_per_day, unit.maintenance_days']
+  value varchar [not null]
+  value_type policy_value_type [not null]
+  description text
+  updated_by integer [ref: > Account.id]
+  updated_at timestamp
+
+  Note: 'Central doc mục 6.1: dùng bản key-value (flow-3) thay vì "Business Rules" cột cố định (flow-4) — CHƯA CHỐT CHÍNH THỨC, chỉ là lựa chọn để render.'
+}
+
+Table Fee {
+  id integer [pk, increment]
+  name varchar [not null]
+  category varchar
+  amount decimal [not null]
+  calculation fee_calculation [not null]
+  description text
+  status varchar [not null, default: 'active']
+  created_by integer [ref: > Account.id]
+  created_at timestamp [not null]
+
+  Note: 'Central doc mục 6.2: dùng bản "Fee" (flow-4, hỗ trợ calculation fixed/daily/monthly/%) thay cho "ExtraFee" (flow-3, chỉ 1 mức cố định).'
+}
+
+Table Discount {
+  id integer [pk, increment]
+  code varchar [not null, unique]
+  name varchar [not null]
+  discount_type discount_type_enum [not null]
+  value decimal [not null]
+  apply_to discount_apply_to_enum [not null]
+  min_months integer
+  start_at timestamp [not null]
+  end_at timestamp [not null]
+  is_active boolean [not null, default: true]
+  created_by integer [ref: > Account.id, not null]
+  created_at timestamp [not null]
+
+  Note: 'Owner: Flow 3/4 (đề xuất). Có thể bỏ khỏi MVP theo issue pre-merge report #9.'
+}
+
+Table Notification {
+  id integer [pk, increment]
+  account_id integer [ref: > Account.id, note: 'null khi gửi cho người chưa có tài khoản']
+  recipient varchar [note: 'email nhận, dùng cho channel Email']
+  channel notification_channel [not null]
+  type varchar [not null, note: 'vd RentalRequest.Approved, Invoice.Created, Contract.ExpiringSoon']
+  title varchar [not null]
+  content text
+  entity_type varchar
+  entity_id integer
+  is_read boolean [not null, default: false]
+  sent_at timestamp [not null]
+  read_at timestamp
+  created_at timestamp [not null]
+
+  Note: 'Dùng chung mọi flow — không flow nào là chủ duy nhất.'
+}
+
+// ---------------------------------------------------------------------------
+// TABLE GROUPS (để dbdiagram.io hiển thị màu theo nhóm)
+// ---------------------------------------------------------------------------
+
+TableGroup "A. Vong doi thue kho" {
+  RentalRequest
+  RentalOrder
+  ProposalFeedback
+  Appointment
+  RentalAppointment
+  HandoverRecord
+  RentalContract
+  UnitAccessKey
+  CheckoutRecord
+  ExtendRequest
+  ReturnRequest
+  SupportRequest
+}
+
+TableGroup "B. Thanh toan & hoa don" {
+  Invoice
+  PaymentTransaction
+}
+
+TableGroup "C. Co so vat chat" {
+  Facility
+  StorageUnit
+  UnitType
+}
+
+TableGroup "D. Tai khoan & phan quyen" {
+  Account
+  Role
+  Permission
+  RolePermission
+  AccountFacilityAssignment
+  LoginHistory
+  AuditLog
+}
+
+TableGroup "E. Chinh sach & phi" {
+  Policy
+  Fee
+  Discount
+  Notification
+}
