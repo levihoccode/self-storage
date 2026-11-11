@@ -12,3 +12,10 @@ export function listInvoices(signal?: AbortSignal): Promise<InvoiceSummary[]> {
     signal,
   });
 }
+
+export function startDepositPayment(invoiceId: number): Promise<{ paymentUrl: string }> {
+  return apiRequest<{ paymentUrl: string }>(`/api/invoices/${invoiceId}/pay`, {
+    method: "POST",
+    accessToken: accessToken(),
+  });
+}

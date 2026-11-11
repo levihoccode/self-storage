@@ -151,9 +151,9 @@ class MigrationTest {
             assertThat(count(connection, "facilities")).isEqualTo(2);
             assertThat(count(connection, "unit_types")).isEqualTo(3);
             assertThat(count(connection, "storage_units")).isEqualTo(8);
-            // 10 = 6 key baseline + order.expiry_days (V5) + invoice.deposit_months (V8)
-            // + fee.unit_change (V9) + handover.due_days (V16).
-            assertThat(count(connection, "policies")).isEqualTo(10);
+            // 11 = 6 key baseline + order.expiry_days (V5) + invoice.deposit_months (V8)
+            // + fee.unit_change (V9) + handover.due_days (V16) + contract.expiring_soon_days (V22).
+            assertThat(count(connection, "policies")).isEqualTo(11);
             // V5 (bug #130): policy key B2 đọc khi tạo RentalOrder.
             assertThat(countWhere(connection, "policies", "key = 'order.expiry_days'")).isEqualTo(1);
             // V8: hệ số tiền cọc của Flow 1.3.
@@ -162,6 +162,8 @@ class MigrationTest {
             assertThat(countWhere(connection, "policies", "key = 'fee.unit_change'")).isEqualTo(1);
             // V16: hạn bàn giao Flow 2.1.
             assertThat(countWhere(connection, "policies", "key = 'handover.due_days'")).isEqualTo(1);
+            // V22: cửa sổ cảnh báo sắp hết hạn hợp đồng (Flow 3.1).
+            assertThat(countWhere(connection, "policies", "key = 'contract.expiring_soon_days'")).isEqualTo(1);
             // V11: một hoá đơn cọc đầy đủ active + một hoá đơn bổ sung chờ thanh toán trên mỗi đơn.
             assertThat(countWhere(connection, "pg_indexes",
                     "indexname = 'uq_invoices_active_full_deposit'")).isEqualTo(1);

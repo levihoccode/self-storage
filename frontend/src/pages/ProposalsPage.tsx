@@ -5,7 +5,6 @@ import { formatDate, formatMoney } from "../app/format";
 import { agreeProposal, fetchMyProposals, rejectProposal } from "../app/proposals";
 import { listUnitTypes } from "../app/unitTypes";
 import type { CustomerProposal, DepositInvoice, Navigate, UnitTypeSummary } from "../app/types";
-import { rentedStorage } from "../mocks/customer";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
@@ -13,7 +12,6 @@ import { SurfaceState } from "../components/ui/SurfaceState";
 import { UnitIllustration } from "../components/domain/UnitIllustration";
 import { UnitIllustrationLightbox } from "../components/domain/UnitIllustrationLightbox";
 
-type Tab = "active" | "pending";
 type LoadState = "loading" | "ready" | "error";
 
 type CardOutcome =
@@ -35,7 +33,6 @@ async function loadPendingProposals(): Promise<LoadResult> {
 }
 
 export function ProposalsPage({ navigate }: { navigate: Navigate }) {
-  const [tab, setTab] = useState<Tab>("pending");
   const [items, setItems] = useState<CustomerProposal[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
@@ -107,8 +104,6 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
     setLightboxOpen(false);
   }
 
-  const awaitingCount = items.filter((proposal) => !outcomes[proposal.id]).length;
-
   async function agree(proposal: CustomerProposal) {
     setBusyId(proposal.id);
     setActionError(null);
@@ -147,14 +142,6 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
     }
   }
 
-  function tabClass(active: boolean) {
-    return `inline-flex items-center gap-2 border-0 px-2.5 py-1.5 text-small font-semibold ${
-      active
-        ? "bg-brand text-signal-ink"
-        : "bg-transparent text-muted hover:bg-surface-subtle hover:text-ink"
-    }`;
-  }
-
   return (
     <div className="grid gap-6">
       <div>
@@ -164,67 +151,11 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        <button className={tabClass(tab === "active")} onClick={() => setTab("active")}>
-          Đang sử dụng
-          <span
-            className={`px-1.5 text-label ${
-              tab === "active" ? "bg-signal-ink text-brand" : "bg-surface text-muted"
-            }`}
-          >
-            {rentedStorage.length}
-          </span>
-        </button>
-        <button className={tabClass(tab === "pending")} onClick={() => setTab("pending")}>
-          Chờ duyệt
-          <span
-            className={`px-1.5 text-label ${
-              tab === "pending" ? "bg-signal-ink text-brand" : "bg-surface text-muted"
-            }`}
-          >
-            {awaitingCount}
-          </span>
-        </button>
-      </div>
-
-      {tab === "active" && (
-        <>
-          <DemoNotice tone="info">
-            Danh sách kho đang sử dụng chưa có API — tab này đang dùng dữ liệu minh hoạ.
-          </DemoNotice>
-          {rentedStorage.length === 0 ? (
-            <SurfaceState variant="empty" title="Chưa có kho đang sử dụng" />
-          ) : (
-            <div className="grid gap-2.5">
-              {rentedStorage.map((storage) => (
-                <div
-                  key={storage.id}
-                  className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
-                >
-                  <div>
-                    <span className="text-label text-muted">
-                      Khoang {storage.unitCode} · {storage.size}
-                    </span>
-                    <h2 className="mt-1 text-[16px] font-semibold text-ink">{storage.facility}</h2>
-                    <p className="mt-1 flex items-center gap-1.5 text-small text-muted">
-                      <MapPin size={14} /> {storage.district}
-                    </p>
-                  </div>
-                  <Button variant="secondary" size="sm" onClick={() => navigate("/my-storage")}>
-                    Xem chi tiết <ArrowRight size={15} />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === "pending" && loadState === "loading" && (
+      {loadState === "loading" && (
         <SurfaceState variant="loading" title="Đang tải đề xuất khoang…" />
       )}
 
-      {tab === "pending" && loadState === "error" && (
+      {loadState === "error" && (
         <SurfaceState
           variant="error"
           title="Không tải được đề xuất khoang"
@@ -233,8 +164,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
         />
       )}
 
-      {tab === "pending" &&
-        loadState === "ready" &&
+      {loadState === "ready" &&
         (items.length === 0 ? (
           <SurfaceState
             variant="empty"
@@ -243,7 +173,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
           />
         ) : (
           <div className="grid gap-2.5">
-            {items.map((proposal) => {
+            {items.map((proposal, index) => {
               const outcome = outcomes[proposal.id];
               const isBusy = busyId === proposal.id;
               const remaining = proposal.maxRejectionCount - proposal.rejectionCount;
@@ -253,7 +183,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                   <div className="flex items-start justify-between gap-5 max-[760px]:flex-col">
                     <div>
                       <span className="text-label text-muted">
-                        Khoang {proposal.unitCode} · {proposal.unitTypeName}
+                        Đề xuất {index + 1} · Khoang {proposal.unitCode} · {proposal.unitTypeName}
                       </span>
                       <h2 className="mt-1 text-section text-ink">{proposal.facilityName}</h2>
                       {proposal.facilityAddress && (

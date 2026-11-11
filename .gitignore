@@ -16,7 +16,7 @@ hs_err_pid*
 replay_pid*
 
 # Node / Vite (frontend/)
-node_modules/
+node_modules
 frontend/dist/
 frontend/coverage/
 *.tsbuildinfo
