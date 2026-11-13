@@ -307,7 +307,7 @@ function App() {
         <BomShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "bom-dashboard" && <BomDashboardPage navigate={navigate} />}
           {view === "bom-facilities" && <BomFacilitiesPage navigate={navigate} />}
-          {view === "bom-staff" && <BomStaffPage navigate={navigate} />}
+          {view === "bom-staff" && <BomStaffPage />}
           {view === "bom-pricing" && <BomPricingPage navigate={navigate} />}
           {view === "bom-invoices" && <BomInvoicesPage navigate={navigate} />}
           {view === "bom-staff-report" && <BomStaffReportPage />}

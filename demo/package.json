@@ -1,0 +1,13 @@
+{
+  "name": "self-storage-demo",
+  "private": true,
+  "type": "module",
+  "description": "Công cụ dựng cảnh demo cho buổi showcase — không thuộc frontend, không ảnh hưởng CI",
+  "scripts": {
+    "seed": "node seed.mjs",
+    "live": "node live.mjs 7"
+  },
+  "dependencies": {
+    "playwright-core": "^1.65.0"
+  }
+}
