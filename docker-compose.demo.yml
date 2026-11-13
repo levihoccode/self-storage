@@ -1,0 +1,27 @@
+# Chạy cả app bằng Docker cho buổi demo — dùng chung với docker-compose.yml.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml --profile app up -d
+#
+# Khác biệt so với chạy tay:
+#   - backend + frontend chạy trong container, máy demo không cần Java/Maven/Node
+#   - JWT_ACCESS_TOKEN_TTL=PT8H: token 15 phút sẽ đá cả 3 cửa sổ demo về /login giữa buổi
+#   - backend ở cổng 8080 (compose map sẵn), nên demo/live.mjs cần DEMO_API=http://localhost:8080
+#
+# Build lần đầu tải Maven + npm hết vài phút; build tối hôm trước, đừng build lúc 8h sáng.
+# Sửa code Java/React thì phải `docker compose --profile app build` lại.
+services:
+  backend:
+    environment:
+      JWT_ACCESS_TOKEN_TTL: PT8H
+
+  frontend:
+    profiles: ["app"]
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      # Trong cùng network của compose, backend không phải "localhost" mà là tên service.
+      VITE_API_PROXY_TARGET: http://backend:8080
+    ports:
+      - "5173:5173"
