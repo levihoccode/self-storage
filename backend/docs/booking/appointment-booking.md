@@ -82,3 +82,10 @@ Ghi nhận khi tạo: `Appointment(CHECKIN, Pending, staff_id = null)` + dòng `
   Deposited` (khoang vẫn `Reserved`). Đơn đã quá `expires_at` thì chạy Cascade: no-show dùng lý do "Không đến nhận
   kho quá hạn giữ", FS huỷ dùng lý do FS nhập. Cascade đã gửi `RENTAL_ORDER_CANCELED` nên không gửi thêm
   `APPOINTMENT_CANCELED_NO_SHOW`.
+
+## Test
+
+`booking/Flow1HttpE2ETest.java` chạy trọn Flow 1 qua HTTP thật: form public → FM duyệt (convert ngay vì email đã có
+tài khoản) → khách đồng ý proposal → IPN chốt cọc → đặt lịch → FM phân công FS → FS xác nhận khách đến, kèm khẳng
+định `due_at` của `HandoverRecord` được set ở 2.1. Test dời `started_at`/`end_at` của lịch về hiện tại bằng SQL vì
+route đặt lịch chỉ nhận khung tương lai còn `arrive` chỉ nhận khách đến sớm tối đa 15 phút.
