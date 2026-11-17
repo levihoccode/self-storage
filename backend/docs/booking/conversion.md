@@ -90,6 +90,10 @@ Key này seed ở `V5__order_expiry_days_seed.sql` — thiếu key là lỗi c�
 
 ## Chống tạo trùng (account + khoang)
 
+- Chống trùng chỉ áp ở mức **(người, khoang)**, không ở mức yêu cầu: một khách thuê nhiều khoang là hợp
+  lệ — mỗi request chuyển thành một đơn riêng, với cọc riêng, lịch hẹn riêng và hợp đồng riêng.
+  Hệ thống không gom các đơn đó thành một gói, không hiển thị chúng như một nhu cầu chung và không
+  cảnh báo khách khi một đơn trong số đó quá hạn.
 - "Đang hoạt động" = có `ProposalFeedback` `Pending`/`Agreed` cho khoang đó, trên một đơn của
   account chưa `Canceled`/`Done` (`ConversionGuardRepository.hasActiveConversion`). Pre-check lúc
   duyệt dùng cùng định nghĩa theo email (`hasActiveConversionForEmail`); đơn cũ đã đóng thì được
