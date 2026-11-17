@@ -8,7 +8,6 @@ import {
   type FacilityRow,
   type StaffRow,
 } from "../../app/services/bom";
-import type { Navigate } from "../../app/types";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
@@ -17,7 +16,7 @@ import { StatusTag } from "../../components/ui/StatusTag";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 
 /** BOM điều phối FS giữa các cơ sở. Tài khoản giữ nguyên — chỉ đổi danh sách cơ sở được gán. */
-export function BomStaffPage(_props: { navigate: Navigate }) {
+export function BomStaffPage() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [facilities, setFacilities] = useState<FacilityRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
