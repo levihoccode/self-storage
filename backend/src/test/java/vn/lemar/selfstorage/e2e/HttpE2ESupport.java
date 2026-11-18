@@ -64,7 +64,9 @@ public abstract class HttpE2ESupport {
     }
 
     protected ResponseEntity<JsonNode> post(String path, String email, Object body) {
-        return exchange(path, HttpMethod.POST, email, body);
+        // POST không body vẫn gửi `{}`: một số handler nhận body rỗng kèm Content-Type lạ trả 415,
+        // và FE thật luôn gửi JSON. Nhờ vậy request trùng với production.
+        return exchange(path, HttpMethod.POST, email, body == null ? Map.of() : body);
     }
 
     private ResponseEntity<JsonNode> exchange(String path, HttpMethod method, String email, Object body) {
