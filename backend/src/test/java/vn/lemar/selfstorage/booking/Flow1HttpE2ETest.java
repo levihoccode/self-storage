@@ -133,6 +133,9 @@ class Flow1HttpE2ETest extends HttpE2ESupport {
         // ---------------------------------------------------------------- 1.5 đặt lịch check-in
         JsonNode window = ok(get("/api/rental-orders/" + orderId + "/appointment-slots", CUSTOMER));
         assertThat(window.path("orderId").asLong()).isEqualTo(orderId);
+        // Chọn khung MUỘN NHẤT còn trống: nó chắc chắn cách hiện tại > 15 phút, nên bước kiểm
+        // "khách đến sớm" bên dưới là tất định. Khung sớm nhất có thể chỉ cách 1 phút và test sẽ
+        // phụ thuộc đồng hồ máy chạy.
         String date = null;
         String startAt = null;
         for (JsonNode day : window.path("days")) {
@@ -140,11 +143,7 @@ class Flow1HttpE2ETest extends HttpE2ESupport {
                 if (slot.path("available").asBoolean()) {
                     date = day.path("date").asText();
                     startAt = slot.path("startAt").asText();
-                    break;
                 }
-            }
-            if (startAt != null) {
-                break;
             }
         }
         assertThat(startAt).as("phải còn ít nhất một khung trống trong cửa sổ đặt lịch").isNotNull();
