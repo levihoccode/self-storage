@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.http.HttpStatus;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -168,9 +167,9 @@ class Flow1HttpE2ETest extends HttpE2ESupport {
         assertThat(notifications(FS, "FS_ASSIGNED", orderId)).isEqualTo(1);
 
         // ---------------------------------------------------------------- 2.1 FS xác nhận khách đến
-        // Lịch vừa đặt ở tương lai nên FS chưa được xác nhận; dời khung về hiện tại rồi mới arrive.
-        assertThat(post("/api/staff/appointments/" + appointmentId + "/arrive", FS, null).getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+        // Route đặt lịch chỉ nhận khung tương lai nên lịch vừa tạo luôn ở tương lai; dời khung về hiện
+        // tại rồi mới arrive. Nhánh "chưa tới giờ hẹn" (409) có test riêng ở
+        // StaffAppointmentActionIntegrationTest — không lặp ở đây vì luật đó phụ thuộc đồng hồ máy chạy.
         jdbc.update("update appointments set started_at = now() - interval '1 minute',"
                 + " end_at = now() + interval '1 hour' where id = ?", appointmentId);
 
