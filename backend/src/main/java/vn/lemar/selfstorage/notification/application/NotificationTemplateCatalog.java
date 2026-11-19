@@ -285,6 +285,10 @@ public class NotificationTemplateCatalog {
                 "Để mở khoang {{unitCode}} (hợp đồng {{contractCode}}) dọn đồ trả kho, vui lòng thanh toán "
                         + "{{amount}}đ — hoá đơn {{invoiceCode}} gồm phí quá hạn tính tới ngày buổi trả kho và các "
                         + "khoản còn nợ. Thanh toán xong khoang được mở ngay; tiền cọc giữ nguyên tới khi quyết toán.");
+        put(NotificationType.OVERLOCK_ASSIGNED, NotificationRecipient.FS,
+                "FM giao việc khoá chặn",
+                "FM giao bạn {{task}} khoá chặn của cơ sở trên khoang {{unitCode}} ({{facilityName}}, hợp đồng "
+                        + "{{contractCode}}). Làm xong thì xác nhận ở trang Khoá chặn.");
         put(NotificationType.OVERLOCK_REMOVED, NotificationRecipient.CUSTOMER,
                 "Đã gỡ khoá chặn",
                 "Nhân viên đã gỡ khoá chặn của cơ sở trên khoang {{unitCode}} (hợp đồng {{contractCode}}). Bạn vào "

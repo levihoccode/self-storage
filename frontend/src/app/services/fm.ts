@@ -434,6 +434,37 @@ export function fetchOverdueContracts(facilityId: number): Promise<OverdueContra
   return authed(`/api/fm/overdue-contracts${query({ facilityId })}`);
 }
 
+/** `UnitOverlockService.OverlockView` — khoá chặn của cơ sở trên khoang dùng chìa cơ. */
+export type FmOverlock = {
+  id: number;
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitId: number;
+  unitCode: string;
+  facilityId: number;
+  facilityName: string;
+  status: "Required" | "Applied" | "RemovalRequired" | "Removed" | "Canceled";
+  requiredAt: string;
+  appliedAt: string | null;
+  removalRequestedAt: string | null;
+  removedAt: string | null;
+  note: string | null;
+  assignedStaffId: number | null;
+  assignedStaffName: string | null;
+  assignedAt: string | null;
+};
+
+/** GET /api/fm/overlocks — khoá chặn đang mở của cơ sở. */
+export function fetchFacilityOverlocks(facilityId: number): Promise<FmOverlock[]> {
+  return authed(`/api/fm/overlocks${query({ facilityId })}`);
+}
+
+/** POST /api/fm/overlocks/{id}/assign — giao (lại) FS gắn / gỡ khoá chặn. */
+export function assignOverlock(id: number, staffId: number): Promise<FmOverlock> {
+  return authed(`/api/fm/overlocks/${id}/assign`, { method: "POST", body: { staffId } });
+}
+
 // ------------------------------------------------------------------ Hỗ trợ
 
 /** `SupportService.TransferView` — lần chuyển khoang gần nhất của yêu cầu hỗ trợ (khoang hư). */

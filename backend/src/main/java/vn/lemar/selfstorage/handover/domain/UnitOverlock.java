@@ -67,6 +67,13 @@ public class UnitOverlock {
     @Column(length = 500)
     private String note;
 
+    /** FS được FM giao gắn / gỡ; {@code null} = chưa giao (mọi FS của cơ sở nhận việc). */
+    @Column(name = "assigned_staff_id")
+    private Long assignedStaffId;
+
+    @Column(name = "assigned_at")
+    private Instant assignedAt;
+
     public static UnitOverlock require(Long contractId, Long unitId, Instant now) {
         UnitOverlock lock = new UnitOverlock();
         lock.contractId = Objects.requireNonNull(contractId, "contractId");
@@ -78,6 +85,20 @@ public class UnitOverlock {
 
     public boolean open() {
         return REQUIRED.equals(status) || APPLIED.equals(status) || REMOVAL_REQUIRED.equals(status);
+    }
+
+    /** FM giao (hoặc giao lại) FS đi gắn / gỡ — chỉ khi đang chờ gắn hoặc chờ gỡ. */
+    public void assign(Long staffId, Instant now) {
+        if (!REQUIRED.equals(status) && !REMOVAL_REQUIRED.equals(status)) {
+            throw new IllegalStateException("UnitOverlock " + id + " không có việc để giao: " + status);
+        }
+        this.assignedStaffId = Objects.requireNonNull(staffId, "staffId");
+        this.assignedAt = now;
+    }
+
+    /** FS này được làm việc khoá chặn: chưa giao ai, hoặc giao đúng FS này. */
+    public boolean actionableBy(Long staffId) {
+        return assignedStaffId == null || assignedStaffId.equals(staffId);
     }
 
     /** FS đã gắn khoá chặn tại khoang: {@code Required → Applied}. */

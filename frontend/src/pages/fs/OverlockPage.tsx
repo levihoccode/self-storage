@@ -1,5 +1,6 @@
 import { Lock, LockOpen, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
+import { authGateway } from "../../app/auth";
 import { formatDateTime } from "../../app/format";
 import { errorMessage, errorStatus } from "../../app/http";
 import {
@@ -29,6 +30,7 @@ export function OverlockPage({ navigate }: { navigate: Navigate }) {
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const myId = authGateway.getSession()?.user.id ?? null;
 
   useEffect(() => {
     let active = true;
@@ -121,7 +123,10 @@ export function OverlockPage({ navigate }: { navigate: Navigate }) {
               label: item.status,
               tone: "neutral" as const,
             };
-            const actionable = item.status === "Required" || item.status === "RemovalRequired";
+            // FM đã giao cho FS khác thì chỉ FS đó xác nhận được (backend trả 403).
+            const mine = item.assignedStaffId === null || String(item.assignedStaffId) === myId;
+            const actionable =
+              mine && (item.status === "Required" || item.status === "RemovalRequired");
             return (
               <article key={item.id} className="grid gap-3 bg-surface p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -142,6 +147,13 @@ export function OverlockPage({ navigate }: { navigate: Navigate }) {
                     {item.note && (
                       <span className="mt-1 block text-small text-muted">Ghi chú: {item.note}</span>
                     )}
+                    <span className="mt-1 block text-small text-muted">
+                      {item.assignedStaffId === null
+                        ? "Chưa giao — FS nào của cơ sở cũng làm được"
+                        : mine
+                          ? "FM đã giao cho bạn"
+                          : `FM đã giao cho ${item.assignedStaffName ?? "FS khác"}`}
+                    </span>
                   </div>
                   <StatusTag tone={status.tone}>{status.label}</StatusTag>
                 </div>
@@ -178,8 +190,9 @@ export function OverlockPage({ navigate }: { navigate: Navigate }) {
                   </div>
                 ) : (
                   <p className="m-0 text-small text-muted">
-                    Đang gắn — chờ khách trả phí quá hạn và gia hạn, hoặc đến buổi trả kho. Hệ thống
-                    báo khi cần gỡ.
+                    {!mine
+                      ? "Việc này đã giao cho FS khác."
+                      : "Đang gắn — chờ khách trả phí quá hạn và gia hạn, hoặc đến buổi trả kho và trả hết nợ. Hệ thống báo khi cần gỡ."}
                   </p>
                 )}
               </article>

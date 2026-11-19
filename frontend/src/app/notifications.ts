@@ -103,6 +103,7 @@ export function notificationPath(
           : undefined;
     case "OVERLOCK_REQUIRED":
     case "OVERLOCK_REMOVAL_REQUIRED":
+    case "OVERLOCK_ASSIGNED":
       return role === "FS" ? "/staff/overlocks" : role === "FM" ? "/fm/extend-requests" : undefined;
     case "OVERLOCK_REMOVED":
     case "MOVE_OUT_DEBT_DUE":

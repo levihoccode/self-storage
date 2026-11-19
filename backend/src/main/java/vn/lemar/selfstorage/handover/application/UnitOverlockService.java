@@ -18,6 +18,7 @@ import vn.lemar.selfstorage.audit.domain.AuditAction;
 import vn.lemar.selfstorage.audit.domain.AuditEntityType;
 import vn.lemar.selfstorage.booking.application.OrderNotificationService;
 import vn.lemar.selfstorage.handover.application.exception.HandoverConflictException;
+import vn.lemar.selfstorage.handover.application.exception.HandoverForbiddenException;
 import vn.lemar.selfstorage.handover.application.exception.HandoverNotFoundException;
 import vn.lemar.selfstorage.handover.application.exception.HandoverValidationException;
 import vn.lemar.selfstorage.handover.domain.UnitOverlock;
@@ -38,12 +39,15 @@ import vn.lemar.selfstorage.notification.application.NotificationType;
  *       {@code RemovalRequired}, FS cơ sở + FM nhận {@code OVERLOCK_REMOVAL_REQUIRED}.</li>
  *   <li>FS gỡ tại khoang → {@code Removed}; khách nhận {@code OVERLOCK_REMOVED}.</li>
  * </ul>
- * FS thao tác cần {@code unit_access_key.issue} tại cơ sở của khoang (cùng quyền giao / thu hồi chìa).
+ * FS thao tác cần {@code unit_access_key.issue} tại cơ sở của khoang (cùng quyền giao / thu hồi chìa). FM xem
+ * ({@code rental_order.read}) và giao một FS cụ thể ({@code appointment.assign}); đã giao thì chỉ FS đó xác nhận được.
  */
 @Service
 public class UnitOverlockService {
 
     static final String PERM = "unit_access_key.issue";
+    static final String PERM_FM_READ = "rental_order.read";
+    static final String PERM_FM_ASSIGN = "appointment.assign";
     static final int NOTE_MAX = 500;
 
     private static final Logger LOG = LoggerFactory.getLogger(UnitOverlockService.class);
@@ -52,7 +56,7 @@ public class UnitOverlockService {
     public record OverlockView(Long id, Long contractId, String contractCode, Long orderId, Long unitId,
                                String unitCode, Long facilityId, String facilityName, String status,
                                Instant requiredAt, Instant appliedAt, Instant removalRequestedAt, Instant removedAt,
-                               String note) {
+                               String note, Long assignedStaffId, String assignedStaffName, Instant assignedAt) {
 
         /** Truy cập đã mở lại, khoá chặn còn trên khoang — chờ FS gỡ. */
         public boolean removalPending() {
@@ -99,6 +103,51 @@ public class UnitOverlockService {
         return jdbc.query(SELECT + " where " + OPEN + " and u.facility_id in (" + in + ") order by case o.status "
                         + "when 'RemovalRequired' then 0 when 'Required' then 1 else 2 end, o.required_at",
                 (rs, i) -> map(rs), facilityIds.toArray());
+    }
+
+    /** FM — khoá chặn đang mở của cơ sở, cùng thứ tự với trang của FS. */
+    @Transactional(readOnly = true)
+    public List<OverlockView> facilityQueue(Long facilityId) {
+        access.can(PERM_FM_READ, facilityId);
+        return jdbc.query(SELECT + " where " + OPEN + " and u.facility_id = ? order by case o.status "
+                        + "when 'RemovalRequired' then 0 when 'Required' then 1 else 2 end, o.required_at",
+                (rs, i) -> map(rs), facilityId);
+    }
+
+    /**
+     * FM giao (hoặc giao lại) một FS đang hoạt động của cơ sở đi gắn / gỡ khoá chặn; FS đó nhận
+     * {@code OVERLOCK_ASSIGNED}. Chỉ giao được khi đang chờ gắn hoặc chờ gỡ.
+     */
+    @Transactional
+    public OverlockView assign(Long overlockId, Long staffId) {
+        if (staffId == null) {
+            throw new HandoverValidationException("Vui lòng chọn FS phụ trách");
+        }
+        UnitOverlock lock = overlocks.findByIdForUpdate(overlockId)
+                .orElseThrow(() -> new HandoverNotFoundException("Không tìm thấy khoá chặn"));
+        OverlockView current = view(lock.getId());
+        access.can(PERM_FM_ASSIGN, current.facilityId());
+        String status = lock.getStatus();
+        if (!UnitOverlock.REQUIRED.equals(status) && !UnitOverlock.REMOVAL_REQUIRED.equals(status)) {
+            throw new HandoverConflictException(UnitOverlock.APPLIED.equals(lock.getStatus())
+                    ? "Khoá chặn đang gắn — giao FS gỡ khi hợp đồng được mở lại"
+                    : "Khoá chặn đã đóng (" + lock.getStatus() + ")");
+        }
+        String email = jdbc.query("""
+                select a.email from accounts a
+                join roles r on r.id = a.role_id and r.name = 'FS'
+                join account_facility_assignments f on f.account_id = a.id and f.facility_id = ?
+                where a.id = ? and a.status = 'ACTIVE'""", (rs, i) -> rs.getString(1), current.facilityId(), staffId)
+                .stream().findFirst()
+                .orElseThrow(() -> new HandoverValidationException("FS không thuộc cơ sở hoặc không hoạt động"));
+        lock.assign(staffId, Instant.now());
+        audit(AuditAction.OVERLOCK_ASSIGNED, lock, status, currentAccount.getCurrentAccountId());
+        OverlockView view = view(lock.getId());
+        Map<String, Object> values = values(view);
+        values.put("task", UnitOverlock.REQUIRED.equals(status) ? "gắn" : "gỡ");
+        notificationService.notify(staffId, email, NotificationRecipient.FS, NotificationType.OVERLOCK_ASSIGNED,
+                values, view.orderId());
+        return view;
     }
 
     /** Khoá chặn đang mở của hợp đồng (biên bản trả kho, danh sách quá hạn của FM). */
@@ -190,6 +239,9 @@ public class UnitOverlockService {
         UnitOverlock lock = overlocks.findByIdForUpdate(overlockId)
                 .orElseThrow(() -> new HandoverNotFoundException("Không tìm thấy khoá chặn"));
         access.can(PERM, view(lock.getId()).facilityId());
+        if (!lock.actionableBy(currentAccount.getCurrentAccountId())) {
+            throw new HandoverForbiddenException("Việc khoá chặn này FM đã giao cho FS khác");
+        }
         return lock;
     }
 
@@ -199,14 +251,20 @@ public class UnitOverlockService {
                 .orElseThrow(() -> new HandoverNotFoundException("Không tìm thấy khoá chặn"));
     }
 
-    /** FS đang hoạt động được gán cơ sở + FM của cơ sở. Lỗi gửi chỉ log — việc vẫn hiện ở trang khoá chặn. */
+    /**
+     * FM của cơ sở + FS: đã giao thì chỉ FS được giao, chưa giao thì mọi FS đang hoạt động của cơ sở. Lỗi gửi chỉ log
+     * — việc vẫn hiện ở trang khoá chặn.
+     */
     private void notifyWork(OverlockView view, NotificationType type) {
         Map<String, Object> values = values(view);
-        List<Map<String, Object>> staff = jdbc.queryForList("""
-                select a.id, a.email from accounts a
-                join roles r on r.id = a.role_id and r.name = 'FS'
-                join account_facility_assignments f on f.account_id = a.id
-                where f.facility_id = ? and a.status = 'ACTIVE'""", view.facilityId());
+        List<Map<String, Object>> staff = view.assignedStaffId() != null
+                ? jdbc.queryForList("select a.id, a.email from accounts a where a.id = ? and a.status = 'ACTIVE'",
+                        view.assignedStaffId())
+                : jdbc.queryForList("""
+                        select a.id, a.email from accounts a
+                        join roles r on r.id = a.role_id and r.name = 'FS'
+                        join account_facility_assignments f on f.account_id = a.id
+                        where f.facility_id = ? and a.status = 'ACTIVE'""", view.facilityId());
         for (Map<String, Object> row : staff) {
             try {
                 notificationService.notify(((Number) row.get("id")).longValue(), (String) row.get("email"),
@@ -245,6 +303,9 @@ public class UnitOverlockService {
         if (lock.getNote() != null) {
             after.put("note", lock.getNote());
         }
+        if (lock.getAssignedStaffId() != null) {
+            after.put("assignedStaffId", lock.getAssignedStaffId());
+        }
         auditRecorder.record(new AuditEntry(action, AuditEntityType.UNIT_OVERLOCK, String.valueOf(lock.getId()),
                 before == null ? null : Map.of("status", before), after, null, actorAccountId));
     }
@@ -254,18 +315,22 @@ public class UnitOverlockService {
     private static final String SELECT = """
             select o.id, o.contract_id, c.code as contract_code, c.order_id, o.unit_id, u.code as unit_code,
                    u.facility_id, f.name as facility_name, o.status, o.required_at, o.applied_at,
-                   o.removal_requested_at, o.removed_at, o.note
+                   o.removal_requested_at, o.removed_at, o.note, o.assigned_staff_id,
+                   coalesce(sa.name, sa.email) as assigned_staff_name, o.assigned_at
             from unit_overlocks o
             join rental_contracts c on c.id = o.contract_id
             join storage_units u on u.id = o.unit_id
-            join facilities f on f.id = u.facility_id""";
+            join facilities f on f.id = u.facility_id
+            left join accounts sa on sa.id = o.assigned_staff_id""";
 
     private static OverlockView map(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new OverlockView(rs.getLong("id"), rs.getLong("contract_id"), rs.getString("contract_code"),
                 rs.getLong("order_id"), rs.getLong("unit_id"), rs.getString("unit_code"), rs.getLong("facility_id"),
                 rs.getString("facility_name"), rs.getString("status"), instant(rs.getTimestamp("required_at")),
                 instant(rs.getTimestamp("applied_at")), instant(rs.getTimestamp("removal_requested_at")),
-                instant(rs.getTimestamp("removed_at")), rs.getString("note"));
+                instant(rs.getTimestamp("removed_at")), rs.getString("note"),
+                rs.getObject("assigned_staff_id", Long.class), rs.getString("assigned_staff_name"),
+                instant(rs.getTimestamp("assigned_at")));
     }
 
     private static Instant instant(Timestamp timestamp) {

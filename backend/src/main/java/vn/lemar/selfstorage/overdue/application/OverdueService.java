@@ -267,8 +267,7 @@ public class OverdueService {
                 .map(c -> {
                     Calc calc = calc(c);
                     ContractBill open = invoices.bills(c.id()).stream()
-                            .filter(b -> b.unpaid()
-                                    && b.code().startsWith("INV-" + ContractInvoiceService.OVERDUE_KIND))
+                            .filter(b -> b.unpaid() && ContractInvoiceService.isStandingDebtCode(b.code()))
                             .findFirst().orElse(null);
                     return new OverdueContract(c.id(), c.code(), c.orderId(), unitCode(c), c.endDate(),
                             calc.daysOverdue(), calc.chargedDays(), calc.accrued(), open, calc.returnRequested(),

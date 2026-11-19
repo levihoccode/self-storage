@@ -214,6 +214,13 @@ của cơ sở (overlock) — khách giữ chìa nhưng không mở được. B�
 - FS xem việc ở trang **Khoá chặn** (`GET /api/staff/overlocks`): khoá chặn đang mở ở các cơ sở mình được gán, chờ gỡ
   trước, rồi chờ gắn, rồi đang gắn. Mọi thao tác cần `unit_access_key.issue` tại cơ sở của khoang (cùng quyền giao /
   thu hồi chìa); gắn khi không còn `Required` hoặc gỡ khi chưa `RemovalRequired` (hợp đồng còn khoá) → 409.
+- **FM giao FS** (V39 — `assigned_staff_id`, `assigned_at`): trang Hợp đồng quá hạn của FM có mục "Khoá chặn của cơ
+  sở" (`GET /api/fm/overlocks?facilityId=`, `rental_order.read`) liệt kê khoá chặn đang mở kèm FS phụ trách; FM chọn
+  một FS đang hoạt động của cơ sở và giao gắn / gỡ (`POST /api/fm/overlocks/{id}/assign` `{staffId}`,
+  `appointment.assign`). Chỉ giao khi `Required` hoặc `RemovalRequired` (đang `Applied` → 409), giao lại được; FS
+  không thuộc cơ sở / không hoạt động → 400. FS được giao nhận `OVERLOCK_ASSIGNED`; audit `OVERLOCK_ASSIGNED`.
+  - Chưa giao: mọi FS của cơ sở nhận thông báo và làm được. Đã giao: chỉ FS đó xác nhận gắn / gỡ (FS khác → 403), và
+    thông báo `OVERLOCK_REMOVAL_REQUIRED` khi mở lại chỉ gửi FS đó (+ FM). FM giao lại người khác cho bước gỡ nếu cần.
 - Mở lại bằng trả phí + gia hạn: thông báo `CONTRACT_ACCESS_RESTORED` của khách nói thêm khoá chặn sẽ được nhân viên
   gỡ; khách nhận `OVERLOCK_REMOVED` khi FS gỡ xong.
 - Mở lại khi khách đến buổi trả kho: biên bản trả kho của FS hiện khoá chặn "chờ gỡ" kèm nút xác nhận đã gỡ; còn

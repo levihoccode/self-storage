@@ -120,7 +120,8 @@ public enum AuditAction {
     OVERLOCK_APPLIED(AuditEntityType.UNIT_OVERLOCK),
     OVERLOCK_REMOVAL_REQUIRED(AuditEntityType.UNIT_OVERLOCK),
     OVERLOCK_REMOVED(AuditEntityType.UNIT_OVERLOCK),
-    OVERLOCK_CANCELED(AuditEntityType.UNIT_OVERLOCK);
+    OVERLOCK_CANCELED(AuditEntityType.UNIT_OVERLOCK),
+    OVERLOCK_ASSIGNED(AuditEntityType.UNIT_OVERLOCK);
 
     private final Set<AuditEntityType> entityTypes;
 

@@ -41,7 +41,7 @@ import vn.lemar.selfstorage.identity.domain.Role;
 import vn.lemar.selfstorage.identity.repository.AccountRepository;
 
 /** HTTP contract khoá chặn của FS + map lỗi handover (409) + chặn sai role (403). */
-@WebMvcTest(controllers = StaffOverlockController.class)
+@WebMvcTest(controllers = {StaffOverlockController.class, FmOverlockController.class})
 @Import({SecurityConfig.class, JwtConfiguration.class, AccountJwtAuthenticationConverter.class,
     HandoverExceptionHandler.class})
 @TestPropertySource(properties = "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
@@ -49,6 +49,7 @@ class StaffOverlockControllerTest {
 
     private static final String FS = "fs@example.com";
     private static final String CUSTOMER = "customer@example.com";
+    private static final String FM = "fm@example.com";
 
     @Autowired
     private MockMvc mockMvc;
@@ -82,6 +83,22 @@ class StaffOverlockControllerTest {
     }
 
     @Test
+    void managerListsAndAssignsOverlocks() throws Exception {
+        login(FM, "FM", 2L);
+        when(overlocks.facilityQueue(1L)).thenReturn(List.of(view("Required")));
+        when(overlocks.assign(3L, 5L)).thenReturn(view("Required"));
+
+        mockMvc.perform(as(get("/api/fm/overlocks?facilityId=1"), FM))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].id").value(3));
+        mockMvc.perform(as(post("/api/fm/overlocks/3/assign"), FM).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"staffId\":5}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("Required"));
+
+        login(FS, "FS", 5L);
+        mockMvc.perform(as(get("/api/fm/overlocks?facilityId=1"), FS)).andExpect(status().isForbidden());
+    }
+
+    @Test
     void customerCannotTouchOverlocks() throws Exception {
         login(CUSTOMER, "CUSTOMER", 6L);
         when(overlocks.staffQueue()).thenReturn(List.of());
@@ -93,7 +110,7 @@ class StaffOverlockControllerTest {
 
     private static OverlockView view(String status) {
         return new OverlockView(3L, 7L, "HD-1", 4L, 9L, "A-01", 1L, "Kho Q7", status, Instant.now(), null, null,
-                null, null);
+                null, null, null, null, null);
     }
 
     private void login(String email, String roleName, Long accountId) {

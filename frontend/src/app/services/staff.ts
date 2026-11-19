@@ -330,6 +330,10 @@ export type OverlockView = {
   removalRequestedAt: string | null;
   removedAt: string | null;
   note: string | null;
+  /** FS được FM giao; `null` = chưa giao (mọi FS của cơ sở làm được). */
+  assignedStaffId: number | null;
+  assignedStaffName: string | null;
+  assignedAt: string | null;
 };
 
 export const OVERLOCK_STATUS: Record<

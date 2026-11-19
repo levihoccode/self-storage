@@ -39,6 +39,8 @@ import vn.lemar.selfstorage.checkout.application.CheckoutService.Inspection;
 import vn.lemar.selfstorage.handover.application.UnitOverlockService;
 import vn.lemar.selfstorage.handover.application.UnitOverlockService.OverlockView;
 import vn.lemar.selfstorage.handover.application.exception.HandoverConflictException;
+import vn.lemar.selfstorage.handover.application.exception.HandoverForbiddenException;
+import vn.lemar.selfstorage.handover.application.exception.HandoverValidationException;
 import vn.lemar.selfstorage.overdue.application.OverdueService;
 import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.payment.application.PaymentService;
@@ -658,6 +660,13 @@ class PostRentalIntegrationTest {
         assertThat(required.unitId()).isEqualTo(seed.unitId);
         assertThat(notifications(FS, "OVERLOCK_REQUIRED", seed.orderId)).isEqualTo(1);
         assertThat(notifications(FM, "OVERLOCK_REQUIRED", seed.orderId)).isEqualTo(1);
+        // Danh sách quá hạn của FM hiện trạng thái khoá chặn.
+        loginAs(FM);
+        assertThat(overdue.facilityOverdue(facilityId)).filteredOn(o -> o.contractId().equals(seed.contractId))
+                .singleElement().satisfies(o -> {
+                    assertThat(o.accessSuspended()).isTrue();
+                    assertThat(o.overlockStatus()).isEqualTo("Required");
+                });
         overdue.accrue(seed.contractId);
         assertThat(count("select count(*) from unit_overlocks where contract_id = ?", seed.contractId)).isEqualTo(1);
 
@@ -691,6 +700,42 @@ class PostRentalIntegrationTest {
                 "OVERLOCK_REMOVED")) {
             assertThat(auditCount(action, "UnitOverlock", required.id())).as(action).isEqualTo(1);
         }
+    }
+
+    @Test
+    void fmAssignsOneStaffAndOnlyThatStaffConfirmsTheOverlock() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        long overlockId = overlocks.openOf(seed.contractId).orElseThrow().id();
+        long otherFs = id("insert into accounts (email, password_hash, email_verified_at, role_id, status) values "
+                + "('fs-overlock-" + System.nanoTime() + "@lemar.vn', 'x', now(), (select id from roles where name = "
+                + "'FS'), 'ACTIVE') returning id");
+        jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, ?)", otherFs,
+                facilityId);
+
+        loginAs(FM);
+        assertThat(overlocks.facilityQueue(facilityId)).extracting(OverlockView::id).contains(overlockId);
+        // Chỉ giao được FS đang hoạt động của cơ sở.
+        assertThatThrownBy(() -> overlocks.assign(overlockId, customerId))
+                .isInstanceOf(HandoverValidationException.class);
+        OverlockView assigned = overlocks.assign(overlockId, otherFs);
+        assertThat(assigned.assignedStaffId()).isEqualTo(otherFs);
+        assertThat(assigned.assignedStaffName()).isNotBlank();
+        assertThat(count("select count(*) from notifications where account_id = ? and type = 'OVERLOCK_ASSIGNED'",
+                otherFs)).isEqualTo(1);
+        assertThat(auditCount("OVERLOCK_ASSIGNED", "UnitOverlock", overlockId)).isEqualTo(1);
+
+        // FS khác (fs1) không xác nhận được việc đã giao cho người khác.
+        loginAs(FS);
+        assertThatThrownBy(() -> overlocks.apply(overlockId, null)).isInstanceOf(HandoverForbiddenException.class);
+
+        // FM giao lại cho fs1 → fs1 gắn được; đang gắn thì chưa có việc để giao.
+        loginAs(FM);
+        overlocks.assign(overlockId, fsId);
+        loginAs(FS);
+        assertThat(overlocks.apply(overlockId, null).status()).isEqualTo("Applied");
+        loginAs(FM);
+        assertThatThrownBy(() -> overlocks.assign(overlockId, fsId)).isInstanceOf(HandoverConflictException.class);
     }
 
     @Test
