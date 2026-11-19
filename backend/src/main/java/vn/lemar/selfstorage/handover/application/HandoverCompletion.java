@@ -117,8 +117,8 @@ class HandoverCompletion {
     /** Khách lấy lại mã: thu hồi mã đang Active (nếu có) rồi cấp mã mới — chỉ mã mới hiện một lần. */
     String rotateCode(RentalContract contract, Long actorAccountId) {
         if (contract.getAccessSuspendedAt() != null) {
-            throw new HandoverConflictException("Quyền truy cập đang tạm khoá do hợp đồng quá hạn — gia hạn hoặc trả "
-                    + "kho và thanh toán phí quá hạn để mở lại");
+            throw new HandoverConflictException("Quyền truy cập đang tạm khoá do hợp đồng quá hạn — thanh toán phí quá "
+                    + "hạn rồi gia hạn, hoặc đến buổi trả kho và thanh toán hết nợ để mở lại");
         }
         Instant now = Instant.now();
         accessKeys.findActiveForUpdate(contract.getId(), UnitAccessKey.ACCESS_CODE).ifPresent(old -> {
