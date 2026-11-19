@@ -23,7 +23,7 @@ Bearer token + `ACCOUNT_ACTIVE`; `/api/staff/**` cần role `FS`, `/api/customer
 |---|---|---|---|
 | GET | `/api/staff/return-requests/{id}/checkout` | FS có `unit_access_key.issue` tại cơ sở của yêu cầu | 403 thiếu quyền / ngoài cơ sở; 404 "Không tìm thấy yêu cầu trả kho" |
 | PUT | `/api/staff/return-requests/{id}/checkout` | FS được phân (`assigned_staff_id`) có `unit_access_key.issue` | 400 thiếu `unitEmptied`, `damageAmount` âm hoặc có phần lẻ (VND nguyên), `returnedKeys` âm hoặc **bỏ trống khi hợp đồng còn chìa vật lý `Active` và khoang đã dọn xong**, > 20 ảnh, `damages`/`note` > 2000 ký tự; 403 không phải FS phụ trách; 404; 409 yêu cầu không `Assigned`, chưa xác nhận khách đến, hợp đồng không `Active` |
-| POST | `/api/staff/return-requests/{id}/checkout/confirm` | FS được phân có `unit_access_key.issue` | như `PUT`, thêm 409 "Chưa có kết quả kiểm tra khoang", "Khoang còn tài sản — chưa chốt trả kho được", "Biên bản trả kho đã chốt", hoá đơn cần gộp còn phiên thanh toán mở |
+| POST | `/api/staff/return-requests/{id}/checkout/confirm` | FS được phân có `unit_access_key.issue` | như `PUT`, thêm 409 "Chưa có kết quả kiểm tra khoang", "Khoang còn tài sản — chưa chốt trả kho được", "Biên bản trả kho đã chốt", hoá đơn cần gộp còn phiên thanh toán mở, "Khoang còn khoá chặn của cơ sở — gỡ khoá chặn trước khi chốt trả kho" |
 | GET | `/api/customer/return-requests/{id}/checkout` | khách chủ hợp đồng của yêu cầu | 404 (không có / của khách khác) |
 
 ## Sơ đồ
@@ -57,7 +57,8 @@ flowchart TB
   chưa chốt được, quyền truy cập vẫn `Active`. Kiểm lại khi đã trống thì về `IN_PROGRESS`.
 - **Audit** `CHECKOUT_INSPECTED`.
 - `GET` cùng đường dẫn trả biên bản kèm phí dự kiến: `cleaningFee`, `lostKeyFee`, số chìa đã giao, tổng hoá đơn
-  `Unpaid` của hợp đồng, tiền cọc, và `accessSuspended` (hợp đồng đang tạm khoá truy cập do quá hạn kéo dài).
+  `Unpaid` của hợp đồng, tiền cọc, `accessSuspended` (hợp đồng đang tạm khoá truy cập do quá hạn kéo dài) và
+  `overlock` (khoá chặn của cơ sở đang mở trên khoang, `null` = không có).
 - Hợp đồng quá hạn đang tạm khoá: FS xác nhận khách đến buổi `RETURN` thì truy cập được mở lại để khách dọn đồ (khách
   lấy mã khoá số mới trong ứng dụng); phí quá hạn dừng ở ngày buổi đó và gộp vào quyết toán — luật ở
   [tenancy/rentals.md](../tenancy/rentals.md#quá-hạn-kéo-dài--tạm-khoá-truy-cập).
@@ -65,6 +66,10 @@ flowchart TB
 ## Chốt và quyết toán
 
 `POST /api/staff/return-requests/{id}/checkout/confirm`, một transaction, khoá đơn → hợp đồng → biên bản → hoá đơn:
+
+0. **Khoá chặn của cơ sở** (`UnitOverlockService.settleForCheckout`): còn `Applied` / `RemovalRequired` trên khoang →
+   409, FS gỡ rồi xác nhận trước (nút trên biên bản); yêu cầu gắn còn `Required` (chưa gắn) → `Canceled`, audit
+   `OVERLOCK_CANCELED` ([tenancy/rentals.md](../tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ)).
 
 1. **Thu hồi quyền truy cập** (`RentalContractService.revokeAll`):
    - mã số → `Revoked`;

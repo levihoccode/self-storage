@@ -32,15 +32,17 @@ public class RentalContractService {
     private final HandoverReadRepository readRepository;
     private final AuditRecorder auditRecorder;
     private final HandoverCompletion completion;
+    private final UnitOverlockService overlocks;
 
     RentalContractService(RentalContractRepository contracts, UnitAccessKeyRepository accessKeys,
                           HandoverReadRepository readRepository, AuditRecorder auditRecorder,
-                          HandoverCompletion completion) {
+                          HandoverCompletion completion, UnitOverlockService overlocks) {
         this.contracts = contracts;
         this.accessKeys = accessKeys;
         this.readRepository = readRepository;
         this.auditRecorder = auditRecorder;
         this.completion = completion;
+        this.overlocks = overlocks;
     }
 
     /** Ảnh chụp hợp đồng. */
@@ -261,7 +263,8 @@ public class RentalContractService {
 
     /**
      * Quá hạn kéo dài: thu hồi mã khoá số đang {@code Active}, đánh dấu {@code access_suspended_at}. Chìa cơ không thu
-     * hồi từ xa được — FM xử lý tại chỗ. Idempotent; {@code true} khi vừa khoá.
+     * hồi từ xa được — hợp đồng còn chìa cơ {@code Active} thì tạo yêu cầu gắn khoá chặn của cơ sở
+     * ({@link UnitOverlockService}). Idempotent; {@code true} khi vừa khoá.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean suspendAccess(Long contractId, long daysOverdue, Long actorAccountId) {
@@ -278,10 +281,16 @@ public class RentalContractService {
         });
         audit(AuditAction.CONTRACT_ACCESS_SUSPENDED, AuditEntityType.RENTAL_CONTRACT, contractId, null,
                 Map.of("accessSuspendedAt", now.toString(), "daysOverdue", daysOverdue), actorAccountId);
+        if (hasActivePhysicalKeys(contractId)) {
+            overlocks.requireOnSuspend(contractId, contract.getUnitId(), actorAccountId);
+        }
         return true;
     }
 
-    /** Hết quá hạn (gia hạn / trả phí): bỏ tạm khoá; khách tự lấy mã mới. {@code true} khi vừa mở lại. */
+    /**
+     * Mở lại truy cập (trả phí + gia hạn, hoặc khách đến buổi trả kho): bỏ tạm khoá; khách tự lấy mã mới. Khoá chặn
+     * chưa gắn thì huỷ, đã gắn thì chuyển chờ FS gỡ. {@code true} khi vừa mở lại.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean restoreAccess(Long contractId, Long actorAccountId) {
         RentalContract contract = contracts.findByIdForUpdate(contractId).orElseThrow();
@@ -291,6 +300,7 @@ public class RentalContractService {
         }
         audit(AuditAction.CONTRACT_ACCESS_RESTORED, AuditEntityType.RENTAL_CONTRACT, contractId,
                 Map.of("accessSuspendedAt", before.toString()), Map.of("accessSuspendedAt", "null"), actorAccountId);
+        overlocks.releaseOnRestore(contractId, actorAccountId);
         return true;
     }
 

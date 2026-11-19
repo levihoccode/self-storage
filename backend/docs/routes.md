@@ -74,6 +74,9 @@ hữu route (xem quy ước ở cuối trang).
 | GET | `/api/staff/return-requests/{id}/checkout` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Biên bản trả kho + phí dự kiến | [checkout/return.md](checkout/return.md) |
 | PUT | `/api/staff/return-requests/{id}/checkout` | Bearer + role `FS`; `unit_access_key.issue` + đúng FS | Ghi kết quả kiểm tra khoang | [checkout/return.md](checkout/return.md) |
 | POST | `/api/staff/return-requests/{id}/checkout/confirm` | Bearer + role `FS`; `unit_access_key.issue` + đúng FS | Chốt trả kho, quyết toán cọc | [checkout/return.md](checkout/return.md) |
+| GET | `/api/staff/overlocks` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Khoá chặn đang mở ở các cơ sở của tôi | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
+| POST | `/api/staff/overlocks/{id}/apply` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Xác nhận đã gắn khoá chặn (`Required → Applied`) | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
+| POST | `/api/staff/overlocks/{id}/remove` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Xác nhận đã gỡ khoá chặn (`RemovalRequired → Removed`) | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
 | GET / POST | `/api/customer/support-requests` | Bearer + role `CUSTOMER` | Yêu cầu hỗ trợ của tôi / gửi yêu cầu | [support/requests.md](support/requests.md) |
 | POST | `/api/customer/support-requests/{id}/cancel` | Bearer + role `CUSTOMER`; chủ tài nguyên | Huỷ yêu cầu hỗ trợ | [support/requests.md](support/requests.md) |
 | GET | `/api/fm/support-requests?facilityId=` | Bearer + role `FM`; `rental_order.read` + facility scope | Hàng chờ hỗ trợ của cơ sở | [support/requests.md](support/requests.md) |

@@ -306,7 +306,61 @@ export type CheckoutView = {
   completedAt: string | null;
   /** Hợp đồng đang bị tạm khoá truy cập (quá hạn) — mở lại khi xác nhận khách đến buổi trả kho. */
   accessSuspended: boolean;
+  /** Khoá chặn của cơ sở đang mở trên khoang (khoang dùng chìa cơ bị tạm khoá do quá hạn). */
+  overlock: OverlockView | null;
 };
+
+// ------------------------------------------------------------------ Khoá chặn (overlock)
+
+export type OverlockStatus = "Required" | "Applied" | "RemovalRequired" | "Removed" | "Canceled";
+
+/** `UnitOverlockService.OverlockView`. */
+export type OverlockView = {
+  id: number;
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitId: number;
+  unitCode: string;
+  facilityId: number;
+  facilityName: string;
+  status: OverlockStatus;
+  requiredAt: string;
+  appliedAt: string | null;
+  removalRequestedAt: string | null;
+  removedAt: string | null;
+  note: string | null;
+};
+
+export const OVERLOCK_STATUS: Record<
+  string,
+  { label: string; tone: "success" | "warning" | "info" | "danger" | "neutral" }
+> = {
+  Required: { label: "Chờ gắn khoá chặn", tone: "warning" },
+  Applied: { label: "Đã gắn khoá chặn", tone: "danger" },
+  RemovalRequired: { label: "Chờ gỡ khoá chặn", tone: "info" },
+  Removed: { label: "Đã gỡ khoá chặn", tone: "success" },
+  Canceled: { label: "Không cần gắn", tone: "neutral" },
+};
+
+/** GET /api/staff/overlocks — việc khoá chặn đang mở ở các cơ sở của FS. */
+export function fetchStaffOverlocks(): Promise<OverlockView[]> {
+  return authed<OverlockView[]>("/api/staff/overlocks");
+}
+
+export function applyOverlock(id: number, note?: string): Promise<OverlockView> {
+  return authed<OverlockView>(`/api/staff/overlocks/${id}/apply`, {
+    method: "POST",
+    body: { note: note?.trim() || null },
+  });
+}
+
+export function removeOverlock(id: number, note?: string): Promise<OverlockView> {
+  return authed<OverlockView>(`/api/staff/overlocks/${id}/remove`, {
+    method: "POST",
+    body: { note: note?.trim() || null },
+  });
+}
 
 export type CheckoutInspection = {
   unitEmptied: boolean;

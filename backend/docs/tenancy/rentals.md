@@ -27,7 +27,7 @@ Mọi route cần bearer token + `ACCOUNT_ACTIVE`; prefix quyết role (`/api/cu
 | GET | `/api/customer/rentals` | khách — hợp đồng `Active` của chính mình | — (không có thì `data: []`) |
 | GET | `/api/customer/rentals/ended` | khách — hợp đồng `Ended` (đã trả kho) của chính mình, kết thúc gần nhất trước | — (không có thì `data: []`) |
 | GET | `/api/customer/rentals/{contractId}` | khách chủ hợp đồng (mọi trạng thái hợp đồng) | 404 "Không tìm thấy hợp đồng thuê" (không có / của khách khác) |
-| POST | `/api/customer/rentals/{contractId}/extensions` body `{months}` | khách chủ hợp đồng | 400 thiếu `months` / ngoài 1–`extension.max_months`; 404; 409 hợp đồng không `Active`, đang có yêu cầu trả kho mở, đã có hoá đơn gia hạn `Unpaid` |
+| POST | `/api/customer/rentals/{contractId}/extensions` body `{months}` | khách chủ hợp đồng | 400 thiếu `months` / ngoài 1–`extension.max_months`; 404; 409 hợp đồng không `Active`, đang có yêu cầu trả kho mở, đã có hoá đơn gia hạn `Unpaid`, còn phí quá hạn `INV-OVD` chưa trả (trả phí trước) |
 | POST | `/api/customer/rentals/{contractId}/return-request` body `{preferredDate, note?}` | khách chủ hợp đồng | 400 `preferredDate` trước hôm nay / quá 30 ngày tới, `note` > 1000 ký tự; 404; 409 hợp đồng không `Active`, đã có yêu cầu đang xử lý, còn hoá đơn gia hạn `Unpaid` |
 | GET | `/api/customer/return-requests` | khách — mọi yêu cầu trả kho của mình, mới nhất trước | — |
 | POST | `/api/customer/return-requests/{id}/cancel` | khách chủ yêu cầu | 404 "Không tìm thấy yêu cầu trả kho"; 409 yêu cầu đã đóng, FS đã xác nhận khách đến |
@@ -193,8 +193,31 @@ Trong bước đồng bộ phí (`OverdueService.accrue` → `escalate`): hợp 
   trình của cơ sở;
 - idempotent: hợp đồng đã khoá thì không làm lại, không gửi lại.
 
-Chìa cơ (`PhysicalKey`) không thu hồi từ xa được — FM xử lý tại chỗ. Trong lúc khoá, khách lấy mã mới
-(`POST /api/customer/contracts/{id}/access-code`) bị 409.
+Trong lúc khoá, khách lấy mã mới (`POST /api/customer/contracts/{id}/access-code`) bị 409.
+
+#### Khoá chặn của cơ sở (chìa cơ)
+
+Chìa cơ (`PhysicalKey`) không thu hồi từ xa được như mã số, nên khoang có chìa cơ `Active` được gắn thêm một khoá chặn
+của cơ sở (overlock) — khách giữ chìa nhưng không mở được. Bảng `unit_overlocks` (V38), `UnitOverlockService`; mỗi hợp
+đồng tối đa một khoá chặn đang mở.
+
+| Trạng thái | Khi nào | Ai |
+|---|---|---|
+| `Required` | `suspendAccess` thấy hợp đồng còn chìa cơ `Active`; FS được gán cơ sở + FM nhận `OVERLOCK_REQUIRED` | System |
+| `Applied` | FS gắn tại khoang rồi xác nhận (`POST /api/staff/overlocks/{id}/apply`) | FS |
+| `RemovalRequired` | truy cập được mở lại (một trong hai đường ở bảng dưới) khi khoá chặn đã gắn; FS + FM nhận `OVERLOCK_REMOVAL_REQUIRED` | System |
+| `Removed` | FS gỡ tại khoang rồi xác nhận (`POST /api/staff/overlocks/{id}/remove`); khách nhận `OVERLOCK_REMOVED` | FS |
+| `Canceled` | mở lại truy cập hoặc chốt trả kho khi yêu cầu còn `Required` (chưa gắn) — không cần gỡ | System / FS |
+
+- FS xem việc ở trang **Khoá chặn** (`GET /api/staff/overlocks`): khoá chặn đang mở ở các cơ sở mình được gán, chờ gỡ
+  trước, rồi chờ gắn, rồi đang gắn. Mọi thao tác cần `unit_access_key.issue` tại cơ sở của khoang (cùng quyền giao /
+  thu hồi chìa); gắn khi không còn `Required` hoặc gỡ khi chưa `RemovalRequired` (hợp đồng còn khoá) → 409.
+- Mở lại bằng trả phí + gia hạn: thông báo `CONTRACT_ACCESS_RESTORED` của khách nói thêm khoá chặn sẽ được nhân viên
+  gỡ; khách nhận `OVERLOCK_REMOVED` khi FS gỡ xong.
+- Mở lại khi khách đến buổi trả kho: biên bản trả kho của FS hiện khoá chặn "chờ gỡ" kèm nút xác nhận đã gỡ; còn
+  `Applied` / `RemovalRequired` thì **không chốt trả kho được** (409) — xem [checkout/return.md](../checkout/return.md).
+- Hợp đồng chỉ dùng mã số thì không có khoá chặn — thu hồi mã là đủ.
+- FM xem trạng thái tạm khoá và khoá chặn trong danh sách hợp đồng quá hạn (`accessSuspended`, `overlockStatus`).
 
 **Mở lại** (`OverdueService.restoreIfCleared`). Hợp đồng đang khoá chỉ có hai đường lấy lại quyền vào khoang:
 
@@ -226,7 +249,9 @@ kho của FS báo khi hợp đồng đang khoá: xác nhận khách đến thì 
 FM xem danh sách hợp đồng quá hạn của cơ sở (`GET /api/fm/overdue-contracts?facilityId=`), gồm:
 - số ngày quá hạn và số ngày tính phí;
 - tổng phí đã cộng dồn và hoá đơn đang mở;
-- hợp đồng đã có yêu cầu trả kho chưa.
+- hợp đồng đã có yêu cầu trả kho chưa;
+- đang tạm khoá truy cập không (`accessSuspended`) và trạng thái khoá chặn đang mở (`overlockStatus`, `null` = không
+  có).
 
 ## Policy
 

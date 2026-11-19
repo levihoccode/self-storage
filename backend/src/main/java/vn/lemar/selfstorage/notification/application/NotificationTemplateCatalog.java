@@ -207,7 +207,8 @@ public class NotificationTemplateCatalog {
                 "Quyền truy cập khoang tạm khoá",
                 "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Mã khoá số đã tạm khoá. "
                         + "Để mở lại: thanh toán phí quá hạn rồi gia hạn, hoặc gửi yêu cầu trả kho — khoang được "
-                        + "mở để dọn đồ khi bạn đến buổi trả kho.");
+                        + "mở để dọn đồ khi bạn đến buổi trả kho. Khoang dùng chìa cơ sẽ được gắn thêm khoá chặn của "
+                        + "cơ sở cho tới khi mở lại.");
         put(NotificationType.CONTRACT_ACCESS_SUSPENDED, NotificationRecipient.FM,
                 "Hợp đồng quá hạn kéo dài",
                 "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày, mã khoá số đã tạm khoá. "
@@ -263,6 +264,26 @@ public class NotificationTemplateCatalog {
         put(NotificationType.UNIT_TRANSFER_CANCELED, NotificationRecipient.FS,
                 "Huỷ chuyển khoang",
                 "FM huỷ chuyển khoang của yêu cầu hỗ trợ #{{requestId}}: {{reason}}. Tiếp tục xử lý yêu cầu.");
+        put(NotificationType.OVERLOCK_REQUIRED, NotificationRecipient.FS,
+                "Cần gắn khoá chặn",
+                "Khoang {{unitCode}} ({{facilityName}}, hợp đồng {{contractCode}}) tạm khoá do quá hạn kéo dài và "
+                        + "khách đang giữ chìa cơ. Gắn khoá chặn của cơ sở tại khoang rồi xác nhận ở trang Khoá chặn.");
+        put(NotificationType.OVERLOCK_REQUIRED, NotificationRecipient.FM,
+                "Cần gắn khoá chặn",
+                "Khoang {{unitCode}} (hợp đồng {{contractCode}}) tạm khoá do quá hạn kéo dài và khách đang giữ chìa "
+                        + "cơ. FS của cơ sở cần gắn khoá chặn tại khoang.");
+        put(NotificationType.OVERLOCK_REMOVAL_REQUIRED, NotificationRecipient.FS,
+                "Cần gỡ khoá chặn",
+                "Khoang {{unitCode}} ({{facilityName}}, hợp đồng {{contractCode}}) đã được mở lại truy cập. Gỡ khoá "
+                        + "chặn tại khoang rồi xác nhận ở trang Khoá chặn.");
+        put(NotificationType.OVERLOCK_REMOVAL_REQUIRED, NotificationRecipient.FM,
+                "Cần gỡ khoá chặn",
+                "Khoang {{unitCode}} (hợp đồng {{contractCode}}) đã được mở lại truy cập. FS của cơ sở cần gỡ khoá "
+                        + "chặn tại khoang.");
+        put(NotificationType.OVERLOCK_REMOVED, NotificationRecipient.CUSTOMER,
+                "Đã gỡ khoá chặn",
+                "Nhân viên đã gỡ khoá chặn của cơ sở trên khoang {{unitCode}} (hợp đồng {{contractCode}}). Bạn vào "
+                        + "khoang bằng chìa của mình như trước.");
         put(NotificationType.CHECKOUT_COMPLETED, NotificationRecipient.CUSTOMER,
                 "Trả kho hoàn tất",
                 "Hợp đồng {{contractCode}} đã kết thúc. Tiền cọc hoàn lại: {{refundAmount}}đ (cơ sở xử lý thủ công).");

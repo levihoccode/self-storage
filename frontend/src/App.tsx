@@ -38,6 +38,7 @@ import { HandoverChecklistPage } from "./pages/fs/HandoverChecklistPage";
 import { PaymentReconciliationPage } from "./pages/admin/PaymentReconciliationPage";
 import { HandoverQueuePage } from "./pages/fs/HandoverQueuePage";
 import { ReturnQueuePage } from "./pages/fs/ReturnQueuePage";
+import { OverlockPage } from "./pages/fs/OverlockPage";
 import { ReturnCheckoutPage } from "./pages/fs/ReturnCheckoutPage";
 import { StaffSupportPage } from "./pages/fs/SupportQueuePage";
 import { MyShiftsPage } from "./pages/fs/MyShiftsPage";
@@ -190,6 +191,7 @@ function App() {
     view === "fs-returns" ||
     view === "fs-return-detail" ||
     view === "fs-support" ||
+    view === "fs-overlocks" ||
     view === "fs-shifts" ||
     view === "fs-leaves";
   const isBomView = view.startsWith("bom-");
@@ -301,6 +303,7 @@ function App() {
           {view === "fs-returns" && <ReturnQueuePage navigate={navigate} />}
           {view === "fs-return-detail" && <ReturnCheckoutPage navigate={navigate} />}
           {view === "fs-support" && <StaffSupportPage navigate={navigate} />}
+          {view === "fs-overlocks" && <OverlockPage navigate={navigate} />}
           {view === "fs-shifts" && <MyShiftsPage />}
           {view === "fs-leaves" && <MyLeavesPage />}
           {isNotificationView && <NotificationsPage navigate={navigate} />}

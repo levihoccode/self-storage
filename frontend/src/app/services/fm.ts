@@ -413,6 +413,10 @@ export type OverdueContract = {
   accrued: number;
   openInvoice: ContractBill | null;
   returnRequested: boolean;
+  /** Quyền truy cập đang tạm khoá do quá hạn kéo dài. */
+  accessSuspended: boolean;
+  /** Trạng thái khoá chặn đang mở (`Required` / `Applied` / `RemovalRequired`), `null` = không có. */
+  overlockStatus: string | null;
 };
 
 export function fetchReturnRequests(facilityId: number): Promise<ReturnRequest[]> {

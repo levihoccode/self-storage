@@ -737,7 +737,10 @@ function OverduePanel({
           <ol className="m-0 grid gap-1 pl-5 text-small text-muted">
             <li>Thanh toán phí quá hạn (bắt buộc trước khi gia hạn).</li>
             <li>Tạo hoá đơn gia hạn và thanh toán.</li>
-            <li>Truy cập được mở lại ngay sau khi trả — lấy mã khoá số mới trong trang này.</li>
+            <li>
+              Truy cập được mở lại ngay sau khi trả — lấy mã khoá số mới trong trang này. Khoang
+              dùng chìa đã bị gắn khoá chặn của cơ sở thì nhân viên gỡ và bạn nhận thông báo.
+            </li>
           </ol>
           {fee && (
             <Button pending={payingId === fee.invoiceId} onClick={() => onPay(fee.invoiceId)}>

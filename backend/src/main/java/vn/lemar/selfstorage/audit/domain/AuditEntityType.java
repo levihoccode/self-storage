@@ -33,7 +33,8 @@ public enum AuditEntityType {
     STAFF_LEAVE("StaffLeave"),
     STAFF_PROFILE("StaffProfile"),
     ACCOUNT_REQUEST("AccountRequest"),
-    UNIT_TRANSFER("UnitTransfer");
+    UNIT_TRANSFER("UnitTransfer"),
+    UNIT_OVERLOCK("UnitOverlock");
 
     private final String dbValue;
 

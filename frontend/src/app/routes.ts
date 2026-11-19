@@ -31,6 +31,7 @@ export function viewFromLocation(): View {
   if (path === "/staff/returns") return "fs-returns";
   if (path.startsWith("/staff/returns/")) return "fs-return-detail";
   if (path === "/staff/support") return "fs-support";
+  if (path === "/staff/overlocks") return "fs-overlocks";
   if (path === "/staff/shifts") return "fs-shifts";
   if (path === "/staff/leaves") return "fs-leaves";
   if (path === "/bom/dashboard") return "bom-dashboard";

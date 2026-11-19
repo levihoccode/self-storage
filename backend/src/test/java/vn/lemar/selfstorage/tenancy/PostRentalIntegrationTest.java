@@ -36,6 +36,9 @@ import vn.lemar.selfstorage.booking.application.StaffAppointmentActionService;
 import vn.lemar.selfstorage.checkout.application.CheckoutService;
 import vn.lemar.selfstorage.checkout.application.CheckoutService.CheckoutView;
 import vn.lemar.selfstorage.checkout.application.CheckoutService.Inspection;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService.OverlockView;
+import vn.lemar.selfstorage.handover.application.exception.HandoverConflictException;
 import vn.lemar.selfstorage.overdue.application.OverdueService;
 import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.payment.application.PaymentService;
@@ -91,6 +94,8 @@ class PostRentalIntegrationTest {
     private vn.lemar.selfstorage.booking.application.BookingExpiryService bookingExpiry;
     @Autowired
     private JdbcTemplate jdbc;
+    @Autowired
+    private UnitOverlockService overlocks;
 
     private long customerId;
     private long facilityId;
@@ -593,6 +598,100 @@ class PostRentalIntegrationTest {
             assertThat(r.canExtend()).isFalse();
             assertThat(r.canRequestReturn()).isFalse();
         });
+    }
+
+    // ------------------------------------------------------------------ khoá chặn của cơ sở (chìa cơ)
+
+    @Test
+    void lockedContractWithPhysicalKeyGetsOverlockAppliedThenRemovedAfterPayingAndExtending() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        OverlockView required = overlocks.openOf(seed.contractId).orElseThrow();
+        assertThat(required.status()).isEqualTo("Required");
+        assertThat(required.unitId()).isEqualTo(seed.unitId);
+        assertThat(notifications(FS, "OVERLOCK_REQUIRED", seed.orderId)).isEqualTo(1);
+        assertThat(notifications(FM, "OVERLOCK_REQUIRED", seed.orderId)).isEqualTo(1);
+        overdue.accrue(seed.contractId);
+        assertThat(count("select count(*) from unit_overlocks where contract_id = ?", seed.contractId)).isEqualTo(1);
+
+        loginAs(FS);
+        assertThat(overlocks.staffQueue()).extracting(OverlockView::id).contains(required.id());
+        assertThatThrownBy(() -> overlocks.remove(required.id(), null)).isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("chờ gỡ");
+        assertThat(overlocks.apply(required.id(), "Khoá chặn số 12").status()).isEqualTo("Applied");
+        assertThatThrownBy(() -> overlocks.apply(required.id(), null)).isInstanceOf(HandoverConflictException.class);
+        // Hợp đồng còn tạm khoá → chưa gỡ được.
+        assertThatThrownBy(() -> overlocks.remove(required.id(), null)).isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("tạm khoá");
+
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+        pay(contractInvoices.bill(feeId).orElseThrow());
+        pay(tenancy.requestExtension(seed.contractId, customerId, 2));
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(overlocks.openOf(seed.contractId).orElseThrow().status()).isEqualTo("RemovalRequired");
+        assertThat(notifications(FS, "OVERLOCK_REMOVAL_REQUIRED", seed.orderId)).isEqualTo(1);
+        assertThat(notifications(FM, "OVERLOCK_REMOVAL_REQUIRED", seed.orderId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select n.body from notifications n join order_notifications o on "
+                + "o.notification_id = n.id where n.type = 'CONTRACT_ACCESS_RESTORED' and o.order_id = ?",
+                String.class, seed.orderId)).contains("Khoá chặn của cơ sở");
+
+        loginAs(FS);
+        assertThat(overlocks.remove(required.id(), "Đã gỡ").status()).isEqualTo("Removed");
+        assertThat(overlocks.openOf(seed.contractId)).isEmpty();
+        assertThat(notifications(CUSTOMER, "OVERLOCK_REMOVED", seed.orderId)).isEqualTo(1);
+        for (String action : List.of("OVERLOCK_REQUIRED", "OVERLOCK_APPLIED", "OVERLOCK_REMOVAL_REQUIRED",
+                "OVERLOCK_REMOVED")) {
+            assertThat(auditCount(action, "UnitOverlock", required.id())).as(action).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void overlockNotYetAppliedIsCanceledWhenCustomerArrivesToMoveOut() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        long overlockId = overlocks.openOf(seed.contractId).orElseThrow().id();
+
+        ReturnRequestView request = assignedAndArrived(seed);
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(overlocks.openOf(seed.contractId)).isEmpty();
+        assertThat(jdbc.queryForObject("select status from unit_overlocks where id = ?", String.class, overlockId))
+                .isEqualTo("Canceled");
+        assertThat(auditCount("OVERLOCK_CANCELED", "UnitOverlock", overlockId)).isEqualTo(1);
+        assertThat(checkout.forStaff(request.id()).overlock()).isNull();
+        loginAs(FS);
+        assertThatThrownBy(() -> overlocks.apply(overlockId, null)).isInstanceOf(HandoverConflictException.class);
+    }
+
+    @Test
+    void checkoutCannotBeConfirmedWhileOverlockIsStillOnTheUnit() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        long overlockId = overlocks.openOf(seed.contractId).orElseThrow().id();
+        loginAs(FS);
+        overlocks.apply(overlockId, null);
+
+        ReturnRequestView request = assignedAndArrived(seed);
+        CheckoutView view = checkout.forStaff(request.id());
+        assertThat(view.accessSuspended()).isFalse();
+        assertThat(view.overlock().status()).isEqualTo("RemovalRequired");
+
+        checkout.inspect(request.id(), new Inspection(true, false, null, null, 2, List.of(), null));
+        assertThatThrownBy(() -> checkout.confirm(request.id())).isInstanceOf(TenancyException.class)
+                .hasMessageContaining("khoá chặn");
+        overlocks.remove(overlockId, null);
+        assertThat(checkout.confirm(request.id()).result()).isIn("COMPLETED", "AWAITING_PAYMENT");
+        assertThat(contractStatus(seed.contractId)).isIn("Ended", "Active");
+    }
+
+    @Test
+    void contractWithoutPhysicalKeyNeedsNoOverlock() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        jdbc.update("delete from unit_access_keys where contract_id = ? and access_type = 'PhysicalKey'",
+                seed.contractId);
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        assertThat(overlocks.openOf(seed.contractId)).isEmpty();
     }
 
     private Boolean suspended(long contractId) {

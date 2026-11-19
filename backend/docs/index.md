@@ -147,7 +147,7 @@ hướng dẫn ở [docs/vnpay-testing.md](../../docs/vnpay-testing.md); chạy 
 ## Database & seed
 
 Flyway chạy migration lúc khởi động, từ `V1__baseline_schema.sql` tới file mới nhất trong `db/migration/`
-(hiện `V32__staff_hr.sql`). V1/V2 có mirror byte-identical ở `backend/sql/` (CI check đồng bộ) và đã
+(hiện `V38__unit_overlocks.sql`). V1/V2 có mirror byte-identical ở `backend/sql/` (CI check đồng bộ) và đã
 đóng băng như mọi migration đã apply — đổi schema/seed bằng migration mới ([backend/sql/README.md](../sql/README.md));
 V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -253,6 +253,10 @@ Schema Flow 1.3 đi bằng migration V8–V11:
   `audit_logs` (thêm `UNIT_TRANSFER_*`, `CONTRACT_UNIT_CHANGED`, `UnitTransfer`). Notification type
   `UNIT_TRANSFER_REQUESTED`, `UNIT_TRANSFER_ALLOCATED`, `UNIT_TRANSFER_COMPLETED`, `UNIT_TRANSFER_CANCELED` chỉ thêm ở
   code. Xem [support/requests.md › Chuyển khoang](support/requests.md#chuyển-khoang-khoang-hư-giữa-kỳ-thuê).
+- V38 (Flow 6 — khoá chặn của cơ sở): bảng `unit_overlocks` (`Required` / `Applied` / `RemovalRequired` / `Removed`
+  / `Canceled`; unique một khoá chặn đang mở / hợp đồng), dựng lại hai CHECK của `audit_logs` (thêm `OVERLOCK_*`,
+  `UnitOverlock`). Notification type `OVERLOCK_REQUIRED`, `OVERLOCK_REMOVAL_REQUIRED`, `OVERLOCK_REMOVED` chỉ thêm ở
+  code. Xem [tenancy/rentals.md › Khoá chặn](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ).
 - Policy `appointment.checkin_reschedule_enabled` không được seed: khách không đổi được lịch check-in `Pending`
   ([booking/appointment-booking.md](booking/appointment-booking.md)).
 

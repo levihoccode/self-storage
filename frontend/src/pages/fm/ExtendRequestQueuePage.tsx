@@ -8,6 +8,13 @@ import {
   useFmLoad,
 } from "../../app/services/fm";
 import { StatusTag } from "../../components/ui/StatusTag";
+
+/** Khoá chặn của cơ sở trên khoang dùng chìa cơ (FS gắn / gỡ ở trang Khoá chặn). */
+const OVERLOCK_LABEL: Record<string, string> = {
+  Required: "chờ FS gắn khoá chặn",
+  Applied: "đã gắn khoá chặn",
+  RemovalRequired: "chờ FS gỡ khoá chặn",
+};
 import { SurfaceState } from "../../components/ui/SurfaceState";
 
 const TABLE_COLUMNS = "grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.9fr_1.3fr_0.9fr]";
@@ -71,6 +78,14 @@ export function ExtendRequestQueuePage() {
                     <span className="mt-0.5 block text-label text-muted">
                       Khoang {contract.unitCode ?? "—"} · Đơn #{contract.orderId}
                     </span>
+                    {contract.accessSuspended && (
+                      <span className="mt-0.5 block text-label font-semibold text-danger">
+                        Tạm khoá truy cập
+                        {contract.overlockStatus
+                          ? ` · ${OVERLOCK_LABEL[contract.overlockStatus] ?? contract.overlockStatus}`
+                          : ""}
+                      </span>
+                    )}
                   </div>
                   <span className="text-label text-ink tabular-nums">
                     {formatDate(contract.endDate)}

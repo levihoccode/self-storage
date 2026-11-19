@@ -19,6 +19,7 @@ import vn.lemar.selfstorage.booking.application.ContractInvoiceService.ContractB
 import vn.lemar.selfstorage.booking.application.HandoverOrderService;
 import vn.lemar.selfstorage.booking.application.OrderNotificationService;
 import vn.lemar.selfstorage.handover.application.RentalContractService;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService;
 import vn.lemar.selfstorage.handover.application.RentalContractService.ContractSnapshot;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.notification.application.NotificationService;
@@ -49,6 +50,8 @@ public class OverdueService {
     static final String RESTORE_NOTE_CLEARED = "không còn quá hạn.";
     static final String RESTORE_NOTE_MOVING_OUT = "được mở lại để bạn dọn đồ tại buổi trả kho; phí quá hạn dừng ở "
             + "ngày buổi trả kho và được trừ vào tiền cọc khi quyết toán.";
+    static final String RESTORE_NOTE_OVERLOCK = " Khoá chặn của cơ sở trên khoang sẽ được nhân viên gỡ — bạn nhận "
+            + "thông báo khi gỡ xong.";
     static final String PERM_READ = "rental_order.read";
     static final int INVOICE_DUE_DAYS = 7;
 
@@ -63,10 +66,12 @@ public class OverdueService {
     private final NotificationService notificationService;
     private final PricingQuery pricingQuery;
     private final Access access;
+    private final UnitOverlockService overlocks;
 
     OverdueService(RentalContractService contracts, ContractInvoiceService invoices, HandoverOrderService orders,
                    TenancyService tenancy, OrderNotificationService notifications,
-                   NotificationService notificationService, PricingQuery pricingQuery, Access access) {
+                   NotificationService notificationService, PricingQuery pricingQuery, Access access,
+                   UnitOverlockService overlocks) {
         this.contracts = contracts;
         this.invoices = invoices;
         this.orders = orders;
@@ -75,12 +80,14 @@ public class OverdueService {
         this.notificationService = notificationService;
         this.pricingQuery = pricingQuery;
         this.access = access;
+        this.overlocks = overlocks;
     }
 
     /** Hợp đồng quá hạn (cho FM). */
     public record OverdueContract(Long contractId, String contractCode, Long orderId, String unitCode,
                                   LocalDate endDate, long daysOverdue, long chargedDays, BigDecimal accrued,
-                                  ContractBill openInvoice, boolean returnRequested) {
+                                  ContractBill openInvoice, boolean returnRequested, boolean accessSuspended,
+                                  String overlockStatus) {
     }
 
     // ------------------------------------------------------------------ cron
@@ -180,9 +187,12 @@ public class OverdueService {
         if (!(cleared || movingOut) || settled || !contracts.restoreAccess(c.id(), null)) {
             return false;
         }
+        boolean overlockToRemove = overlocks.openOf(c.id())
+                .map(UnitOverlockService.OverlockView::removalPending).orElse(false);
         notifications.notifyCustomer(c.orderId(), NotificationType.CONTRACT_ACCESS_RESTORED,
                 Map.of("contractCode", c.code(), "unitCode", unitCode(c), "restoreNote",
-                        movingOut ? RESTORE_NOTE_MOVING_OUT : RESTORE_NOTE_CLEARED));
+                        (movingOut ? RESTORE_NOTE_MOVING_OUT : RESTORE_NOTE_CLEARED)
+                                + (overlockToRemove ? RESTORE_NOTE_OVERLOCK : "")));
         return true;
     }
 
@@ -218,7 +228,9 @@ public class OverdueService {
                                     && b.code().startsWith("INV-" + ContractInvoiceService.OVERDUE_KIND))
                             .findFirst().orElse(null);
                     return new OverdueContract(c.id(), c.code(), c.orderId(), unitCode(c), c.endDate(),
-                            calc.daysOverdue(), calc.chargedDays(), calc.accrued(), open, calc.returnRequested());
+                            calc.daysOverdue(), calc.chargedDays(), calc.accrued(), open, calc.returnRequested(),
+                            contracts.accessSuspended(c.id()),
+                            overlocks.openOf(c.id()).map(UnitOverlockService.OverlockView::status).orElse(null));
                 })
                 .toList();
     }

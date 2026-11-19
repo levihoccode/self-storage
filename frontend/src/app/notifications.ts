@@ -101,6 +101,10 @@ export function notificationPath(
         : role === "CUSTOMER"
           ? "/my-storage"
           : undefined;
+    case "OVERLOCK_REQUIRED":
+    case "OVERLOCK_REMOVAL_REQUIRED":
+      return role === "FS" ? "/staff/overlocks" : role === "FM" ? "/fm/extend-requests" : undefined;
+    case "OVERLOCK_REMOVED":
     case "CONTRACT_ACCESS_RESTORED":
     case "RETURN_DATE_SHIFTED":
       return role === "CUSTOMER" ? "/my-storage" : undefined;

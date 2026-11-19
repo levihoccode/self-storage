@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   ClipboardPen,
   LifeBuoy,
+  Lock,
   Undo2,
 } from "lucide-react";
 import { authGateway } from "../../app/auth";
@@ -28,6 +29,7 @@ const navigation: (WorkspaceNavItem & { view: View })[] = [
   },
   { label: "Trả kho", path: "/staff/returns", view: "fs-returns", icon: Undo2 },
   { label: "Yêu cầu hỗ trợ", path: "/staff/support", view: "fs-support", icon: LifeBuoy },
+  { label: "Khoá chặn", path: "/staff/overlocks", view: "fs-overlocks", icon: Lock },
   { label: "Ca của tôi", path: "/staff/shifts", view: "fs-shifts", icon: CalendarRange },
   { label: "Nghỉ phép & hồ sơ", path: "/staff/leaves", view: "fs-leaves", icon: ClipboardPen },
   { label: "Thông báo", path: "/notifications", view: "notifications", icon: Bell },

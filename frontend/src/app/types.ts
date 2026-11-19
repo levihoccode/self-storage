@@ -67,6 +67,7 @@ export type View =
   | "fs-returns"
   | "fs-return-detail"
   | "fs-support"
+  | "fs-overlocks"
   | "fs-shifts"
   | "fs-leaves"
   | "handover"
