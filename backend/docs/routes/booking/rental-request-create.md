@@ -30,7 +30,11 @@ Form public cho khách điền nhu cầu thuê kho mà không cần chỉ địn
 
 - Spec: `specs/draft.md §1.1`; schema `db-table-draft.md › RentalRequest`; ràng buộc
   facility–unit_type deviate `db-table-draft.md:130` được chấp nhận.
-- Chưa có rate-limit/captcha chống spam (Advanced Features, không phải MVP).
+- Form không có trường số lượng: một khách muốn thuê nhiều khoang thì gửi nhiều yêu cầu, mỗi lần một
+  `RentalRequest`. Mỗi yêu cầu chuyển thành một đơn riêng — chống trùng chỉ áp ở mức (người, khoang),
+  xem [conversion.md › Chống tạo trùng](../../booking/conversion.md#chống-tạo-trùng-account--khoang).
+- Chưa có rate-limit/captcha chống spam (Advanced Features, không phải MVP). Cũng chưa chặn hai yêu cầu
+  giống hệt nhau (cùng email, cơ sở, loại khoang, ngày bắt đầu, số tháng) — bấm gửi hai lần là hai bản ghi.
 
 ## Ví dụ
 
