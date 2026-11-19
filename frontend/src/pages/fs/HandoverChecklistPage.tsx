@@ -1,9 +1,19 @@
-import { ArrowLeft, Check, FileText, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarClock,
+  Check,
+  Download,
+  FileText,
+  History,
+  IdCard,
+  RefreshCw,
+} from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { formatDate, formatDateTime, formatMoney, formatTime, isoDate } from "../../app/format";
 import { errorMessage, errorStatus } from "../../app/http";
 import { pathId, queryParam } from "../../app/routes";
 import {
+  correctHandoverCustomerInfo,
   correctHandoverInspection,
   fetchContractDocumentUrl,
   fetchStaffHandover,
@@ -17,11 +27,16 @@ import {
   verifyHandoverIdentity,
   type HandoverView,
 } from "../../app/services/staff";
+import { downloadContractPdf } from "../../app/services/customer";
 import type { Navigate } from "../../app/types";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { FIELD_LABEL } from "../../components/ui/FormField";
+import { ImageLightbox } from "../../components/ui/ImageLightbox";
+import { ReschedulePanel } from "../../components/domain/ReschedulePanel";
+import { UnitLocationCard } from "../../components/domain/UnitLocationCard";
+import type { RescheduledAppointment } from "../../app/staffSchedule";
 import { StatusTag } from "../../components/ui/StatusTag";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 import {
@@ -99,6 +114,38 @@ function Row({ term, children }: { term: string; children: ReactNode }) {
   );
 }
 
+const MAX_IDENTITY_PHOTOS = 4;
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
+
+function IdentityPhotoStrip({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const images = urls.map((url, index) => ({ url, name: `Giấy tờ ${index + 1}` }));
+  return (
+    <>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {images.map((image, index) => (
+          <button
+            key={image.url}
+            type="button"
+            className="group block aspect-[3/2] overflow-hidden border border-border bg-surface-subtle p-0 hover:border-ink"
+            onClick={() => setOpen(index)}
+            title="Xem lớn"
+          >
+            <img
+              src={image.url}
+              alt={image.name}
+              className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+            />
+          </button>
+        ))}
+      </div>
+      {open !== null && (
+        <ImageLightbox images={images} startIndex={open} onClose={() => setOpen(null)} />
+      )}
+    </>
+  );
+}
+
 function WaitingCustomer({
   title,
   description,
@@ -111,7 +158,7 @@ function WaitingCustomer({
   refreshing: boolean;
 }) {
   return (
-    <div className="mt-4 bg-info-soft p-4 text-info">
+    <div className="step-enter mt-4 border-l-4 border-info bg-info-soft p-4 text-info">
       <strong className="block text-small">{title}</strong>
       <p className="mb-0 mt-1 text-small">{description}</p>
       <Button
@@ -141,6 +188,7 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
   const [confirmNotSigned, setConfirmNotSigned] = useState(false);
 
   const [identityNote, setIdentityNote] = useState("");
+  const [identityPhotos, setIdentityPhotos] = useState<PickedFile[]>([]);
   const [inspectionNotes, setInspectionNotes] = useState("");
   const [inspectionPhotos, setInspectionPhotos] = useState<PickedFile[]>([]);
   const [contractScan, setContractScan] = useState<PickedFile[]>([]);
@@ -149,10 +197,17 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
   const [overrideReason, setOverrideReason] = useState("");
   const [keyQuantity, setKeyQuantity] = useState(1);
   const [docLoading, setDocLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [correctionNotes, setCorrectionNotes] = useState("");
   const [correctionPhotos, setCorrectionPhotos] = useState<PickedFile[]>([]);
   const [correctionReason, setCorrectionReason] = useState("");
+  const [customerEditOpen, setCustomerEditOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerReason, setCustomerReason] = useState("");
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduled, setRescheduled] = useState<RescheduledAppointment | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -233,6 +288,18 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
     }
   }
 
+  async function downloadPdf(contractId: number) {
+    setPdfLoading(true);
+    setActionError(null);
+    try {
+      await downloadContractPdf(contractId);
+    } catch (caught) {
+      setActionError(errorMessage(caught));
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   async function openDocument(contractId: number) {
     const popup = window.open("", "_blank");
     setDocLoading(true);
@@ -251,6 +318,24 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
     } finally {
       setDocLoading(false);
     }
+  }
+
+  if (rescheduled) {
+    return (
+      <div className="grid gap-6">
+        <BackLink navigate={navigate} />
+        <SurfaceState
+          variant="empty"
+          title={`Đã dời lịch nhận kho sang ${rescheduled.newTime}`}
+          description={
+            rescheduled.arrived
+              ? "Phiên bàn giao này đã đóng (thông tin giữ làm lịch sử). Buổi mới vẫn do bạn phụ trách và làm lại từ bước xác minh danh tính; khách và FM đã nhận thông báo."
+              : "Lịch mới vẫn do bạn phụ trách; khách và FM đã nhận thông báo."
+          }
+          action={{ label: "Về lịch làm việc", onClick: () => navigate("/staff/schedule") }}
+        />
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -306,6 +391,24 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
   const activeIndex = stepIndex(step);
   const isClosed = current.result !== "IN_PROGRESS";
   const canCorrectInspection = !isClosed && current.inspectionStatus === "Agreed";
+  // Sửa thông tin bên thuê: đã đối chiếu giấy tờ, hợp đồng chưa ký (backend kiểm lại, đã ký → 409).
+  const canCorrectCustomer =
+    !isClosed &&
+    current.identityStatus === "Verified" &&
+    (!contract || contract.status === "Draft");
+  // Dời lịch: trước khi khách trả tiền tháng đầu (backend kiểm lại: đã trả / đang thanh toán → 409).
+  const canReschedule = !isClosed && invoice?.status !== "Paid";
+  const previous = current.previousSession;
+  const customerChanged =
+    customerName.trim() !== (current.customerName ?? "") ||
+    customerPhone.trim() !== (current.customerPhone ?? "");
+
+  function openCustomerEdit() {
+    setCustomerName(current.customerName ?? "");
+    setCustomerPhone(current.customerPhone ?? "");
+    setCustomerReason("");
+    setCustomerEditOpen(true);
+  }
   const photoCount = current.inspectionPhotos?.length ?? 0;
   const inspectionSummary = `${current.inspectionNotes || "Không có ghi chú"} · ${photoCount} ảnh`;
 
@@ -327,8 +430,33 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
             {current.orderId}
           </p>
         </div>
-        <StatusTag tone={tag.tone}>{tag.label}</StatusTag>
+        <div className="flex flex-wrap items-center gap-3">
+          {canReschedule && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => setRescheduleOpen(true)}
+            >
+              <CalendarClock size={14} /> Dời lịch nhận kho
+            </Button>
+          )}
+          <StatusTag tone={tag.tone}>{tag.label}</StatusTag>
+        </div>
       </div>
+
+      {rescheduleOpen && (
+        <ReschedulePanel
+          appointmentId={current.appointmentId}
+          summary={`${current.customerName ?? current.customerEmail ?? "—"} · ${formatTime(current.appointmentStart)}–${formatTime(current.appointmentEnd)} ${formatDate(current.appointmentDate)}`}
+          arrived={current.arrivedAt !== null}
+          onClose={() => setRescheduleOpen(false)}
+          onDone={(result) => {
+            setRescheduleOpen(false);
+            setRescheduled(result);
+          }}
+        />
+      )}
 
       {actionError && <DemoNotice tone="error">{actionError}</DemoNotice>}
       {notice && !actionError && <DemoNotice tone="success">{notice}</DemoNotice>}
@@ -357,6 +485,64 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
             </dl>
           </div>
 
+          <UnitLocationCard
+            facilityId={current.facilityId}
+            unitCode={current.unitCode}
+            title="Dẫn khách tới khoang"
+            compact
+          />
+
+          {(current.identityPhotos?.length ?? 0) > 0 && (
+            <div className="step-enter bg-surface p-5">
+              <span className="inline-flex items-center gap-1.5 text-label text-muted">
+                <IdCard size={15} /> Giấy tờ đã đối chiếu
+              </span>
+              <p className="mb-0 mt-1 text-small text-ink">
+                {current.identityStatus === "Verified" ? "Xác minh đạt" : "Lần gần nhất không đạt"}
+                {current.identityVerifiedAt
+                  ? ` · ${formatDateTime(current.identityVerifiedAt)}`
+                  : ""}
+              </p>
+              <IdentityPhotoStrip urls={current.identityPhotos ?? []} />
+            </div>
+          )}
+
+          {previous && (
+            <div className="step-enter bg-surface p-5">
+              <span className="inline-flex items-center gap-1.5 text-label text-muted">
+                <History size={15} /> Phiên trước (đã dời lịch)
+              </span>
+              <p className="mb-0 mt-1 text-small text-ink">
+                {formatTime(previous.appointmentStart)}–{formatTime(previous.appointmentEnd)}{" "}
+                {formatDate(previous.appointmentDate)}
+              </p>
+              {previous.reason && (
+                <p className="mb-0 mt-1 text-small text-muted">{previous.reason}</p>
+              )}
+              <dl className="mb-0 mt-3 grid gap-2 text-small">
+                <Row term="Xác minh">
+                  {previous.identityStatus === "Verified"
+                    ? `Đạt${previous.identityVerifiedAt ? ` · ${formatDateTime(previous.identityVerifiedAt)}` : ""}`
+                    : label(previous.identityStatus)}
+                </Row>
+                <Row term="Hiện trạng">{label(previous.inspectionStatus)}</Row>
+              </dl>
+              {previous.inspectionNotes && (
+                <p className="mb-0 mt-2 whitespace-pre-line text-small text-muted">
+                  {previous.inspectionNotes}
+                </p>
+              )}
+              {previous.identityPhotos.length + previous.inspectionPhotos.length > 0 && (
+                <IdentityPhotoStrip
+                  urls={[...previous.identityPhotos, ...previous.inspectionPhotos]}
+                />
+              )}
+              <p className="mb-0 mt-3 text-label text-muted">
+                Chỉ để tham khảo — buổi này cần xác minh và ghi hiện trạng lại.
+              </p>
+            </div>
+          )}
+
           {!isClosed && (
             <ol className="m-0 grid list-none gap-3 bg-surface p-5">
               {STEP_ORDER.map((item, index) => {
@@ -365,11 +551,11 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
                 return (
                   <li key={item.key} className="flex items-start gap-3">
                     <span
-                      className={`grid h-7 w-7 shrink-0 place-items-center text-label font-bold ${
+                      className={`grid h-8 w-8 shrink-0 place-items-center text-small font-bold transition-all duration-300 ${
                         isDone
                           ? "bg-brand text-signal-ink"
                           : isCurrent
-                            ? "border-2 border-brand text-ink"
+                            ? "border-2 border-brand text-ink shadow-[0_0_0_4px_var(--brand-soft)]"
                             : "border border-border text-muted"
                       }`}
                     >
@@ -392,7 +578,7 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
           )}
         </aside>
 
-        <section className="bg-surface p-5">
+        <section key={step} className="step-enter bg-surface p-6 max-[520px]:p-4">
           {isClosed && (
             <ClosedState handover={current} onBack={() => navigate("/staff/handovers")} />
           )}
@@ -413,21 +599,35 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
             <div>
               <span className="text-label text-muted">Bước 01</span>
               <h2 className="mb-0 mt-1 text-section text-ink">Xác minh danh tính</h2>
-              <p className="mt-2 text-small leading-relaxed text-muted">
-                Đối chiếu CCCD/Passport bản gốc với thông tin khách trên đơn.
+              <p className="mt-2 text-body leading-relaxed text-muted">
+                Đối chiếu CCCD/hộ chiếu bản gốc với thông tin khách trên đơn, chụp mặt trước và mặt
+                sau giấy tờ rồi tải lên làm bằng chứng.
               </p>
               {current.identityStatus === "Failed" && (
                 <DemoNotice tone="error">
                   Lần xác minh trước không đạt. Có thể xác minh lại khi khách mang đúng giấy tờ.
                 </DemoNotice>
               )}
-              <div className="mt-4 bg-surface-subtle p-4 text-small">
-                <strong className="block text-ink">
+              <div className="mt-4 border-l-4 border-brand bg-surface-subtle p-4">
+                <span className="text-label text-muted">Khách trên đơn</span>
+                <strong className="mt-1 block text-section text-ink">
                   {current.customerName ?? current.customerEmail ?? "—"}
                 </strong>
-                <span className="mt-1 block text-muted">
+                <span className="mt-1 block text-body text-muted">
                   {current.customerPhone ?? "—"} · {current.customerEmail ?? "—"}
                 </span>
+              </div>
+              <div className="mt-4">
+                <FileUploadField
+                  label="Ảnh CCCD / hộ chiếu"
+                  hint={`Bắt buộc khi xác minh đạt · JPEG/PNG/WebP ≤ 10MB · tối đa ${MAX_IDENTITY_PHOTOS} ảnh · bấm ảnh để xem lớn`}
+                  files={identityPhotos}
+                  onChange={setIdentityPhotos}
+                  accept={IMAGE_ACCEPT}
+                  thumbSize="lg"
+                  maxFiles={MAX_IDENTITY_PHOTOS}
+                  disabled={busy}
+                />
               </div>
               <label className={`${FIELD_LABEL} mt-4`} htmlFor="identity-note">
                 Ghi chú (không bắt buộc)
@@ -443,28 +643,55 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button
                   pending={busy}
-                  onClick={() =>
-                    run(
-                      () => verifyHandoverIdentity(current.id, true, identityNote.trim()),
+                  disabled={identityPhotos.length === 0}
+                  onClick={async () => {
+                    const ok = await run(
+                      () =>
+                        verifyHandoverIdentity(
+                          current.id,
+                          true,
+                          identityNote.trim(),
+                          identityPhotos.map((photo) => photo.url),
+                        ),
                       "Đã xác minh danh tính.",
-                    ).then((ok) => ok && setIdentityNote(""))
-                  }
+                    );
+                    if (ok) {
+                      await attachUploaded(identityPhotos);
+                      setIdentityNote("");
+                      setIdentityPhotos([]);
+                    }
+                  }}
                 >
                   <Check size={16} /> Xác minh đạt
                 </Button>
                 <Button
                   variant="secondary"
                   disabled={busy}
-                  onClick={() =>
-                    run(
-                      () => verifyHandoverIdentity(current.id, false, identityNote.trim()),
+                  onClick={async () => {
+                    const ok = await run(
+                      () =>
+                        verifyHandoverIdentity(
+                          current.id,
+                          false,
+                          identityNote.trim(),
+                          identityPhotos.map((photo) => photo.url),
+                        ),
                       "Đã ghi nhận xác minh không đạt. Phiên bàn giao vẫn mở.",
-                    )
-                  }
+                    );
+                    if (ok) {
+                      await attachUploaded(identityPhotos);
+                      setIdentityPhotos((list) => list.map((item) => ({ ...item, batchId: null })));
+                    }
+                  }}
                 >
                   Không đạt
                 </Button>
               </div>
+              {identityPhotos.length === 0 && (
+                <p className="mb-0 mt-2 text-small text-muted">
+                  Tải ít nhất một ảnh giấy tờ để bấm “Xác minh đạt”.
+                </p>
+              )}
             </div>
           )}
 
@@ -585,6 +812,9 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
                     >
                       <FileText size={16} /> Xem / in hợp đồng
                     </Button>
+                    <Button pending={pdfLoading} onClick={() => downloadPdf(contract.id)}>
+                      {!pdfLoading && <Download size={16} />} Tải PDF hợp đồng
+                    </Button>
                     <Button variant="secondary" onClick={() => setOverrideOpen((open) => !open)}>
                       Đề nghị đổi mốc tính tiền
                     </Button>
@@ -645,6 +875,21 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
                       </div>
                     </div>
                   )}
+
+                  <ol className="mb-0 mt-4 grid list-none gap-2 rounded-xl border border-dashed border-rule-strong p-4 text-small text-muted">
+                    <li>
+                      <strong className="text-ink">1. Tải PDF hợp đồng</strong> bằng nút ở trên.
+                    </li>
+                    <li>
+                      <strong className="text-ink">2. Khách ký:</strong> mở file bằng Microsoft Edge
+                      → “Vẽ” → ký vào cuối hợp đồng → Lưu. Muốn ký bằng Paint: chụp phần cần ký (Win
+                      + Shift + S), dán vào Paint, ký rồi lưu PNG. Hoặc in ra ký tay rồi chụp ảnh.
+                    </li>
+                    <li>
+                      <strong className="text-ink">3. Tải bản đã ký lên</strong> ô bên dưới (PDF
+                      hoặc ảnh) rồi bấm “Xác nhận đã ký”.
+                    </li>
+                  </ol>
 
                   <div className="mt-4">
                     <FileUploadField
@@ -858,6 +1103,115 @@ export function HandoverChecklistPage({ navigate }: { navigate: Navigate }) {
                       size="sm"
                       disabled={busy}
                       onClick={() => setCorrectionOpen(false)}
+                    >
+                      Đóng
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {canCorrectCustomer && (
+            <div className="mt-6 bg-surface-subtle p-4">
+              <strong className="block text-small text-ink">
+                Thông tin bên thuê trên hợp đồng
+              </strong>
+              <p className="mb-0 mt-1 text-small text-muted">
+                {current.customerName ?? "—"} · {current.customerPhone ?? "—"} ·{" "}
+                {current.customerEmail ?? "—"}
+              </p>
+              {!customerEditOpen ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3"
+                  disabled={busy}
+                  onClick={openCustomerEdit}
+                >
+                  Sửa thông tin bên thuê
+                </Button>
+              ) : (
+                <div className="mt-3 grid gap-3">
+                  <p className="m-0 text-label text-muted">
+                    Sửa theo giấy tờ đã đối chiếu, trước khi ký. Thông tin được ghi vào tài khoản
+                    khách, bản nháp hợp đồng cập nhật theo; cần ghi lý do và được lưu vết. Email
+                    đăng nhập không sửa ở đây.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+                    <div>
+                      <label className={FIELD_LABEL} htmlFor="customer-name">
+                        Họ tên bên thuê
+                      </label>
+                      <input
+                        id="customer-name"
+                        className={INPUT_CLASS}
+                        value={customerName}
+                        maxLength={255}
+                        onChange={(event) => setCustomerName(event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className={FIELD_LABEL} htmlFor="customer-phone">
+                        Số điện thoại
+                      </label>
+                      <input
+                        id="customer-phone"
+                        className={INPUT_CLASS}
+                        type="tel"
+                        value={customerPhone}
+                        maxLength={20}
+                        onChange={(event) => setCustomerPhone(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={FIELD_LABEL} htmlFor="customer-reason">
+                      Lý do sửa
+                    </label>
+                    <textarea
+                      id="customer-reason"
+                      className={TEXTAREA_CLASS}
+                      value={customerReason}
+                      maxLength={500}
+                      onChange={(event) => setCustomerReason(event.target.value)}
+                      placeholder="Ví dụ: tên trên tài khoản khác tên trên CCCD."
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      pending={busy}
+                      disabled={
+                        !customerReason.trim() ||
+                        !customerName.trim() ||
+                        !customerPhone.trim() ||
+                        !customerChanged
+                      }
+                      onClick={async () => {
+                        const ok = await run(
+                          () =>
+                            correctHandoverCustomerInfo(
+                              current.id,
+                              customerName.trim(),
+                              customerPhone.trim(),
+                              customerReason.trim(),
+                            ),
+                          "Đã cập nhật thông tin bên thuê.",
+                        );
+                        if (ok) {
+                          setCustomerEditOpen(false);
+                          setCustomerReason("");
+                        }
+                      }}
+                    >
+                      <Check size={14} /> Lưu thông tin bên thuê
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setCustomerEditOpen(false)}
                     >
                       Đóng
                     </Button>

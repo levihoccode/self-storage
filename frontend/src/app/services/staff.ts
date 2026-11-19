@@ -63,6 +63,8 @@ export type HandoverView = {
   arrivedAt: string | null;
   identityStatus: string;
   identityVerifiedAt: string | null;
+  /** Ảnh CCCD/hộ chiếu của lần xác minh gần nhất. */
+  identityPhotos: string[] | null;
   inspectionStatus: string;
   unitInspectedAt: string | null;
   inspectionNotes: string | null;
@@ -79,6 +81,23 @@ export type HandoverView = {
   codeAccessEnabled: boolean;
   rejectionCount: number;
   maxRejectionCount: number;
+  /** Phiên trước của đơn đã đóng vì FS dời lịch — chỉ để xem lại. */
+  previousSession: HandoverPreviousSession | null;
+};
+
+export type HandoverPreviousSession = {
+  id: number;
+  reason: string | null;
+  appointmentDate: string | null;
+  appointmentStart: string | null;
+  appointmentEnd: string | null;
+  arrivedAt: string | null;
+  identityStatus: string | null;
+  identityVerifiedAt: string | null;
+  identityPhotos: string[];
+  inspectionStatus: string | null;
+  inspectionNotes: string | null;
+  inspectionPhotos: string[];
 };
 
 /** `HandoverOrderService.ContractInvoice` — hoá đơn tháng đầu trả về khi ký. */
@@ -120,14 +139,16 @@ export function fetchStaffHandover(id: number): Promise<HandoverView> {
   return authed<HandoverView>(`/api/staff/handovers/${id}`);
 }
 
+/** Đạt cần 1–4 ảnh giấy tờ đã upload qua /api/media; không đạt thì ảnh tuỳ chọn. */
 export function verifyHandoverIdentity(
   id: number,
   verified: boolean,
-  note?: string,
+  note: string | undefined,
+  photos: string[],
 ): Promise<HandoverView> {
   return authed<HandoverView>(`/api/staff/handovers/${id}/identity`, {
     method: "POST",
-    body: { verified, note: note || undefined },
+    body: { verified, note: note || undefined, photos },
   });
 }
 
@@ -152,6 +173,19 @@ export function correctHandoverInspection(
   return authed<HandoverView>(`/api/staff/handovers/${id}/inspection-correction`, {
     method: "POST",
     body: { notes, photos, reason },
+  });
+}
+
+/** Sửa họ tên / số điện thoại bên thuê (ghi vào tài khoản khách) — bắt buộc lý do; chỉ khi hợp đồng chưa ký. */
+export function correctHandoverCustomerInfo(
+  id: number,
+  name: string,
+  phone: string,
+  reason: string,
+): Promise<HandoverView> {
+  return authed<HandoverView>(`/api/staff/handovers/${id}/customer-info`, {
+    method: "POST",
+    body: { name, phone, reason },
   });
 }
 
@@ -270,7 +304,67 @@ export type CheckoutView = {
   refundAmount: number | null;
   shortfallInvoice: ContractBill | null;
   completedAt: string | null;
+  /** Hợp đồng đang bị tạm khoá truy cập (quá hạn) — mở lại khi xác nhận khách đến buổi trả kho. */
+  accessSuspended: boolean;
+  /** Khoá chặn của cơ sở đang mở trên khoang (khoang dùng chìa cơ bị tạm khoá do quá hạn). */
+  overlock: OverlockView | null;
 };
+
+// ------------------------------------------------------------------ Khoá chặn (overlock)
+
+export type OverlockStatus = "Required" | "Applied" | "RemovalRequired" | "Removed" | "Canceled";
+
+/** `UnitOverlockService.OverlockView`. */
+export type OverlockView = {
+  id: number;
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitId: number;
+  unitCode: string;
+  facilityId: number;
+  facilityName: string;
+  status: OverlockStatus;
+  requiredAt: string;
+  appliedAt: string | null;
+  removalRequestedAt: string | null;
+  removedAt: string | null;
+  note: string | null;
+  /** FS được FM giao; `null` = chưa giao (mọi FS của cơ sở làm được). */
+  assignedStaffId: number | null;
+  assignedStaffName: string | null;
+  assignedAt: string | null;
+};
+
+export const OVERLOCK_STATUS: Record<
+  string,
+  { label: string; tone: "success" | "warning" | "info" | "danger" | "neutral" }
+> = {
+  Required: { label: "Chờ gắn khoá chặn", tone: "warning" },
+  Applied: { label: "Đã gắn khoá chặn", tone: "danger" },
+  RemovalRequired: { label: "Chờ gỡ khoá chặn", tone: "info" },
+  Removed: { label: "Đã gỡ khoá chặn", tone: "success" },
+  Canceled: { label: "Không cần gắn", tone: "neutral" },
+};
+
+/** GET /api/staff/overlocks — việc khoá chặn đang mở ở các cơ sở của FS. */
+export function fetchStaffOverlocks(): Promise<OverlockView[]> {
+  return authed<OverlockView[]>("/api/staff/overlocks");
+}
+
+export function applyOverlock(id: number, note?: string): Promise<OverlockView> {
+  return authed<OverlockView>(`/api/staff/overlocks/${id}/apply`, {
+    method: "POST",
+    body: { note: note?.trim() || null },
+  });
+}
+
+export function removeOverlock(id: number, note?: string): Promise<OverlockView> {
+  return authed<OverlockView>(`/api/staff/overlocks/${id}/remove`, {
+    method: "POST",
+    body: { note: note?.trim() || null },
+  });
+}
 
 export type CheckoutInspection = {
   unitEmptied: boolean;
@@ -302,6 +396,28 @@ export function confirmCheckout(returnRequestId: number): Promise<CheckoutView> 
   });
 }
 
+/** `SupportService.TransferView` — lần chuyển khoang gần nhất của yêu cầu hỗ trợ (khoang hư). */
+export type SupportTransfer = {
+  id: number;
+  status: "Requested" | "Allocated" | "Completed" | "Canceled";
+  fromUnitId: number;
+  fromUnitCode: string | null;
+  toUnitId: number | null;
+  toUnitCode: string | null;
+  toUnitTypeName: string | null;
+  reason: string;
+  cancelReason: string | null;
+  /** Số chìa đã giao ở khoang mới (có khi Completed). */
+  keyQuantity: number | null;
+  /** Số chìa cơ khách đang giữ (bộ chìa Active của hợp đồng); null = không dùng chìa cơ. */
+  currentKeyQuantity: number | null;
+  /** Hợp đồng đang có mã khoá số — mã mới được cấp khi hoàn tất chuyển khoang. */
+  hasAccessCode: boolean;
+  createdAt: string;
+  allocatedAt: string | null;
+  completedAt: string | null;
+};
+
 /** `SupportService.SupportView` */
 export type SupportView = {
   id: number;
@@ -325,6 +441,7 @@ export type SupportView = {
   createdAt: string | null;
   assignedAt: string | null;
   resolvedAt: string | null;
+  transfer: SupportTransfer | null;
 };
 
 export type SupportResolution = {
@@ -341,5 +458,26 @@ export function resolveSupportRequest(id: number, body: SupportResolution): Prom
   return authed<SupportView>(`/api/staff/support-requests/${id}/resolve`, {
     method: "POST",
     body,
+  });
+}
+
+/** Khoang hư không sửa ngay được → đề xuất chuyển khoang (FM điều khoang trống). */
+export function requestUnitTransfer(id: number, reason: string): Promise<SupportView> {
+  return authed<SupportView>(`/api/staff/support-requests/${id}/transfer`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+/** `UnitTransferService.TransferCompletion` — `accessCode` = mã khoá số mới, chỉ trả một lần. */
+export type TransferCompletion = { request: SupportView; accessCode: string | null };
+
+export function completeUnitTransfer(
+  id: number,
+  keyQuantity: number | undefined,
+): Promise<TransferCompletion> {
+  return authed<TransferCompletion>(`/api/staff/support-requests/${id}/transfer/complete`, {
+    method: "POST",
+    body: { keyQuantity },
   });
 }

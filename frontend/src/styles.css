@@ -37,7 +37,7 @@
   --unit-accent-sand: #dfe1dc;
   --unit-accent-teal: #d9e3e4;
   --unit-accent-ink: #e5e7e4;
-  --radius-card: 0px;
+  --radius-card: 12px;
   --shadow-soft: 0 24px 60px rgba(16, 20, 19, 0.18);
   --container-border: #101413;
   --control-border: #101413;
@@ -53,6 +53,9 @@
   --header-shadow-scrolled: 0 16px 36px rgba(16, 20, 19, 0.12);
   --footer-surface: #dfe1dc;
   --footer-muted: #5a625f;
+  --photo-filter: grayscale(0.35) contrast(0.92);
+  --photo-veil-strong: 90%;
+  --photo-veil-soft: 58%;
 }
 [data-theme="dark"] {
   color-scheme: dark;
@@ -86,7 +89,7 @@
   --unit-accent-sand: #1d231d;
   --unit-accent-teal: #1b2a2b;
   --unit-accent-ink: #202622;
-  --radius-card: 0px;
+  --radius-card: 12px;
   --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.35);
   --container-border: rgba(238, 240, 236, 0.26);
   --control-border: rgba(238, 240, 236, 0.28);
@@ -98,6 +101,9 @@
   --header-shadow-scrolled: 0 16px 36px rgba(0, 0, 0, 0.3);
   --footer-surface: #151a18;
   --footer-muted: #9aa19c;
+  --photo-filter: saturate(0.8) brightness(0.72);
+  --photo-veil-strong: 84%;
+  --photo-veil-soft: 38%;
 }
 * {
   box-sizing: border-box;
@@ -122,9 +128,11 @@ body {
     -apple-system,
     "Segoe UI",
     sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.55;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition:
     background-color 0.28s ease,
     color 0.28s ease;
@@ -137,6 +145,25 @@ select {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+/* Chuyển màu/viền mượt cho mọi control; utility transition-* của Tailwind vẫn ghi đè được. */
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.12s ease;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
 button {
   cursor: pointer;
@@ -219,6 +246,25 @@ select option:checked {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--brand-strong);
 }
+/* Sidebar tối: thanh cuộn mảnh, màu theo nền tối để không chói khi menu dài (FM có 15 mục). */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(233, 234, 230, 0.22) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(233, 234, 230, 0.22);
+  border: none;
+  border-radius: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(233, 234, 230, 0.38);
+}
 @keyframes surface-state-spin {
   from {
     transform: rotate(0deg);
@@ -250,6 +296,265 @@ select option:checked {
     clip-path: circle(150% at calc(100% - var(--notif-origin-x, 24px)) 0px);
   }
 }
+/* Chuyển động khi vào trang / đổi bước / mở hộp thoại — ngắn, chỉ opacity + transform để không giật. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.page-enter {
+  animation: fade-up 0.36s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Các khối con trực tiếp của trang hiện lần lượt (tối đa 6 khối đầu). */
+.page-enter > * {
+  animation: fade-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.page-enter > *:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.page-enter > *:nth-child(3) {
+  animation-delay: 0.08s;
+}
+.page-enter > *:nth-child(4) {
+  animation-delay: 0.12s;
+}
+.page-enter > *:nth-child(5) {
+  animation-delay: 0.16s;
+}
+.page-enter > *:nth-child(n + 6) {
+  animation-delay: 0.2s;
+}
+.step-enter {
+  animation: fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.fade-enter {
+  animation: fade-in 0.2s ease backwards;
+}
+@keyframes slide-in-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.slide-enter {
+  animation: slide-in-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.pop-enter {
+  animation: pop-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Ghim bản đồ cơ sở (Leaflet divIcon) — giọt nước vàng thương hiệu, rơi xuống khi xuất hiện. */
+.facility-pin {
+  background: transparent;
+  border: 0;
+}
+.facility-pin__dot {
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: 2px 4px;
+  background: var(--brand);
+  border: 3px solid #101413;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  animation: pin-drop 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.facility-pin__dot.is-picked {
+  background: #ffffff;
+  border-color: var(--brand-strong);
+}
+@keyframes pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) rotate(-45deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-45deg);
+  }
+}
+.facility-map .leaflet-popup-content-wrapper,
+.facility-map .leaflet-popup-tip {
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink);
+}
+.facility-map .leaflet-popup-content {
+  margin: 12px 14px;
+  font: inherit;
+  font-size: 0.875rem;
+}
+.facility-map .leaflet-popup-content a {
+  color: var(--accent);
+  font-weight: 600;
+}
+[data-theme="dark"] .facility-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+}
+/* Ô khoang trên sơ đồ: khoang của khách / đang chọn nhấp nháy viền để dễ tìm. */
+@keyframes slot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(242, 195, 0, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(242, 195, 0, 0);
+  }
+}
+.slot-highlight {
+  animation: slot-pulse 1.6s ease-in-out infinite;
+}
+/* Bo góc cho thẻ / khối nền (không áp cho header, footer; dải full-width ghi rounded-none). Utility rounded-* vẫn thắng. */
+.app-shell
+  :is(
+    .bg-surface,
+    .bg-surface-subtle,
+    .bg-info-soft,
+    .bg-success-soft,
+    .bg-warning-soft,
+    .bg-danger-soft,
+    .bg-brand-soft,
+    .bg-brand
+  ):not(header, footer) {
+  border-radius: var(--radius-card);
+}
+/* Thẻ bấm được (hàng danh sách, thẻ cơ sở): nhô lên khi rê chuột. */
+.app-shell :is(button, a).bg-surface:not(:disabled):hover,
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(16, 20, 19, 0.12);
+}
+[data-theme="dark"] :is(button, a).bg-surface:not(:disabled):hover,
+[data-theme="dark"] .lift:hover {
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+.lift {
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease,
+    border-color 0.2s ease;
+}
+/* Mũi tên trong nút / link trượt nhẹ khi rê chuột. */
+.app-shell .lucide-arrow-right {
+  transition: transform 0.2s ease;
+}
+.app-shell :is(button, a):hover .lucide-arrow-right {
+  transform: translateX(3px);
+}
+/* Hiện dần khi cuộn tới (component Reveal gắn .is-visible). */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+/* Hero: quầng sáng trôi chậm phía sau tiêu đề, từng dòng tiêu đề hiện lần lượt. */
+.hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+  animation: glow-drift 16s ease-in-out infinite alternate;
+}
+@keyframes glow-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(60px, -40px, 0) scale(1.18);
+  }
+}
+.hero-line {
+  display: block;
+  animation: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Ảnh nền trang công khai: ảnh kho thật mờ dần vào màu nền — đậm ở cột chữ bên trái, rõ hơn quanh form bên
+   phải, tan vào nền ở mép dưới. Màn hẹp chữ chạy hết bề ngang nên phủ đều. */
+.photo-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.photo-backdrop > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: var(--photo-filter);
+}
+.photo-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 62%, var(--background) 100%),
+    linear-gradient(
+      90deg,
+      var(--background) 0%,
+      color-mix(in srgb, var(--background) var(--photo-veil-strong), transparent) 40%,
+      color-mix(in srgb, var(--background) var(--photo-veil-soft), transparent) 100%
+    );
+}
+@media (max-width: 900px) {
+  .photo-backdrop::after {
+    background: color-mix(in srgb, var(--background) 86%, transparent);
+  }
+}
+/* Vạch cảnh báo vàng-đen chạy chậm (chu kỳ 22px / sin 45° = 31.1px). */
+.hazard-move {
+  animation: hazard-slide 3.5s linear infinite;
+}
+@keyframes hazard-slide {
+  to {
+    background-position: 62.23px 0;
+  }
+}
+/* Chấm thương hiệu nhấp nháy nhẹ. */
+.pulse-dot {
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(242, 195, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(242, 195, 0, 0);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -258,5 +563,9 @@ select option:checked {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
   }
 }

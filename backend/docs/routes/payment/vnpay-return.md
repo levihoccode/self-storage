@@ -1,6 +1,10 @@
 # GET /api/payments/vnpay/return
 
-Nơi VNPay đẩy trình duyệt khách về sau khi thanh toán xong. **Chỉ để hiển thị kết quả.**
+Kiểm chữ ký của tham số VNPay gửi kèm khi đẩy trình duyệt khách về. **Chỉ để xem kết quả, không ghi gì.**
+
+Dùng làm `VNPAY_RETURN_URL` khi test backend không chạy FE (gọi `/pay` qua Swagger). Chạy cả app thì
+`VNPAY_RETURN_URL` trỏ trang kết quả FE `<FRONTEND_URL>/payments/result` (giá trị trong `.env.example`) — trang đó gọi
+[`payment-check`](../booking/invoice-payment-check.md) để chốt hoá đơn, không gọi route này.
 
 - **Actor / quyền:** public. Đây là redirect từ VNPay nên request không mang header
   `Authorization` — không thể yêu cầu token.
@@ -15,9 +19,11 @@ Nơi VNPay đẩy trình duyệt khách về sau khi thanh toán xong. **Chỉ �
 
 ## Ghi chú nghiệp vụ
 
-- **Tuyệt đối không dùng route này để ghi nhận đã thanh toán.** Tham số nằm trên thanh địa chỉ và
-  do khách kiểm soát; khách có thể sửa tay hoặc đóng trình duyệt giữa chừng khiến route không bao
-  giờ được gọi. Nguồn xác nhận duy nhất là [IPN](vnpay-ipn.md).
+- **Route này không ghi nhận thanh toán.** Tham số nằm trên thanh địa chỉ và do khách kiểm soát; khách có thể sửa
+  tay hoặc đóng trình duyệt giữa chừng khiến route không bao giờ được gọi. Nguồn xác nhận chính là
+  [IPN](vnpay-ipn.md). Khi trang kết quả FE gửi bộ tham số này cho
+  [`payment-check`](../booking/invoice-payment-check.md), backend chỉ chốt nếu chữ ký đúng, đúng merchant, đúng số
+  tiền và giao dịch thuộc hoá đơn của khách — sửa bất kỳ tham số nào là chữ ký sai và bị bỏ qua.
 - Khách đóng trình duyệt trước khi về đến đây không ảnh hưởng gì: IPN vẫn chạy độc lập.
 - Route này trả JSON trần (`validSignature`/`responseCode`/`txnRef`) chứ chưa dùng `ApiEnvelope`.
   Khi FE làm trang kết quả thanh toán thì cân nhắc đổi sang envelope cho đồng bộ — đổi được vì

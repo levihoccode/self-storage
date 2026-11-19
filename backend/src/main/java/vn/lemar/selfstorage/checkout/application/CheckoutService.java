@@ -27,6 +27,8 @@ import vn.lemar.selfstorage.facility.application.StorageUnitService;
 import vn.lemar.selfstorage.handover.application.RentalContractService.ContractSnapshot;
 import vn.lemar.selfstorage.handover.application.RentalContractService.RevokeResult;
 import vn.lemar.selfstorage.handover.application.RentalContractService;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService.OverlockView;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.media.MediaAttachments;
@@ -76,13 +78,16 @@ public class CheckoutService {
     private final AuditRecorder auditRecorder;
     private final MediaAttachments mediaAttachments;
     private final InvoiceRefundService refunds;
+    private final UnitOverlockService overlocks;
 
     CheckoutService(CheckoutRecordRepository records, TenancyService tenancy, ReturnAppointmentService appointments,
                     RentalContractService contracts, ContractInvoiceService invoices, HandoverOrderService orders,
                     StorageUnitService storageUnits, OrderNotificationService notifications,
                     PricingQuery pricingQuery, Access access, CurrentAccountProvider currentAccount,
-                    AuditRecorder auditRecorder, MediaAttachments mediaAttachments, InvoiceRefundService refunds) {
+                    AuditRecorder auditRecorder, MediaAttachments mediaAttachments, InvoiceRefundService refunds,
+                    UnitOverlockService overlocks) {
         this.refunds = refunds;
+        this.overlocks = overlocks;
         this.records = records;
         this.tenancy = tenancy;
         this.appointments = appointments;
@@ -109,7 +114,8 @@ public class CheckoutService {
                                Integer returnedKeys, List<String> photos, String note, Instant inspectedAt,
                                BigDecimal depositAmount, BigDecimal cleaningFee, BigDecimal lostKeyFee,
                                int keysIssued, BigDecimal unpaidContractInvoices, BigDecimal totalCharges,
-                               BigDecimal refundAmount, ContractBill shortfallInvoice, Instant completedAt) {
+                               BigDecimal refundAmount, ContractBill shortfallInvoice, Instant completedAt,
+                               boolean accessSuspended, OverlockView overlock) {
     }
 
     // ------------------------------------------------------------------ đọc
@@ -186,6 +192,10 @@ public class CheckoutService {
         }
         ContractSnapshot contract = locked.contract();
         Long actorId = locked.actorId();
+        // Khoá chặn của cơ sở còn trên khoang → FS gỡ trước khi chốt; yêu cầu gắn chưa thực hiện thì huỷ luôn.
+        overlocks.settleForCheckout(contract.id(), actorId).ifPresent(message -> {
+            throw TenancyException.conflict(message);
+        });
         RevokeResult revoke = contracts.revokeAll(contract.id(), record.getReturnedKeyQuantity(), actorId);
         BigDecimal cleaning = record.isCleaningRequired() ? decimal(POLICY_CLEANING) : BigDecimal.ZERO;
         BigDecimal lostKeys = decimal(POLICY_LOST_KEY).multiply(BigDecimal.valueOf(revoke.lostKeys()));
@@ -364,7 +374,9 @@ public class CheckoutService {
                 record == null ? null : record.getNote(), record == null ? null : record.getInspectedAt(),
                 contract.depositAmount(), decimal(POLICY_CLEANING), decimal(POLICY_LOST_KEY), keysIssued, unpaid,
                 record == null ? null : record.getTotalCharges(), record == null ? null : record.getRefundAmount(),
-                shortfall, record == null ? null : record.getCompletedAt());
+                shortfall, record == null ? null : record.getCompletedAt(),
+                contract.active() && contracts.accessSuspended(contract.id()),
+                contract.active() ? overlocks.openOf(contract.id()).orElse(null) : null);
     }
 
     private BigDecimal decimal(String policy) {

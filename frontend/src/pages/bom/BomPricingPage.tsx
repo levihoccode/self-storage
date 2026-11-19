@@ -17,7 +17,7 @@ import { SectionTitle } from "../../components/ui/SectionTitle";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 
 const INPUT =
-  "min-h-[32px] w-full min-w-0 rounded-[2px] border border-rule-strong bg-surface px-2.5 text-small text-ink outline-0 focus:border-brand";
+  "min-h-[32px] w-full min-w-0 rounded-lg border border-rule-strong bg-surface px-2.5 text-small text-ink outline-0 focus:border-brand";
 
 function size(row: UnitTypeRow) {
   const parts = [row.width, row.depth, row.height].filter((value) => value !== null);
@@ -82,7 +82,7 @@ export function BomPricingPage({ navigate }: { navigate: Navigate }) {
       if (editing.kind === "policy") {
         const updated = await updateBomPolicy(editing.id, draft.trim());
         setPolicies((list) => list.map((row) => (row.key === updated.key ? updated : row)));
-        setNotice(`Đã cập nhật chính sách ${updated.key}.`);
+        setNotice(`Đã cập nhật chính sách "${updated.description ?? updated.key}".`);
       } else {
         const updated = await updateUnitTypePrice(Number(editing.id), Number(draft));
         setUnitTypes((list) => list.map((row) => (row.id === updated.id ? updated : row)));
@@ -217,10 +217,9 @@ export function BomPricingPage({ navigate }: { navigate: Navigate }) {
                       className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4"
                     >
                       <div className="min-w-0 max-w-[640px]">
-                        <code className="text-small font-semibold text-ink">{row.key}</code>
-                        {row.description && (
-                          <p className="mb-0 mt-1 text-small text-muted">{row.description}</p>
-                        )}
+                        <strong className="text-small font-semibold text-ink">
+                          {row.description ?? row.key}
+                        </strong>
                         <span className="mt-1 block text-label text-muted">
                           Cập nhật {formatDateTime(row.updatedAt)}
                         </span>

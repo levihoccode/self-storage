@@ -28,7 +28,13 @@ public enum AuditEntityType {
     FACILITY("Facility"),
     POLICY("Policy"),
     UNIT_TYPE("UnitType"),
-    ROLE("Role");
+    ROLE("Role"),
+    STAFF_SHIFT("StaffShift"),
+    STAFF_LEAVE("StaffLeave"),
+    STAFF_PROFILE("StaffProfile"),
+    ACCOUNT_REQUEST("AccountRequest"),
+    UNIT_TRANSFER("UnitTransfer"),
+    UNIT_OVERLOCK("UnitOverlock");
 
     private final String dbValue;
 

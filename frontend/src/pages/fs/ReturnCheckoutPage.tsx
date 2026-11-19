@@ -7,6 +7,8 @@ import {
   arriveAppointment,
   confirmCheckout,
   fetchCheckout,
+  OVERLOCK_STATUS,
+  removeOverlock,
   saveCheckoutInspection,
   type CheckoutView,
 } from "../../app/services/staff";
@@ -260,6 +262,43 @@ export function ReturnCheckoutPage({ navigate }: { navigate: Navigate }) {
 
       {actionError && <DemoNotice tone="error">{actionError}</DemoNotice>}
       {notice && !actionError && <DemoNotice tone="success">{notice}</DemoNotice>}
+      {current.accessSuspended && current.result !== "COMPLETED" && (
+        <DemoNotice tone={current.arrivedAt === null ? "info" : "error"}>
+          {current.arrivedAt === null
+            ? "Hợp đồng quá hạn — quyền truy cập của khách đang tạm khoá. Khi bạn xác nhận khách đến, hệ thống chốt phí quá hạn và gộp mọi khoản nợ thành một hoá đơn; khách thanh toán xong thì khoang mới mở để dọn đồ."
+            : `Khách còn nợ ${formatMoney(current.unpaidContractInvoices ?? 0)} — khoang vẫn khoá. Khách thanh toán hoá đơn nợ trong ứng dụng thì khoang tự mở (tải lại trang để cập nhật). Chưa trả thì không cho vào dọn đồ.`}
+        </DemoNotice>
+      )}
+      {current.overlock && current.result !== "COMPLETED" && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-rule-strong bg-surface p-4">
+          <div className="min-w-0">
+            <strong className="block text-small text-ink">
+              Khoá chặn của cơ sở —{" "}
+              {OVERLOCK_STATUS[current.overlock.status]?.label ?? current.overlock.status}
+            </strong>
+            <span className="mt-0.5 block text-label text-muted">
+              {current.overlock.status === "RemovalRequired"
+                ? "Gỡ khoá chặn tại khoang để khách dọn đồ, rồi xác nhận. Chưa gỡ thì không chốt trả kho được."
+                : current.overlock.status === "Applied"
+                  ? "Khoá chặn đang gắn — sẽ chuyển sang chờ gỡ khi xác nhận khách đến."
+                  : "Yêu cầu gắn chưa thực hiện — sẽ tự huỷ khi khách đến dọn đồ."}
+            </span>
+          </div>
+          {current.overlock.status === "RemovalRequired" && (
+            <Button
+              pending={busy}
+              onClick={() =>
+                run(async () => {
+                  await removeOverlock((current.overlock as { id: number }).id);
+                  return null;
+                }, "Đã ghi nhận gỡ khoá chặn.")
+              }
+            >
+              Đã gỡ khoá chặn
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-[320px_minmax(0,1fr)] items-start gap-6 max-[980px]:grid-cols-1">
         <aside className="grid gap-4">

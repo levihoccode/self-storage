@@ -18,6 +18,7 @@ export function viewFromLocation(): View {
   if (path === "/verify-email") return "verify";
   if (path === "/rental-requests/new") return "request";
   if (path === "/my-storage") return "my-storage";
+  if (path === "/records") return "records";
   if (path.startsWith("/my-storage/")) return "contract-detail";
   if (path === "/proposals") return "proposals";
   if (path === "/invoices") return "invoices";
@@ -30,15 +31,21 @@ export function viewFromLocation(): View {
   if (path === "/staff/returns") return "fs-returns";
   if (path.startsWith("/staff/returns/")) return "fs-return-detail";
   if (path === "/staff/support") return "fs-support";
+  if (path === "/staff/overlocks") return "fs-overlocks";
+  if (path === "/staff/shifts") return "fs-shifts";
+  if (path === "/staff/leaves") return "fs-leaves";
   if (path === "/bom/dashboard") return "bom-dashboard";
   if (path === "/bom/facilities") return "bom-facilities";
   if (path === "/bom/staff") return "bom-staff";
   if (path === "/bom/pricing") return "bom-pricing";
   if (path === "/bom/invoices") return "bom-invoices";
+  if (path === "/bom/staff-report") return "bom-staff-report";
+  if (path === "/bom/account-requests") return "bom-account-requests";
   if (path === "/admin/accounts") return "admin-accounts";
   if (path === "/admin/permissions") return "admin-permissions";
   if (path === "/admin/login-events") return "admin-login-events";
   if (path === "/admin/audit-logs") return "admin-audit-logs";
+  if (path === "/admin/account-requests") return "admin-account-requests";
   if (path === "/fm/rental-requests") return "fm-rental-requests";
   if (path === "/fm/rental-orders") return "fm-orders";
   if (path.startsWith("/fm/rental-orders/") && path.endsWith("/re-propose")) {
@@ -50,6 +57,9 @@ export function viewFromLocation(): View {
   if (path === "/fm/support-requests") return "fm-support-requests";
   if (path === "/fm/storage-units") return "fm-storage-units";
   if (path === "/fm/staff") return "fm-staff";
+  if (path === "/fm/shifts") return "fm-shifts";
+  if (path === "/fm/leaves") return "fm-leaves";
+  if (path === "/fm/staff-report") return "fm-staff-report";
   if (path === "/fm/reports") return "fm-reports";
   if (path === "/fm/invoices") return "fm-invoices";
   if (path === "/fm/contracts") return "fm-contracts";

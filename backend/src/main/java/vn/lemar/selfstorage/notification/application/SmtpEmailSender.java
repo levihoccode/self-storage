@@ -6,21 +6,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import vn.lemar.selfstorage.notification.EmailSender;
 
 /**
- * Cài đặt {@link EmailSender} gửi qua SMTP. Mọi exception khi gửi bị nuốt (chỉ log) để không
- * rollback nghiệp vụ của caller. Bước deliver chạy đồng bộ trên thread gọi, kể cả nhánh
- * afterCommit — xem "Known limitation" trong {@link EmailSender}.
+ * Gửi email qua SMTP (mặc định, {@code app.mail.provider=smtp}). Mọi exception khi gửi bị nuốt (chỉ log) để không
+ * rollback nghiệp vụ của caller.
+ *
+ * <p>Bước deliver chạy trên executor riêng ({@code app.mail.async=true}, mặc định): SMTP thật (Gmail) mở kết nối TLS
+ * mỗi email, 1–3 giây/email — gửi đồng bộ sau commit làm request (duyệt, phân công…) chờ theo. {@code false} (cấu hình
+ * test) thì gửi đồng bộ trên thread gọi để test kiểm được nội dung mail ngay. Host chặn cổng SMTP (Render gói free)
+ * thì dùng {@link BrevoEmailSender}.
  */
 @Service
-class SmtpEmailSender implements EmailSender {
+@ConditionalOnProperty(prefix = "app.mail", name = "provider", havingValue = "smtp", matchIfMissing = true)
+class SmtpEmailSender extends DeferredEmailSender {
 
     private static final Logger LOG = LoggerFactory.getLogger(SmtpEmailSender.class);
 
@@ -32,55 +35,25 @@ class SmtpEmailSender implements EmailSender {
     @Autowired
     SmtpEmailSender(JavaMailSender mailSender,
                     @Value("${app.mail.from:}") String from,
-                    @Value("${spring.mail.username:}") String smtpUsername) {
+                    @Value("${spring.mail.username:}") String smtpUsername,
+                    @Value("${app.mail.async:true}") boolean async) {
+        super(async);
         this.mailSender = mailSender;
         // Gmail SMTP chỉ cho gửi từ chính tài khoản đăng nhập: MAIL_FROM để trống thì dùng username;
         // cả hai trống (chưa cấu hình) thì giữ địa chỉ mặc định để message vẫn hợp lệ.
-        this.from = firstNonBlank(from, smtpUsername, DEFAULT_FROM);
+        this.from = firstNonBlank(DEFAULT_FROM, from, smtpUsername);
     }
 
     SmtpEmailSender(JavaMailSender mailSender, String from) {
-        this(mailSender, from, "");
+        this(mailSender, from, "", false);
     }
 
-    private static String firstNonBlank(String... values) {
-        for (String v : values) {
-            if (v != null && !v.isBlank()) {
-                return v;
-            }
-        }
-        return DEFAULT_FROM;
+    SmtpEmailSender(JavaMailSender mailSender, String from, String smtpUsername) {
+        this(mailSender, from, smtpUsername, false);
     }
 
     @Override
-    public boolean send(String to, String subject, String body) {
-        return send(to, subject, body, false);
-    }
-
-    @Override
-    public boolean sendHtml(String to, String subject, String htmlBody) {
-        return send(to, subject, htmlBody, true);
-    }
-
-    private boolean send(String to, String subject, String content, boolean html) {
-        if (to == null || to.isBlank()) {
-            LOG.warn("Bỏ qua gửi email: thiếu địa chỉ người nhận (subject={})", subject);
-            return false;
-        }
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            LOG.debug("Xếp lịch gửi email sau commit: to={}, subject={}, html={}", to, subject, html);
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    deliver(to, subject, content, html);
-                }
-            });
-            return true;
-        }
-        return deliver(to, subject, content, html);
-    }
-
-    private boolean deliver(String to, String subject, String content, boolean html) {
+    protected boolean deliver(String to, String subject, String content, boolean html) {
         try {
             if (html) {
                 MimeMessage message = mailSender.createMimeMessage();

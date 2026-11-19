@@ -18,6 +18,7 @@ import vn.lemar.selfstorage.booking.application.ContractInvoiceService.ContractB
 import vn.lemar.selfstorage.booking.application.ContractInvoiceService;
 import vn.lemar.selfstorage.booking.application.HandoverOrderService;
 import vn.lemar.selfstorage.facility.application.FacilityAccess;
+import vn.lemar.selfstorage.handover.application.RentalContractService.AccessKeySnapshot;
 import vn.lemar.selfstorage.handover.application.RentalContractService.ContractSnapshot;
 import vn.lemar.selfstorage.handover.application.RentalContractService;
 import vn.lemar.selfstorage.identity.application.Access;
@@ -25,12 +26,16 @@ import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
 import vn.lemar.selfstorage.identity.application.FacilityStaffQuery;
 import vn.lemar.selfstorage.media.MediaAttachments;
+import vn.lemar.selfstorage.media.MediaUrlLookup;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationType;
 import vn.lemar.selfstorage.pricing.application.PricingQuery;
+import vn.lemar.selfstorage.staffing.application.StaffAvailability;
 import vn.lemar.selfstorage.support.domain.SupportRequest;
+import vn.lemar.selfstorage.support.domain.UnitTransfer;
 import vn.lemar.selfstorage.support.repository.SupportRequestRepository;
+import vn.lemar.selfstorage.support.repository.UnitTransferRepository;
 import vn.lemar.selfstorage.tenancy.application.TenancyException;
 
 /**
@@ -41,6 +46,8 @@ import vn.lemar.selfstorage.tenancy.application.TenancyException;
  *   <li>FS được giao (hoặc FM) xử lý: ghi kết quả; mất chìa thì cấp bộ chìa mới (chìa cũ {@code Lost});
  *       có phí thì lập hoá đơn {@code Service} gắn hợp đồng. Yêu cầu {@code LOST_KEY} có thay chìa mà không nhập
  *       phí → phí mặc định {@code fee.lost_key × số chìa của bộ cũ}.</li>
+ *   <li>Khoang có vấn đề ({@code UNIT_ISSUE}): bắt buộc hợp đồng đang thuê và ≥ 1 ảnh bằng chứng khách đã upload. Không
+ *       sửa ngay được thì chuyển khoang ({@link UnitTransferService}).</li>
  * </ul>
  */
 @Service
@@ -53,6 +60,11 @@ public class SupportService {
     static final int FEE_DUE_DAYS = 7;
     static final String POLICY_LOST_KEY = "fee.lost_key";
     static final String CATEGORY_LOST_KEY = "LOST_KEY";
+    static final String CATEGORY_UNIT_ISSUE = "UNIT_ISSUE";
+    static final String MSG_TRANSFERRING = "Yêu cầu đang chuyển khoang — hoàn tất hoặc huỷ chuyển khoang trước";
+    private static final String KEY_PHYSICAL = "PhysicalKey";
+    private static final String KEY_CODE = "AccessCode";
+    private static final String KEY_ACTIVE = "Active";
 
     private final SupportRequestRepository requests;
     private final RentalContractService contracts;
@@ -68,12 +80,16 @@ public class SupportService {
     private final JdbcTemplate jdbc;
     private final PricingQuery pricingQuery;
     private final MediaAttachments mediaAttachments;
+    private final StaffAvailability staffAvailability;
+    private final MediaUrlLookup mediaUrls;
+    private final UnitTransferRepository transfers;
 
     SupportService(SupportRequestRepository requests, RentalContractService contracts, ContractInvoiceService invoices,
                    HandoverOrderService orders, FacilityAccess facilityAccess, FacilityStaffQuery staffQuery,
                    AccountQueryService accountQuery, NotificationService notificationService, Access access,
                    CurrentAccountProvider currentAccount, AuditRecorder auditRecorder, JdbcTemplate jdbc,
-                   PricingQuery pricingQuery, MediaAttachments mediaAttachments) {
+                   PricingQuery pricingQuery, MediaAttachments mediaAttachments,
+                   StaffAvailability staffAvailability, MediaUrlLookup mediaUrls, UnitTransferRepository transfers) {
         this.requests = requests;
         this.contracts = contracts;
         this.invoices = invoices;
@@ -88,6 +104,9 @@ public class SupportService {
         this.jdbc = jdbc;
         this.pricingQuery = pricingQuery;
         this.mediaAttachments = mediaAttachments;
+        this.staffAvailability = staffAvailability;
+        this.mediaUrls = mediaUrls;
+        this.transfers = transfers;
     }
 
     /** Yêu cầu hỗ trợ. */
@@ -95,7 +114,20 @@ public class SupportService {
                               String facilityName, Long contractId, String contractCode, String unitCode,
                               String category, String title, String description, List<String> photos,
                               String status, Long assignedStaffId, String assignedStaffName, String resolution,
-                              ContractBill feeInvoice, Instant createdAt, Instant assignedAt, Instant resolvedAt) {
+                              ContractBill feeInvoice, Instant createdAt, Instant assignedAt, Instant resolvedAt,
+                              TransferView transfer) {
+    }
+
+    /**
+     * Lần chuyển khoang gần nhất của yêu cầu (null nếu chưa từng đề xuất). {@code keyQuantity}: số chìa đã giao ở
+     * khoang mới (có khi {@code Completed}). {@code currentKeyQuantity}: số chìa cơ khách đang giữ theo bộ chìa
+     * {@code Active} của hợp đồng (null = không dùng chìa cơ) — FS thu lại và giao đúng số đó ở khoang mới;
+     * {@code hasAccessCode}: hợp đồng đang có mã khoá số (cấp lại khi hoàn tất).
+     */
+    public record TransferView(Long id, String status, Long fromUnitId, String fromUnitCode, Long toUnitId,
+                               String toUnitCode, String toUnitTypeName, String reason, String cancelReason,
+                               Integer keyQuantity, Integer currentKeyQuantity, boolean hasAccessCode,
+                               Instant createdAt, Instant allocatedAt, Instant completedAt) {
     }
 
     /** Khách gửi yêu cầu. */
@@ -140,6 +172,9 @@ public class SupportService {
         if ("LOST_KEY".equals(input.category()) && contract == null) {
             throw TenancyException.invalid("Báo mất chìa cần chọn hợp đồng đang thuê");
         }
+        if (CATEGORY_UNIT_ISSUE.equals(input.category())) {
+            requireUnitIssueEvidence(customerId, contract, input.photos());
+        }
         SupportRequest request = requests.save(SupportRequest.open(customerId, facilityId,
                 input.contractId(), input.category(), input.title().trim(), input.description().trim(),
                 input.photos()));
@@ -165,6 +200,9 @@ public class SupportService {
         if (!request.isActive()) {
             throw TenancyException.conflict("Yêu cầu hỗ trợ đã đóng");
         }
+        if (request.isTransferring()) {
+            throw TenancyException.conflict("Yêu cầu đang chuyển khoang — liên hệ cơ sở nếu muốn huỷ");
+        }
         String before = request.getStatus();
         request.cancel();
         audit(AuditAction.SUPPORT_REQUEST_CANCELED, id, Map.of("status", before),
@@ -178,17 +216,17 @@ public class SupportService {
     public List<SupportView> facilityRequests(Long facilityId, boolean includeClosed) {
         access.can(PERM_READ, facilityId);
         List<String> statuses = includeClosed
-                ? List.of(SupportRequest.OPEN, SupportRequest.ASSIGNED, SupportRequest.RESOLVED,
-                        SupportRequest.CANCELED)
-                : List.of(SupportRequest.OPEN, SupportRequest.ASSIGNED);
+                ? List.of(SupportRequest.OPEN, SupportRequest.ASSIGNED, SupportRequest.TRANSFERRING,
+                        SupportRequest.RESOLVED, SupportRequest.CANCELED)
+                : List.of(SupportRequest.OPEN, SupportRequest.ASSIGNED, SupportRequest.TRANSFERRING);
         return requests.findByFacilityIdAndStatusInOrderByIdDesc(facilityId, statuses).stream().map(this::view)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<SupportView> staffRequests() {
-        return requests.findByAssignedStaffIdAndStatusOrderByIdAsc(currentAccount.getCurrentAccountId(),
-                SupportRequest.ASSIGNED).stream().map(this::view).toList();
+        return requests.findByAssignedStaffIdAndStatusInOrderByIdAsc(currentAccount.getCurrentAccountId(),
+                List.of(SupportRequest.ASSIGNED, SupportRequest.TRANSFERRING)).stream().map(this::view).toList();
     }
 
     @Transactional
@@ -198,6 +236,10 @@ public class SupportService {
         if (staffId == null || !staffQuery.isActiveStaffOf(staffId, peek.getFacilityId())) {
             throw TenancyException.invalid("FS không thuộc cơ sở hoặc không còn hoạt động");
         }
+        // Yêu cầu hỗ trợ không gắn giờ: FS phải có ca tại cơ sở hôm nay (khi policy bật) và không nghỉ phép.
+        staffAvailability.todayViolation(staffId, peek.getFacilityId()).ifPresent(message -> {
+            throw TenancyException.conflict(message);
+        });
         SupportRequest request = requests.findByIdForUpdate(id).orElseThrow();
         if (!request.isActive()) {
             throw TenancyException.conflict("Yêu cầu hỗ trợ đã đóng");
@@ -258,6 +300,9 @@ public class SupportService {
         if (!request.isActive()) {
             throw TenancyException.conflict("Yêu cầu hỗ trợ đã đóng");
         }
+        if (request.isTransferring()) {
+            throw TenancyException.conflict(MSG_TRANSFERRING);
+        }
         // Phí mặc định mất chìa tính trên bộ chìa đang Active — đọc trước khi thay (bộ cũ chuyển Lost).
         BigDecimal fee = input.feeAmount() != null ? input.feeAmount()
                 : lostKeyReplacement ? lostKeyFee(contract.id()) : null;
@@ -292,23 +337,46 @@ public class SupportService {
     // ------------------------------------------------------------------ internals
 
     /**
+     * Khoang có vấn đề: phải gắn hợp đồng đang thuê (để còn chuyển khoang nếu không sửa được) và có ≥ 1 ảnh bằng chứng
+     * là file chính khách đã upload ({@code POST /api/media/uploads}).
+     */
+    private void requireUnitIssueEvidence(Long customerId, ContractSnapshot contract, List<String> photos) {
+        if (contract == null || !contract.active()) {
+            throw TenancyException.invalid("Báo khoang có vấn đề cần chọn hợp đồng đang thuê");
+        }
+        List<String> urls = photos == null ? List.of()
+                : photos.stream().filter(url -> url != null && !url.isBlank()).toList();
+        if (urls.isEmpty()) {
+            throw TenancyException.invalid("Báo khoang có vấn đề cần ít nhất 1 ảnh chụp tình trạng khoang");
+        }
+        if (!mediaUrls.notUploadedBy(customerId, urls).isEmpty()) {
+            throw TenancyException.invalid("Ảnh bằng chứng phải là ảnh bạn vừa tải lên");
+        }
+    }
+
+    /**
      * {@code fee.lost_key × số chìa mất}: thay chìa chuyển cả bộ chìa đang {@code Active} sang {@code Lost}, nên số
      * chìa mất = {@code quantity} của bộ đó. Không có bộ chìa đang dùng → 0 (không thu).
      */
     private BigDecimal lostKeyFee(Long contractId) {
-        int lost = contracts.accessKeys(contractId).stream()
-                .filter(k -> "PhysicalKey".equals(k.accessType()) && "Active".equals(k.status()))
-                .mapToInt(k -> k.quantity() == null ? 0 : k.quantity())
-                .sum();
+        int lost = heldPhysicalKeys(contracts.accessKeys(contractId));
         return pricingQuery.decimalPolicy(POLICY_LOST_KEY).multiply(BigDecimal.valueOf(lost));
     }
 
-    private Long orderIdOf(SupportRequest request) {
+    /** Tổng số chìa cơ trong các bộ chìa {@code Active} (0 = không dùng chìa cơ). */
+    private static int heldPhysicalKeys(List<AccessKeySnapshot> keys) {
+        return keys.stream()
+                .filter(k -> KEY_PHYSICAL.equals(k.accessType()) && KEY_ACTIVE.equals(k.status()))
+                .mapToInt(k -> k.quantity() == null ? 0 : k.quantity())
+                .sum();
+    }
+
+    Long orderIdOf(SupportRequest request) {
         return request.getContractId() == null ? null
                 : contracts.find(request.getContractId()).map(ContractSnapshot::orderId).orElse(null);
     }
 
-    private Map<String, String> values(SupportRequest request) {
+    Map<String, String> values(SupportRequest request) {
         Map<String, String> values = new HashMap<>();
         values.put("requestId", String.valueOf(request.getId()));
         values.put("category", request.getCategory());
@@ -316,18 +384,18 @@ public class SupportService {
         return values;
     }
 
-    private void notify(Long accountId, NotificationRecipient recipient, NotificationType type,
+    void notify(Long accountId, NotificationRecipient recipient, NotificationType type,
                         Map<String, String> values, Long orderId) {
         notificationService.notify(accountId, accountQuery.requireEmailById(accountId), recipient, type, values,
                 orderId);
     }
 
-    private String staffName(Long staffId) {
+    String staffName(Long staffId) {
         return jdbc.query("select coalesce(name, email) from accounts where id = ?", (rs, i) -> rs.getString(1),
                 staffId).stream().findFirst().orElse("");
     }
 
-    private SupportView view(SupportRequest r) {
+    SupportView view(SupportRequest r) {
         requests.flush();
         Map<String, Object> row = jdbc.queryForMap("""
                 select c.name as customer_name, c.email as customer_email, f.name as facility_name,
@@ -345,7 +413,24 @@ public class SupportService {
                 r.getContractId(), (String) row.get("contract_code"), (String) row.get("unit_code"), r.getCategory(),
                 r.getTitle(), r.getDescription(), r.getPhotos() == null ? List.of() : r.getPhotos(), r.getStatus(),
                 r.getAssignedStaffId(), (String) row.get("staff_name"), r.getResolution(), fee, r.getCreatedAt(),
-                r.getAssignedAt(), r.getResolvedAt());
+                r.getAssignedAt(), r.getResolvedAt(),
+                transfers.findFirstBySupportRequestIdOrderByIdDesc(r.getId()).map(this::transferView).orElse(null));
+    }
+
+    private TransferView transferView(UnitTransfer t) {
+        Map<String, Object> row = jdbc.queryForMap("""
+                select f.code as from_code, u.code as to_code, ut.name as to_type
+                from storage_units f
+                left join storage_units u on u.id = ?
+                left join unit_types ut on ut.id = u.unit_type_id
+                where f.id = ?""", t.getToUnitId(), t.getFromUnitId());
+        List<AccessKeySnapshot> keys = contracts.accessKeys(t.getContractId());
+        int held = heldPhysicalKeys(keys);
+        boolean hasCode = keys.stream().anyMatch(k -> KEY_CODE.equals(k.accessType()) && KEY_ACTIVE.equals(k.status()));
+        return new TransferView(t.getId(), t.getStatus(), t.getFromUnitId(), (String) row.get("from_code"),
+                t.getToUnitId(), (String) row.get("to_code"), (String) row.get("to_type"), t.getReason(),
+                t.getCancelReason(), t.getKeyQuantity(), held > 0 ? held : null, hasCode, t.getCreatedAt(),
+                t.getAllocatedAt(), t.getCompletedAt());
     }
 
     private void audit(AuditAction action, Long id, Object oldValue, Object newValue, String reason, Long actorId) {

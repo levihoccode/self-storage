@@ -36,6 +36,11 @@ import vn.lemar.selfstorage.booking.application.StaffAppointmentActionService;
 import vn.lemar.selfstorage.checkout.application.CheckoutService;
 import vn.lemar.selfstorage.checkout.application.CheckoutService.CheckoutView;
 import vn.lemar.selfstorage.checkout.application.CheckoutService.Inspection;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService.OverlockView;
+import vn.lemar.selfstorage.handover.application.exception.HandoverConflictException;
+import vn.lemar.selfstorage.handover.application.exception.HandoverForbiddenException;
+import vn.lemar.selfstorage.handover.application.exception.HandoverValidationException;
 import vn.lemar.selfstorage.overdue.application.OverdueService;
 import vn.lemar.selfstorage.payment.application.PaymentGateway;
 import vn.lemar.selfstorage.payment.application.PaymentService;
@@ -88,7 +93,11 @@ class PostRentalIntegrationTest {
     @Autowired
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Autowired
+    private vn.lemar.selfstorage.booking.application.BookingExpiryService bookingExpiry;
+    @Autowired
     private JdbcTemplate jdbc;
+    @Autowired
+    private UnitOverlockService overlocks;
 
     private long customerId;
     private long facilityId;
@@ -99,6 +108,8 @@ class PostRentalIntegrationTest {
         customerId = id("select id from accounts where email = '" + CUSTOMER + "'");
         fsId = id("select id from accounts where email = '" + FS + "'");
         facilityId = id("select id from facilities where code = 'Q7'");
+        // Kịch bản quyết toán bên dưới tính với 200.000 đ / chìa — ghim giá trị, không phụ thuộc seed mặc định (V36).
+        jdbc.update("update policies set value = '200000' where key = 'fee.lost_key'");
         when(gateway.buildPaymentUrl(any())).thenReturn("https://pay.test/x");
         when(gateway.newTxnRef(any())).thenCallRealMethod();
         when(gateway.verifySignature(anyMap())).thenReturn(true);
@@ -476,11 +487,321 @@ class PostRentalIntegrationTest {
             assertThat(o.chargedDays()).isEqualTo(8);
         });
 
+        // Còn nợ phí quá hạn → phải trả trước rồi mới gia hạn (vẫn gửi yêu cầu trả kho được: phí trừ vào cọc).
+        assertThatThrownBy(() -> tenancy.requestExtension(seed.contractId, customerId, 1))
+                .isInstanceOf(TenancyException.class)
+                .hasMessageContaining("phí quá hạn 160.000 đ");
+        assertThat(tenancy.rental(seed.contractId, customerId).canExtend()).isFalse();
+        assertThat(tenancy.rental(seed.contractId, customerId).canRequestReturn()).isTrue();
+
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+        pay(contractInvoices.bill(feeId).orElseThrow());
+        assertThat(tenancy.rental(seed.contractId, customerId).canExtend()).isTrue();
         pay(tenancy.requestExtension(seed.contractId, customerId, 1));
-        assertThat(overdue.overdueCandidateIds()).contains(seed.contractId);
+        // Gia hạn phủ kỳ quá hạn → ngừng cộng phí; phí đã trả không bị lập lại.
         assertThat(overdue.accrue(seed.contractId)).isFalse();
-        // Gia hạn chỉ dừng cộng thêm: khoản phí của những ngày đã quá hạn vẫn còn nợ, không bị huỷ.
-        assertThat(openOverdueAmount(seed.contractId)).isEqualByComparingTo("160000");
+        assertThat(invoiceStatus(feeId)).isEqualTo("Paid");
+        assertThat(count("select count(*) from invoices where contract_id = ? and code like 'INV-OVD-%' "
+                + "and status = 'Unpaid'", seed.contractId)).isZero();
+    }
+
+    @Test
+    void overdueFeeNeverExpiresAndFoldsIntoSettlement() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(10));
+        overdue.accrue(seed.contractId);
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+        // Phí ngừng cộng (vd. tới buổi trả kho khách đến) thì hạn trả không còn được dời: để hạn trôi qua.
+        jdbc.update("update invoices set due_date = now() - interval '1 day' where id = ?", feeId);
+
+        // Công nợ phí quá hạn không tự hết hạn — trước đây cron chuyển Expired và quyết toán không gộp → mất khoản nợ.
+        assertThat(bookingExpiry.overdueInvoiceIds()).doesNotContain(feeId);
+        assertThat(bookingExpiry.expireInvoice(feeId)).isFalse();
+        overdue.accrue(seed.contractId);
+        assertThat(invoiceStatus(feeId)).isEqualTo("Unpaid");
+        assertThat(openOverdueAmount(seed.contractId)).isEqualByComparingTo("140000");
+
+        // Khách chưa trả → gộp vào quyết toán trả kho, trừ vào cọc.
+        BigDecimal folded = new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .execute(status -> contractInvoices.foldUnpaidIntoSettlement(seed.contractId, "Gộp vào quyết toán"));
+        assertThat(folded).isGreaterThanOrEqualTo(new BigDecimal("140000"));
+        assertThat(invoiceStatus(feeId)).isEqualTo("Canceled");
+    }
+
+    @Test
+    void overdueFeeStaysPayableAfterItsDueDate() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(10));
+        overdue.accrue(seed.contractId);
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+        jdbc.update("update invoices set due_date = now() - interval '1 day' where id = ?", feeId);
+
+        pay(contractInvoices.bill(feeId).orElseThrow());
+
+        assertThat(invoiceStatus(feeId)).isEqualTo("Paid");
+    }
+
+    // ------------------------------------------------------------------ mở lại truy cập đang tạm khoá
+
+    @Test
+    void lockedOverdueContractReopensForMoveOutOnlyAfterCustomerArrivesAndPaysAllDebt() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        assertThat(tenancy.rental(seed.contractId, customerId).accessSuspended()).isTrue();
+
+        ReturnRequestView request = tenancy.requestReturn(seed.contractId, customerId, LocalDate.now(VN).plusDays(1),
+                null);
+        loginAs(FM);
+        ReturnRequestView assigned = tenancy.assign(request.id(), fsId);
+        // Gửi yêu cầu / đã có lịch: chưa mở — khách chỉ vào dọn đồ khi đến buổi trả kho, có FS giám sát.
+        assertThat(suspended(seed.contractId)).isTrue();
+
+        loginAs(FS);
+        staffActions.arrive(assigned.appointmentId());
+        // Khách đến nhưng còn nợ → vẫn khoá (tránh dọn hết đồ rồi bỏ đi không trả): phí chốt tới ngày buổi hẹn
+        // (31 − 3 ân hạn = 28 ngày × 20.000) và mọi khoản nợ gộp thành một hoá đơn INV-DBT.
+        assertThat(suspended(seed.contractId)).isTrue();
+        assertThat(count("select count(*) from invoices where contract_id = ? and code like 'INV-OVD-%' "
+                + "and status = 'Unpaid'", seed.contractId)).isZero();
+        ContractBill debt = moveOutDebt(seed.contractId);
+        assertThat(debt.amount()).isEqualByComparingTo("560000");
+        assertThat(notifications(CUSTOMER, "MOVE_OUT_DEBT_DUE", seed.orderId)).isEqualTo(1);
+        assertThat(checkout.forStaff(request.id()).accessSuspended()).isTrue();
+
+        // Cron chạy lại: không gộp lần nữa, không phát hành lại phí quá hạn.
+        assertThat(overdue.prepareMoveOut(seed.contractId)).isFalse();
+        overdue.accrue(seed.contractId);
+        assertThat(overdue.restoreIfCleared(seed.contractId)).isFalse();
+        assertThat(count("select count(*) from invoices where contract_id = ? and status = 'Unpaid'",
+                seed.contractId)).isEqualTo(1);
+
+        pay(debt);
+        // Trả hết nợ → mở ngay (listener sau thanh toán) để khách dọn đồ.
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(jdbc.queryForObject("select n.body from notifications n join order_notifications o on "
+                + "o.notification_id = n.id where n.type = 'CONTRACT_ACCESS_RESTORED' and o.order_id = ?",
+                String.class, seed.orderId)).contains("dọn đồ tại buổi trả kho");
+        assertThat(checkout.forStaff(request.id()).accessSuspended()).isFalse();
+    }
+
+    @Test
+    void moveOutDebtFoldsExpiredRentAndDepositIsRefundedWholeAfterPaying() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        ContractBill rent = unpaidRent(seed);
+        jdbc.update("update invoices set status = 'Expired' where id = ?", rent.invoiceId());
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+
+        ReturnRequestView request = assignedAndArrived(seed);
+        assertThat(suspended(seed.contractId)).isTrue();
+        ContractBill debt = moveOutDebt(seed.contractId);
+        // Phí quá hạn 560.000 + tiền thuê Expired 100.000 (nợ cũ, không trả online được) gộp vào một hoá đơn.
+        assertThat(debt.amount()).isEqualByComparingTo("660000");
+        assertThat(invoiceStatus(rent.invoiceId())).isEqualTo("Canceled");
+
+        // Hoá đơn nợ gộp không tự hết hạn (như phí quá hạn) — quá hạn vẫn giữ Unpaid để trả hoặc gộp quyết toán.
+        jdbc.update("update invoices set due_date = now() - interval '1 day' where id = ?", debt.invoiceId());
+        assertThat(bookingExpiry.expireInvoice(debt.invoiceId())).isFalse();
+        assertThat(invoiceStatus(debt.invoiceId())).isEqualTo("Unpaid");
+
+        pay(debt);
+        assertThat(suspended(seed.contractId)).isFalse();
+        loginAs(FS);
+        checkout.inspect(request.id(), new Inspection(true, false, null, null, 2, List.of(), null));
+        CheckoutView done = checkout.confirm(request.id());
+        // Nợ đã trả trước khi dọn đồ → quyết toán không còn gì gộp, cọc hoàn đủ.
+        assertThat(done.result()).isEqualTo("COMPLETED");
+        assertThat(done.totalCharges()).isEqualByComparingTo("0");
+        assertThat(done.refundAmount()).isEqualByComparingTo(DEPOSIT);
+    }
+
+    @Test
+    void lockedOverdueContractReopensRightAfterPayingFeeAndExtension() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+
+        pay(contractInvoices.bill(feeId).orElseThrow());
+        // Đã trả phí nhưng còn quá hạn → chưa mở.
+        assertThat(suspended(seed.contractId)).isTrue();
+
+        pay(tenancy.requestExtension(seed.contractId, customerId, 2));
+        // Gia hạn phủ kỳ quá hạn, không còn nợ → mở ngay sau khi trả, không đợi cron mỗi giờ.
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(tenancy.rental(seed.contractId, customerId).accessSuspended()).isFalse();
+    }
+
+    @Test
+    void endedContractsStayVisibleInHistory() {
+        Seed seed = seedActive(LocalDate.now(VN).plusDays(20));
+        jdbc.update("update rental_contracts set status = 'Ended' where id = ?", seed.contractId);
+
+        assertThat(tenancy.rentals(customerId)).noneMatch(r -> r.contractId().equals(seed.contractId));
+        assertThat(tenancy.endedRentals(customerId)).anySatisfy(r -> {
+            assertThat(r.contractId()).isEqualTo(seed.contractId);
+            assertThat(r.status()).isEqualTo("Ended");
+            assertThat(r.canExtend()).isFalse();
+            assertThat(r.canRequestReturn()).isFalse();
+        });
+    }
+
+    // ------------------------------------------------------------------ khoá chặn của cơ sở (chìa cơ)
+
+    @Test
+    void lockedContractWithPhysicalKeyGetsOverlockAppliedThenRemovedAfterPayingAndExtending() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        OverlockView required = overlocks.openOf(seed.contractId).orElseThrow();
+        assertThat(required.status()).isEqualTo("Required");
+        assertThat(required.unitId()).isEqualTo(seed.unitId);
+        assertThat(notifications(FS, "OVERLOCK_REQUIRED", seed.orderId)).isEqualTo(1);
+        assertThat(notifications(FM, "OVERLOCK_REQUIRED", seed.orderId)).isEqualTo(1);
+        // Danh sách quá hạn của FM hiện trạng thái khoá chặn.
+        loginAs(FM);
+        assertThat(overdue.facilityOverdue(facilityId)).filteredOn(o -> o.contractId().equals(seed.contractId))
+                .singleElement().satisfies(o -> {
+                    assertThat(o.accessSuspended()).isTrue();
+                    assertThat(o.overlockStatus()).isEqualTo("Required");
+                });
+        overdue.accrue(seed.contractId);
+        assertThat(count("select count(*) from unit_overlocks where contract_id = ?", seed.contractId)).isEqualTo(1);
+
+        loginAs(FS);
+        assertThat(overlocks.staffQueue()).extracting(OverlockView::id).contains(required.id());
+        assertThatThrownBy(() -> overlocks.remove(required.id(), null)).isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("chờ gỡ");
+        assertThat(overlocks.apply(required.id(), "Khoá chặn số 12").status()).isEqualTo("Applied");
+        assertThatThrownBy(() -> overlocks.apply(required.id(), null)).isInstanceOf(HandoverConflictException.class);
+        // Hợp đồng còn tạm khoá → chưa gỡ được.
+        assertThatThrownBy(() -> overlocks.remove(required.id(), null)).isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("tạm khoá");
+
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+        pay(contractInvoices.bill(feeId).orElseThrow());
+        pay(tenancy.requestExtension(seed.contractId, customerId, 2));
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(overlocks.openOf(seed.contractId).orElseThrow().status()).isEqualTo("RemovalRequired");
+        assertThat(notifications(FS, "OVERLOCK_REMOVAL_REQUIRED", seed.orderId)).isEqualTo(1);
+        assertThat(notifications(FM, "OVERLOCK_REMOVAL_REQUIRED", seed.orderId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select n.body from notifications n join order_notifications o on "
+                + "o.notification_id = n.id where n.type = 'CONTRACT_ACCESS_RESTORED' and o.order_id = ?",
+                String.class, seed.orderId)).contains("Khoá chặn của cơ sở");
+
+        loginAs(FS);
+        assertThat(overlocks.remove(required.id(), "Đã gỡ").status()).isEqualTo("Removed");
+        assertThat(overlocks.openOf(seed.contractId)).isEmpty();
+        assertThat(notifications(CUSTOMER, "OVERLOCK_REMOVED", seed.orderId)).isEqualTo(1);
+        for (String action : List.of("OVERLOCK_REQUIRED", "OVERLOCK_APPLIED", "OVERLOCK_REMOVAL_REQUIRED",
+                "OVERLOCK_REMOVED")) {
+            assertThat(auditCount(action, "UnitOverlock", required.id())).as(action).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void fmAssignsOneStaffAndOnlyThatStaffConfirmsTheOverlock() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        long overlockId = overlocks.openOf(seed.contractId).orElseThrow().id();
+        long otherFs = id("insert into accounts (email, password_hash, email_verified_at, role_id, status) values "
+                + "('fs-overlock-" + System.nanoTime() + "@lemar.vn', 'x', now(), (select id from roles where name = "
+                + "'FS'), 'ACTIVE') returning id");
+        jdbc.update("insert into account_facility_assignments (account_id, facility_id) values (?, ?)", otherFs,
+                facilityId);
+
+        loginAs(FM);
+        assertThat(overlocks.facilityQueue(facilityId)).extracting(OverlockView::id).contains(overlockId);
+        // Chỉ giao được FS đang hoạt động của cơ sở.
+        assertThatThrownBy(() -> overlocks.assign(overlockId, customerId))
+                .isInstanceOf(HandoverValidationException.class);
+        OverlockView assigned = overlocks.assign(overlockId, otherFs);
+        assertThat(assigned.assignedStaffId()).isEqualTo(otherFs);
+        assertThat(assigned.assignedStaffName()).isNotBlank();
+        assertThat(count("select count(*) from notifications where account_id = ? and type = 'OVERLOCK_ASSIGNED'",
+                otherFs)).isEqualTo(1);
+        assertThat(auditCount("OVERLOCK_ASSIGNED", "UnitOverlock", overlockId)).isEqualTo(1);
+
+        // FS khác (fs1) không xác nhận được việc đã giao cho người khác.
+        loginAs(FS);
+        assertThatThrownBy(() -> overlocks.apply(overlockId, null)).isInstanceOf(HandoverForbiddenException.class);
+
+        // FM giao lại cho fs1 → fs1 gắn được; đang gắn thì chưa có việc để giao.
+        loginAs(FM);
+        overlocks.assign(overlockId, fsId);
+        loginAs(FS);
+        assertThat(overlocks.apply(overlockId, null).status()).isEqualTo("Applied");
+        loginAs(FM);
+        assertThatThrownBy(() -> overlocks.assign(overlockId, fsId)).isInstanceOf(HandoverConflictException.class);
+    }
+
+    @Test
+    void overlockNotYetAppliedIsCanceledWhenCustomerArrivesToMoveOut() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        long overlockId = overlocks.openOf(seed.contractId).orElseThrow().id();
+
+        ReturnRequestView request = assignedAndArrived(seed);
+        // Còn nợ → chưa mở, khoá chặn vẫn chờ gắn; trả hết nợ thì mở và huỷ yêu cầu gắn.
+        assertThat(suspended(seed.contractId)).isTrue();
+        assertThat(overlocks.openOf(seed.contractId).orElseThrow().status()).isEqualTo("Required");
+        pay(moveOutDebt(seed.contractId));
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(overlocks.openOf(seed.contractId)).isEmpty();
+        assertThat(jdbc.queryForObject("select status from unit_overlocks where id = ?", String.class, overlockId))
+                .isEqualTo("Canceled");
+        assertThat(auditCount("OVERLOCK_CANCELED", "UnitOverlock", overlockId)).isEqualTo(1);
+        assertThat(checkout.forStaff(request.id()).overlock()).isNull();
+        loginAs(FS);
+        assertThatThrownBy(() -> overlocks.apply(overlockId, null)).isInstanceOf(HandoverConflictException.class);
+    }
+
+    @Test
+    void checkoutCannotBeConfirmedWhileOverlockIsStillOnTheUnit() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        long overlockId = overlocks.openOf(seed.contractId).orElseThrow().id();
+        loginAs(FS);
+        overlocks.apply(overlockId, null);
+
+        ReturnRequestView request = assignedAndArrived(seed);
+        assertThat(checkout.forStaff(request.id()).overlock().status()).isEqualTo("Applied");
+        pay(moveOutDebt(seed.contractId));
+        CheckoutView view = checkout.forStaff(request.id());
+        assertThat(view.accessSuspended()).isFalse();
+        assertThat(view.overlock().status()).isEqualTo("RemovalRequired");
+
+        loginAs(FS);
+        checkout.inspect(request.id(), new Inspection(true, false, null, null, 2, List.of(), null));
+        assertThatThrownBy(() -> checkout.confirm(request.id())).isInstanceOf(TenancyException.class)
+                .hasMessageContaining("khoá chặn");
+        overlocks.remove(overlockId, null);
+        assertThat(checkout.confirm(request.id()).result()).isEqualTo("COMPLETED");
+        assertThat(contractStatus(seed.contractId)).isEqualTo("Ended");
+    }
+
+    @Test
+    void contractWithoutPhysicalKeyNeedsNoOverlock() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        jdbc.update("delete from unit_access_keys where contract_id = ? and access_type = 'PhysicalKey'",
+                seed.contractId);
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        assertThat(overlocks.openOf(seed.contractId)).isEmpty();
+    }
+
+    /** Hoá đơn nợ gộp trước khi dọn đồ ({@code INV-DBT}) còn {@code Unpaid} của hợp đồng. */
+    private ContractBill moveOutDebt(long contractId) {
+        return contractInvoices.bill(id("select id from invoices where contract_id = " + contractId
+                + " and code like 'INV-DBT-%' and status = 'Unpaid'")).orElseThrow();
+    }
+
+    private Boolean suspended(long contractId) {
+        return jdbc.queryForObject("select access_suspended_at is not null from rental_contracts where id = ?",
+                Boolean.class, contractId);
     }
 
     @Test

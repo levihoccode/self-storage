@@ -15,6 +15,7 @@ Spec Flow 4/5 chỉ có tiêu đề; trang này là hành vi as-built và là co
 | Ghi cơ sở / khoang | `facility/application/FacilityAdminCommands.java` |
 | Ghi policy / giá loại khoang | `pricing/application/PricingAdminCommands.java` |
 | Tài khoản, phân quyền, lịch sử đăng nhập | `identity/application/AccountAdminService.java` |
+| Nhân sự: ca làm việc, nghỉ phép, hồ sơ nhân viên, báo cáo nhân sự | [hr.md](hr.md) (module `staffing`) |
 
 Mọi route cần bearer token + `ACCOUNT_ACTIVE` và đúng role theo prefix (`/api/fm/**` → `FM`, `/api/bom/**` →
 `BOM`, `/api/admin/**` → `ADMIN`; sai role → 403). Lỗi nghiệp vụ của `BackofficeController`
@@ -28,7 +29,9 @@ Mọi route cần bearer token + `ACCOUNT_ACTIVE` và đúng role theo prefix (`
 |---|---|---|
 | GET | `/api/fm/contracts?facilityId=&status=` | hợp đồng của cơ sở + tổng hoá đơn `Unpaid` |
 | GET | `/api/fm/reports?facilityId=&from=&to=` | KPI (gồm cọc đang giữ), doanh thu theo tháng × loại (bên dưới), số khoang theo trạng thái. Mặc định 6 tháng gần nhất |
-| POST | `/api/fm/storage-units` `{facilityId, code, unitTypeId, monthlyPrice?}` | thêm khoang `Available`; mã trùng trong cơ sở → 400; cơ sở tự "cung cấp" loại khoang đó (`facility_unit_type`) |
+| GET | `/api/fm/reports/staff?facilityId=&from=&to=` | báo cáo nhân sự của cơ sở — [hr.md › Báo cáo nhân sự](hr.md#báo-cáo-nhân-sự) |
+| POST | `/api/fm/storage-units` `{facilityId, code, unitTypeId, monthlyPrice?, floorNo?, aisleSide?, aislePosition?}` | thêm khoang `Available`; mã trùng trong cơ sở → 400; cơ sở tự "cung cấp" loại khoang đó (`facility_unit_type`). Vị trí: đủ ba trường hoặc bỏ cả ba — xem [Sơ đồ cơ sở](#sơ-đồ-cơ-sở) |
+| PUT | `/api/fm/storage-units/{id}/location` `{floorNo, aisleSide, aislePosition}` | đặt / đổi vị trí khoang trên sơ đồ; cả ba `null` = gỡ khỏi sơ đồ. Mọi trạng thái khoang. Audit `STORAGE_UNIT_UPDATED` (vị trí cũ / mới) |
 | PATCH | `/api/fm/storage-units/{id}` `{unitTypeId?, monthlyPrice?}` | đổi loại / giá riêng (`monthlyPrice` null = giá loại khoang; có giá thì là số nguyên VND > 0, cả lúc tạo khoang) |
 | POST | `/api/fm/storage-units/{id}/maintenance` `{maintenance}` | bảo trì tay: `Available ↔ Maintenance`. Khoang đang có đơn chưa hoàn tất trỏ tới → 409. Mở lại tay xoá `maintenance_started_at` |
 | POST | `/api/fm/storage-units/{id}/maintenance-hold` | "Giữ bảo trì": khoang `Maintenance` đang chờ cron mở lại (`maintenance_started_at` khác `null`) → xoá mốc, thành bảo trì thủ công — cron không tự mở lại, FM mở lại bằng `/maintenance`. Audit `STORAGE_UNIT_MAINTENANCE` (`new_value.reason` "FM giữ bảo trì", old/new `maintenanceStartedAt`). Không tìm thấy khoang → 400; ngoài cơ sở → 403; khoang không ở bảo trì sau trả kho → 409 |
@@ -68,23 +71,51 @@ qua `GET` / `POST /api/fm/invoices/{invoiceId}/refunds` (quyền `payment_transa
 
 | Method | Path | Hành vi |
 |---|---|---|
-| GET / POST | `/api/bom/facilities` | danh sách (kèm FM, số khoang, số khoang `Rented`) / tạo cơ sở; mã viết hoa, chỉ `A-Z 0-9 -`, tối đa 20 ký tự (mã nằm trong mã hoá đơn, cột 50 ký tự), trùng → 400 |
-| PATCH | `/api/bom/facilities/{id}` | tên, địa chỉ, giờ mở cửa, `status` (`Active`/`Inactive`) |
-| PUT | `/api/bom/facilities/{id}/manager` `{fmAccountId}` | gán FM (1–1: FM đang ở cơ sở khác bị gỡ), `null` = bỏ FM; tài khoản không phải FM → 400 |
+| GET / POST | `/api/bom/facilities` | danh sách (kèm FM, số khoang, số khoang `Rented`, `staffCount` = số FS `ACTIVE` đang gán, `latitude`, `longitude`, `floorCount`) / tạo cơ sở; mã viết hoa, chỉ `A-Z 0-9 -`, tối đa 20 ký tự (mã nằm trong mã hoá đơn, cột 50 ký tự), trùng → 400. Tạo kèm ghim bản đồ, số tầng và sơ đồ khoang ban đầu — [Sơ đồ cơ sở](#sơ-đồ-cơ-sở) |
+| PATCH | `/api/bom/facilities/{id}` | tên, địa chỉ, giờ mở cửa, `status` (`Active`/`Inactive`), `latitude` + `longitude` (đổi khi gửi đủ cả hai), `floorCount`; trường `null` giữ nguyên |
+| GET | `/api/bom/facilities/{id}/units` | mọi khoang của cơ sở kèm trạng thái + vị trí (cùng dạng `GET /api/fm/storage-units`) — sơ đồ có màu trạng thái cho BOM; không có cơ sở → 400 |
+| PUT | `/api/bom/storage-units/{id}/location` | như route FM |
+| PUT | `/api/bom/facilities/{id}/manager` `{fmAccountId}` | gán FM (1–1: FM đang phụ trách cơ sở khác → 409 nêu cơ sở đó, bỏ FM ở đó trước; hai lượt gán đồng thời cùng một FM → 409), `null` = bỏ FM; tài khoản không phải FM → 400. Màn BOM làm mờ FM đang có cơ sở |
 | PUT | `/api/bom/facilities/{id}/access-options` | như route FM (cùng kiểm `facility.access`; BOM có quyền mọi cơ sở) |
 | GET | `/api/bom/managers` | tài khoản FM đang hoạt động |
 | GET | `/api/bom/staff` | tài khoản FS (mọi trạng thái) kèm `facilityIds` đang gán |
 | PUT | `/api/bom/staff/{id}/facilities` `{facilityIds}` | như `PUT /api/admin/accounts/{id}/facilities` — BOM điều phối FS giữa các cơ sở (xem [Gán FS vào cơ sở](#gán-fs-vào-cơ-sở)) |
-| GET / PUT | `/api/bom/policies`, `/api/bom/policies/{key}` `{value}` | policy đang là số thì giá trị mới phải là số ≥ 0; policy đang là số nguyên (ngày, tháng, số lần, phí) thì giá trị mới phải là số nguyên ≥ 0 trong miền `int` — `2.5` / `1e2` → 400 |
+| GET / PUT | `/api/bom/policies`, `/api/bom/policies/{key}` `{value}` | policy đang là số thì giá trị mới phải là số ≥ 0; policy đang là số nguyên (ngày, tháng, số lần, phí) thì giá trị mới phải là số nguyên ≥ 0 trong miền `int` — `2.5` / `1e2` → 400; policy đang là `true`/`false` (vd `staff.shift_required`) chỉ nhận `true` hoặc `false` |
 | GET / PUT | `/api/bom/unit-types`, `/api/bom/unit-types/{id}/price` `{monthlyPrice}` | giá theo loại khoang (số nguyên VND > 0 — cổng payOS chỉ thu số nguyên). Hợp đồng đã ký giữ giá chốt lúc ký |
 | PATCH | `/api/bom/storage-units/{id}` | giá riêng từng khoang |
 | GET | `/api/bom/reports?facilityId=&from=&to=` | báo cáo toàn chuỗi (bỏ `facilityId`) hoặc một cơ sở |
+| GET | `/api/bom/reports/staff?facilityId=&from=&to=` | báo cáo nhân sự toàn chuỗi / một cơ sở ([hr.md](hr.md#báo-cáo-nhân-sự)) |
+| GET / PUT | `/api/bom/staff/{id}/profile` | hồ sơ nhân viên FS / FM gồm số giấy tờ ([hr.md › Hồ sơ nhân viên](hr.md#hồ-sơ-nhân-viên)) |
 | GET | `/api/bom/invoices?facilityId=&status=&type=` | hoá đơn toàn chuỗi |
 
 Audit:
 - `FACILITY_CREATED`, `FACILITY_UPDATED` (`Facility`);
 - `STORAGE_UNIT_CREATED`, `STORAGE_UNIT_UPDATED`, `STORAGE_UNIT_MAINTENANCE`, `STORAGE_UNIT_AVAILABLE` (`StorageUnit`);
 - `POLICY_UPDATED` (`Policy`), `UNIT_TYPE_UPDATED` (`UnitType`).
+
+## Sơ đồ cơ sở
+
+Mỗi cơ sở có ghim bản đồ (`latitude` + `longitude`, tuỳ chọn) và số tầng (`floor_count` 1–20, mặc định 1). Mỗi khoang
+có thể có vị trí: **tầng** (`floor_no`) + **bên lối đi** nhìn từ cửa vào (`aisle_side` = `Left` / `Right`) + **thứ tự
+tính từ cửa vào** (`aisle_position`, 1 = sát cửa). Ba trường cùng có hoặc cùng `null` (khoang chưa xếp lên sơ đồ).
+
+- **Tạo cơ sở** (`POST /api/bom/facilities`): body thêm `latitude`, `longitude`, `floorCount`, `units[]`
+  (`code`, `unitTypeId`, `floorNo`, `aisleSide`, `aislePosition` — vị trí bắt buộc với khoang trên sơ đồ). Một
+  transaction: sơ đồ sai thì không tạo gì → 400 — mã lặp (không phân biệt hoa thường), loại khoang không tồn tại, thiếu
+  vị trí, tầng vượt `floorCount`, hai khoang một vị trí; toạ độ chỉ có một nửa / ngoài ±90, ±180; `floorCount` ngoài
+  1–20. Khoang tạo ra `Available`, giá theo loại khoang; mỗi khoang một audit `STORAGE_UNIT_CREATED`; `FACILITY_CREATED`
+  ghi thêm `floorCount`, `unitCount`, toạ độ.
+- **Sửa cơ sở**: giảm `floorCount` xuống dưới tầng cao nhất đang có khoang → 409 (`"Tầng N đang có khoang — …"`).
+  Audit `FACILITY_UPDATED` ghi tên, trạng thái, số tầng, toạ độ cũ / mới.
+- **Vị trí khoang** (FM theo cơ sở, BOM mọi cơ sở): tạo khoang kèm vị trí hoặc `PUT …/location`. Tầng vượt số tầng /
+  thiếu một phần → 400; vị trí đã có khoang khác → 409 kèm mã khoang đang chiếm (`"Tầng 1 · bên phải · vị trí 1 đã có
+  khoang A-03"`). Kiểm trước bằng `select`, unique index `uq_storage_units_slot` chặn khi hai request đua.
+- Đọc: FM / BOM qua danh sách khoang (có trạng thái); khách và FS qua `GET /api/facilities/{id}/layout` (chỉ cờ còn
+  trống `available` — [routes/facility/public-list.md](../routes/facility/public-list.md)). FE hiện sơ đồ còn trống ở
+  trang chọn kho, và vị trí khoang ở trang đề xuất khoang (khi đề xuất đang chờ), thẻ khoang đang thuê, chi tiết hợp
+  đồng và checklist bàn giao của FS.
+- V34 seed toạ độ cho Q7 / TD, Q7 2 tầng và xếp 8 khoang seed của Q7 (A-01…A-04 tầng 1, B-01…C-01 tầng 2) — chỉ khi
+  cơ sở chưa có toạ độ / khoang chưa có vị trí.
 
 ## Gán FS vào cơ sở
 
@@ -107,7 +138,9 @@ audit và việc đã làm vẫn gắn với một account id.
   Message liệt kê tối đa 5 việc (`… và N việc khác`), mỗi việc kèm cách gỡ chặn của cột cuối trong ngoặc. Trả kho sau khi khách đến (checkout) không chặn: mọi FS của
   cơ sở có `unit_access_key.issue` đều làm tiếp được.
 - Mỗi module giao việc cho FS khai báo việc còn mở qua interface `identity.application.StaffOpenWork`
-  (booking, handover, support) — identity không phụ thuộc ngược các module đó.
+  (booking, handover, support) — identity không phụ thuộc ngược các module đó. Module nhân sự dùng các biến thể theo
+  ngày của cùng interface để chặn duyệt nghỉ phép, chặn xoá / thu hẹp ca và đếm việc trên màn phân công
+  ([hr.md](hr.md)).
 - **Tranh chấp với FM đang phân công:** `FacilityStaffQuery.isActiveStaffOf` khoá `FOR SHARE` dòng gán tới hết
   transaction phân công. Lệnh gỡ xoá dòng gán **trước** rồi mới kiểm việc, nên chờ FM commit và thấy việc vừa giao
   (→ 409, rollback). FM phân công sau khi dòng đã xoá → 400 "không phải FS của cơ sở".
@@ -135,8 +168,9 @@ Lần 409 không ghi audit; lần 200 ghi `ACCOUNT_UPDATED | Account | 5 | {"fac
 | Method | Path | Hành vi |
 |---|---|---|
 | GET | `/api/admin/accounts?role=&status=&q=&page=&size=` | tài khoản + cơ sở được gán / phụ trách + lần đăng nhập thành công gần nhất |
-| POST | `/api/admin/accounts` `{email, password, name?, phone?, role}` | tạo tài khoản đã xác minh email; mật khẩu ≥ 8; email trùng → 409 |
-| PATCH | `/api/admin/accounts/{id}` `{role?, status?, name?, phone?}` | đổi role / khoá (`BANNED`) / mở; không tự đổi role hoặc khoá chính mình (409); đổi khỏi FS thì gỡ gán cơ sở |
+| POST | `/api/admin/accounts` `{email, password, name?, phone?, role, facilityIds?}` | tạo tài khoản đã xác minh email; mật khẩu ≥ 8; email trùng → 409. `facilityIds` gán cơ sở ngay lúc tạo — chỉ cho role `FS` (role khác kèm cơ sở → 400), cơ sở không tồn tại → 400; ghi vào audit `ACCOUNT_CREATED` (`new_value.facilityIds`). FS mới chưa có ca: khi `staff.shift_required` bật, FM xếp ca trước khi phân công |
+| PATCH | `/api/admin/accounts/{id}` `{role?, status?, name?, phone?}` | đổi role / khoá (`BANNED`) / đánh dấu nghỉ việc (`INACTIVE`) / mở; không tự đổi role hoặc khoá chính mình (409); đổi khỏi FS thì gỡ gán cơ sở |
+| GET / PUT | `/api/admin/accounts/{id}/profile` | hồ sơ nhân viên của tài khoản FS / FM gồm số giấy tờ ([hr.md › Hồ sơ nhân viên](hr.md#hồ-sơ-nhân-viên)) |
 | PUT | `/api/admin/accounts/{id}/facilities` `{facilityIds}` | gán FS vào đúng các cơ sở này (thay toàn bộ); không phải tài khoản FS → 409; cơ sở không tồn tại → 400; gỡ khỏi cơ sở mà FS còn việc mở → 409 ([Gán FS vào cơ sở](#gán-fs-vào-cơ-sở)) |
 | GET | `/api/admin/login-events?email=` | lịch sử đăng nhập (thành công / thất bại + lý do + IP), mới nhất trước |
 | GET | `/api/admin/audit-logs?action=&entityType=&entityId=&actor=` | nhật ký thao tác (lọc theo email actor) |
@@ -147,6 +181,80 @@ Lần 409 không ghi audit; lần 200 ghi `ACCOUNT_UPDATED | Account | 5 | {"fac
   `reason` = tên lỗi (`InvalidCredentials`, `AccountNotAllowed`, `EmailNotVerified`, `TooManyLoginAttempts`…).
 - **Audit:** `ACCOUNT_CREATED`, `ACCOUNT_UPDATED` (`Account`), `ROLE_PERMISSIONS_UPDATED` (`Role`).
 
+## Yêu cầu tạo tài khoản (BOM → Admin)
+
+BOM không tự tạo tài khoản nhân sự: BOM gửi yêu cầu tạo tài khoản **FM** hoặc **FS**, ADMIN duyệt (đặt mật khẩu ban
+đầu) hoặc từ chối. Tài khoản **BOM** do ADMIN tự tạo qua `POST /api/admin/accounts`, không qua yêu cầu. Bảng
+`account_requests` (V35), code `backoffice/application/AccountRequestService`.
+
+| Method | Path | Ai | Hành vi |
+|---|---|---|---|
+| GET | `/api/bom/account-requests` | BOM | mọi yêu cầu, mới nhất trước |
+| POST | `/api/bom/account-requests` `{role, email, name, phone?, facilityIds?, note?, replacesAccountId?}` | BOM | gửi yêu cầu (`Pending`); ADMIN `ACTIVE` nhận `ACCOUNT_REQUEST_SUBMITTED` |
+| POST | `/api/bom/account-requests/{id}/cancel` | BOM gửi yêu cầu đó | huỷ (`Canceled`); người khác / đã xử lý → 409 |
+| GET | `/api/admin/account-requests?status=` | ADMIN | lọc `Pending` / `Approved` / `Rejected` / `Canceled`; bỏ trống = tất cả; sai → 400 |
+| POST | `/api/admin/account-requests/{id}/approve` `{password}` | ADMIN | tạo tài khoản + gán cơ sở, `Approved` |
+| POST | `/api/admin/account-requests/{id}/reject` `{reason}` | ADMIN | `Rejected` + `review_note`; lý do bắt buộc ≤ 500 |
+
+**Gửi (tuyển thêm, `replacesAccountId` rỗng):**
+
+- `role` chỉ `FM` / `FS` — role khác → 400 "Chỉ gửi yêu cầu tạo tài khoản FM hoặc FS (tài khoản BOM do Admin tạo)".
+- Email chuẩn hoá (trim + lowercase); họ tên bắt buộc ≤ 255; SĐT ≤ 20; ghi chú ≤ 500; sai → 400.
+- FS: ≥ 1 cơ sở; FM: đúng 1 cơ sở và cơ sở đó chưa có FM (đã có → 409, quan hệ FM 1–1). Cơ sở không tồn tại → 400.
+- Email đã có tài khoản → 409; email đang có yêu cầu `Pending` → 409 (unique index `lower(email)` khi `Pending`).
+
+**Gửi (thay người nghỉ việc, `replacesAccountId` có giá trị):**
+
+- Người được thay phải cùng `role` (khác → 400) và đang `ACTIVE` (khác → 409 "không còn hoạt động").
+- Cơ sở lấy theo người cũ, `facilityIds` bị bỏ qua: FM — cơ sở đang phụ trách; FS — các cơ sở đang gán. Người cũ
+  không có cơ sở nào → 409 ("gửi yêu cầu tuyển thêm thay vì thay người").
+- Mỗi người chỉ có một yêu cầu thay đang chờ (unique index `replaces_account_id` khi `Pending`) → 409.
+
+**Duyệt** (một transaction; lỗi bất kỳ → rollback, không tạo tài khoản, yêu cầu vẫn `Pending`):
+
+1. Khoá dòng yêu cầu (`FOR UPDATE`); không còn `Pending` → 409.
+2. Thay người: kiểm lại người cũ còn `ACTIVE` và cùng role (→ 409 / 400).
+3. Tạo tài khoản đã xác minh email với mật khẩu ADMIN đặt (≥ 8; email vừa có tài khoản → 409). FS được gán cơ sở
+   ngay; FS thay người nhận cơ sở lúc gửi **cộng** cơ sở hiện tại của FS cũ (`facility_ids` của yêu cầu ghi lại tập
+   cuối cùng).
+4. FM: khoá dòng cơ sở; tuyển thêm mà cơ sở đã có FM → 409; thay người mà cơ sở không còn do FM cũ phụ trách → 409.
+   Rồi `assignManager` đặt FM mới (thay người: FM mới thế chỗ FM cũ, việc của cơ sở theo cơ sở nên FM mới nhận hết).
+5. FS thay người: mọi bản cài `identity.application.StaffWorkTransfer` chuyển việc còn mở của FS cũ sang FS mới:
+
+   | Module | Việc chuyển |
+   |---|---|
+   | booking | lịch hẹn `Pending` (check-in / trả kho) |
+   | handover | lịch hẹn của phiên bàn giao `IN_PROGRESS` |
+   | support | yêu cầu hỗ trợ `Assigned` |
+   | tenancy | yêu cầu trả kho `Assigned` + lịch `RETURN` của yêu cầu |
+   | staffing | ca làm từ hôm nay (giờ VN) trở đi; đơn nghỉ phép `Pending` của FS cũ → `Canceled` |
+
+   Sau đó gỡ FS cũ khỏi mọi cơ sở (`setStaffFacilities` — lúc này không còn việc mở nên không bị chặn). Ca đã qua giữ
+   nguyên người cũ.
+6. Thay người: tài khoản cũ → `INACTIVE` ("Đã nghỉ việc" — không đăng nhập được, lịch sử giữ nguyên; audit
+   `ACCOUNT_UPDATED`).
+7. Yêu cầu → `Approved` (`reviewed_by/at`, `created_account_id`). BOM gửi nhận `ACCOUNT_REQUEST_REVIEWED` (thay người:
+   kèm số việc đã chuyển); tài khoản mới nhận `ACCOUNT_READY` (email báo tài khoản sẵn sàng + link đăng nhập,
+   **không** kèm mật khẩu — ADMIN tự đưa mật khẩu).
+
+**Audit** (`AccountRequest`): `ACCOUNT_REQUEST_CREATED` (`role`, `email`, `facilityIds`, `replacesAccountId`),
+`ACCOUNT_REQUEST_APPROVED` (`accountId`; thay người thêm `replacedAccountId` và `transferred` — số việc theo nhãn),
+`ACCOUNT_REQUEST_REJECTED` (`reason`), `ACCOUNT_REQUEST_CANCELED`.
+
+**Thông báo:**
+
+| Type | Người nhận | Khi nào |
+|---|---|---|
+| `ACCOUNT_REQUEST_SUBMITTED` | mọi ADMIN `ACTIVE` | BOM gửi yêu cầu (thay người: nêu tên người nghỉ việc) |
+| `ACCOUNT_REQUEST_REVIEWED` | BOM gửi yêu cầu | ADMIN duyệt / từ chối (kèm lý do) |
+| `ACCOUNT_READY` | tài khoản FM / FS vừa tạo | ADMIN duyệt |
+
+**Tạo cơ sở kèm nhân sự:** form tạo cơ sở của BOM cho nhập thêm một FM và nhiều FS; sau khi cơ sở được tạo, frontend
+gửi mỗi người một yêu cầu với `facilityIds = [cơ sở mới]` (ghi chú "Tạo cùng cơ sở …"). Cơ sở vẫn được tạo khi một
+yêu cầu lỗi — trang báo yêu cầu nào không gửi được.
+
 ## Test
 
-`backoffice/SupportBackofficeIntegrationTest.java` (Postgres), `backoffice/controller/BackofficeControllerTest.java`.
+`backoffice/SupportBackofficeIntegrationTest.java` (Postgres), `backoffice/controller/BackofficeControllerTest.java`,
+`backoffice/AccountRequestIntegrationTest.java` (Postgres — tuyển thêm, thay FS / FM nghỉ việc),
+`backoffice/controller/AccountRequestControllerTest.java`.

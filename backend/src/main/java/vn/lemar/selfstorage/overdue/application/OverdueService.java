@@ -19,6 +19,7 @@ import vn.lemar.selfstorage.booking.application.ContractInvoiceService.ContractB
 import vn.lemar.selfstorage.booking.application.HandoverOrderService;
 import vn.lemar.selfstorage.booking.application.OrderNotificationService;
 import vn.lemar.selfstorage.handover.application.RentalContractService;
+import vn.lemar.selfstorage.handover.application.UnitOverlockService;
 import vn.lemar.selfstorage.handover.application.RentalContractService.ContractSnapshot;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.notification.application.NotificationService;
@@ -47,12 +48,15 @@ public class OverdueService {
     static final String POLICY_REMINDER = "contract.expiry_reminder_days";
     static final String POLICY_ESCALATION = "overdue.escalation_days";
     static final String RESTORE_NOTE_CLEARED = "không còn quá hạn.";
-    static final String RESTORE_NOTE_MOVING_OUT = "được mở lại để bạn dọn đồ trả kho; phí quá hạn vẫn tính tới ngày "
-            + "bạn đến buổi trả kho.";
+    static final String RESTORE_NOTE_MOVING_OUT = "được mở lại để bạn dọn đồ tại buổi trả kho — bạn đã thanh toán "
+            + "hết nợ.";
+    static final String RESTORE_NOTE_OVERLOCK = " Khoá chặn của cơ sở trên khoang sẽ được nhân viên gỡ — bạn nhận "
+            + "thông báo khi gỡ xong.";
     static final String PERM_READ = "rental_order.read";
     static final int INVOICE_DUE_DAYS = 7;
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final java.util.Locale VI = java.util.Locale.forLanguageTag("vi-VN");
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final RentalContractService contracts;
@@ -63,10 +67,12 @@ public class OverdueService {
     private final NotificationService notificationService;
     private final PricingQuery pricingQuery;
     private final Access access;
+    private final UnitOverlockService overlocks;
 
     OverdueService(RentalContractService contracts, ContractInvoiceService invoices, HandoverOrderService orders,
                    TenancyService tenancy, OrderNotificationService notifications,
-                   NotificationService notificationService, PricingQuery pricingQuery, Access access) {
+                   NotificationService notificationService, PricingQuery pricingQuery, Access access,
+                   UnitOverlockService overlocks) {
         this.contracts = contracts;
         this.invoices = invoices;
         this.orders = orders;
@@ -75,12 +81,14 @@ public class OverdueService {
         this.notificationService = notificationService;
         this.pricingQuery = pricingQuery;
         this.access = access;
+        this.overlocks = overlocks;
     }
 
     /** Hợp đồng quá hạn (cho FM). */
     public record OverdueContract(Long contractId, String contractCode, Long orderId, String unitCode,
                                   LocalDate endDate, long daysOverdue, long chargedDays, BigDecimal accrued,
-                                  ContractBill openInvoice, boolean returnRequested) {
+                                  ContractBill openInvoice, boolean returnRequested, boolean accessSuspended,
+                                  String overlockStatus) {
     }
 
     // ------------------------------------------------------------------ cron
@@ -143,36 +151,91 @@ public class OverdueService {
         return calc.daysOverdue() > 0;
     }
 
+    /**
+     * Hợp đồng quá hạn đang tạm khoá, FS vừa xác nhận khách đến buổi trả kho: chốt phí quá hạn tới ngày buổi đó rồi gộp
+     * mọi khoản còn nợ thành một hoá đơn {@code INV-DBT}; khách nhận {@code MOVE_OUT_DEBT_DUE}. Khách trả xong thì
+     * {@link #restoreIfCleared} mở khoang. Gọi sau khi khách đến / hoá đơn hợp đồng được trả, và trong cron mỗi giờ.
+     * Idempotent; {@code true} khi vừa lập hoá đơn nợ gộp.
+     */
+    @Transactional
+    public boolean prepareMoveOut(Long contractId) {
+        ContractSnapshot peek = contracts.find(contractId).orElse(null);
+        if (peek == null || !peek.active() || !contracts.accessSuspended(contractId)
+                || !arrivedAtReturn(contractId)) {
+            return false;
+        }
+        accrue(contractId);
+        ContractSnapshot c = contracts.lock(contractId).orElseThrow();
+        if (!c.endDate().isBefore(LocalDate.now(ZONE))) {
+            return false;
+        }
+        boolean settled = invoices.bills(c.id()).stream()
+                .anyMatch(b -> ContractInvoiceService.isSettlementCode(b.code()) && !"Canceled".equals(b.status()));
+        if (settled) {
+            return false;
+        }
+        Optional<ContractBill> debt = invoices.foldDebtForMoveOut(c.orderId(), c.id(), c.customerId(),
+                Instant.now().plus(Duration.ofDays(INVOICE_DUE_DAYS)));
+        debt.ifPresent(bill -> notifications.notifyCustomer(c.orderId(), NotificationType.MOVE_OUT_DEBT_DUE,
+                Map.of("contractCode", c.code(), "unitCode", unitCode(c), "invoiceCode", bill.code(),
+                        "amount", String.format(VI, "%,d", bill.amount().longValue()))));
+        return debt.isPresent();
+    }
+
+    private boolean arrivedAtReturn(Long contractId) {
+        return tenancy.openReturnOf(contractId).map(r -> r.appointmentArrivedAt() != null).orElse(false);
+    }
+
+    /** Khoản còn nợ của hợp đồng: hoá đơn {@code Unpaid} bất kỳ, hoặc tiền thuê tháng {@code Expired} chưa gộp. */
+    private static boolean isDebt(ContractBill bill) {
+        return bill.unpaid() || ("Rental".equals(bill.type()) && "Expired".equals(bill.status()));
+    }
+
     /** Hợp đồng đang thuê bị tạm khoá truy cập — cron kiểm tra để mở lại khi hết quá hạn. */
     @Transactional(readOnly = true)
     public List<Long> suspendedIds() {
         return contracts.activeIds().stream().filter(contracts::accessSuspended).toList();
     }
 
-    /** Hết quá hạn (gia hạn phủ kỳ quá hạn) và không còn phí quá hạn chưa trả → mở lại truy cập. */
+    /**
+     * Mở lại truy cập đang bị tạm khoá khi:
+     * <ul>
+     *   <li><b>đã trả</b> — hết quá hạn (gia hạn phủ kỳ quá hạn) và không còn phí quá hạn chưa trả;</li>
+     *   <li><b>dọn đồ trả kho</b> — còn quá hạn nhưng FS đã xác nhận khách đến buổi trả kho: mở để khách dọn đồ có FS
+     *       giám sát, kể cả khi còn nợ phí (phí dừng ở ngày buổi đó, trừ vào cọc khi quyết toán).</li>
+     * </ul>
+     * Đã chốt quyết toán trả kho (chìa / mã đã thu hồi) thì không mở nữa. Gọi từ cron mỗi giờ và ngay sau khi hoá đơn
+     * hợp đồng được trả / FS xác nhận khách đến ({@link OverdueAccessListener}).
+     */
     @Transactional
     public boolean restoreIfCleared(Long contractId) {
         ContractSnapshot peek = contracts.find(contractId).orElse(null);
-        if (peek == null) {
+        if (peek == null || !contracts.accessSuspended(contractId)) {
             return false;
         }
         orders.lock(peek.orderId());
         ContractSnapshot c = contracts.lock(contractId).orElseThrow();
         boolean overdue = c.endDate().isBefore(LocalDate.now(ZONE));
-        boolean feeOpen = invoices.bills(c.id()).stream()
-                .anyMatch(b -> b.unpaid() && b.code().startsWith("INV-" + ContractInvoiceService.OVERDUE_KIND));
-        // Còn quá hạn nhưng đã gửi yêu cầu trả kho và trả hết phí tới nay → mở để khách dọn đồ. Phí vẫn tính tới buổi
-        // trả kho khách đến; escalate bỏ qua hợp đồng có yêu cầu trả kho mở nên không khoá lại.
-        boolean movingOut = overdue && tenancy.openReturnOf(c.id()).isPresent();
-        // Đã chốt quyết toán trả kho (FS đã thu hồi chìa / mã) — không "mở lại để dọn đồ" nữa.
-        boolean settled = invoices.bills(c.id()).stream()
+        List<ContractBill> bills = invoices.bills(c.id());
+        boolean feeOpen = bills.stream()
+                .anyMatch(b -> b.unpaid() && ContractInvoiceService.isOverdueFeeCode(b.code()));
+        boolean cleared = !overdue && !feeOpen;
+        // Khách đã đến buổi trả kho (FS bấm "khách đã đến") và đã trả hết nợ (hoá đơn nợ gộp INV-DBT, mọi hoá đơn
+        // Unpaid, tiền thuê Expired) → mở để dọn đồ; còn nợ thì giữ khoá, tránh khách dọn hết đồ rồi bỏ đi không trả.
+        // escalate bỏ qua hợp đồng có yêu cầu trả kho mở nên không khoá lại.
+        boolean debtOpen = bills.stream().anyMatch(OverdueService::isDebt);
+        boolean movingOut = overdue && !debtOpen && arrivedAtReturn(c.id());
+        boolean settled = bills.stream()
                 .anyMatch(b -> ContractInvoiceService.isSettlementCode(b.code()) && !"Canceled".equals(b.status()));
-        if ((overdue && !movingOut) || feeOpen || settled || !contracts.restoreAccess(c.id(), null)) {
+        if (!(cleared || movingOut) || settled || !contracts.restoreAccess(c.id(), null)) {
             return false;
         }
+        boolean overlockToRemove = overlocks.openOf(c.id())
+                .map(UnitOverlockService.OverlockView::removalPending).orElse(false);
         notifications.notifyCustomer(c.orderId(), NotificationType.CONTRACT_ACCESS_RESTORED,
                 Map.of("contractCode", c.code(), "unitCode", unitCode(c), "restoreNote",
-                        movingOut ? RESTORE_NOTE_MOVING_OUT : RESTORE_NOTE_CLEARED));
+                        (movingOut ? RESTORE_NOTE_MOVING_OUT : RESTORE_NOTE_CLEARED)
+                                + (overlockToRemove ? RESTORE_NOTE_OVERLOCK : "")));
         return true;
     }
 
@@ -204,11 +267,12 @@ public class OverdueService {
                 .map(c -> {
                     Calc calc = calc(c);
                     ContractBill open = invoices.bills(c.id()).stream()
-                            .filter(b -> b.unpaid()
-                                    && b.code().startsWith("INV-" + ContractInvoiceService.OVERDUE_KIND))
+                            .filter(b -> b.unpaid() && ContractInvoiceService.isStandingDebtCode(b.code()))
                             .findFirst().orElse(null);
                     return new OverdueContract(c.id(), c.code(), c.orderId(), unitCode(c), c.endDate(),
-                            calc.daysOverdue(), calc.chargedDays(), calc.accrued(), open, calc.returnRequested());
+                            calc.daysOverdue(), calc.chargedDays(), calc.accrued(), open, calc.returnRequested(),
+                            contracts.accessSuspended(c.id()),
+                            overlocks.openOf(c.id()).map(UnitOverlockService.OverlockView::status).orElse(null));
                 })
                 .toList();
     }

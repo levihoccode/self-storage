@@ -92,6 +92,17 @@ export type StorageUnit = {
   unitPrice: number | null;
   /** Mốc bảo trì sau trả kho (cron tự mở lại); `null` = không bảo trì hoặc bảo trì thủ công. */
   maintenanceStartedAt: string | null;
+  /** Vị trí trên sơ đồ — cả ba `null` khi chưa xếp. */
+  floorNo: number | null;
+  aisleSide: "Left" | "Right" | null;
+  aislePosition: number | null;
+};
+
+/** Vị trí khoang gửi lên: đủ ba trường, hoặc cả ba `null` để gỡ khỏi sơ đồ. */
+export type UnitLocationInput = {
+  floorNo: number | null;
+  aisleSide: "Left" | "Right" | null;
+  aislePosition: number | null;
 };
 
 /** `GET /api/unit-types?facilityId=` — loại khoang cơ sở cung cấp. */
@@ -130,6 +141,10 @@ export type FacilityRow = {
   codeAccess: boolean;
   unitCount: number;
   rentedCount: number;
+  latitude: number | null;
+  longitude: number | null;
+  /** Số tầng — giới hạn tầng khi xếp khoang lên sơ đồ. */
+  floorCount: number;
 };
 
 export function fetchStorageUnits(
@@ -143,13 +158,20 @@ export function fetchUnitTypes(facilityId: number): Promise<UnitType[]> {
   return authed(`/api/unit-types${query({ facilityId })}`);
 }
 
-export function createStorageUnit(body: {
-  facilityId: number;
-  code: string;
-  unitTypeId: number;
-  monthlyPrice?: number | null;
-}): Promise<UnitRow> {
+export function createStorageUnit(
+  body: {
+    facilityId: number;
+    code: string;
+    unitTypeId: number;
+    monthlyPrice?: number | null;
+  } & Partial<UnitLocationInput>,
+): Promise<UnitRow> {
   return authed("/api/fm/storage-units", { method: "POST", body });
+}
+
+/** PUT /api/fm/storage-units/{id}/location — đặt / đổi / gỡ vị trí khoang (trùng vị trí → 409). */
+export function setStorageUnitLocation(unitId: number, body: UnitLocationInput): Promise<UnitRow> {
+  return authed(`/api/fm/storage-units/${unitId}/location`, { method: "PUT", body });
 }
 
 /** `monthlyPrice: null` = bỏ giá riêng, dùng giá loại khoang. */
@@ -391,6 +413,10 @@ export type OverdueContract = {
   accrued: number;
   openInvoice: ContractBill | null;
   returnRequested: boolean;
+  /** Quyền truy cập đang tạm khoá do quá hạn kéo dài. */
+  accessSuspended: boolean;
+  /** Trạng thái khoá chặn đang mở (`Required` / `Applied` / `RemovalRequired`), `null` = không có. */
+  overlockStatus: string | null;
 };
 
 export function fetchReturnRequests(facilityId: number): Promise<ReturnRequest[]> {
@@ -408,7 +434,60 @@ export function fetchOverdueContracts(facilityId: number): Promise<OverdueContra
   return authed(`/api/fm/overdue-contracts${query({ facilityId })}`);
 }
 
+/** `UnitOverlockService.OverlockView` — khoá chặn của cơ sở trên khoang dùng chìa cơ. */
+export type FmOverlock = {
+  id: number;
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitId: number;
+  unitCode: string;
+  facilityId: number;
+  facilityName: string;
+  status: "Required" | "Applied" | "RemovalRequired" | "Removed" | "Canceled";
+  requiredAt: string;
+  appliedAt: string | null;
+  removalRequestedAt: string | null;
+  removedAt: string | null;
+  note: string | null;
+  assignedStaffId: number | null;
+  assignedStaffName: string | null;
+  assignedAt: string | null;
+};
+
+/** GET /api/fm/overlocks — khoá chặn đang mở của cơ sở. */
+export function fetchFacilityOverlocks(facilityId: number): Promise<FmOverlock[]> {
+  return authed(`/api/fm/overlocks${query({ facilityId })}`);
+}
+
+/** POST /api/fm/overlocks/{id}/assign — giao (lại) FS gắn / gỡ khoá chặn. */
+export function assignOverlock(id: number, staffId: number): Promise<FmOverlock> {
+  return authed(`/api/fm/overlocks/${id}/assign`, { method: "POST", body: { staffId } });
+}
+
 // ------------------------------------------------------------------ Hỗ trợ
+
+/** `SupportService.TransferView` — lần chuyển khoang gần nhất của yêu cầu hỗ trợ (khoang hư). */
+export type SupportTransfer = {
+  id: number;
+  status: "Requested" | "Allocated" | "Completed" | "Canceled";
+  fromUnitId: number;
+  fromUnitCode: string | null;
+  toUnitId: number | null;
+  toUnitCode: string | null;
+  toUnitTypeName: string | null;
+  reason: string;
+  cancelReason: string | null;
+  /** Số chìa đã giao ở khoang mới (có khi Completed). */
+  keyQuantity: number | null;
+  /** Số chìa cơ khách đang giữ (bộ chìa Active của hợp đồng); null = không dùng chìa cơ. */
+  currentKeyQuantity: number | null;
+  /** Hợp đồng đang có mã khoá số — mã mới được cấp khi hoàn tất chuyển khoang. */
+  hasAccessCode: boolean;
+  createdAt: string;
+  allocatedAt: string | null;
+  completedAt: string | null;
+};
 
 /** `support/application/SupportService.SupportView`. */
 export type SupportRequest = {
@@ -433,7 +512,38 @@ export type SupportRequest = {
   createdAt: string;
   assignedAt: string | null;
   resolvedAt: string | null;
+  transfer: SupportTransfer | null;
 };
+
+/** `UnitTransferService.TransferCandidate` — `allowed` = được chọn (còn khoang cùng loại thì chỉ cùng loại). */
+export type TransferCandidate = {
+  unitId: number;
+  code: string;
+  unitTypeId: number;
+  unitTypeName: string;
+  area: number | null;
+  floorNo: number | null;
+  sameType: boolean;
+  allowed: boolean;
+};
+
+export function fetchTransferCandidates(requestId: number): Promise<TransferCandidate[]> {
+  return authed(`/api/fm/support-requests/${requestId}/transfer/candidates`);
+}
+
+export function allocateTransfer(requestId: number, unitId: number): Promise<SupportRequest> {
+  return authed(`/api/fm/support-requests/${requestId}/transfer/allocate`, {
+    method: "POST",
+    body: { unitId },
+  });
+}
+
+export function cancelTransfer(requestId: number, reason: string): Promise<SupportRequest> {
+  return authed(`/api/fm/support-requests/${requestId}/transfer/cancel`, {
+    method: "POST",
+    body: { reason },
+  });
+}
 
 export function fetchSupportRequests(
   facilityId: number,

@@ -49,11 +49,13 @@ public class StaffHandoverController {
     }
 
     @Operation(summary = "Xác minh danh tính (2.2)",
-            description = "`verified=false` → `identity_status = Failed`, phiên vẫn mở (không huỷ lịch/đơn).")
+            description = "`verified=true` cần 1–4 ảnh CCCD/hộ chiếu trong `photos` (upload trước qua `/api/media`, "
+                    + "URL không phải file FS này đã upload → 400). `verified=false` → `identity_status = Failed`, "
+                    + "ảnh tuỳ chọn, phiên vẫn mở (không huỷ lịch/đơn).")
     @PostMapping("/handovers/{id}/identity")
     public ResponseEntity<ApiEnvelope<HandoverView>> identity(@PathVariable Long id,
                                                               @Valid @RequestBody IdentityRequest body) {
-        workflow.verifyIdentity(id, body.verified(), body.note());
+        workflow.verifyIdentity(id, body.verified(), body.note(), body.photos());
         return ok("Đã ghi nhận xác minh danh tính", id);
     }
 
@@ -76,6 +78,18 @@ public class StaffHandoverController {
             @PathVariable Long id, @Valid @RequestBody InspectionCorrectionRequest body) {
         workflow.correctInspection(id, body.notes(), body.photos(), body.reason());
         return ok("Đã sửa hiện trạng khoang", id);
+    }
+
+    @Operation(summary = "Sửa họ tên / số điện thoại bên thuê trước khi ký",
+            description = "FS phụ trách, quyền `handover_record.verify_identity`. Cần đã xác minh danh tính và hợp "
+                    + "đồng của đơn chưa ký (chưa có hoặc `Draft`) — đã ký → 409. Ghi vào tài khoản khách; email "
+                    + "không sửa. `reason` bắt buộc; không có gì thay đổi / số điện thoại sai định dạng → 400. Audit "
+                    + "`ACCOUNT_UPDATED` (tên + SĐT cũ/mới, lý do kèm số phiên).")
+    @PostMapping("/handovers/{id}/customer-info")
+    public ResponseEntity<ApiEnvelope<HandoverView>> correctCustomerInfo(
+            @PathVariable Long id, @Valid @RequestBody CustomerInfoRequest body) {
+        workflow.correctCustomerInfo(id, body.name(), body.phone(), body.reason());
+        return ok("Đã cập nhật thông tin bên thuê", id);
     }
 
     @Operation(summary = "Khách không ký hợp đồng (2.5)",
@@ -118,7 +132,8 @@ public class StaffHandoverController {
     }
 
     @Schema(description = "Kết quả xác minh danh tính")
-    public record IdentityRequest(@NotNull Boolean verified, @Size(max = 500) String note) {
+    public record IdentityRequest(@NotNull Boolean verified, @Size(max = 500) String note,
+                                  @Size(max = 4) List<@NotBlank String> photos) {
     }
 
     @Schema(description = "Hiện trạng khoang")
@@ -131,6 +146,16 @@ public class StaffHandoverController {
             @Schema(description = "Danh sách ảnh mới (thay toàn bộ); ảnh mới phải upload qua /api/media")
             @Size(max = 20) List<@NotBlank String> photos,
             @Schema(description = "Lý do sửa", example = "Bổ sung vết xước khách phát hiện sau khi đồng ý")
+            @NotBlank @Size(max = 500) String reason) {
+    }
+
+    @Schema(description = "Sửa thông tin bên thuê trước khi ký hợp đồng")
+    public record CustomerInfoRequest(
+            @Schema(description = "Họ tên đúng theo giấy tờ", example = "Trần Vĩnh Khang")
+            @NotBlank @Size(max = 255) String name,
+            @Schema(description = "Số điện thoại (7-20 ký tự số/dấu + ()-.)", example = "0901234567")
+            @NotBlank @Size(max = 20) String phone,
+            @Schema(description = "Lý do sửa", example = "Tên trên tài khoản khác tên trên CCCD")
             @NotBlank @Size(max = 500) String reason) {
     }
 

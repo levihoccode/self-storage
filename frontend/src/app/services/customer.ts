@@ -13,6 +13,10 @@ export type CatalogFacility = {
   address: string | null;
   operatingHours: string | null;
   unitTypeIds: number[];
+  /** Ghim bản đồ — cùng `null` khi cơ sở chưa ghim. */
+  latitude: number | null;
+  longitude: number | null;
+  floorCount: number;
 };
 
 /** GET /api/unit-types?facilityId= — UnitTypeQueryService.UnitTypeOption. */
@@ -202,8 +206,25 @@ export function fetchInvoices(): Promise<CustomerInvoice[]> {
   return authed<CustomerInvoice[]>("/api/invoices");
 }
 
-export function checkInvoicePayment(invoiceId: number): Promise<PaymentCheck> {
-  return authed<PaymentCheck>(`/api/invoices/${invoiceId}/payment-check`, { method: "POST" });
+/** Tham số `vnp_*` VNPay gắn trên Return URL (có chữ ký) — backend kiểm chữ ký rồi chốt như IPN. */
+export function vnpayReturnParams(search: string = window.location.search): Record<string, string> {
+  const params: Record<string, string> = {};
+  new URLSearchParams(search).forEach((value, key) => {
+    if (key.startsWith("vnp_")) params[key] = value;
+  });
+  return params;
+}
+
+/**
+ * POST /api/invoices/{id}/payment-check. `gatewayParams` (tham số VNPay trên Return URL) cho backend chốt ngay khi IPN
+ * không tới được (chạy local); rỗng thì backend chỉ hỏi lại cổng.
+ */
+export function checkInvoicePayment(
+  invoiceId: number,
+  gatewayParams: Record<string, string> = {},
+): Promise<PaymentCheck> {
+  const body = Object.keys(gatewayParams).length > 0 ? { gatewayParams } : undefined;
+  return authed<PaymentCheck>(`/api/invoices/${invoiceId}/payment-check`, { method: "POST", body });
 }
 
 /**
@@ -462,6 +483,10 @@ export type RentalView = {
   returnRequest: ReturnRequestView | null;
   canExtend: boolean;
   canRequestReturn: boolean;
+  /** Đã chuyển khoang giữa kỳ (khoang hư) — bản hợp đồng đã ký vẫn ghi khoang cũ. */
+  unitMoves: { fromUnitCode: string; toUnitCode: string; movedAt: string | null }[];
+  /** Quyền truy cập đang tạm khoá do quá hạn kéo dài (mã số bị thu hồi). */
+  accessSuspended: boolean;
 };
 
 /** CheckoutService.CheckoutView. */
@@ -486,10 +511,17 @@ export type CheckoutView = {
   refundAmount: number | null;
   shortfallInvoice: ContractBill | null;
   completedAt: string | null;
+  /** Hợp đồng đang bị tạm khoá truy cập (quá hạn) — mở lại khi FS xác nhận khách đến buổi trả kho. */
+  accessSuspended: boolean;
 };
 
 export function fetchRentals(): Promise<RentalView[]> {
   return authed<RentalView[]>("/api/customer/rentals");
+}
+
+/** Hợp đồng đã kết thúc (đã trả kho), kết thúc gần nhất trước. */
+export function fetchEndedRentals(): Promise<RentalView[]> {
+  return authed<RentalView[]>("/api/customer/rentals/ended");
 }
 
 export function fetchRental(contractId: number): Promise<RentalView> {
@@ -791,6 +823,28 @@ export async function downloadContractPdf(contractId: number): Promise<void> {
 
 // ---------------------------------------------------------------- Support
 
+/** `SupportService.TransferView` — lần chuyển khoang gần nhất của yêu cầu hỗ trợ (khoang hư). */
+export type SupportTransfer = {
+  id: number;
+  status: "Requested" | "Allocated" | "Completed" | "Canceled";
+  fromUnitId: number;
+  fromUnitCode: string | null;
+  toUnitId: number | null;
+  toUnitCode: string | null;
+  toUnitTypeName: string | null;
+  reason: string;
+  cancelReason: string | null;
+  /** Số chìa đã giao ở khoang mới (có khi Completed). */
+  keyQuantity: number | null;
+  /** Số chìa cơ khách đang giữ (bộ chìa Active của hợp đồng); null = không dùng chìa cơ. */
+  currentKeyQuantity: number | null;
+  /** Hợp đồng đang có mã khoá số — mã mới được cấp khi hoàn tất chuyển khoang. */
+  hasAccessCode: boolean;
+  createdAt: string;
+  allocatedAt: string | null;
+  completedAt: string | null;
+};
+
 /** SupportService.SupportView. */
 export type SupportView = {
   id: number;
@@ -814,6 +868,7 @@ export type SupportView = {
   createdAt: string;
   assignedAt: string | null;
   resolvedAt: string | null;
+  transfer: SupportTransfer | null;
 };
 
 export type SupportCategory = "LOST_KEY" | "ACCESS_CODE" | "UNIT_ISSUE" | "BILLING" | "OTHER";
@@ -842,7 +897,7 @@ export function cancelSupportRequest(id: number): Promise<SupportView> {
 export const SUPPORT_CATEGORY_LABEL: Record<SupportCategory, string> = {
   LOST_KEY: "Mất chìa khoá",
   ACCESS_CODE: "Mã khoá số",
-  UNIT_ISSUE: "Sự cố khoang",
+  UNIT_ISSUE: "Khoang có vấn đề (hư hỏng, dột, kẹt cửa…)",
   BILLING: "Hoá đơn / thanh toán",
   OTHER: "Khác",
 };
@@ -853,6 +908,7 @@ export const SUPPORT_STATUS: Record<
 > = {
   Open: { label: "Mới gửi", tone: "warning" },
   Assigned: { label: "Đã phân công", tone: "info" },
+  Transferring: { label: "Đang chuyển khoang", tone: "info" },
   Resolved: { label: "Đã xử lý", tone: "success" },
   Canceled: { label: "Đã huỷ", tone: "neutral" },
 };

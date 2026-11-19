@@ -1,16 +1,28 @@
-import { Building2, Plus } from "lucide-react";
+import { Building2, Layers, MapPin, Plus } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage, errorStatus } from "../../app/http";
 import {
   assignFacilityManager,
   createBomFacility,
   fetchBomFacilities,
+  fetchBomFacilityUnits,
   fetchBomManagers,
+  fetchBomUnitTypes,
   setFacilityAccessOptions,
+  submitAccountRequest,
   updateBomFacility,
   type FacilityRow,
   type ManagerRow,
+  type UnitTypeRow,
 } from "../../app/services/bom";
+import { isPlaced } from "../../app/facilityLayout";
+import type { StorageUnit } from "../../app/services/fm";
+import {
+  FacilityLayoutDiagram,
+  type DiagramUnit,
+} from "../../components/domain/FacilityLayoutDiagram";
+import { FacilityMap, type LatLng } from "../../components/domain/FacilityMap";
+import { LayoutBuilder, type BuilderUnit } from "../../components/domain/LayoutBuilder";
 import type { Navigate } from "../../app/types";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
@@ -21,7 +33,7 @@ import { StatusTag } from "../../components/ui/StatusTag";
 import { SurfaceState } from "../../components/ui/SurfaceState";
 
 const INPUT =
-  "min-h-[42px] w-full rounded-[2px] border border-rule-strong bg-surface px-3 text-small text-ink outline-0 focus:border-brand";
+  "min-h-[42px] w-full rounded-lg border border-rule-strong bg-surface px-3 text-small text-ink outline-0 focus:border-brand";
 
 function TextInput({
   id,
@@ -180,6 +192,37 @@ function HoursPicker({
   );
 }
 
+/** Bấm bản đồ để đặt ghim; hiện toạ độ và nút bỏ ghim. */
+function PinPicker({
+  value,
+  onChange,
+}: {
+  value: LatLng | null;
+  onChange: (value: LatLng | null) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      <FacilityMap picked={value} onPick={onChange} height={280} />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-small">
+        <span className={value ? "text-ink" : "text-muted"}>
+          {value
+            ? `Ghim: ${value.latitude.toFixed(6)}, ${value.longitude.toFixed(6)}`
+            : "Bấm lên bản đồ để đặt ghim vị trí cơ sở (không bắt buộc)."}
+        </span>
+        {value && (
+          <button
+            type="button"
+            className="text-label text-muted underline hover:text-ink"
+            onClick={() => onChange(null)}
+          >
+            Bỏ ghim
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function statusTag(status: string): ReactNode {
   return status === "Active" ? (
     <StatusTag tone="success">Đang hoạt động</StatusTag>
@@ -199,6 +242,7 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [requestErrors, setRequestErrors] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -229,20 +273,11 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
   }
 
   function upsert(row: FacilityRow) {
-    setFacilities((list) => {
-      // Mỗi FM một cơ sở — backend đã gỡ FM khỏi cơ sở cũ, gỡ theo ở danh sách hiện tại.
-      const cleared =
-        row.fmAccountId === null
-          ? list
-          : list.map((item) =>
-              item.id !== row.id && item.fmAccountId === row.fmAccountId
-                ? { ...item, fmAccountId: null, fmEmail: null }
-                : item,
-            );
-      return cleared.some((item) => item.id === row.id)
-        ? cleared.map((item) => (item.id === row.id ? row : item))
-        : [...cleared, row];
-    });
+    setFacilities((list) =>
+      list.some((item) => item.id === row.id)
+        ? list.map((item) => (item.id === row.id ? row : item))
+        : [...list, row],
+    );
   }
 
   const openFacility = facilities.find((facility) => facility.id === openId) ?? null;
@@ -267,6 +302,12 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
       </div>
 
       {notice && <DemoNotice tone="success">{notice}</DemoNotice>}
+      {requestErrors.length > 0 && (
+        <DemoNotice tone="error">
+          Không gửi được {requestErrors.length} yêu cầu tài khoản: {requestErrors.join("; ")}. Gửi
+          lại ở mục Yêu cầu tài khoản.
+        </DemoNotice>
+      )}
 
       {isLoading ? (
         <SurfaceState variant="loading" title="Đang tải cơ sở…" />
@@ -315,6 +356,17 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
                   {facility.address ?? "—"}
                   {facility.operatingHours ? ` · ${facility.operatingHours}` : ""}
                 </span>
+                <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted">
+                  <span className="inline-flex items-center gap-1">
+                    <Layers size={13} /> {facility.floorCount} tầng
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 ${facility.latitude === null ? "text-warning" : ""}`}
+                  >
+                    <MapPin size={13} />{" "}
+                    {facility.latitude === null ? "Chưa ghim bản đồ" : "Đã ghim bản đồ"}
+                  </span>
+                </span>
                 <span className="mt-1 block text-label text-muted">
                   FM: {facility.fmEmail ?? "Chưa gán"} · Truy cập:{" "}
                   {[facility.keyAccess && "khoá cơ", facility.codeAccess && "mã số"]
@@ -327,6 +379,9 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
                   {facility.rentedCount}/{facility.unitCount}
                 </strong>
                 <span className="text-label text-muted">khoang đang thuê</span>
+                <span className="mt-1 block text-label text-muted">
+                  {facility.staffCount} FS đang làm việc
+                </span>
               </div>
             </button>
           ))}
@@ -336,10 +391,16 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
       {creating && (
         <CreatePanel
           onClose={() => setCreating(false)}
-          onCreated={(row) => {
+          onCreated={(row, requests) => {
             upsert(row);
             setCreating(false);
-            setNotice(`Đã tạo cơ sở ${row.name}.`);
+            setNotice(
+              `Đã tạo cơ sở ${row.name}.` +
+                (requests.sent
+                  ? ` Đã gửi ${requests.sent} yêu cầu tạo tài khoản tới Admin (xem mục Yêu cầu tài khoản).`
+                  : ""),
+            );
+            setRequestErrors(requests.failed);
           }}
         />
       )}
@@ -348,6 +409,7 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
         <EditPanel
           key={openFacility.id}
           facility={openFacility}
+          facilities={facilities}
           managers={managers}
           onClose={() => setOpenId(null)}
           onSaved={(row, message) => {
@@ -360,36 +422,128 @@ export function BomFacilitiesPage({ navigate }: { navigate: Navigate }) {
   );
 }
 
+type StaffDraft = { name: string; email: string; phone: string };
+const EMPTY_STAFF: StaffDraft = { name: "", email: "", phone: "" };
+const isFilled = (draft: StaffDraft) => Boolean(draft.name.trim() || draft.email.trim());
+
+/** Họ tên / email / SĐT của một người cần tạo tài khoản (gửi thành yêu cầu cho Admin). */
+function StaffFields({
+  idPrefix,
+  value,
+  onChange,
+  onRemove,
+}: {
+  idPrefix: string;
+  value: StaffDraft;
+  onChange: (next: StaffDraft) => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_1fr_160px_auto] items-end gap-3 max-[760px]:grid-cols-1">
+      <TextInput
+        id={`${idPrefix}-name`}
+        label="Họ tên"
+        value={value.name}
+        onChange={(name) => onChange({ ...value, name })}
+      />
+      <TextInput
+        id={`${idPrefix}-email`}
+        label="Email"
+        value={value.email}
+        onChange={(email) => onChange({ ...value, email })}
+      />
+      <TextInput
+        id={`${idPrefix}-phone`}
+        label="Số điện thoại"
+        value={value.phone}
+        onChange={(phone) => onChange({ ...value, phone })}
+      />
+      {onRemove ? (
+        <Button size="sm" variant="secondary" onClick={onRemove}>
+          Bỏ
+        </Button>
+      ) : (
+        <span />
+      )}
+    </div>
+  );
+}
+
 function CreatePanel({
   onClose,
   onCreated,
 }: {
   onClose: () => void;
-  onCreated: (row: FacilityRow) => void;
+  onCreated: (row: FacilityRow, requests: { sent: number; failed: string[] }) => void;
 }) {
+  const [fm, setFm] = useState<StaffDraft>(EMPTY_STAFF);
+  const [fsList, setFsList] = useState<StaffDraft[]>([]);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [hours, setHours] = useState("");
+  const [pin, setPin] = useState<LatLng | null>(null);
+  const [floorCount, setFloorCount] = useState(1);
+  const [units, setUnits] = useState<BuilderUnit[]>([]);
+  const [unitTypes, setUnitTypes] = useState<UnitTypeRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchBomUnitTypes()
+      .then((list) => active && setUnitTypes(list))
+      .catch((caught) => active && setError(errorMessage(caught)));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function submit() {
     if (!code.trim() || !name.trim()) {
       setError("Vui lòng nhập mã và tên cơ sở.");
       return;
     }
+    const staff = [
+      ...(isFilled(fm) ? [{ ...fm, role: "FM" as const }] : []),
+      ...fsList.filter(isFilled).map((draft) => ({ ...draft, role: "FS" as const })),
+    ];
+    if (staff.some((draft) => !draft.name.trim() || !draft.email.trim())) {
+      setError("Mỗi tài khoản cần có cả họ tên và email.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      onCreated(
-        await createBomFacility({
-          code: code.trim(),
-          name: name.trim(),
-          address: address.trim() || undefined,
-          operatingHours: hours.trim() || undefined,
-        }),
-      );
+      const row = await createBomFacility({
+        code: code.trim(),
+        name: name.trim(),
+        address: address.trim() || undefined,
+        operatingHours: hours.trim() || undefined,
+        latitude: pin?.latitude ?? null,
+        longitude: pin?.longitude ?? null,
+        floorCount,
+        units,
+      });
+      // Cơ sở đã tạo xong; yêu cầu tài khoản gửi riêng từng người — lỗi của một người không huỷ cơ sở.
+      let sent = 0;
+      const failed: string[] = [];
+      for (const draft of staff) {
+        try {
+          await submitAccountRequest({
+            role: draft.role,
+            email: draft.email.trim(),
+            name: draft.name.trim(),
+            phone: draft.phone.trim() || undefined,
+            facilityIds: [row.id],
+            note: `Tạo cùng cơ sở ${row.code}`,
+          });
+          sent += 1;
+        } catch (caught) {
+          failed.push(`${draft.email.trim()}: ${errorMessage(caught)}`);
+        }
+      }
+      onCreated(row, { sent, failed });
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -399,44 +553,110 @@ function CreatePanel({
 
   return (
     <DetailPanel
+      wide
       title="Thêm cơ sở"
       onClose={onClose}
       footer={
         <>
+          {error && (
+            <span className="mr-auto self-center text-small text-danger" role="alert">
+              {error}
+            </span>
+          )}
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             Huỷ
           </Button>
           <Button pending={busy} onClick={submit}>
-            Tạo cơ sở
+            Tạo cơ sở{units.length ? ` + ${units.length} khoang` : ""}
           </Button>
         </>
       }
     >
       <div className="grid gap-4">
-        <TextInput
-          id="facility-code"
-          label="Mã cơ sở"
-          value={code}
-          onChange={setCode}
-          required
-          placeholder="Ví dụ: Q7"
-        />
-        <TextInput id="facility-name" label="Tên cơ sở" value={name} onChange={setName} required />
+        <SectionTitle>Thông tin</SectionTitle>
+        <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+          <TextInput
+            id="facility-code"
+            label="Mã cơ sở"
+            value={code}
+            onChange={setCode}
+            required
+            placeholder="Ví dụ: Q7"
+          />
+          <TextInput
+            id="facility-name"
+            label="Tên cơ sở"
+            value={name}
+            onChange={setName}
+            required
+          />
+        </div>
         <TextInput id="facility-address" label="Địa chỉ" value={address} onChange={setAddress} />
         <HoursPicker id="facility-hours" label="Giờ mở cửa" value={hours} onChange={setHours} />
       </div>
-      {error && <DemoNotice tone="error">{error}</DemoNotice>}
+
+      <div className="mt-8 grid gap-3">
+        <SectionTitle>Vị trí trên bản đồ</SectionTitle>
+        <PinPicker value={pin} onChange={setPin} />
+      </div>
+
+      <div className="mt-8 grid gap-3">
+        <SectionTitle>Tài khoản nhân sự cho cơ sở này</SectionTitle>
+        <p className="m-0 text-small text-muted">
+          Không bắt buộc. Mỗi người nhập ở đây thành một yêu cầu tạo tài khoản gửi Admin (gắn sẵn cơ
+          sở mới); Admin duyệt và đặt mật khẩu ban đầu.
+        </p>
+        <span className={FIELD_LABEL}>FM phụ trách</span>
+        <StaffFields idPrefix="new-fm" value={fm} onChange={setFm} />
+        <span className={FIELD_LABEL}>Nhân viên FS</span>
+        {fsList.map((draft, index) => (
+          <StaffFields
+            key={index}
+            idPrefix={`new-fs-${index}`}
+            value={draft}
+            onChange={(next) =>
+              setFsList((list) => list.map((item, at) => (at === index ? next : item)))
+            }
+            onRemove={() => setFsList((list) => list.filter((_, at) => at !== index))}
+          />
+        ))}
+        <Button
+          size="sm"
+          variant="secondary"
+          className="w-fit"
+          onClick={() => setFsList((list) => [...list, EMPTY_STAFF])}
+        >
+          <Plus size={14} /> Thêm FS
+        </Button>
+      </div>
+
+      <div className="mt-8 grid gap-3">
+        <SectionTitle>Sơ đồ khoang</SectionTitle>
+        {unitTypes.length === 0 ? (
+          <p className="m-0 text-small text-muted">Đang tải loại khoang…</p>
+        ) : (
+          <LayoutBuilder
+            floorCount={floorCount}
+            onFloorCountChange={setFloorCount}
+            units={units}
+            onChange={setUnits}
+            unitTypes={unitTypes}
+          />
+        )}
+      </div>
     </DetailPanel>
   );
 }
 
 function EditPanel({
   facility,
+  facilities,
   managers,
   onClose,
   onSaved,
 }: {
   facility: FacilityRow;
+  facilities: FacilityRow[];
   managers: ManagerRow[];
   onClose: () => void;
   onSaved: (row: FacilityRow, message: string) => void;
@@ -448,14 +668,50 @@ function EditPanel({
   const [fmId, setFmId] = useState(facility.fmAccountId ? String(facility.fmAccountId) : "");
   const [keyAccess, setKeyAccess] = useState(facility.keyAccess);
   const [codeAccess, setCodeAccess] = useState(facility.codeAccess);
-  const [busy, setBusy] = useState<"info" | "manager" | "access" | null>(null);
+  const [pin, setPin] = useState<LatLng | null>(
+    facility.latitude !== null && facility.longitude !== null
+      ? { latitude: Number(facility.latitude), longitude: Number(facility.longitude) }
+      : null,
+  );
+  const [floorCount, setFloorCount] = useState(facility.floorCount);
+  const [units, setUnits] = useState<StorageUnit[] | null>(null);
+  const [busy, setBusy] = useState<"info" | "manager" | "access" | "map" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function save(kind: "info" | "manager" | "access") {
+  useEffect(() => {
+    let active = true;
+    fetchBomFacilityUnits(facility.id)
+      .then((list) => active && setUnits(list))
+      .catch(() => active && setUnits([]));
+    return () => {
+      active = false;
+    };
+  }, [facility.id]);
+
+  const placed: DiagramUnit[] = (units ?? []).filter(isPlaced).map((unit) => ({
+    code: unit.code,
+    floorNo: unit.floorNo!,
+    aisleSide: unit.aisleSide!,
+    aislePosition: unit.aislePosition!,
+    unitTypeName: unit.unitTypeName,
+    status: unit.status,
+  }));
+  const unplaced = (units ?? []).filter((unit) => !isPlaced(unit));
+
+  async function save(kind: "info" | "manager" | "access" | "map") {
     setBusy(kind);
     setError(null);
     try {
-      if (kind === "info") {
+      if (kind === "map") {
+        onSaved(
+          await updateBomFacility(facility.id, {
+            latitude: pin?.latitude ?? null,
+            longitude: pin?.longitude ?? null,
+            floorCount,
+          }),
+          "Đã cập nhật bản đồ và số tầng.",
+        );
+      } else if (kind === "info") {
         onSaved(
           await updateBomFacility(facility.id, {
             name: name.trim(),
@@ -484,12 +740,59 @@ function EditPanel({
   }
 
   const knownManager = managers.some((manager) => String(manager.id) === fmId);
+  // 1–1: FM đang phụ trách cơ sở khác không chọn được — phải gỡ khỏi cơ sở đó trước.
+  const managedElsewhere = (managerId: number) =>
+    facilities.find((item) => item.fmAccountId === managerId && item.id !== facility.id);
 
   return (
-    <DetailPanel title={facility.name} eyebrow={`Cơ sở ${facility.code}`} onClose={onClose}>
+    <DetailPanel wide title={facility.name} eyebrow={`Cơ sở ${facility.code}`} onClose={onClose}>
       {error && <DemoNotice tone="error">{error}</DemoNotice>}
 
       <div className="mt-4 grid gap-4">
+        <SectionTitle>Bản đồ & sơ đồ</SectionTitle>
+        <PinPicker value={pin} onChange={setPin} />
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className={FIELD_LABEL} htmlFor="edit-floors">
+              Số tầng
+            </label>
+            <input
+              id="edit-floors"
+              type="number"
+              min={1}
+              max={20}
+              className={`${INPUT} max-w-[120px]`}
+              value={floorCount}
+              onChange={(event) =>
+                setFloorCount(Math.min(20, Math.max(1, Number(event.target.value))))
+              }
+            />
+          </div>
+          <Button
+            variant="secondary"
+            pending={busy === "map"}
+            disabled={busy !== null}
+            onClick={() => save("map")}
+          >
+            Lưu bản đồ & số tầng
+          </Button>
+        </div>
+        {units === null ? (
+          <p className="m-0 text-small text-muted">Đang tải sơ đồ…</p>
+        ) : (
+          <>
+            <FacilityLayoutDiagram floorCount={facility.floorCount} units={placed} />
+            {unplaced.length > 0 && (
+              <p className="m-0 text-small text-warning">
+                {unplaced.length} khoang chưa xếp lên sơ đồ:{" "}
+                {unplaced.map((unit) => unit.code).join(", ")} — FM xếp ở trang Quản lý khoang.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="mt-8 grid gap-4">
         <SectionTitle>Thông tin</SectionTitle>
         <TextInput id="edit-name" label="Tên cơ sở" value={name} onChange={setName} required />
         <TextInput id="edit-address" label="Địa chỉ" value={address} onChange={setAddress} />
@@ -521,7 +824,8 @@ function EditPanel({
       <div className="mt-8 grid gap-4">
         <SectionTitle>FM phụ trách</SectionTitle>
         <p className="m-0 text-small text-muted">
-          Mỗi FM phụ trách một cơ sở; gán FM đang ở cơ sở khác sẽ gỡ FM khỏi cơ sở cũ.
+          Mỗi FM chỉ phụ trách một cơ sở. FM đang phụ trách cơ sở khác không chọn được — muốn chuyển
+          FM, mở cơ sở đó và chọn "Chưa gán FM" trước.
         </p>
         <select
           aria-label="FM phụ trách"
@@ -533,11 +837,15 @@ function EditPanel({
           {!knownManager && fmId && (
             <option value={fmId}>{facility.fmEmail ?? `Tài khoản ${fmId}`}</option>
           )}
-          {managers.map((manager) => (
-            <option key={manager.id} value={manager.id}>
-              {manager.name ? `${manager.name} · ${manager.email}` : manager.email}
-            </option>
-          ))}
+          {managers.map((manager) => {
+            const other = managedElsewhere(manager.id);
+            const label = manager.name ? `${manager.name} · ${manager.email}` : manager.email;
+            return (
+              <option key={manager.id} value={manager.id} disabled={Boolean(other)}>
+                {other ? `${label} — đang quản lý ${other.code}` : label}
+              </option>
+            );
+          })}
         </select>
         <Button
           variant="secondary"

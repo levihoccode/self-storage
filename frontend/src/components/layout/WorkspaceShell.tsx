@@ -74,11 +74,11 @@ export function WorkspaceShell({
   return (
     <div className="flex min-h-screen bg-background">
       <aside
-        className={`fixed inset-y-0 left-0 z-20 flex w-[236px] flex-col bg-[var(--dark)] px-3 py-4 text-[var(--on-dark-ink)] transition-transform duration-200 max-[760px]:z-30 max-[760px]:w-[min(280px,88vw)] max-[760px]:-translate-x-full ${
+        className={`fixed inset-y-0 left-0 z-20 flex w-[236px] flex-col overflow-hidden bg-[var(--dark)] px-3 py-4 text-[var(--on-dark-ink)] transition-transform duration-200 max-[760px]:z-30 max-[760px]:w-[min(280px,88vw)] max-[760px]:-translate-x-full ${
           menuOpen ? "max-[760px]:translate-x-0" : ""
         }`}
       >
-        <div className="flex items-center justify-between px-2 pb-6">
+        <div className="flex shrink-0 items-center justify-between px-2 pb-6">
           <Brand tone="onDark" onClick={onBrandClick} />
           <button
             className="hidden h-8 w-8 place-items-center border-0 bg-transparent text-[var(--on-dark-ink)] max-[760px]:grid"
@@ -88,17 +88,22 @@ export function WorkspaceShell({
             <X size={18} />
           </button>
         </div>
-        <div className="mb-2 px-2.5 text-label text-[rgba(233,234,230,.55)]">{roleLabel}</div>
-        <nav className="grid gap-0.5" aria-label={`Điều hướng ${roleLabel}`}>
+        <div className="mb-2 shrink-0 px-2.5 text-label text-[rgba(233,234,230,.55)]">
+          {roleLabel}
+        </div>
+        <nav
+          className="sidebar-scroll grid min-h-0 flex-1 content-start gap-0.5 overflow-y-auto"
+          aria-label={`Điều hướng ${roleLabel}`}
+        >
           {navItems.map(({ label, path, icon: Icon, badge }) => {
             const isActive = activePath === path;
             return (
               <button
                 key={path}
-                className={`flex w-full items-center gap-2.5 border-0 px-2.5 py-2.5 text-left font-display text-small font-medium transition-colors duration-150 ${
+                className={`flex w-full items-center gap-2.5 border-0 px-2.5 py-2.5 text-left font-display text-small font-medium transition-[color,background-color,padding] duration-200 ${
                   isActive
                     ? "bg-brand text-signal-ink"
-                    : "bg-transparent text-[rgba(233,234,230,.72)] hover:bg-[rgba(233,234,230,.08)] hover:text-[var(--on-dark-ink)]"
+                    : "bg-transparent text-[rgba(233,234,230,.72)] hover:bg-[rgba(233,234,230,.08)] hover:pl-3.5 hover:text-[var(--on-dark-ink)]"
                 }`}
                 onClick={() => {
                   setMenuOpen(false);
@@ -120,7 +125,7 @@ export function WorkspaceShell({
             );
           })}
         </nav>
-        <div className="mt-auto grid gap-3 px-2.5 pt-4">
+        <div className="mt-auto grid shrink-0 gap-3 px-2.5 pt-4">
           {sidebarNote}
           <button
             className="inline-flex items-center gap-2 border-0 bg-transparent px-0 py-2 text-left text-small font-semibold text-[rgba(233,234,230,.65)] hover:text-[var(--danger)]"
@@ -132,7 +137,7 @@ export function WorkspaceShell({
       </aside>
       {menuOpen && (
         <button
-          className="fixed inset-0 z-20 block border-0 bg-[rgba(0,0,0,0.52)]"
+          className="fade-enter fixed inset-0 z-20 block border-0 bg-[rgba(0,0,0,0.52)]"
           onClick={() => setMenuOpen(false)}
           aria-label="Đóng menu"
         />
@@ -141,7 +146,7 @@ export function WorkspaceShell({
         {header ? (
           header(() => setMenuOpen(true))
         ) : (
-          <header className="sticky top-0 z-[15] flex min-h-16 items-center justify-between bg-surface px-5 max-[760px]:px-4">
+          <header className="sticky top-0 z-[15] flex min-h-16 items-center justify-between rounded-none bg-surface px-5 max-[760px]:px-4">
             <button
               className={SIDEBAR_ICON_BUTTON}
               onClick={() => setMenuOpen(true)}
@@ -172,7 +177,7 @@ export function WorkspaceShell({
                 </button>
                 {profileOpen && (
                   <div
-                    className="absolute right-0 top-[calc(100%+10px)] z-40 w-[230px] border border-border bg-surface p-2 shadow-[var(--shadow-soft)]"
+                    className="absolute right-0 top-[calc(100%+10px)] z-40 w-[230px] border border-border bg-surface p-2 shadow-[var(--shadow-soft)] pop-enter"
                     role="menu"
                   >
                     <div className="grid gap-0.5 p-2.5">
@@ -203,7 +208,10 @@ export function WorkspaceShell({
           }
           id="main-content"
         >
-          {children}
+          {/* key theo mục menu đang chọn: sang mục khác thì khối nội dung chạy lại hiệu ứng vào trang. */}
+          <div key={activePath} className="page-enter">
+            {children}
+          </div>
         </div>
       </section>
     </div>

@@ -8,9 +8,11 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.lemar.selfstorage.audit.application.AuditEntry;
@@ -34,6 +36,7 @@ import vn.lemar.selfstorage.notification.application.NotificationRecipient;
 import vn.lemar.selfstorage.notification.application.NotificationService;
 import vn.lemar.selfstorage.notification.application.NotificationType;
 import vn.lemar.selfstorage.pricing.application.PricingQuery;
+import vn.lemar.selfstorage.staffing.application.StaffAvailability;
 import vn.lemar.selfstorage.tenancy.domain.ReturnRequest;
 import vn.lemar.selfstorage.tenancy.repository.ReturnRequestRepository;
 
@@ -54,6 +57,7 @@ public class TenancyService {
     static final String POLICY_MAX_NO_SHOWS = "return.max_no_shows";
     static final String REASON_NO_SHOW = "Khách không đến buổi trả kho";
     static final int MAX_PREFERRED_DAYS = 30;
+    private static final java.util.Locale VI = java.util.Locale.forLanguageTag("vi-VN");
     static final String MSG_NOT_FOUND = "Không tìm thấy hợp đồng thuê";
     static final String MSG_RETURN_NOT_FOUND = "Không tìm thấy yêu cầu trả kho";
     static final String MSG_EXTENSION_PENDING =
@@ -76,12 +80,15 @@ public class TenancyService {
     private final Access access;
     private final CurrentAccountProvider currentAccount;
     private final AuditRecorder auditRecorder;
+    private final StaffAvailability staffAvailability;
+    private final JdbcTemplate jdbc;
 
     TenancyService(RentalContractService contracts, ContractInvoiceService invoices, HandoverOrderService orders,
                    ReturnAppointmentService returnAppointments, OrderNotificationService orderNotifications,
                    NotificationService notificationService, AccountQueryService accountQuery,
                    ReturnRequestRepository returnRequests, FacilityStaffQuery staffQuery, PricingQuery pricingQuery,
-                   Access access, CurrentAccountProvider currentAccount, AuditRecorder auditRecorder) {
+                   Access access, CurrentAccountProvider currentAccount, AuditRecorder auditRecorder,
+                   StaffAvailability staffAvailability, JdbcTemplate jdbc) {
         this.contracts = contracts;
         this.invoices = invoices;
         this.orders = orders;
@@ -95,6 +102,8 @@ public class TenancyService {
         this.access = access;
         this.currentAccount = currentAccount;
         this.auditRecorder = auditRecorder;
+        this.staffAvailability = staffAvailability;
+        this.jdbc = jdbc;
     }
 
     /** Kho đang thuê của khách. */
@@ -102,7 +111,15 @@ public class TenancyService {
                              Long facilityId, String status, BigDecimal monthlyPrice, BigDecimal depositAmount,
                              int period, LocalDate startDate, LocalDate endDate, long daysLeft, boolean overdue,
                              List<ContractBill> invoices, List<RentalContractService.AccessKeySnapshot> accessKeys,
-                             ReturnRequestView returnRequest, boolean canExtend, boolean canRequestReturn) {
+                             ReturnRequestView returnRequest, boolean canExtend, boolean canRequestReturn,
+                             List<UnitMoveNote> unitMoves, boolean accessSuspended) {
+    }
+
+    /**
+     * Flow 7 — hợp đồng đã chuyển khoang giữa kỳ (khoang hư): bản hợp đồng đã ký vẫn ghi khoang cũ, dòng này cho biết
+     * khoang hiện tại thay khoang nào, từ lúc nào.
+     */
+    public record UnitMoveNote(String fromUnitCode, String toUnitCode, Instant movedAt) {
     }
 
     /**
@@ -123,6 +140,12 @@ public class TenancyService {
         return contracts.activeOfCustomer(customerId).stream().map(this::view).toList();
     }
 
+    /** Hợp đồng đã kết thúc (đã trả kho) của khách — mới nhất trước; xem lại hợp đồng, hoá đơn, biên bản. */
+    @Transactional(readOnly = true)
+    public List<RentalView> endedRentals(Long customerId) {
+        return contracts.endedOfCustomer(customerId).stream().map(this::view).toList();
+    }
+
     @Transactional(readOnly = true)
     public RentalView rental(Long contractId, Long customerId) {
         return view(owned(contractId, customerId));
@@ -141,6 +164,14 @@ public class TenancyService {
         }
         if (invoices.hasUnpaid(contractId, "Extension")) {
             throw TenancyException.conflict("Đã có hoá đơn gia hạn chờ thanh toán");
+        }
+        // Còn nợ phí quá hạn → trả trước rồi mới gia hạn (gia hạn chỉ dừng cộng phí, không xoá nợ đã phát sinh).
+        ContractBill overdueFee = openOverdueFee(invoices.bills(contractId));
+        if (overdueFee != null) {
+            // String.format theo vi-VN → 140.000 (NumberFormat dùng chung không an toàn đa luồng).
+            throw TenancyException.conflict("Vui lòng thanh toán phí quá hạn "
+                    + String.format(VI, "%,d", overdueFee.amount().longValue()) + " đ (hoá đơn "
+                    + overdueFee.code() + ") trước khi gia hạn");
         }
         BigDecimal amount = contract.monthlyPrice().multiply(BigDecimal.valueOf(months))
                 .setScale(2, RoundingMode.HALF_UP);
@@ -270,8 +301,16 @@ public class TenancyService {
             }
             returnAppointments.cancel(request.getAppointmentId(), "FM phân công lại buổi trả kho", actorId);
         }
+        // Ưu tiên khung trống FS có ca bao trọn (FS chỉ có ca chiều thì không bị xếp vào khung sáng rồi 409).
         ReturnAppointment appointment = returnAppointments.book(contract.orderId(), contract.customerId(),
-                request.getFacilityId(), staffId, request.getPreferredDate(), actorId);
+                request.getFacilityId(), staffId, request.getPreferredDate(), actorId,
+                (start, end) -> staffAvailability.appointmentViolation(staffId, request.getFacilityId(), start, end)
+                        .isEmpty());
+        // Giờ hẹn chỉ biết sau khi chọn khung trống; vi phạm ca / nghỉ phép thì cả transaction (lịch vừa tạo) rollback.
+        staffAvailability.appointmentViolation(staffId, request.getFacilityId(), appointment.startAt(),
+                appointment.endAt()).ifPresent(message -> {
+                    throw TenancyException.conflict(message);
+                });
         String before = request.getStatus();
         request.assign(staffId, appointment.appointmentId());
         audit(AuditAction.RETURN_ASSIGNED, request.getId(), Map.of("status", before),
@@ -400,11 +439,35 @@ public class TenancyService {
         ReturnRequestView open = returnRequests.findOpenByContractId(c.id()).map(r -> returnView(r, c)).orElse(null);
         List<ContractBill> bills = invoices.bills(c.id());
         boolean extensionPending = bills.stream().anyMatch(b -> b.unpaid() && "Extension".equals(b.type()));
+        // Phí quá hạn chưa trả chặn gia hạn (phải trả trước), không chặn trả kho (gộp vào quyết toán, trừ cọc).
+        boolean overdueFeeOpen = openOverdueFee(bills) != null;
         return new RentalView(c.id(), c.code(), c.orderId(), c.unitId(), unitCode(c), c.facilityId(), c.status(),
                 c.monthlyPrice(), c.depositAmount(), c.period(), c.startDate(), c.endDate(), daysLeft,
                 c.active() && daysLeft < 0,
-                bills, contracts.accessKeys(c.id()), open, c.active() && open == null && !extensionPending,
-                c.active() && open == null && !extensionPending);
+                bills, contracts.accessKeys(c.id()), open,
+                c.active() && open == null && !extensionPending && !overdueFeeOpen,
+                c.active() && open == null && !extensionPending, unitMoves(c.id()),
+                c.active() && contracts.accessSuspended(c.id()));
+    }
+
+    /** Hoá đơn phí quá hạn {@code INV-OVD} còn {@code Unpaid} của hợp đồng (tối đa một). */
+    private static ContractBill openOverdueFee(List<ContractBill> bills) {
+        return bills.stream().filter(b -> b.unpaid() && ContractInvoiceService.isOverdueFeeCode(b.code()))
+                .findFirst().orElse(null);
+    }
+
+    private List<UnitMoveNote> unitMoves(Long contractId) {
+        return jdbc.query("""
+                select f.code, t.code, x.completed_at from unit_transfers x
+                join storage_units f on f.id = x.from_unit_id
+                join storage_units t on t.id = x.to_unit_id
+                where x.contract_id = ? and x.status = 'Completed' order by x.completed_at""",
+                (rs, i) -> new UnitMoveNote(rs.getString(1), rs.getString(2), toInstant(rs.getTimestamp(3))),
+                contractId);
+    }
+
+    private static Instant toInstant(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     private ReturnRequestView returnView(ReturnRequest r) {

@@ -107,12 +107,19 @@ public class HandoverQueryService {
                 step(row, contract, invoice), row.unitCode(), row.unitType(), row.facilityId(), row.facilityName(),
                 row.facilityAddress(), row.customerId(), row.customerName(), row.customerEmail(),
                 row.customerPhone(), row.appointmentDate(), row.appointmentStart(), row.appointmentEnd(),
-                row.arrivedAt(), row.identityStatus(), row.identityVerifiedAt(), row.inspectionStatus(),
-                row.unitInspectedAt(), row.inspectionNotes(), row.inspectionPhotos(), row.rejectReason(),
+                row.arrivedAt(), row.identityStatus(), row.identityVerifiedAt(), row.identityPhotos(),
+                row.inspectionStatus(), row.unitInspectedAt(), row.inspectionNotes(), row.inspectionPhotos(),
+                row.rejectReason(),
                 row.dueAt(), row.completedAt(), row.requestedAccess(), row.customerConfirmedAt(),
                 contract == null ? null : contract(contract), invoice, keys, options.keyAccess(),
                 options.codeAccess(), records.countByOrderIdAndResult(row.orderId(), HandoverResult.REJECTED),
-                pricingQuery.intPolicy(HandoverWorkflowService.POLICY_MAX_REJECTION));
+                pricingQuery.intPolicy(HandoverWorkflowService.POLICY_MAX_REJECTION),
+                readRepository.findRescheduledBefore(row.orderId(), row.id())
+                        .map(p -> new HandoverView.PreviousSession(p.id(), p.reason(), p.appointmentDate(),
+                                p.appointmentStart(), p.appointmentEnd(), p.arrivedAt(), p.identityStatus(),
+                                p.identityVerifiedAt(), p.identityPhotos(), p.inspectionStatus(),
+                                p.inspectionNotes(), p.inspectionPhotos()))
+                        .orElse(null));
     }
 
     private static String step(HandoverRow row, RentalContract contract, HandoverView.Invoice invoice) {

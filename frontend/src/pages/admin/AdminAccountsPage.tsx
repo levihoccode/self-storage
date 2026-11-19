@@ -15,7 +15,9 @@ import {
   type AccountRow,
   type PublicFacility,
 } from "../../app/services/admin";
+import { fetchAdminStaffProfile, updateAdminStaffProfile } from "../../app/services/hr";
 import type { Navigate } from "../../app/types";
+import { StaffProfileEditor } from "../../components/domain/StaffProfileSection";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
@@ -27,7 +29,7 @@ import { SurfaceState } from "../../components/ui/SurfaceState";
 
 const PAGE_SIZE = 50;
 const INPUT =
-  "min-h-[42px] w-full rounded-[2px] border border-rule-strong bg-surface px-3 text-small text-ink outline-0 focus:border-brand";
+  "min-h-[42px] w-full rounded-lg border border-rule-strong bg-surface px-3 text-small text-ink outline-0 focus:border-brand";
 
 function Field({
   id,
@@ -338,7 +340,15 @@ export function AdminAccountsPage({ navigate }: { navigate: Navigate }) {
                       {ROLE_LABEL[account.role] ?? account.role}
                     </td>
                     <td className="px-3.5 py-3">
-                      <StatusTag tone={account.status === "ACTIVE" ? "success" : "danger"}>
+                      <StatusTag
+                        tone={
+                          account.status === "ACTIVE"
+                            ? "success"
+                            : account.status === "INACTIVE"
+                              ? "neutral"
+                              : "danger"
+                        }
+                      >
                         {ACCOUNT_STATUS_LABEL[account.status] ?? account.status}
                       </StatusTag>
                     </td>
@@ -379,6 +389,7 @@ export function AdminAccountsPage({ navigate }: { navigate: Navigate }) {
 
       {creating && (
         <CreatePanel
+          facilities={facilities}
           onClose={() => setCreating(false)}
           onCreated={(row) => {
             setCreating(false);
@@ -405,9 +416,11 @@ export function AdminAccountsPage({ navigate }: { navigate: Navigate }) {
 }
 
 function CreatePanel({
+  facilities,
   onClose,
   onCreated,
 }: {
+  facilities: PublicFacility[];
   onClose: () => void;
   onCreated: (row: AccountRow) => void;
 }) {
@@ -416,6 +429,8 @@ function CreatePanel({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("FS");
+  // Gán cơ sở ngay lúc tạo FS — không phải tạo xong rồi mở lại tài khoản để gán.
+  const [facilityIds, setFacilityIds] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -434,6 +449,7 @@ function CreatePanel({
           name: name.trim() || undefined,
           phone: phone.trim() || undefined,
           role,
+          facilityIds: role === "FS" && facilityIds.length > 0 ? facilityIds : undefined,
         }),
       );
     } catch (caught) {
@@ -479,6 +495,31 @@ function CreatePanel({
         <Field id="new-name" label="Họ tên" value={name} onChange={setName} />
         <Field id="new-phone" label="Số điện thoại" value={phone} onChange={setPhone} />
         <Select id="new-role" label="Role" value={role} onChange={setRole} options={roleOptions} />
+        {role === "FS" && (
+          <div className="grid gap-2">
+            <span className="text-label text-muted">Cơ sở làm việc (có thể chọn sau)</span>
+            {facilities.map((facility) => (
+              <label key={facility.id} className="flex items-center gap-2.5 text-small text-ink">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[var(--brand)]"
+                  checked={facilityIds.includes(facility.id)}
+                  onChange={(event) =>
+                    setFacilityIds((ids) =>
+                      event.target.checked
+                        ? [...ids, facility.id]
+                        : ids.filter((id) => id !== facility.id),
+                    )
+                  }
+                />
+                {facility.name} <span className="text-label text-muted">({facility.code})</span>
+              </label>
+            ))}
+            <p className="m-0 text-label text-muted">
+              Khi bắt buộc ca đang bật, FM cần xếp ca cho FS mới trước khi phân công việc.
+            </p>
+          </div>
+        )}
       </div>
       {error && <DemoNotice tone="error">{error}</DemoNotice>}
     </DetailPanel>
@@ -622,6 +663,16 @@ function EditPanel({
           >
             Lưu cơ sở
           </Button>
+        </div>
+      )}
+
+      {(account.role === "FS" || account.role === "FM") && (
+        <div className="mt-8">
+          <StaffProfileEditor
+            key={account.id}
+            load={() => fetchAdminStaffProfile(account.id)}
+            save={(input) => updateAdminStaffProfile(account.id, input)}
+          />
         </div>
       )}
     </DetailPanel>

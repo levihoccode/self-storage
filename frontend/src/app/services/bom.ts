@@ -1,4 +1,5 @@
 import { authed, query } from "../http";
+import type { StorageUnit } from "./fm";
 
 // BOM — /api/bom/**. Field name khớp record Java của backend (backoffice, facility, pricing, identity).
 
@@ -75,6 +76,21 @@ export type FacilityRow = {
   codeAccess: boolean;
   unitCount: number;
   rentedCount: number;
+  /** Số FS `ACTIVE` đang được gán vào cơ sở. */
+  staffCount: number;
+  /** Ghim bản đồ — cùng `null` khi chưa ghim. */
+  latitude: number | null;
+  longitude: number | null;
+  floorCount: number;
+};
+
+/** Khoang trên sơ đồ lúc tạo cơ sở (vị trí bắt buộc). */
+export type LayoutUnitInput = {
+  code: string;
+  unitTypeId: number;
+  floorNo: number;
+  aisleSide: "Left" | "Right";
+  aislePosition: number;
 };
 
 /** `PricingAdminCommands.PolicyRow` */
@@ -133,15 +149,32 @@ export function createBomFacility(body: {
   name: string;
   address?: string;
   operatingHours?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  floorCount?: number;
+  units?: LayoutUnitInput[];
 }): Promise<FacilityRow> {
   return authed<FacilityRow>("/api/bom/facilities", { method: "POST", body });
 }
 
 export function updateBomFacility(
   id: number,
-  body: { name?: string; address?: string; operatingHours?: string; status?: string },
+  body: {
+    name?: string;
+    address?: string;
+    operatingHours?: string;
+    status?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    floorCount?: number;
+  },
 ): Promise<FacilityRow> {
   return authed<FacilityRow>(`/api/bom/facilities/${id}`, { method: "PATCH", body });
+}
+
+/** GET /api/bom/facilities/{id}/units — mọi khoang kèm trạng thái + vị trí (sơ đồ toàn chuỗi). */
+export function fetchBomFacilityUnits(id: number): Promise<StorageUnit[]> {
+  return authed<StorageUnit[]>(`/api/bom/facilities/${id}/units`);
 }
 
 export function assignFacilityManager(
@@ -223,3 +256,69 @@ export const INVOICE_STATUS_LABEL: Record<string, string> = {
   Canceled: "Đã huỷ",
   Expired: "Quá hạn",
 };
+
+// ------------------------------------------------------------------ yêu cầu tạo tài khoản (BOM → ADMIN)
+
+export type AccountRequestRole = "FM" | "FS";
+export type AccountRequestStatus = "Pending" | "Approved" | "Rejected" | "Canceled";
+
+/** `AccountRequestService.AccountRequestRow` */
+export type AccountRequestRow = {
+  id: number;
+  requestedById: number;
+  requestedByEmail: string;
+  requestedByName: string | null;
+  role: AccountRequestRole;
+  email: string;
+  name: string;
+  phone: string | null;
+  facilityIds: number[];
+  facilityCodes: string[];
+  note: string | null;
+  status: AccountRequestStatus;
+  reviewedById: number | null;
+  reviewedByEmail: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAccountId: number | null;
+  createdAt: string;
+  /** Người nghỉ việc được thay (cùng role); `null` = tuyển thêm. */
+  replacesAccountId: number | null;
+  replacesEmail: string | null;
+  replacesName: string | null;
+};
+
+export type AccountRequestInput = {
+  role: AccountRequestRole;
+  email: string;
+  name: string;
+  phone?: string;
+  facilityIds?: number[];
+  note?: string;
+  /** Thay FM / FS nghỉ việc — cơ sở lấy theo người cũ, `facilityIds` bị bỏ qua. */
+  replacesAccountId?: number;
+};
+
+export const ACCOUNT_REQUEST_ROLE_LABEL: Record<AccountRequestRole, string> = {
+  FM: "Quản lý cơ sở (FM)",
+  FS: "Nhân viên cơ sở (FS)",
+};
+
+export const ACCOUNT_REQUEST_STATUS_LABEL: Record<AccountRequestStatus, string> = {
+  Pending: "Chờ Admin duyệt",
+  Approved: "Đã tạo tài khoản",
+  Rejected: "Bị từ chối",
+  Canceled: "Đã huỷ",
+};
+
+export function fetchAccountRequests(): Promise<AccountRequestRow[]> {
+  return authed<AccountRequestRow[]>("/api/bom/account-requests");
+}
+
+export function submitAccountRequest(input: AccountRequestInput): Promise<AccountRequestRow> {
+  return authed<AccountRequestRow>("/api/bom/account-requests", { method: "POST", body: input });
+}
+
+export function cancelAccountRequest(id: number): Promise<AccountRequestRow> {
+  return authed<AccountRequestRow>(`/api/bom/account-requests/${id}/cancel`, { method: "POST" });
+}

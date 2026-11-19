@@ -22,6 +22,7 @@ public class HandoverReadRepository {
 
     private static final String SELECT = """
             select h.id, h.order_id, h.appointment_id, h.unit_id, h.identity_status, h.identity_verified_at,
+                   h.identity_photos,
                    h.inspection_status, h.unit_inspected_at, h.inspection_notes, h.inspection_photos, h.result,
                    h.reject_reason, h.due_at, h.completed_at, h.requested_access, h.customer_confirmed_at,
                    a.date, a.started_at, a.end_at, a.arrived_at, a.staff_id, a.facility_id,
@@ -47,10 +48,11 @@ public class HandoverReadRepository {
 
     /** Một dòng phiên bàn giao. */
     public record HandoverRow(Long id, Long orderId, Long appointmentId, Long unitId, String identityStatus,
-                              Instant identityVerifiedAt, String inspectionStatus, Instant unitInspectedAt,
-                              String inspectionNotes, List<String> inspectionPhotos, String result,
-                              String rejectReason, Instant dueAt, Instant completedAt, String requestedAccess,
-                              Instant customerConfirmedAt, LocalDate appointmentDate, Instant appointmentStart,
+                              Instant identityVerifiedAt, List<String> identityPhotos, String inspectionStatus,
+                              Instant unitInspectedAt, String inspectionNotes, List<String> inspectionPhotos,
+                              String result, String rejectReason, Instant dueAt, Instant completedAt,
+                              String requestedAccess, Instant customerConfirmedAt, LocalDate appointmentDate,
+                              Instant appointmentStart,
                               Instant appointmentEnd, Instant arrivedAt, Long staffId, Long facilityId,
                               String orderStatus, Long customerId, Instant orderExpiresAt, String customerName,
                               String customerEmail, String customerPhone, String unitCode, String unitType,
@@ -144,6 +146,32 @@ public class HandoverReadRepository {
                 localDate(rs, "start_date_override_requested"), rs.getString(8), rs.getString(9)), fmAccountId);
     }
 
+    /** Phiên bàn giao cũ đã đóng vì FS dời lịch — dữ liệu giữ làm lịch sử, FS xem lại ở phiên mới. */
+    public record PreviousSessionRow(Long id, String reason, String identityStatus, Instant identityVerifiedAt,
+                                     List<String> identityPhotos, String inspectionStatus, String inspectionNotes,
+                                     List<String> inspectionPhotos, LocalDate appointmentDate,
+                                     Instant appointmentStart, Instant appointmentEnd, Instant arrivedAt) {
+    }
+
+    /** Phiên gần nhất trước {@code beforeHandoverId} của cùng đơn, đóng với lý do "Dời lịch: …". */
+    public Optional<PreviousSessionRow> findRescheduledBefore(Long orderId, Long beforeHandoverId) {
+        return jdbc.query("""
+                select h.id, h.reject_reason, h.identity_status, h.identity_verified_at, h.identity_photos,
+                       h.inspection_status, h.inspection_notes, h.inspection_photos,
+                       a.date, a.started_at, a.end_at, a.arrived_at
+                from handover_records h
+                join appointments a on a.id = h.appointment_id
+                where h.order_id = ? and h.id < ? and h.result = 'CANCELED' and h.reject_reason like 'Dời lịch:%'
+                order by h.id desc
+                limit 1
+                """, (rs, i) -> new PreviousSessionRow(rs.getLong("id"), rs.getString("reject_reason"),
+                rs.getString("identity_status"), instant(rs, "identity_verified_at"),
+                photos(rs.getArray("identity_photos")), rs.getString("inspection_status"),
+                rs.getString("inspection_notes"), photos(rs.getArray("inspection_photos")), localDate(rs, "date"),
+                instant(rs, "started_at"), instant(rs, "end_at"), instant(rs, "arrived_at")),
+                orderId, beforeHandoverId).stream().findFirst();
+    }
+
     /** Cơ sở của hợp đồng (qua khoang). */
     public Optional<Long> findContractFacilityId(Long contractId) {
         return jdbc.query("select u.facility_id from rental_contracts c join storage_units u on u.id = c.unit_id "
@@ -153,6 +181,7 @@ public class HandoverReadRepository {
     private static HandoverRow map(ResultSet rs, int rowNum) throws SQLException {
         return new HandoverRow(rs.getLong("id"), rs.getLong("order_id"), rs.getLong("appointment_id"),
                 rs.getLong("unit_id"), rs.getString("identity_status"), instant(rs, "identity_verified_at"),
+                photos(rs.getArray("identity_photos")),
                 rs.getString("inspection_status"), instant(rs, "unit_inspected_at"), rs.getString("inspection_notes"),
                 photos(rs.getArray("inspection_photos")), rs.getString("result"), rs.getString("reject_reason"),
                 instant(rs, "due_at"), instant(rs, "completed_at"), rs.getString("requested_access"),

@@ -24,7 +24,8 @@ trang này ghi các action **đã nối trong code** ở bảng call site bên d
 8. `reason`: bắt buộc với thao tác override (nhập lý do); các case khác để null.
 9. `oldValue`/`newValue`: Map/POJO trạng thái trước–sau (serialize thành JSONB); null khi
    không có giá trị tương ứng (ví dụ tạo mới).
-10. Không đưa vào audit: mật khẩu, secret, số thẻ, raw payment payload; không audit thao tác
+10. Không đưa vào audit: mật khẩu, secret, số thẻ, raw payment payload, số giấy tờ tuỳ thân đầy đủ (che, giữ 4 ký
+    tự cuối); không audit thao tác
     đọc; xác minh email không ghi audit — dùng `Account.email_verified_at`.
 
 Hạ tầng append-only: không có API sửa/xóa bản ghi; module gọi chỉ ghi thêm.
@@ -84,6 +85,8 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | `handover` | `IDENTITY_VERIFIED`, `START_DATE_OVERRIDE_REQUESTED`, `CONTRACT_SIGNED` | `HandoverRecord`, `RentalContract` | `handover/application/HandoverWorkflowService` — FS xác minh danh tính (cả `Failed`), đề nghị đổi mốc, ký hợp đồng; actor = FS |
 | `handover` | `UNIT_INSPECTED`, `HANDOVER_REJECTED` | `HandoverRecord` | `HandoverWorkflowService.agreeInspection` / `reject` — khách đồng ý / từ chối khoang; actor = customer |
 | `handover` | `INSPECTION_CORRECTED` | `HandoverRecord` | `HandoverWorkflowService.correctInspection` — FS sửa hiện trạng sau khi khách đã đồng ý (old/new `inspectionNotes` + `photoCount`, `reason` bắt buộc); actor = FS |
+| `handover` | `ACCOUNT_UPDATED` | `Account` (khách) | `HandoverWorkflowService.correctCustomerInfo` — FS sửa họ tên / số điện thoại bên thuê trước khi ký (old/new `name` + `phone`; `reason` = "Sửa tại phiên bàn giao #{id}: {lý do}"); actor = FS |
+| `booking` | `APPOINTMENT_RESCHEDULED` | `Appointment` | `CheckinRescheduleService.reschedule` (gọi từ `HandoverRescheduleService`) — FS dời lịch nhận kho: lịch cũ (old `status` + `startedAt`; new `status`, `newAppointmentId`, `newStartedAt`; `reason` = "Dời lịch: …"); lịch mới ghi `APPOINTMENT_CREATED` kèm `rescheduledFrom`; actor = FS |
 | `handover` | `START_DATE_OVERRIDE_APPROVED`, `START_DATE_OVERRIDE_REJECTED` | `RentalContract` | `HandoverWorkflowService.reviewStartDateOverride`; actor = FM |
 | `handover` | `ACCESS_KEY_ISSUED`, `STORAGE_UNIT_RENTED`, `CONTRACT_ACTIVATED`, `HANDOVER_COMPLETED` | `UnitAccessKey`, `StorageUnit`, `RentalContract`, `HandoverRecord` | `handover/application/HandoverCompletion.complete` — chốt bàn giao; actor = khách (mã số) hoặc FS (giao chìa) |
 | `handover` | `ACCESS_KEY_REVOKED`, `ACCESS_KEY_ISSUED` | `UnitAccessKey` | `HandoverCompletion.rotateCode` — khách lấy mã khóa số mới; actor = customer |
@@ -94,7 +97,8 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | `handover` | `CONTRACT_EXTENDED` | `RentalContract` | `RentalContractService.extend` — hoá đơn gia hạn `Paid`; actor = System |
 | `handover` | `CONTRACT_ENDED`, `ACCESS_KEY_REVOKED` | `RentalContract`, `UnitAccessKey` | `RentalContractService.end` / `revokeAll` — trả kho; thiếu chìa ghi `status = Lost` trong `new_value`; actor = FS (hoặc System khi hoàn tất do hoá đơn phần thiếu `Paid` / `Expired`) |
 | `handover` | `CONTRACT_ACCESS_SUSPENDED`, `ACCESS_KEY_REVOKED` | `RentalContract`, `UnitAccessKey` | `RentalContractService.suspendAccess` — cron quá hạn kéo dài (≥ `overdue.escalation_days`): thu hồi mã khoá số (`reason` "Tạm khoá do quá hạn"), `new_value` có `accessSuspendedAt`, `daysOverdue`; actor = System |
-| `handover` | `CONTRACT_ACCESS_RESTORED` | `RentalContract` | `RentalContractService.restoreAccess` — cron thấy không còn `INV-OVD` `Unpaid` và hợp đồng hết quá hạn hoặc có yêu cầu trả kho mở; actor = System |
+| `handover` | `CONTRACT_ACCESS_RESTORED` | `RentalContract` | `RentalContractService.restoreAccess` — hết quá hạn (gia hạn phủ kỳ quá hạn) và không còn `INV-OVD` `Unpaid`, hoặc FS đã xác nhận khách đến buổi trả kho và khách đã trả hết nợ (`INV-DBT`; lập / huỷ hoá đơn khi gộp nợ ghi `INVOICE_CREATED` / `INVOICE_CANCELED`); xét ngay sau khi hoá đơn hợp đồng được trả / khách đến, cron mỗi giờ dự phòng; actor = System |
+| `handover` | `OVERLOCK_REQUIRED`, `OVERLOCK_APPLIED`, `OVERLOCK_REMOVAL_REQUIRED`, `OVERLOCK_REMOVED`, `OVERLOCK_CANCELED`, `OVERLOCK_ASSIGNED` | `UnitOverlock` | `UnitOverlockService` — FM giao FS (`new_value.assignedStaffId`, actor = FM); tạm khoá hợp đồng còn chìa cơ `Active` → yêu cầu gắn (actor = System); FS gắn / gỡ (`note` nếu có); mở lại truy cập → chờ gỡ hoặc huỷ yêu cầu chưa gắn (actor = System); chốt trả kho huỷ yêu cầu chưa gắn (actor = FS). `old_value.status`; `new_value` có `status`, `contractId`, `unitId` |
 | `tenancy` | `RETURN_REQUESTED`, `RETURN_CANCELED` | `ReturnRequest` | `tenancy/application/TenancyService` — khách gửi / huỷ; actor = customer |
 | `tenancy` | `RETURN_ASSIGNED`, `RETURN_COMPLETED` | `ReturnRequest` | `TenancyService.assign` (actor = FM) / `completeReturn` (actor = System) |
 | `tenancy` | `RETURN_NO_SHOW` | `ReturnRequest` | `TenancyService.handleReturnNoShow` — cron no-show trả kho; `new_value` có `status` (`Pending` / `Canceled`), `noShowCount`, `appointmentId`; actor = System |
@@ -102,11 +106,17 @@ auditRecorder.record(new AuditEntry(AuditAction.RENTAL_ORDER_CANCELED, AuditEnti
 | `booking` | `INVOICE_CREATED`, `INVOICE_CANCELED`, `INVOICE_PAID`, `OVERDUE_FEE_ACCRUED` | `Invoice` | `ContractInvoiceService` — hoá đơn tiền thuê tháng / gia hạn / phí quá hạn / phí dịch vụ / quyết toán trả kho (`INV-CLN`/`DMG`/`KEY`/`PEN`; `INVOICE_PAID` với `settledBy = deposit`, `reason` "Đối trừ tiền cọc" khi đối trừ cọc) |
 | `checkout` | `CHECKOUT_INSPECTED`, `CHECKOUT_COMPLETED` | `CheckoutRecord` | `checkout/application/CheckoutService` — FS kiểm tra / hoàn tất trả kho; hoá đơn phần thiếu `Expired` (`onShortfallExpired`) cũng hoàn tất bằng đúng một `CHECKOUT_COMPLETED` (actor = System) — khoản nợ nằm ở hoá đơn `Expired` |
 | `checkout` | `STORAGE_UNIT_MAINTENANCE`, `STORAGE_UNIT_AVAILABLE` | `StorageUnit` | `CheckoutService` (trả kho xong; `new_value.reason` "Bảo trì sau trả kho", hoặc "Bảo trì sau trả kho — thay khoá do mất chìa" khi thiếu chìa — bảo trì thủ công) / `CheckoutJobs.reopenUnits` (hết bảo trì); actor = FS / System |
-| `support` | `SUPPORT_REQUEST_CREATED`, `_ASSIGNED`, `_RESOLVED`, `_CANCELED` | `SupportRequest` | `support/application/SupportService` — actor = khách / FM / FS |
+| `support` | `SUPPORT_REQUEST_CREATED`, `_ASSIGNED`, `_RESOLVED`, `_CANCELED` | `SupportRequest` | `support/application/SupportService` — actor = khách / FM / FS; chuyển khoang xong ghi `SUPPORT_REQUEST_RESOLVED` với `new_value.unitTransferId` |
+| `support` | `UNIT_TRANSFER_REQUESTED`, `UNIT_TRANSFER_ALLOCATED`, `UNIT_TRANSFER_COMPLETED`, `UNIT_TRANSFER_CANCELED` | `UnitTransfer` | `support/application/UnitTransferService` — FS đề xuất (`supportRequestId`, `contractId`, `fromUnitId`, `reason`), FM điều (`toUnitId`, `sameType`) / huỷ (`reason`), FS hoàn tất (`fromUnitId`, `toUnitId`, `keyQuantity`, `codeReissued`); kèm `STORAGE_UNIT_RESERVED` / `_AVAILABLE` / `_RENTED` / `_MAINTENANCE` (`new_value.reason`) |
+| `handover` | `CONTRACT_UNIT_CHANGED` | `RentalContract` | `RentalContractService.moveToUnit` — `unitId` cũ → mới, `keyQuantity`, `codeReissued`; chìa / mã cũ `ACCESS_KEY_REVOKED` (`reason` "Chuyển khoang") |
 | `backoffice` | `FACILITY_CREATED`, `FACILITY_UPDATED` | `Facility` | `BackofficeService` — BOM tạo / sửa / gán FM, FM/BOM đổi hình thức truy cập |
 | `backoffice` | `STORAGE_UNIT_CREATED`, `STORAGE_UNIT_UPDATED`, `STORAGE_UNIT_MAINTENANCE`, `STORAGE_UNIT_AVAILABLE` | `StorageUnit` | `BackofficeService` — FM/BOM thêm / sửa khoang, bảo trì tay; `holdMaintenance` ("Giữ bảo trì") ghi `STORAGE_UNIT_MAINTENANCE` với `new_value.reason` "FM giữ bảo trì" và old/new `maintenanceStartedAt` |
 | `backoffice` | `POLICY_UPDATED`, `UNIT_TYPE_UPDATED` | `Policy`, `UnitType` | `BackofficeService` — BOM đổi policy / giá loại khoang |
 | `identity` | `ACCOUNT_CREATED`, `ACCOUNT_UPDATED`, `ROLE_PERMISSIONS_UPDATED` | `Account`, `Role` | `identity/application/AccountAdminService` — Admin |
+| `backoffice` | `ACCOUNT_REQUEST_CREATED`, `ACCOUNT_REQUEST_APPROVED`, `ACCOUNT_REQUEST_REJECTED`, `ACCOUNT_REQUEST_CANCELED` | `AccountRequest` | `backoffice/application/AccountRequestService` — actor = BOM (gửi / huỷ) hoặc ADMIN (duyệt / từ chối); duyệt thay người ghi thêm `replacedAccountId`, `transferred` |
+| `staffing` | `STAFF_SHIFT_CREATED`, `STAFF_SHIFT_UPDATED`, `STAFF_SHIFT_DELETED` | `StaffShift` | `staffing/application/StaffShiftService` — FM thêm / sửa / xoá ca (old/new `facilityId`, `staffId`, `shiftDate`, `startTime`, `endTime`, `note`); duyệt nghỉ phép xoá ca trong khoảng nghỉ — mỗi ca một bản ghi, `reason` "Duyệt nghỉ phép #id"; actor = FM |
+| `staffing` | `STAFF_LEAVE_REQUESTED`, `STAFF_LEAVE_APPROVED`, `STAFF_LEAVE_REJECTED`, `STAFF_LEAVE_CANCELED` | `StaffLeave` | `staffing/application/StaffLeaveService` — actor = FS (gửi / huỷ) hoặc FM (duyệt / từ chối, `new_value.reviewNote`) |
+| `staffing` | `STAFF_PROFILE_UPDATED` | `StaffProfile` | `staffing/application/StaffProfileService.update` — ADMIN / BOM; `idNumber` trong old/new chỉ giữ 4 ký tự cuối |
 
 ## Xem thêm
 

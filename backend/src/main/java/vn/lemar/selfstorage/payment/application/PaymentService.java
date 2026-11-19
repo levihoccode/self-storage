@@ -97,7 +97,8 @@ public class PaymentService {
     public enum NotificationResult { ACCEPTED, ALREADY_SETTLED, NOT_FOUND, INVALID_SIGNATURE, INVALID_AMOUNT }
 
     /** Kết quả chốt một xác nhận thành công: giao dịch thành {@code Success} hay {@code Duplicate}. */
-    private enum Confirmation { SUCCESS, DUPLICATE }
+    /** {@code ALREADY_SETTLED}: lượt xác nhận khác đã chốt chính giao dịch này trong lúc lượt này chờ khoá. */
+    private enum Confirmation { SUCCESS, DUPLICATE, ALREADY_SETTLED }
 
     /** Ảnh chụp trạng thái giao dịch cho caller (không lộ entity ra ngoài module). */
     public record PaymentSnapshot(Long invoiceId, String txnRef, String status, String failureReason,
@@ -124,6 +125,14 @@ public class PaymentService {
         String paymentUrl = gateway.buildPaymentUrl(request.withCreatedAt(transaction.getCreatedAt()));
         urlCache.put(invoiceId, paymentUrl);
         return paymentUrl;
+    }
+
+    /**
+     * Mã giao dịch mới theo định dạng của cổng đang dùng: VNPay chữ + số, payOS bắt buộc chuỗi số ({@code orderCode}).
+     * Caller tự dựng {@link PaymentRequest} phải lấy mã ở đây — tự sinh mã kiểu VNPay làm payOS từ chối (500).
+     */
+    public String newTxnRef(Long invoiceId) {
+        return gateway.newTxnRef(invoiceId);
     }
 
     /**
@@ -174,25 +183,55 @@ public class PaymentService {
     }
 
     /**
-     * Xử lý IPN — nguồn xác nhận thanh toán chính. Return URL chỉ để hiển thị cho khách,
-     * không được dùng để cập nhật dữ liệu.
+     * Xử lý IPN — nguồn xác nhận thanh toán chính. Tham số trên Return URL chỉ được chốt qua
+     * {@link #confirmFromReturn} (cùng các bước kiểm như IPN), không đi qua route Return URL.
      */
     @Transactional
     public IpnResponse handleIpn(Map<String, String> params) {
+        return settleSigned(params, null, "IPN");
+    }
+
+    /**
+     * Khách quay về trang kết quả mang tham số VNPay gắn trên Return URL. VNPay ký bộ tham số này bằng HashSecret của
+     * merchant theo đúng sơ đồ của IPN, nên chốt qua cùng các bước kiểm của IPN (chữ ký, {@code vnp_TmnCode}, số tiền,
+     * idempotent) — thêm điều kiện giao dịch phải thuộc đúng hoá đơn {@code invoiceId} của khách đang xem. Dự phòng cho
+     * lúc IPN không tới được server (chạy local) và tra cứu {@code querydr} không trả kết quả.
+     *
+     * @return kết quả theo mã IPN; không phải bộ tham số VNPay (thiếu {@code vnp_TxnRef} / {@code vnp_SecureHash})
+     *         thì trả {@code orderNotFound} và không làm gì
+     */
+    @Transactional
+    public IpnResponse confirmFromReturn(Long invoiceId, Map<String, String> params) {
+        if (params == null || isBlank(params.get("vnp_TxnRef")) || isBlank(params.get("vnp_SecureHash"))) {
+            return IpnResponse.orderNotFound();
+        }
+        return settleSigned(params, invoiceId, "Return URL");
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    /**
+     * Chốt một bộ tham số VNPay có chữ ký (IPN hoặc Return URL). {@code expectedInvoiceId} khác {@code null} thì giao
+     * dịch phải thuộc đúng hoá đơn đó, không thì coi như không tìm thấy.
+     */
+    private IpnResponse settleSigned(Map<String, String> params, Long expectedInvoiceId, String source) {
         if (!gateway.verifySignature(params)) {
-            LOG.warn("IPN bị từ chối vì sai chữ ký, vnp_TxnRef={}", params.get("vnp_TxnRef"));
+            LOG.warn("{} bị từ chối vì sai chữ ký, vnp_TxnRef={}", source, params.get("vnp_TxnRef"));
             return IpnResponse.invalidSignature();
         }
 
         String txnRef = params.get("vnp_TxnRef");
         PaymentTransaction transaction = repository.findByVnpTxnRef(txnRef).orElse(null);
-        if (transaction == null) {
+        if (transaction == null
+                || (expectedInvoiceId != null && !expectedInvoiceId.equals(transaction.getInvoiceId()))) {
             return IpnResponse.orderNotFound();
         }
 
         // Chữ ký đúng nhưng khác merchant nghĩa là giao dịch không thuộc hệ thống này.
         if (!properties.tmnCode().equals(params.get("vnp_TmnCode"))) {
-            LOG.warn("IPN mang vnp_TmnCode lạ: {}", params.get("vnp_TmnCode"));
+            LOG.warn("{} mang vnp_TmnCode lạ: {}", source, params.get("vnp_TmnCode"));
             return IpnResponse.orderNotFound();
         }
 
@@ -217,12 +256,12 @@ public class PaymentService {
         // PaymentDuplicateDetected.
         if (gatewayReportedSuccess(params)) {
             Confirmation result = confirmSuccess(transaction, params.get("vnp_TransactionNo"),
-                    parsePayDate(params.get("vnp_PayDate")), responsePayload, "IPN", null, null, "IPN");
-            return result == Confirmation.DUPLICATE ? IpnResponse.alreadyConfirmed() : IpnResponse.success();
+                    parsePayDate(params.get("vnp_PayDate")), responsePayload, source, null, null, source);
+            return result == Confirmation.SUCCESS ? IpnResponse.success() : IpnResponse.alreadyConfirmed();
         }
         String reason = "vnp_ResponseCode=" + params.get("vnp_ResponseCode")
                 + ", vnp_TransactionStatus=" + params.get("vnp_TransactionStatus");
-        fail(transaction, reason, responsePayload, reason, "IPN");
+        fail(transaction, reason, responsePayload, reason, source);
         return IpnResponse.success();
     }
 
@@ -472,6 +511,11 @@ public class PaymentService {
                                         String actorEmail, String resolvedBy) {
         repository.lockInvoiceForPayment(transaction.getInvoiceId());
         String previous = transaction.getStatus().dbValue();
+        // Caller kiểm Pending trước khi khoá (và trước khi hỏi cổng): hai lượt payment-check / IPN cùng lúc thì lượt
+        // sau còn cầm bản cũ. Đọc lại sau khi khoá — đã bị chốt thì bỏ qua, không tự đánh dấu chính nó là "trùng".
+        if (changedSinceLoaded(transaction, transaction.getStatus())) {
+            return Confirmation.ALREADY_SETTLED;
+        }
         if (repository.existsByInvoiceIdAndDirectionAndStatus(transaction.getInvoiceId(),
                 PaymentDirection.PAY, PaymentStatus.SUCCESS)) {
             transaction.markDuplicate(gatewayTransactionNo, paidAt,
@@ -498,6 +542,10 @@ public class PaymentService {
         LOG.error("Thanh toán muộn: giao dịch {} đã đóng ({}) nhưng cổng báo đã thu {} — chốt / hoàn thủ công",
                 transaction.getVnpTxnRef(), transaction.getFailureReason(), transaction.getAmount());
         repository.lockInvoiceForPayment(transaction.getInvoiceId());
+        if (changedSinceLoaded(transaction, PaymentStatus.FAILED)) {
+            // Lượt khác (webhook / IPN lặp) đã chốt khoản thu muộn này trong lúc chờ khoá.
+            return;
+        }
         if (repository.existsByInvoiceIdAndDirectionAndStatus(transaction.getInvoiceId(),
                 PaymentDirection.PAY, PaymentStatus.SUCCESS)) {
             transaction.markDuplicate(transactionNo, paidAt, "late duplicate payment - refund required", payload);
@@ -506,6 +554,12 @@ public class PaymentService {
         }
         transaction.markLateSucceeded(transactionNo, paidAt, payload);
         recordSuccess(transaction, PaymentStatus.FAILED.dbValue(), null);
+    }
+
+    /** Trạng thái trong DB đã khác {@code expected} (lượt khác chốt trước); không đọc được → coi như chưa đổi. */
+    private boolean changedSinceLoaded(PaymentTransaction transaction, PaymentStatus expected) {
+        PaymentStatus current = repository.findCurrentStatus(transaction.getId());
+        return current != null && current != expected;
     }
 
     private void fail(PaymentTransaction transaction, String reason, String responsePayload, String auditReason,

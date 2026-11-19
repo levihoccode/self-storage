@@ -31,7 +31,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.lemar.selfstorage.booking.application.AppointmentBookingService;
+import vn.lemar.selfstorage.booking.application.AppointmentBookingService.Slot;
 import vn.lemar.selfstorage.booking.application.AppointmentNoShowService;
+import vn.lemar.selfstorage.booking.application.CheckinRescheduleService.Rescheduled;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentConflictException;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentForbiddenException;
+import vn.lemar.selfstorage.booking.application.exception.AppointmentValidationException;
 import vn.lemar.selfstorage.booking.application.BookingExpiryService;
 import vn.lemar.selfstorage.booking.application.HandoverOrderService.ContractInvoice;
 import vn.lemar.selfstorage.booking.application.InvoicePaymentService;
@@ -41,6 +46,7 @@ import vn.lemar.selfstorage.handover.application.ContractDocumentService;
 import vn.lemar.selfstorage.handover.application.HandoverExpiryService;
 import vn.lemar.selfstorage.handover.application.HandoverOverdueService;
 import vn.lemar.selfstorage.handover.application.HandoverQueryService;
+import vn.lemar.selfstorage.handover.application.HandoverRescheduleService;
 import vn.lemar.selfstorage.handover.application.HandoverWorkflowService;
 import vn.lemar.selfstorage.handover.application.HandoverWorkflowService.ConfirmOutcome;
 import vn.lemar.selfstorage.handover.application.HandoverWorkflowService.RejectOutcome;
@@ -80,6 +86,8 @@ class HandoverFlowIntegrationTest {
     private HandoverWorkflowService workflow;
     @Autowired
     private HandoverQueryService queryService;
+    @Autowired
+    private HandoverRescheduleService rescheduleService;
     @Autowired
     private HandoverExpiryService handoverExpiry;
     @Autowired
@@ -124,6 +132,7 @@ class HandoverFlowIntegrationTest {
         SecurityContextHolder.clearContext();
         jdbc.update("update policies set value = '2' where key = 'handover.max_rejection_count'");
         jdbc.update("update facilities set enabled_key_access = true, enabled_code_access = true");
+        jdbc.update("update policies set value = 'true' where key = 'staff.shift_required'");
     }
 
     // ------------------------------------------------------------------ happy path
@@ -199,7 +208,7 @@ class HandoverFlowIntegrationTest {
     void agreeingInspectionCreatesDraftContractFromPolicyAndDocumentRenders() {
         Seed seed = seedInProgress(fsId);
         loginAs(FS);
-        workflow.verifyIdentity(seed.handoverId, true, null);
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
         // URL ảnh phải là upload của FS (media_uploads) — trước đây test dùng URL tuỳ ý "https://img.test/1.jpg".
         String photo = uploaded(fsId, "1.jpg");
         workflow.recordInspection(seed.handoverId, "Khoang sạch", List.of(photo));
@@ -232,11 +241,11 @@ class HandoverFlowIntegrationTest {
         loginAs(FS);
         assertThatThrownBy(() -> workflow.recordInspection(seed.handoverId, "x", List.of()))
                 .isInstanceOf(HandoverConflictException.class);
-        workflow.verifyIdentity(seed.handoverId, false, "CCCD không khớp");
+        workflow.verifyIdentity(seed.handoverId, false, "CCCD không khớp", List.of());
         assertThat(view(seed.handoverId).identityStatus()).isEqualTo("Failed");
         assertThat(handoverResult(seed.handoverId)).isEqualTo("IN_PROGRESS");
-        workflow.verifyIdentity(seed.handoverId, true, null);
-        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null))
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
+        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null, idPhotos()))
                 .isInstanceOf(HandoverConflictException.class);
 
         // Khách chưa đồng ý được khi FS chưa ghi hiện trạng (mốc so sánh khi trả kho).
@@ -268,7 +277,7 @@ class HandoverFlowIntegrationTest {
         long otherStaff = id("select id from accounts where email = '" + FM + "'");
         Seed seed = seedInProgress(otherStaff);
         loginAs(FS);
-        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null))
+        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null, idPhotos()))
                 .isInstanceOf(HandoverForbiddenException.class);
     }
 
@@ -487,7 +496,7 @@ class HandoverFlowIntegrationTest {
     void staffInputValidation() {
         Seed seed = seedInProgress(fsId);
         loginAs(FS);
-        workflow.verifyIdentity(seed.handoverId, true, "CCCD khớp");
+        workflow.verifyIdentity(seed.handoverId, true, "CCCD khớp", idPhotos());
         List<String> tooMany = java.util.Collections.nCopies(21, "https://img.test/x.jpg");
         assertThatThrownBy(() -> workflow.recordInspection(seed.handoverId, "x", tooMany))
                 .isInstanceOf(HandoverValidationException.class);
@@ -573,6 +582,43 @@ class HandoverFlowIntegrationTest {
     }
 
     @Test
+    void passingIdentityNeedsOneToFourUploadedDocumentPhotos() {
+        Seed seed = seedInProgress(fsId);
+        loginAs(FS);
+        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null, List.of()))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("ít nhất một ảnh CCCD");
+        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null, null))
+                .isInstanceOf(HandoverValidationException.class);
+        List<String> five = List.of(uploaded(fsId, "1.jpg"), uploaded(fsId, "2.jpg"), uploaded(fsId, "3.jpg"),
+                uploaded(fsId, "4.jpg"), uploaded(fsId, "5.jpg"));
+        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null, five))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("Tối đa 4");
+        String foreign = uploaded(customerId, "cccd.jpg");
+        assertThatThrownBy(() -> workflow.verifyIdentity(seed.handoverId, true, null, List.of(foreign)))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("Ảnh giấy tờ");
+        assertThat(view(seed.handoverId).identityStatus()).isEqualTo("Pending");
+
+        // Không đạt: ảnh tuỳ chọn. Đạt: ảnh lưu vào biên bản và upload Pending chuyển Attached ngay.
+        workflow.verifyIdentity(seed.handoverId, false, "CCCD mờ", List.of());
+        assertThat(view(seed.handoverId).identityStatus()).isEqualTo("Failed");
+        String front = uploaded(fsId, "front.jpg", "Pending");
+        String back = uploaded(fsId, "back.jpg", "Pending");
+        workflow.verifyIdentity(seed.handoverId, true, null, List.of(front, back));
+
+        HandoverView view = view(seed.handoverId);
+        assertThat(view.identityStatus()).isEqualTo("Verified");
+        assertThat(view.identityPhotos()).containsExactly(front, back);
+        assertThat(jdbc.queryForObject("select count(*) from media_uploads where url in (?, ?) "
+                + "and status = 'Attached'", Long.class, front, back)).isEqualTo(2L);
+        assertThat(jdbc.queryForObject("select new_value ->> 'photoCount' from audit_logs where action = "
+                + "'IDENTITY_VERIFIED' and entity_id = ? order by id desc limit 1", String.class,
+                String.valueOf(seed.handoverId))).isEqualTo("2");
+    }
+
+    @Test
     void queriesForStaffAndCustomer() {
         Seed seed = seedInProgress(fsId);
         loginAs(FS);
@@ -585,7 +631,7 @@ class HandoverFlowIntegrationTest {
 
         Seed waiting = seedScheduledNoShow();
         assertThat(queryService.view(waiting.handoverId).step()).isEqualTo("WAITING_ARRIVAL");
-        assertThatThrownBy(() -> workflow.verifyIdentity(waiting.handoverId, true, null))
+        assertThatThrownBy(() -> workflow.verifyIdentity(waiting.handoverId, true, null, idPhotos()))
                 .isInstanceOf(HandoverConflictException.class);
         assertThatThrownBy(() -> queryService.view(-1L))
                 .isInstanceOf(vn.lemar.selfstorage.handover.application.exception.HandoverNotFoundException.class);
@@ -641,7 +687,7 @@ class HandoverFlowIntegrationTest {
     void staffCorrectsInspectionAfterAgreementWithReasonAndAudit() {
         Seed seed = seedInProgress(fsId);
         loginAs(FS);
-        workflow.verifyIdentity(seed.handoverId, true, null);
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
         String first = uploaded(fsId, "c1.jpg");
         workflow.recordInspection(seed.handoverId, "Khoang sạch", List.of(first));
         loginAs(CUSTOMER);
@@ -687,7 +733,7 @@ class HandoverFlowIntegrationTest {
     void inspectionCorrectionGuards() {
         Seed seed = seedInProgress(fsId);
         loginAs(FS);
-        workflow.verifyIdentity(seed.handoverId, true, null);
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
         workflow.recordInspection(seed.handoverId, "Khoang sạch", List.of());
 
         // Khách chưa đồng ý → dùng bước ghi hiện trạng thường.
@@ -741,13 +787,290 @@ class HandoverFlowIntegrationTest {
         assertThat(auditCount("INSPECTION_CORRECTED", "HandoverRecord", seed.handoverId)).isZero();
     }
 
+    // ------------------------------------------------------------------ sửa thông tin bên thuê trước khi ký
+
+    @Test
+    void staffCorrectsCustomerInfoBeforeSigningWithReasonAndAudit() {
+        Map<String, Object> original = jdbc.queryForMap("select name, phone from accounts where id = ?", customerId);
+        try {
+            Seed seed = seedInProgress(fsId);
+            loginAs(FS);
+            workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
+            workflow.recordInspection(seed.handoverId, "Khoang sạch", List.of());
+            loginAs(CUSTOMER);
+            workflow.agreeInspection(seed.handoverId, customerId, null);
+            long contractId = contractId(seed.orderId);
+            int auditsBefore = auditCount("ACCOUNT_UPDATED", "Account", customerId);
+
+            loginAs(FS);
+            workflow.correctCustomerInfo(seed.handoverId, "  Trần Vĩnh Khang  ", " 0907 030 604 ",
+                    " Tên tài khoản khác tên trên CCCD ");
+
+            HandoverView view = view(seed.handoverId);
+            assertThat(view.customerName()).isEqualTo("Trần Vĩnh Khang");
+            assertThat(view.customerPhone()).isEqualTo("0907 030 604");
+            // Bản nháp render động → thấy ngay thông tin mới.
+            assertThat(documentService.render(contractId)).contains("Trần Vĩnh Khang").contains("0907 030 604");
+            assertThat(auditCount("ACCOUNT_UPDATED", "Account", customerId)).isEqualTo(auditsBefore + 1);
+            Map<String, Object> audit = jdbc.queryForMap("select actor_account_id, reason, "
+                    + "old_value->>'name' as old_name, old_value->>'phone' as old_phone, "
+                    + "new_value->>'name' as new_name, new_value->>'phone' as new_phone from audit_logs "
+                    + "where action = 'ACCOUNT_UPDATED' and entity_type = 'Account' and entity_id = ? "
+                    + "order by id desc limit 1", String.valueOf(customerId));
+            assertThat(((Number) audit.get("actor_account_id")).longValue()).isEqualTo(fsId);
+            assertThat(audit.get("reason"))
+                    .isEqualTo("Sửa tại phiên bàn giao #" + seed.handoverId + ": Tên tài khoản khác tên trên CCCD");
+            assertThat(audit.get("old_name")).isEqualTo(original.get("name"));
+            assertThat(audit.get("old_phone")).isEqualTo(original.get("phone"));
+            assertThat(audit.get("new_name")).isEqualTo("Trần Vĩnh Khang");
+            assertThat(audit.get("new_phone")).isEqualTo("0907 030 604");
+
+            // Đã ký → không sửa nữa; bản đã chốt giữ thông tin lúc ký.
+            workflow.signContract(contractId, uploaded(fsId, "signed.pdf"));
+            String frozen = documentHtml(contractId);
+            assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, "Tên khác", "0901234567",
+                    "Lý do"))
+                    .isInstanceOf(HandoverConflictException.class)
+                    .hasMessageContaining("Hợp đồng đã ký");
+            assertThat(documentService.render(contractId)).isEqualTo(frozen).contains("Trần Vĩnh Khang");
+            assertThat(auditCount("ACCOUNT_UPDATED", "Account", customerId)).isEqualTo(auditsBefore + 1);
+        } finally {
+            jdbc.update("update accounts set name = ?, phone = ? where id = ?", original.get("name"),
+                    original.get("phone"), customerId);
+        }
+    }
+
+    @Test
+    void customerInfoCorrectionGuards() {
+        Map<String, Object> original = jdbc.queryForMap("select name, phone from accounts where id = ?", customerId);
+        Seed seed = seedInProgress(fsId);
+        loginAs(FS);
+
+        // Chưa đối chiếu giấy tờ → chưa sửa được.
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, "Tên mới", "0901234567", "Lý do"))
+                .isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("xác minh danh tính");
+
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
+        HandoverView current = view(seed.handoverId);
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, "Tên mới", "0901234567", " "))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("lý do");
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, "Tên mới", "0901234567",
+                "x".repeat(501)))
+                .isInstanceOf(HandoverValidationException.class);
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, " ", "0901234567", "Lý do"))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("Họ tên");
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, "x".repeat(256), "0901234567",
+                "Lý do"))
+                .isInstanceOf(HandoverValidationException.class);
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, "Tên mới", "abc", "Lý do"))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("Số điện thoại");
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(seed.handoverId, current.customerName(),
+                current.customerPhone(), "Lý do"))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("không thay đổi");
+
+        // FS không phụ trách lịch này.
+        long otherStaff = id("select id from accounts where email = '" + FM + "'");
+        Seed foreign = seedInProgress(otherStaff);
+        assertThatThrownBy(() -> workflow.correctCustomerInfo(foreign.handoverId, "Tên mới", "0901234567",
+                "Lý do"))
+                .isInstanceOf(HandoverForbiddenException.class);
+
+        assertThat(jdbc.queryForMap("select name, phone from accounts where id = ?", customerId))
+                .isEqualTo(original);
+    }
+
+    // ------------------------------------------------------------------ FS dời lịch nhận kho
+
+    @Test
+    void staffReschedulesBeforeArrivalMovesAppointmentAndReopensHandover() {
+        jdbc.update("update policies set value = 'false' where key = 'staff.shift_required'");
+        Seed seed = seedAhead(fsId);
+        loginAs(FS);
+        Slot slot = freeSlot(seed.appointmentId);
+
+        Rescheduled result = rescheduleService.reschedule(seed.appointmentId, dateOf(slot), slot.startAt(),
+                "  Khách bận đột xuất  ");
+
+        assertThat(result.arrived()).isFalse();
+        assertThat(result.oldAppointmentId()).isEqualTo(seed.appointmentId);
+        Map<String, Object> old = jdbc.queryForMap("select status, cancel_reason from appointments where id = ?",
+                seed.appointmentId);
+        assertThat(old.get("status")).isEqualTo("Canceled");
+        assertThat(old.get("cancel_reason")).isEqualTo("Dời lịch: Khách bận đột xuất");
+        Map<String, Object> fresh = jdbc.queryForMap("select status, staff_id, started_at from appointments "
+                + "where id = ?", result.newAppointmentId());
+        assertThat(fresh.get("status")).isEqualTo("Pending");
+        assertThat(((Number) fresh.get("staff_id")).longValue()).isEqualTo(fsId);
+        assertThat(((java.sql.Timestamp) fresh.get("started_at")).toInstant()).isEqualTo(slot.startAt());
+        assertThat(count("select count(*) from rental_appointments where appointment_id = ? and order_id = ?",
+                result.newAppointmentId(), seed.orderId)).isEqualTo(1);
+        assertThat(orderStatus(seed.orderId)).isEqualTo("InProgress");
+        assertThat(unitStatus(seed.unitId)).isEqualTo("Reserved");
+        assertThat(handoverResult(seed.handoverId)).isEqualTo("CANCELED");
+        assertThat(jdbc.queryForObject("select reject_reason from handover_records where id = ?", String.class,
+                seed.handoverId)).isEqualTo("Dời lịch: Khách bận đột xuất");
+        long newHandoverId = id("select id from handover_records where appointment_id = "
+                + result.newAppointmentId());
+        assertThat(handoverResult(newHandoverId)).isEqualTo("IN_PROGRESS");
+        assertThat(view(newHandoverId).step()).isEqualTo("WAITING_ARRIVAL");
+        assertThat(auditCount("APPOINTMENT_RESCHEDULED", "Appointment", seed.appointmentId)).isEqualTo(1);
+        assertThat(notifications(CUSTOMER, "APPOINTMENT_RESCHEDULED", seed.orderId)).isEqualTo(1);
+    }
+
+    @Test
+    void staffReschedulesSignedUnpaidSessionCancelsContractAndKeepsHistory() {
+        jdbc.update("update policies set value = 'false' where key = 'staff.shift_required'");
+        Seed seed = seedInProgress(fsId);
+        long contractId = untilSigned(seed);
+        ContractInvoice invoice = firstMonthInvoice(contractId);
+        loginAs(FS);
+        Slot slot = freeSlot(seed.appointmentId);
+
+        Rescheduled result = rescheduleService.reschedule(seed.appointmentId, dateOf(slot), slot.startAt(),
+                "Khách chưa đủ tiền, hẹn quay lại");
+
+        assertThat(result.arrived()).isTrue();
+        // Buổi cũ đã diễn ra → lịch cũ giữ Done; phiên cũ đóng, hợp đồng + hoá đơn chưa trả huỷ.
+        assertThat(jdbc.queryForObject("select status from appointments where id = ?", String.class,
+                seed.appointmentId)).isEqualTo("Done");
+        assertThat(handoverResult(seed.handoverId)).isEqualTo("CANCELED");
+        assertThat(contractStatus(contractId)).isEqualTo("Canceled");
+        assertThat(invoiceStatus(invoice.invoiceId())).isEqualTo("Canceled");
+        assertThat(orderStatus(seed.orderId)).isEqualTo("InProgress");
+
+        long newHandoverId = id("select id from handover_records where appointment_id = "
+                + result.newAppointmentId());
+        HandoverView fresh = view(newHandoverId);
+        assertThat(fresh.step()).isEqualTo("WAITING_ARRIVAL");
+        assertThat(fresh.contract()).isNull();
+        assertThat(fresh.previousSession()).isNotNull();
+        assertThat(fresh.previousSession().id()).isEqualTo(seed.handoverId);
+        assertThat(fresh.previousSession().reason()).isEqualTo("Dời lịch: Khách chưa đủ tiền, hẹn quay lại");
+        assertThat(fresh.previousSession().identityStatus()).isEqualTo("Verified");
+        assertThat(fresh.previousSession().identityPhotos()).hasSize(1);
+        assertThat(fresh.previousSession().inspectionNotes()).isEqualTo("Khoang sạch, khoá tốt");
+
+        // Phiên mới làm lại từ đầu: khách đến → xác minh → hiện trạng → hợp đồng nháp mới (không dùng lại bản cũ).
+        jdbc.update("update appointments set status = 'Done', arrived_at = now() where id = ?",
+                result.newAppointmentId());
+        jdbc.update("update handover_records set due_at = now() + interval '1 day' where id = ?", newHandoverId);
+        untilAgreed(new Seed(seed.unitId, seed.orderId, result.newAppointmentId(), newHandoverId));
+        long newContractId = contractId(seed.orderId);
+        assertThat(newContractId).isNotEqualTo(contractId);
+        assertThat(contractStatus(newContractId)).isEqualTo("Draft");
+        assertThat(view(newHandoverId).step()).isEqualTo("SIGN_CONTRACT");
+    }
+
+    @Test
+    void rescheduleGuards() {
+        jdbc.update("update policies set value = 'false' where key = 'staff.shift_required'");
+        Seed seed = seedAhead(fsId);
+        loginAs(FS);
+        Slot slot = freeSlot(seed.appointmentId);
+        LocalDate date = dateOf(slot);
+
+        assertThatThrownBy(() -> rescheduleService.reschedule(seed.appointmentId, date, slot.startAt(), " "))
+                .isInstanceOf(HandoverValidationException.class)
+                .hasMessageContaining("lý do");
+        // Ngoài hạn giữ đơn (expires_at = 20 ngày nữa).
+        LocalDate far = LocalDate.now(VN).plusDays(30);
+        assertThatThrownBy(() -> rescheduleService.reschedule(seed.appointmentId, far,
+                far.atTime(8, 0).atZone(VN).toInstant(), "Lý do"))
+                .isInstanceOf(AppointmentValidationException.class);
+        // Khung không đúng giờ bắt đầu của 3 khung.
+        assertThatThrownBy(() -> rescheduleService.reschedule(seed.appointmentId, date,
+                slot.startAt().plusSeconds(600), "Lý do"))
+                .isInstanceOf(AppointmentValidationException.class);
+        // Khung đã có lịch tại cơ sở.
+        jdbc.update("insert into appointments (customer_id, facility_id, type, date, started_at, end_at, status) "
+                + "values (?, ?, 'CHECKIN', ?, ?, ?, 'Pending')", customerId, facilityId, date,
+                java.sql.Timestamp.from(slot.startAt()), java.sql.Timestamp.from(slot.endAt()));
+        assertThatThrownBy(() -> rescheduleService.reschedule(seed.appointmentId, date, slot.startAt(), "Lý do"))
+                .isInstanceOf(AppointmentConflictException.class)
+                .hasMessageContaining("đã có người đặt");
+        // FS nghỉ phép ngày hẹn mới.
+        Slot other = freeSlot(seed.appointmentId);
+        long leaveId = id("insert into staff_leaves (staff_id, from_date, to_date, reason, status) values (" + fsId
+                + ", '" + dateOf(other) + "', '" + dateOf(other) + "', 'Việc riêng', 'Approved') returning id");
+        try {
+            assertThatThrownBy(() -> rescheduleService.reschedule(seed.appointmentId, dateOf(other),
+                    other.startAt(), "Lý do"))
+                    .isInstanceOf(AppointmentConflictException.class)
+                    .hasMessageContaining("nghỉ phép");
+        } finally {
+            jdbc.update("delete from staff_leaves where id = ?", leaveId);
+        }
+        // FS không phụ trách lịch.
+        long otherStaff = id("select id from accounts where email = '" + FM + "'");
+        Seed foreign = seedAhead(otherStaff);
+        assertThatThrownBy(() -> rescheduleService.reschedule(foreign.appointmentId, dateOf(other), other.startAt(),
+                "Lý do"))
+                .isInstanceOf(AppointmentForbiddenException.class);
+        // Lịch đã quá giờ mà khách chưa đến → để no-show xử lý.
+        Seed late = seedScheduledNoShow();
+        assertThatThrownBy(() -> rescheduleService.reschedule(late.appointmentId, dateOf(other), other.startAt(),
+                "Lý do"))
+                .isInstanceOf(AppointmentConflictException.class)
+                .hasMessageContaining("quá giờ");
+        // Không có gì thay đổi.
+        assertThat(jdbc.queryForObject("select status from appointments where id = ?", String.class,
+                seed.appointmentId)).isEqualTo("Pending");
+        assertThat(handoverResult(seed.handoverId)).isEqualTo("IN_PROGRESS");
+        assertThat(auditCount("APPOINTMENT_RESCHEDULED", "Appointment", seed.appointmentId)).isZero();
+    }
+
+    @Test
+    void rescheduleBlockedOncePaidOrWhilePaying() {
+        jdbc.update("update policies set value = 'false' where key = 'staff.shift_required'");
+        // Đang có phiên thanh toán tháng đầu mở → không huỷ ngang giao dịch.
+        Seed paying = seedInProgress(fsId);
+        long payingContract = untilSigned(paying);
+        assertThat(invoicePaymentService.start(firstMonthInvoice(payingContract).invoiceId(), customerId,
+                "127.0.0.1").rejected()).isFalse();
+        loginAs(FS);
+        Slot slot = freeSlot(paying.appointmentId);
+        assertThatThrownBy(() -> rescheduleService.reschedule(paying.appointmentId, dateOf(slot), slot.startAt(),
+                "Lý do"))
+                .isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("đang thanh toán");
+
+        // Đã trả tháng đầu → hoàn tất bàn giao, không dời.
+        Seed paid = seedInProgress(fsId);
+        long paidContract = untilSigned(paid);
+        pay(firstMonthInvoice(paidContract));
+        loginAs(FS);
+        assertThatThrownBy(() -> rescheduleService.reschedule(paid.appointmentId, dateOf(slot), slot.startAt(),
+                "Lý do"))
+                .isInstanceOf(HandoverConflictException.class)
+                .hasMessageContaining("đã thanh toán");
+        assertThat(handoverResult(paid.handoverId)).isEqualTo("IN_PROGRESS");
+        assertThat(contractStatus(paidContract)).isEqualTo("Signed");
+    }
+
+    private Slot freeSlot(long appointmentId) {
+        return rescheduleService.slots(appointmentId).days().stream()
+                .flatMap(day -> day.slots().stream())
+                .filter(Slot::available)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static LocalDate dateOf(Slot slot) {
+        return slot.startAt().atZone(VN).toLocalDate();
+    }
+
     // ------------------------------------------------------------------ nguồn URL ảnh / bản scan
 
     @Test
     void inspectionPhotosMustBeUploadsOfCurrentStaff() {
         Seed seed = seedInProgress(fsId);
         loginAs(FS);
-        workflow.verifyIdentity(seed.handoverId, true, null);
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
 
         assertThatThrownBy(() -> workflow.recordInspection(seed.handoverId, "x",
                 List.of("https://img.test/1.jpg")))
@@ -818,7 +1141,19 @@ class HandoverFlowIntegrationTest {
         return seed(fsId, false);
     }
 
+    /** Đơn {@code InProgress} với lịch Pending chưa tới giờ (2–4 giờ nữa), khách chưa đến. */
+    private Seed seedAhead(long staffId) {
+        return seed(staffId, false,
+                "now() + interval '2 hours', now() + interval '4 hours', null, 'Pending'");
+    }
+
     private Seed seed(long staffId, boolean arrived) {
+        return seed(staffId, arrived, arrived
+                ? "now() - interval '30 minutes', now() + interval '90 minutes', now() - interval '10 minutes', 'Done'"
+                : "now() - interval '3 hours', now() - interval '1 hour', null, 'Pending'");
+    }
+
+    private Seed seed(long staffId, boolean arrived, String times) {
         int n = SEQ.incrementAndGet();
         String suffix = n + "-" + System.nanoTime() % 100000;
         long unitId = id("insert into storage_units (code, facility_id, unit_type_id, status) values ('H-" + suffix
@@ -835,9 +1170,6 @@ class HandoverFlowIntegrationTest {
         jdbc.update("insert into invoices (order_id, customer_id, code, title, type, status, amount, due_date) values "
                 + "(?, ?, ?, 'Đặt cọc', 'Deposit', 'Paid', 500000, now() + interval '3 days')", orderId, customerId,
                 "INV-DEP-Q7-H" + suffix);
-        String times = arrived
-                ? "now() - interval '30 minutes', now() + interval '90 minutes', now() - interval '10 minutes', 'Done'"
-                : "now() - interval '3 hours', now() - interval '1 hour', null, 'Pending'";
         long appointmentId = id("insert into appointments (customer_id, facility_id, staff_id, type, date, started_at,"
                 + " end_at, arrived_at, status) values (" + customerId + ", " + facilityId + ", " + staffId
                 + ", 'CHECKIN', current_date, " + times + ") returning id");
@@ -851,7 +1183,7 @@ class HandoverFlowIntegrationTest {
 
     private void untilAgreed(Seed seed) {
         loginAs(FS);
-        workflow.verifyIdentity(seed.handoverId, true, null);
+        workflow.verifyIdentity(seed.handoverId, true, null, idPhotos());
         workflow.recordInspection(seed.handoverId, "Khoang sạch, khoá tốt", List.of());
         loginAs(CUSTOMER);
         workflow.agreeInspection(seed.handoverId, customerId, null);
@@ -867,6 +1199,11 @@ class HandoverFlowIntegrationTest {
     }
 
     /** Giả lập một upload {@code Attached} qua {@code /api/media} của account (row {@code media_uploads}). */
+    /** Ảnh CCCD FS đã upload — xác minh đạt bắt buộc ít nhất một ảnh. */
+    private List<String> idPhotos() {
+        return List.of(uploaded(fsId, "cccd.jpg"));
+    }
+
     private String uploaded(long accountId, String name) {
         return uploaded(accountId, name, "Attached");
     }

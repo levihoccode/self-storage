@@ -39,6 +39,7 @@ import vn.lemar.selfstorage.backoffice.application.BackofficeService;
 import vn.lemar.selfstorage.backoffice.application.BackofficeService.Report;
 import vn.lemar.selfstorage.backoffice.repository.BackofficeReadRepository;
 import vn.lemar.selfstorage.backoffice.repository.BackofficeReadRepository.Kpis;
+import vn.lemar.selfstorage.facility.application.FacilityAdminCommands.Coordinates;
 import vn.lemar.selfstorage.facility.application.FacilityAdminCommands.FacilityRow;
 import vn.lemar.selfstorage.facility.application.FacilityAdminCommands.UnitRow;
 import vn.lemar.selfstorage.identity.application.AccountAdminService;
@@ -53,6 +54,7 @@ import vn.lemar.selfstorage.identity.repository.AccountRepository;
 import vn.lemar.selfstorage.pricing.application.PricingAdminCommands.PolicyRow;
 import vn.lemar.selfstorage.support.application.SupportService;
 import vn.lemar.selfstorage.support.application.SupportService.SupportView;
+import vn.lemar.selfstorage.support.application.UnitTransferService;
 import vn.lemar.selfstorage.support.controller.SupportController;
 import vn.lemar.selfstorage.tenancy.controller.TenancyExceptionHandler;
 
@@ -77,6 +79,8 @@ class BackofficeControllerTest {
     @MockBean
     private SupportService support;
     @MockBean
+    private UnitTransferService transfers;
+    @MockBean
     private CurrentAccountProvider currentAccountProvider;
     @MockBean
     private AccountRepository accountRepository;
@@ -84,10 +88,10 @@ class BackofficeControllerTest {
     @Test
     void managerRoutes() throws Exception {
         login("fm@x.vn", "FM", 2L);
-        UnitRow unit = new UnitRow(9L, "A-9", 1L, 1L, "Available", null, null);
+        UnitRow unit = new UnitRow(9L, "A-9", 1L, 1L, "Available", null, null, null, null, null);
         when(backoffice.facilityContracts(1L, "Active")).thenReturn(List.of());
         when(backoffice.facilityReport(eq(1L), any(), any())).thenReturn(report());
-        when(backoffice.createUnit(1L, "A-9", 1L, null)).thenReturn(unit);
+        when(backoffice.createUnit(1L, "A-9", 1L, null, null)).thenReturn(unit);
         when(backoffice.updateUnit(9L, null, new BigDecimal("1000"))).thenReturn(unit);
         when(backoffice.setMaintenance(9L, true)).thenThrow(new IllegalStateException("Đang có đơn"));
         when(backoffice.setAccessOptions(1L, true, false)).thenReturn(facility());
@@ -114,7 +118,8 @@ class BackofficeControllerTest {
     @Test
     void managerHoldsPostReturnMaintenance() throws Exception {
         login("fm@x.vn", "FM", 2L);
-        when(backoffice.holdMaintenance(9L)).thenReturn(new UnitRow(9L, "A-9", 1L, 1L, "Maintenance", null, null));
+        when(backoffice.holdMaintenance(9L)).thenReturn(
+                new UnitRow(9L, "A-9", 1L, 1L, "Maintenance", null, null, null, null, null));
         when(backoffice.holdMaintenance(10L))
                 .thenThrow(new IllegalStateException("Chỉ giữ bảo trì được cho khoang đang bảo trì sau trả kho"));
 
@@ -132,8 +137,10 @@ class BackofficeControllerTest {
     void bomRoutes() throws Exception {
         login("bom@x.vn", "BOM", 3L);
         when(backoffice.listFacilities()).thenReturn(List.of(facility()));
-        when(backoffice.createFacility("Q9", "Quận 9", null, null)).thenReturn(facility());
-        when(backoffice.updateFacility(1L, "Mới", null, null, null)).thenReturn(facility());
+        when(backoffice.createFacility("Q9", "Quận 9", null, null, new Coordinates(null, null), null, List.of()))
+                .thenReturn(facility());
+        when(backoffice.updateFacility(1L, "Mới", null, null, null, new Coordinates(null, null), null))
+                .thenReturn(facility());
         when(accounts.get(4L)).thenReturn(account("FM"));
         when(backoffice.assignManager(1L, 4L, true)).thenReturn(facility());
         when(backoffice.policies()).thenReturn(List.of(new PolicyRow(1L, "k", "1", null, Instant.now())));
@@ -188,7 +195,8 @@ class BackofficeControllerTest {
     void adminRoutes() throws Exception {
         login("admin@x.vn", "ADMIN", 1L);
         when(accounts.list(isNull(), isNull(), eq("fs"), eq(0), eq(50))).thenReturn(List.of(account("FS")));
-        when(accounts.create("n@x.vn", "Test@1234", null, null, "FS", 1L)).thenReturn(account("FS"));
+        // Body không gửi facilityIds → controller truyền null (gán cơ sở lúc tạo là tuỳ chọn).
+        when(accounts.create("n@x.vn", "Test@1234", null, null, "FS", null, 1L)).thenReturn(account("FS"));
         when(accounts.update(4L, "FM", null, null, null, 1L)).thenReturn(account("FM"));
         when(accounts.setStaffFacilities(4L, List.of(1L), 1L)).thenReturn(account("FS"));
         when(accounts.loginEvents(isNull(), anyInt(), anyInt())).thenReturn(List.of());
@@ -235,6 +243,38 @@ class BackofficeControllerTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void unitTransferRoutes() throws Exception {
+        login("fs@x.vn", "FS", 3L);
+        when(transfers.request(5L, "Trần dột")).thenReturn(supportView());
+        when(transfers.complete(5L, 2)).thenReturn(new UnitTransferService.TransferCompletion(supportView(), "123456"));
+        mockMvc.perform(json(post("/api/staff/support-requests/5/transfer"), "fs@x.vn", "{\"reason\":\"Trần dột\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(json(post("/api/staff/support-requests/5/transfer"), "fs@x.vn", "{\"reason\":\" \"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(json(post("/api/staff/support-requests/5/transfer/complete"), "fs@x.vn",
+                "{\"keyQuantity\":2}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessCode").value("123456"));
+        mockMvc.perform(as(get("/api/fm/support-requests/5/transfer/candidates"), "fs@x.vn"))
+                .andExpect(status().isForbidden());
+
+        login("fm@x.vn", "FM", 2L);
+        when(transfers.candidates(5L)).thenReturn(List.of(new UnitTransferService.TransferCandidate(9L, "A-9", 1L,
+                "Small", new java.math.BigDecimal("2.00"), 1, true, true)));
+        when(transfers.allocate(5L, 9L)).thenReturn(supportView());
+        when(transfers.cancel(5L, "Sửa kịp")).thenReturn(supportView());
+        mockMvc.perform(as(get("/api/fm/support-requests/5/transfer/candidates"), "fm@x.vn"))
+                .andExpect(jsonPath("$.data[0].sameType").value(true));
+        mockMvc.perform(json(post("/api/fm/support-requests/5/transfer/allocate"), "fm@x.vn", "{\"unitId\":9}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(json(post("/api/fm/support-requests/5/transfer/allocate"), "fm@x.vn", "{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(json(post("/api/fm/support-requests/5/transfer/cancel"), "fm@x.vn",
+                "{\"reason\":\"Sửa kịp\"}")).andExpect(status().isOk());
+        mockMvc.perform(json(post("/api/staff/support-requests/5/transfer"), "fm@x.vn", "{\"reason\":\"x\"}"))
+                .andExpect(status().isForbidden());
+    }
+
     private static Report report() {
         return new Report(LocalDate.now(), LocalDate.now(),
                 new Kpis(1, 2, 3, 0, 0, 0, BigDecimal.ZERO, BigDecimal.ZERO), new BigDecimal("1000"), List.of(),
@@ -242,7 +282,8 @@ class BackofficeControllerTest {
     }
 
     private static FacilityRow facility() {
-        return new FacilityRow(1L, "Q7", "Quận 7", null, null, "Active", 4L, "fm@x.vn", true, true, 8, 2);
+        return new FacilityRow(1L, "Q7", "Quận 7", null, null, "Active", 4L, "fm@x.vn", true, true, 8, 2, 1, null,
+                null, 1);
     }
 
     private static AccountRow account(String role) {
@@ -251,7 +292,7 @@ class BackofficeControllerTest {
 
     private static SupportView supportView() {
         return new SupportView(5L, 6L, "Khách", "c@x.vn", 1L, "Q7", null, null, null, "OTHER", "t", "d", List.of(),
-                "Open", null, null, null, null, Instant.now(), null, null);
+                "Open", null, null, null, null, Instant.now(), null, null, null);
     }
 
     private void login(String email, String roleName, Long accountId) {

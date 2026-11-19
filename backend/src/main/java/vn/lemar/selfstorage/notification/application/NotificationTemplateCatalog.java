@@ -1,6 +1,7 @@
 package vn.lemar.selfstorage.notification.application;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -89,6 +90,14 @@ public class NotificationTemplateCatalog {
         put(NotificationType.APPOINTMENT_CREATED, NotificationRecipient.FM,
                 "Có lịch check-in mới cần phân công",
                 "Đơn {{orderCode}}: lịch hẹn {{appointmentTime}} tại {{facilityAddress}} cần phân công FS.");
+        put(NotificationType.APPOINTMENT_RESCHEDULED, NotificationRecipient.CUSTOMER,
+                "Lịch nhận kho đã được dời",
+                "Lịch nhận kho của đơn {{orderCode}} đã dời từ {{oldAppointmentTime}} sang {{appointmentTime}} tại "
+                        + "{{facilityAddress}}. Lý do: {{reason}}. Vui lòng mang theo CCCD/Passport.");
+        put(NotificationType.APPOINTMENT_RESCHEDULED, NotificationRecipient.FM,
+                "FS đã dời lịch nhận kho",
+                "Đơn {{orderCode}}: lịch nhận kho dời từ {{oldAppointmentTime}} sang {{appointmentTime}} tại "
+                        + "{{facilityAddress}}. Lý do: {{reason}}.");
         put(NotificationType.APPOINTMENT_CANCELED_NO_SHOW, NotificationRecipient.CUSTOMER,
                 "Lịch hẹn check-in đã bị hủy do bạn không đến",
                 "Lịch hẹn cũ: {{appointmentTime}}. Bạn có thể đặt lịch mới tại {{rescheduleLink}}.");
@@ -196,8 +205,10 @@ public class NotificationTemplateCatalog {
                         + "chưa thanh toán ({{amount}}đ). Cần liên hệ khách.");
         put(NotificationType.CONTRACT_ACCESS_SUSPENDED, NotificationRecipient.CUSTOMER,
                 "Quyền truy cập khoang tạm khoá",
-                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Mã khoá số đã tạm khoá; "
-                        + "gia hạn hoặc trả kho và thanh toán phí quá hạn để mở lại.");
+                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Mã khoá số đã tạm khoá. "
+                        + "Để mở lại: thanh toán phí quá hạn rồi gia hạn, hoặc gửi yêu cầu trả kho — khoang được "
+                        + "mở để dọn đồ khi bạn đến buổi trả kho và thanh toán hết nợ. Khoang dùng chìa cơ sẽ được "
+                        + "gắn thêm khoá chặn của cơ sở cho tới khi mở lại.");
         put(NotificationType.CONTRACT_ACCESS_SUSPENDED, NotificationRecipient.FM,
                 "Hợp đồng quá hạn kéo dài",
                 "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày, mã khoá số đã tạm khoá. "
@@ -234,9 +245,80 @@ public class NotificationTemplateCatalog {
         put(NotificationType.SUPPORT_RESOLVED, NotificationRecipient.CUSTOMER,
                 "Yêu cầu hỗ trợ đã được xử lý",
                 "Yêu cầu hỗ trợ #{{requestId}} đã xử lý: {{resolution}}{{feeNote}}");
+        put(NotificationType.UNIT_TRANSFER_REQUESTED, NotificationRecipient.FM,
+                "Cần điều khoang thay thế",
+                "FS {{staffName}} đề xuất chuyển khách khỏi khoang {{fromUnitCode}} (yêu cầu hỗ trợ #{{requestId}}): "
+                        + "{{reason}}. Chọn khoang trống để chuyển.");
+        put(NotificationType.UNIT_TRANSFER_ALLOCATED, NotificationRecipient.FS,
+                "Đã có khoang để chuyển cho khách",
+                "Yêu cầu hỗ trợ #{{requestId}}: FM điều khoang {{toUnitCode}} thay khoang {{fromUnitCode}}. Chuyển đồ "
+                        + "cho khách rồi bấm hoàn tất chuyển khoang.");
+        put(NotificationType.UNIT_TRANSFER_ALLOCATED, NotificationRecipient.CUSTOMER,
+                "Bạn sẽ được chuyển sang khoang khác",
+                "Khoang {{fromUnitCode}} chưa sửa ngay được. Cơ sở dành cho bạn khoang {{toUnitCode}} — giá thuê và "
+                        + "hợp đồng giữ nguyên; nhân viên sẽ liên hệ để chuyển đồ.");
+        put(NotificationType.UNIT_TRANSFER_COMPLETED, NotificationRecipient.CUSTOMER,
+                "Đã chuyển sang khoang mới",
+                "Đồ của bạn đã chuyển từ khoang {{fromUnitCode}} sang khoang {{toUnitCode}} (hợp đồng "
+                        + "{{contractCode}}, giá thuê giữ nguyên).{{accessNote}}");
+        put(NotificationType.UNIT_TRANSFER_CANCELED, NotificationRecipient.FS,
+                "Huỷ chuyển khoang",
+                "FM huỷ chuyển khoang của yêu cầu hỗ trợ #{{requestId}}: {{reason}}. Tiếp tục xử lý yêu cầu.");
+        put(NotificationType.OVERLOCK_REQUIRED, NotificationRecipient.FS,
+                "Cần gắn khoá chặn",
+                "Khoang {{unitCode}} ({{facilityName}}, hợp đồng {{contractCode}}) tạm khoá do quá hạn kéo dài và "
+                        + "khách đang giữ chìa cơ. Gắn khoá chặn của cơ sở tại khoang rồi xác nhận ở trang Khoá chặn.");
+        put(NotificationType.OVERLOCK_REQUIRED, NotificationRecipient.FM,
+                "Cần gắn khoá chặn",
+                "Khoang {{unitCode}} (hợp đồng {{contractCode}}) tạm khoá do quá hạn kéo dài và khách đang giữ chìa "
+                        + "cơ. FS của cơ sở cần gắn khoá chặn tại khoang.");
+        put(NotificationType.OVERLOCK_REMOVAL_REQUIRED, NotificationRecipient.FS,
+                "Cần gỡ khoá chặn",
+                "Khoang {{unitCode}} ({{facilityName}}, hợp đồng {{contractCode}}) đã được mở lại truy cập. Gỡ khoá "
+                        + "chặn tại khoang rồi xác nhận ở trang Khoá chặn.");
+        put(NotificationType.OVERLOCK_REMOVAL_REQUIRED, NotificationRecipient.FM,
+                "Cần gỡ khoá chặn",
+                "Khoang {{unitCode}} (hợp đồng {{contractCode}}) đã được mở lại truy cập. FS của cơ sở cần gỡ khoá "
+                        + "chặn tại khoang.");
+        put(NotificationType.MOVE_OUT_DEBT_DUE, NotificationRecipient.CUSTOMER,
+                "Thanh toán nợ để dọn đồ trả kho",
+                "Để mở khoang {{unitCode}} (hợp đồng {{contractCode}}) dọn đồ trả kho, vui lòng thanh toán "
+                        + "{{amount}}đ — hoá đơn {{invoiceCode}} gồm phí quá hạn tính tới ngày buổi trả kho và các "
+                        + "khoản còn nợ. Thanh toán xong khoang được mở ngay; tiền cọc giữ nguyên tới khi quyết toán.");
+        put(NotificationType.OVERLOCK_ASSIGNED, NotificationRecipient.FS,
+                "FM giao việc khoá chặn",
+                "FM giao bạn {{task}} khoá chặn của cơ sở trên khoang {{unitCode}} ({{facilityName}}, hợp đồng "
+                        + "{{contractCode}}). Làm xong thì xác nhận ở trang Khoá chặn.");
+        put(NotificationType.OVERLOCK_REMOVED, NotificationRecipient.CUSTOMER,
+                "Đã gỡ khoá chặn",
+                "Nhân viên đã gỡ khoá chặn của cơ sở trên khoang {{unitCode}} (hợp đồng {{contractCode}}). Bạn vào "
+                        + "khoang bằng chìa của mình như trước.");
         put(NotificationType.CHECKOUT_COMPLETED, NotificationRecipient.CUSTOMER,
                 "Trả kho hoàn tất",
                 "Hợp đồng {{contractCode}} đã kết thúc. Tiền cọc hoàn lại: {{refundAmount}}đ (cơ sở xử lý thủ công).");
+        put(NotificationType.STAFF_SHIFT_CHANGED, NotificationRecipient.FS,
+                "Ca làm việc thay đổi",
+                "Ca làm việc tại {{facilityCode}}: {{change}}.");
+        put(NotificationType.STAFF_LEAVE_REQUESTED, NotificationRecipient.FM,
+                "FS xin nghỉ phép",
+                "{{staffName}} xin nghỉ từ {{fromDate}} đến {{toDate}}. Lý do: {{reason}}.");
+        put(NotificationType.STAFF_LEAVE_REVIEWED, NotificationRecipient.FS,
+                "Đơn nghỉ phép {{result}}",
+                "Đơn nghỉ phép từ {{fromDate}} đến {{toDate}} {{result}}.{{noteText}}");
+        put(NotificationType.ACCOUNT_REQUEST_SUBMITTED, NotificationRecipient.ADMIN,
+                "Yêu cầu tạo tài khoản mới",
+                "{{requesterName}} đề nghị tạo tài khoản {{roleLabel}} cho {{name}} ({{email}}){{facilityText}}"
+                        + "{{replaceText}}. Duyệt hoặc từ chối tại mục Yêu cầu tài khoản.");
+        put(NotificationType.ACCOUNT_REQUEST_REVIEWED, NotificationRecipient.BOM,
+                "Yêu cầu tạo tài khoản {{result}}",
+                "Yêu cầu tạo tài khoản {{roleLabel}} cho {{name}} ({{email}}){{replaceText}} {{result}}."
+                        + "{{noteText}}");
+        for (NotificationRecipient staff : List.of(NotificationRecipient.FM, NotificationRecipient.FS)) {
+            put(NotificationType.ACCOUNT_READY, staff,
+                    "Tài khoản Kho Mộc của bạn đã được tạo",
+                    "Tài khoản {{roleLabel}} cho email {{email}} đã sẵn sàng{{facilityText}}. Quản trị viên sẽ gửi "
+                            + "mật khẩu đăng nhập cho bạn; đăng nhập tại {{loginLink}}.");
+        }
     }
 
     /**

@@ -95,7 +95,33 @@ public enum AuditAction {
     INSPECTION_CORRECTED(AuditEntityType.HANDOVER_RECORD),
     /** Quá hạn kéo dài: tạm khoá mã khoá số / mở lại khi hết quá hạn. */
     CONTRACT_ACCESS_SUSPENDED(AuditEntityType.RENTAL_CONTRACT),
-    CONTRACT_ACCESS_RESTORED(AuditEntityType.RENTAL_CONTRACT);
+    CONTRACT_ACCESS_RESTORED(AuditEntityType.RENTAL_CONTRACT),
+    /** Nhân sự (V32): FM thêm / sửa / xoá ca của FS; duyệt nghỉ phép xoá ca trong khoảng nghỉ. */
+    STAFF_SHIFT_CREATED(AuditEntityType.STAFF_SHIFT),
+    STAFF_SHIFT_UPDATED(AuditEntityType.STAFF_SHIFT),
+    STAFF_SHIFT_DELETED(AuditEntityType.STAFF_SHIFT),
+    STAFF_LEAVE_REQUESTED(AuditEntityType.STAFF_LEAVE),
+    STAFF_LEAVE_APPROVED(AuditEntityType.STAFF_LEAVE),
+    STAFF_LEAVE_REJECTED(AuditEntityType.STAFF_LEAVE),
+    STAFF_LEAVE_CANCELED(AuditEntityType.STAFF_LEAVE),
+    /** ADMIN / BOM sửa hồ sơ nhân viên; số giấy tờ được che trong old/new. */
+    STAFF_PROFILE_UPDATED(AuditEntityType.STAFF_PROFILE),
+    /** BOM gửi / huỷ yêu cầu tạo tài khoản nhân sự; ADMIN duyệt (tạo tài khoản) hoặc từ chối. */
+    ACCOUNT_REQUEST_CREATED(AuditEntityType.ACCOUNT_REQUEST),
+    ACCOUNT_REQUEST_APPROVED(AuditEntityType.ACCOUNT_REQUEST),
+    ACCOUNT_REQUEST_REJECTED(AuditEntityType.ACCOUNT_REQUEST),
+    ACCOUNT_REQUEST_CANCELED(AuditEntityType.ACCOUNT_REQUEST),
+    UNIT_TRANSFER_REQUESTED(AuditEntityType.UNIT_TRANSFER),
+    UNIT_TRANSFER_ALLOCATED(AuditEntityType.UNIT_TRANSFER),
+    UNIT_TRANSFER_COMPLETED(AuditEntityType.UNIT_TRANSFER),
+    UNIT_TRANSFER_CANCELED(AuditEntityType.UNIT_TRANSFER),
+    CONTRACT_UNIT_CHANGED(AuditEntityType.RENTAL_CONTRACT),
+    OVERLOCK_REQUIRED(AuditEntityType.UNIT_OVERLOCK),
+    OVERLOCK_APPLIED(AuditEntityType.UNIT_OVERLOCK),
+    OVERLOCK_REMOVAL_REQUIRED(AuditEntityType.UNIT_OVERLOCK),
+    OVERLOCK_REMOVED(AuditEntityType.UNIT_OVERLOCK),
+    OVERLOCK_CANCELED(AuditEntityType.UNIT_OVERLOCK),
+    OVERLOCK_ASSIGNED(AuditEntityType.UNIT_OVERLOCK);
 
     private final Set<AuditEntityType> entityTypes;
 

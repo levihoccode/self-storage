@@ -26,6 +26,7 @@ const GROUP_BY_TYPE: Record<string, NotificationGroup> = {
   HANDOVER_REJECTED: "approval",
   DEPOSIT_PAYMENT_SUCCEEDED: "invoice",
   APPOINTMENT_CREATED: "assignment",
+  APPOINTMENT_RESCHEDULED: "assignment",
   APPOINTMENT_CANCELED_NO_SHOW: "assignment",
   FS_ASSIGNED: "assignment",
   FS_ASSIGNMENT_REQUIRED: "assignment",
@@ -56,14 +57,22 @@ export function notificationPath(
       }
       return undefined;
     case "PROPOSAL_REJECTED":
+      // Khách từ chối đề xuất: việc cần làm là đề xuất lại khoang, nằm ở trang đơn thuê — không phải
+      // hàng đợi yêu cầu đặt kho (tab "Từ chối" ở đó là yêu cầu bị FM từ chối).
+      if (role === "FM")
+        return orderId ? `/fm/rental-orders/${orderId}/re-propose` : "/fm/rental-orders";
+      return role === "CUSTOMER" ? "/my-storage" : undefined;
     case "RENTAL_ORDER_CANCELED":
-      if (role === "FM") return "/fm/rental-requests";
+      if (role === "FM") return "/fm/rental-orders";
       return role === "CUSTOMER" ? "/my-storage" : undefined;
     case "APPOINTMENT_CREATED":
       // Customer chưa có màn xem lịch đã tạo (chỉ có form đặt mới) — chỉ mark read.
       return role === "FM" ? "/fm/appointments" : undefined;
     case "FS_ASSIGNMENT_REQUIRED":
       return role === "FM" ? "/fm/appointments" : undefined;
+    case "APPOINTMENT_RESCHEDULED":
+      // Khách: giờ mới nằm ở "Kho của tôi" (đơn đang chờ nhận kho); FM: lịch hẹn của cơ sở.
+      return role === "FM" ? "/fm/appointments" : role === "CUSTOMER" ? "/my-storage" : undefined;
     case "RENTAL_REQUEST_APPROVED":
     case "RENTAL_REQUEST_REJECTED":
     case "PROPOSAL_REPROPOSED":
@@ -92,6 +101,12 @@ export function notificationPath(
         : role === "CUSTOMER"
           ? "/my-storage"
           : undefined;
+    case "OVERLOCK_REQUIRED":
+    case "OVERLOCK_REMOVAL_REQUIRED":
+    case "OVERLOCK_ASSIGNED":
+      return role === "FS" ? "/staff/overlocks" : role === "FM" ? "/fm/extend-requests" : undefined;
+    case "OVERLOCK_REMOVED":
+    case "MOVE_OUT_DEBT_DUE":
     case "CONTRACT_ACCESS_RESTORED":
     case "RETURN_DATE_SHIFTED":
       return role === "CUSTOMER" ? "/my-storage" : undefined;

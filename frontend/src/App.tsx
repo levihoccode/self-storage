@@ -12,6 +12,7 @@ import { FmShell } from "./components/layout/FmShell";
 import { FsShell } from "./components/layout/FsShell";
 import { AdminShell } from "./components/layout/AdminShell";
 import { MyStoragePage } from "./pages/MyStoragePage";
+import { RecordsPage } from "./pages/RecordsPage";
 import { ContractDetailPage } from "./pages/ContractDetailPage";
 import { ProposalsPage } from "./pages/ProposalsPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
@@ -26,6 +27,9 @@ import { ExtendRequestQueuePage } from "./pages/fm/ExtendRequestQueuePage";
 import { SupportRequestQueuePage } from "./pages/fm/SupportRequestQueuePage";
 import { StorageUnitManagementPage } from "./pages/fm/StorageUnitManagementPage";
 import { StaffListPage } from "./pages/fm/StaffListPage";
+import { StaffShiftsPage } from "./pages/fm/StaffShiftsPage";
+import { StaffLeavesPage } from "./pages/fm/StaffLeavesPage";
+import { StaffReportPage } from "./pages/fm/StaffReportPage";
 import { FacilityReportPage } from "./pages/fm/FacilityReportPage";
 import { FacilityInvoicesPage } from "./pages/fm/FacilityInvoicesPage";
 import { CustomerContractOverviewPage } from "./pages/fm/CustomerContractOverviewPage";
@@ -34,8 +38,11 @@ import { HandoverChecklistPage } from "./pages/fs/HandoverChecklistPage";
 import { PaymentReconciliationPage } from "./pages/admin/PaymentReconciliationPage";
 import { HandoverQueuePage } from "./pages/fs/HandoverQueuePage";
 import { ReturnQueuePage } from "./pages/fs/ReturnQueuePage";
+import { OverlockPage } from "./pages/fs/OverlockPage";
 import { ReturnCheckoutPage } from "./pages/fs/ReturnCheckoutPage";
 import { StaffSupportPage } from "./pages/fs/SupportQueuePage";
+import { MyShiftsPage } from "./pages/fs/MyShiftsPage";
+import { MyLeavesPage } from "./pages/fs/MyLeavesPage";
 import { HandoverPage } from "./pages/HandoverPage";
 import { PaymentResultPage } from "./pages/PaymentResultPage";
 import { SupportPage } from "./pages/SupportPage";
@@ -45,7 +52,10 @@ import { BomFacilitiesPage } from "./pages/bom/BomFacilitiesPage";
 import { BomStaffPage } from "./pages/bom/BomStaffPage";
 import { BomPricingPage } from "./pages/bom/BomPricingPage";
 import { BomInvoicesPage } from "./pages/bom/BomInvoicesPage";
+import { BomStaffReportPage } from "./pages/bom/BomStaffReportPage";
+import { BomAccountRequestsPage } from "./pages/bom/BomAccountRequestsPage";
 import { AdminAccountsPage } from "./pages/admin/AdminAccountsPage";
+import { AdminAccountRequestsPage } from "./pages/admin/AdminAccountRequestsPage";
 import { AdminPermissionsPage } from "./pages/admin/AdminPermissionsPage";
 import { AdminLoginEventsPage } from "./pages/admin/AdminLoginEventsPage";
 import { AdminAuditLogsPage } from "./pages/admin/AdminAuditLogsPage";
@@ -149,6 +159,7 @@ function App() {
   const isAuthView = view === "login" || view === "register" || view === "verify";
   const isCustomerView =
     view === "my-storage" ||
+    view === "records" ||
     view === "contract-detail" ||
     view === "proposals" ||
     view === "invoices" ||
@@ -167,6 +178,9 @@ function App() {
     view === "fm-support-requests" ||
     view === "fm-storage-units" ||
     view === "fm-staff" ||
+    view === "fm-shifts" ||
+    view === "fm-leaves" ||
+    view === "fm-staff-report" ||
     view === "fm-reports" ||
     view === "fm-invoices" ||
     view === "fm-contracts";
@@ -176,7 +190,10 @@ function App() {
     view === "fs-handovers" ||
     view === "fs-returns" ||
     view === "fs-return-detail" ||
-    view === "fs-support";
+    view === "fs-support" ||
+    view === "fs-overlocks" ||
+    view === "fs-shifts" ||
+    view === "fs-leaves";
   const isBomView = view.startsWith("bom-");
   const isAdminView = view.startsWith("admin-");
   const isNotificationView = view === "notifications";
@@ -210,7 +227,10 @@ function App() {
 
   useEffect(() => {
     if (needsLoginRedirect) {
-      navigate("/login");
+      // Giữ đường dẫn đích để sau khi đăng nhập quay lại đúng trang (vd /payments/result sau khi
+      // cổng thanh toán redirect về). Chỉ path nội bộ, LoginForm tự kiểm lại.
+      const target = `${window.location.pathname}${window.location.search}`;
+      navigate(target === "/login" ? "/login" : `/login?next=${encodeURIComponent(target)}`);
       return;
     }
     if (isWrongRole && session) {
@@ -245,6 +265,7 @@ function App() {
       ) : isCustomerShellView ? (
         <CustomerShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
           {view === "my-storage" && <MyStoragePage navigate={navigate} />}
+          {view === "records" && <RecordsPage navigate={navigate} />}
           {view === "contract-detail" && <ContractDetailPage navigate={navigate} />}
           {view === "proposals" && <ProposalsPage navigate={navigate} />}
           {view === "invoices" && <InvoicesPage navigate={navigate} />}
@@ -266,6 +287,9 @@ function App() {
           {view === "fm-support-requests" && <SupportRequestQueuePage />}
           {view === "fm-storage-units" && <StorageUnitManagementPage navigate={navigate} />}
           {view === "fm-staff" && <StaffListPage />}
+          {view === "fm-shifts" && <StaffShiftsPage />}
+          {view === "fm-leaves" && <StaffLeavesPage />}
+          {view === "fm-staff-report" && <StaffReportPage />}
           {view === "fm-reports" && <FacilityReportPage navigate={navigate} />}
           {view === "fm-invoices" && <FacilityInvoicesPage />}
           {view === "fm-contracts" && <CustomerContractOverviewPage navigate={navigate} />}
@@ -279,6 +303,9 @@ function App() {
           {view === "fs-returns" && <ReturnQueuePage navigate={navigate} />}
           {view === "fs-return-detail" && <ReturnCheckoutPage navigate={navigate} />}
           {view === "fs-support" && <StaffSupportPage navigate={navigate} />}
+          {view === "fs-overlocks" && <OverlockPage navigate={navigate} />}
+          {view === "fs-shifts" && <MyShiftsPage />}
+          {view === "fs-leaves" && <MyLeavesPage />}
           {isNotificationView && <NotificationsPage navigate={navigate} />}
         </FsShell>
       ) : isBomView ? (
@@ -288,6 +315,8 @@ function App() {
           {view === "bom-staff" && <BomStaffPage />}
           {view === "bom-pricing" && <BomPricingPage navigate={navigate} />}
           {view === "bom-invoices" && <BomInvoicesPage navigate={navigate} />}
+          {view === "bom-staff-report" && <BomStaffReportPage />}
+          {view === "bom-account-requests" && <BomAccountRequestsPage />}
         </BomShell>
       ) : isAdminView ? (
         <AdminShell view={view} navigate={navigate} theme={theme} onThemeToggle={toggleTheme}>
@@ -296,6 +325,7 @@ function App() {
           {view === "admin-login-events" && <AdminLoginEventsPage navigate={navigate} />}
           {view === "admin-audit-logs" && <AdminAuditLogsPage navigate={navigate} />}
           {view === "admin-payments" && <PaymentReconciliationPage />}
+          {view === "admin-account-requests" && <AdminAccountRequestsPage />}
         </AdminShell>
       ) : (
         <>

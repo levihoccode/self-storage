@@ -8,6 +8,8 @@ import {
   type FacilityRow,
   type StaffRow,
 } from "../../app/services/bom";
+import { fetchBomStaffProfile, updateBomStaffProfile } from "../../app/services/hr";
+import { StaffProfileEditor } from "../../components/domain/StaffProfileSection";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
@@ -113,7 +115,11 @@ export function BomStaffPage() {
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {member.status !== "ACTIVE" && <StatusTag tone="danger">Đã khoá</StatusTag>}
+                {member.status === "INACTIVE" ? (
+                  <StatusTag tone="neutral">Đã nghỉ việc</StatusTag>
+                ) : (
+                  member.status !== "ACTIVE" && <StatusTag tone="danger">Đã khoá</StatusTag>
+                )}
                 <span className="text-small text-ink">
                   {member.facilityIds.length > 0
                     ? member.facilityIds.map(facilityLabel).join(", ")
@@ -215,6 +221,12 @@ function AssignPanel({
         </p>
       </div>
       {error && <DemoNotice tone="error">{error}</DemoNotice>}
+      <div className="mt-6">
+        <StaffProfileEditor
+          load={() => fetchBomStaffProfile(member.id)}
+          save={(input) => updateBomStaffProfile(member.id, input)}
+        />
+      </div>
     </DetailPanel>
   );
 }

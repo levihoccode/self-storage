@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, FileText, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Download, FileText, MapPin } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import type { Navigate } from "../app/types";
 import { pathId } from "../app/routes";
@@ -13,6 +13,7 @@ import {
   fetchMyHandover,
   HANDOVER_STEP_LABEL,
   INVOICE_STATUS,
+  downloadContractPdf,
   openContractDocument,
   rejectHandover,
   rotateAccessCode,
@@ -82,6 +83,7 @@ function Handover({ handoverId, navigate }: { handoverId: number; navigate: Navi
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [docPending, setDocPending] = useState(false);
+  const [pdfPending, setPdfPending] = useState(false);
   const [agreeNote, setAgreeNote] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -151,6 +153,18 @@ function Handover({ handoverId, navigate }: { handoverId: number; navigate: Navi
       setNotice({ tone: "info", message: `Đã huỷ đơn #${view.orderId}.` });
     });
     setCancelConfirm(false);
+  }
+
+  async function downloadPdf(contractId: number) {
+    setPdfPending(true);
+    setNotice(null);
+    try {
+      await downloadContractPdf(contractId);
+    } catch (caught) {
+      setNotice({ tone: "error", message: errorMessage(caught) });
+    } finally {
+      setPdfPending(false);
+    }
   }
 
   async function openDocument(contractId: number) {
@@ -241,7 +255,7 @@ function Handover({ handoverId, navigate }: { handoverId: number; navigate: Navi
               maxLength={1000}
               value={agreeNote}
               onChange={(event) => setAgreeNote(event.target.value)}
-              className="min-h-[64px] rounded-[2px] border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
+              className="min-h-[64px] rounded-lg border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
             />
           </label>
           <div>
@@ -429,6 +443,15 @@ function Handover({ handoverId, navigate }: { handoverId: number; navigate: Navi
               {!docPending && <FileText size={16} />} Xem bản hợp đồng
             </Button>
           )}
+          {view.contract && (
+            <Button
+              variant="secondary"
+              pending={pdfPending}
+              onClick={() => view.contract && downloadPdf(view.contract.id)}
+            >
+              {!pdfPending && <Download size={16} />} Tải PDF
+            </Button>
+          )}
         </div>
       </div>
 
@@ -480,7 +503,7 @@ function Handover({ handoverId, navigate }: { handoverId: number; navigate: Navi
                     maxLength={500}
                     value={rejectReason}
                     onChange={(event) => setRejectReason(event.target.value)}
-                    className="min-h-[70px] rounded-[2px] border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
+                    className="min-h-[70px] rounded-lg border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
                     placeholder="Ví dụ: khoang ẩm, cửa khó đóng…"
                   />
                 </label>

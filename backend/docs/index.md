@@ -19,7 +19,7 @@ Kiến trúc **modular monolith**: `vn.lemar.selfstorage` là package gốc,
 mỗi package con trực tiếp là một module độc lập (`identity`, `booking`, `facility`, ...).
 `ModuleStructureTest` chặn việc gọi sai chiều giữa các module ngay lúc build.
 
-16 module:
+17 module:
 
 | Module | Làm gì |
 |---|---|
@@ -34,6 +34,7 @@ mỗi package con trực tiếp là một module độc lập (`identity`, `book
 | `checkout` | trả kho, quyết toán cọc ([checkout/return.md](checkout/return.md)) |
 | `support` | yêu cầu hỗ trợ / sự cố ([support/requests.md](support/requests.md)) |
 | `backoffice` | màn quản trị FM / BOM / Admin ([backoffice/overview.md](backoffice/overview.md)) |
+| `staffing` | nhân sự: ca làm việc, nghỉ phép, hồ sơ nhân viên, kiểm FS có ca / không nghỉ phép khi phân công ([backoffice/hr.md](backoffice/hr.md)) |
 | `chat` | chatbot tư vấn ([chat/assistant.md](chat/assistant.md)) |
 | `notification` | email + thông báo in-app |
 | `audit` | ghi vết thao tác nghiệp vụ ([audit-log.md](audit-log.md)) |
@@ -44,9 +45,16 @@ Phụ thuộc giữa các module khai ở `allowedDependencies` trong `package-i
 kiểm). Hai phụ thuộc cần biết khi đọc flow sau bàn giao:
 - `support` → `pricing::application` — đọc `fee.lost_key` để tính phí mặc định khi thay chìa do mất chìa
   ([support/requests.md](support/requests.md));
-- `handover` → `media` — `MediaUrlLookup.notUploadedBy` kiểm ảnh hiện trạng / bản scan hợp đồng là file FS đã upload
+- `handover` → `media` — `MediaUrlLookup.notUploadedBy` kiểm ảnh giấy tờ / ảnh hiện trạng / bản scan hợp đồng là file FS đã upload
   ([handover/records.md](handover/records.md)); `handover`, `checkout`, `support` → `media` —
-  `MediaAttachments.attach` khi lưu URL ảnh / scan (bên dưới, [Upload file](#upload-file-module-media)).
+  `MediaAttachments.attach` khi lưu URL ảnh / scan (bên dưới, [Upload file](#upload-file-module-media));
+- `booking`, `tenancy`, `support` → `staffing::application` — `StaffAvailability` kiểm ca / nghỉ phép khi phân công FS;
+  `staffing` đọc việc FS đang giữ qua SPI `identity.application.StaffOpenWork` nên không phụ thuộc ngược
+  ([backoffice/hr.md](backoffice/hr.md));
+- `backoffice` → `notification::application` — báo ADMIN / BOM / tài khoản mới khi gửi, duyệt, từ chối yêu cầu tạo
+  tài khoản; chuyển việc FS nghỉ việc qua SPI `identity.application.StaffWorkTransfer` (booking, handover, support,
+  tenancy, staffing cài) nên backoffice không phụ thuộc các module đó
+  ([backoffice/overview.md › Yêu cầu tạo tài khoản](backoffice/overview.md#yêu-cầu-tạo-tài-khoản-bom--admin)).
 
 Layout trong một module:
 
@@ -102,10 +110,13 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `MEDIA_ORPHAN_MAX_AGE` | Upload `Uploading`/`Pending` không đổi quá khoảng này thì cron dọn | `P3D` |
 | `MEDIA_UPLOAD_RATE_WINDOW` | Cửa sổ đếm upload | `PT10M` |
 | `DB_URL` / `DB_USER` / `DB_PASSWORD` | Kết nối Postgres (URL JDBC) | `jdbc:postgresql://localhost:5432/self_storage` / `self_storage` / `self_storage` |
+| `DATABASE_URL_UNPOOLED` / `DATABASE_URL` | Chuỗi kết nối dạng `postgresql://user:pass@host/db?…` (Neon). Chỉ dùng khi **không** đặt `DB_URL`: `DatabaseUrlEnvironmentPostProcessor` đổi sang `DB_URL` (JDBC) / `DB_USER` / `DB_PASSWORD`, ưu tiên `DATABASE_URL_UNPOOLED` (kết nối thẳng — Hikari tự pool, Flyway khoá bằng advisory lock theo session), `channel_binding` → `channelBinding`; giá trị bọc ngoặc kép (như `neon env pull` ghi) được bỏ ngoặc. Log lúc khởi động: INFO nguồn + host đang dùng, INFO khi `DB_URL` lấn biến này, WARN khi có biến mà không đọc được | — |
 | `REDIS_HOST` / `REDIS_PORT` | Redis cho rate-limit auth / cache | `localhost` / `6379` |
 | `SERVER_PORT` | Cổng HTTP của backend | `8080` |
 | `MAIL_HOST` / `MAIL_PORT` | SMTP server | `smtp.gmail.com` / `587` |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM` | Tài khoản Gmail + App Password; người gửi (trống = `MAIL_USERNAME`) | trống |
+| `MAIL_PROVIDER` | Kênh gửi email: `smtp` hoặc `brevo` (API HTTPS, cho host chặn cổng SMTP) | `smtp` |
+| `BREVO_API_KEY` / `MAIL_FROM_NAME` | API key Brevo (bắt buộc khi `brevo`); tên người gửi hiển thị | trống / `Kho Mộc` |
 | `MAIL_SMTP_AUTH` / `MAIL_SMTP_STARTTLS` | Bật SMTP auth / STARTTLS (bắt buộc) | `true` / `true` |
 | `MAIL_TIMEOUT_MS` | Timeout connect / read / write SMTP | `10000` |
 | `PAYMENT_PROVIDER` | Cổng thanh toán đang dùng: `vnpay` \| `payos` | `vnpay` |
@@ -115,7 +126,7 @@ Nguồn: `backend/src/main/resources/application.yml`, override qua biến môi 
 | `VNPAY_TMN_CODE` | Mã website đăng ký trên VNPay | — (bắt buộc khi `vnpay`) |
 | `VNPAY_HASH_SECRET` | Chuỗi bí mật ký/kiểm checksum VNPay | — (bắt buộc khi `vnpay`) |
 | `VNPAY_PAY_URL` | Endpoint cổng thanh toán VNPay | — (bắt buộc khi `vnpay`) |
-| `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về | — (bắt buộc khi `vnpay`) |
+| `VNPAY_RETURN_URL` | Nơi VNPay đẩy trình duyệt khách về — trang kết quả FE `<FRONTEND_URL>/payments/result` (FE gọi `payment-check`); `/api/payments/vnpay/return` chỉ trả JSON kiểm chữ ký khi test backend không có FE | — (bắt buộc khi `vnpay`; `.env.example`: `http://localhost:5173/payments/result`) |
 | `VNPAY_API_URL` | API merchant VNPay cho `querydr` (`payment-check`) | sandbox `merchant_webapi/api/transaction` |
 | `FRONTEND_URL` | Gốc URL frontend, dựng link trong notification/email (vd `{{confirmLink}}` / `{{proposalLink}}` = `<FRONTEND_URL>/proposals`) | `http://localhost:5173` |
 | `CLOUDINARY_NAME` | Cloud name tài khoản Cloudinary | — (bắt buộc) |
@@ -136,13 +147,16 @@ hướng dẫn ở [docs/vnpay-testing.md](../../docs/vnpay-testing.md); chạy 
 ## Database & seed
 
 Flyway chạy migration lúc khởi động, từ `V1__baseline_schema.sql` tới file mới nhất trong `db/migration/`
-(hiện `V31__invoice_refund_amount.sql`). V1/V2 có mirror byte-identical ở `backend/sql/` (CI check đồng bộ) và đã
+(hiện `V39__unit_overlock_assignee.sql`). V1/V2 có mirror byte-identical ở `backend/sql/` (CI check đồng bộ) và đã
 đóng băng như mọi migration đã apply — đổi schema/seed bằng migration mới ([backend/sql/README.md](../sql/README.md));
 V3+ đọc trực tiếp trong `db/migration/`.
 
 Seed dev có 8 account `@lemar.vn`: 6 account phủ đủ 5 role (FM có 2) + 2 ca đặc biệt `unverified`
 (chưa xác minh — login bị chặn 403) và `banned` (403), mật khẩu `Test@1234`.
 Chi tiết: `backend/sql/README.md`.
+
+Dữ liệu demo (tên đầy đủ, 5 cơ sở, nhân viên, khoang, kịch bản quá hạn) không nằm trong migration: chạy tay
+`backend\sql\dev\seed-demo.cmd` sau khi Flyway dựng DB — [backend/sql/README.md](../sql/README.md#dữ-liệu-demo-devdemo-seedsql--chạy-tay-một-lệnh).
 
 Schema Flow 1.3 đi bằng migration V8–V11:
 
@@ -198,7 +212,7 @@ Schema Flow 1.3 đi bằng migration V8–V11:
 - V26 thêm `support_requests` (hỗ trợ / sự cố), `login_events` (lịch sử đăng nhập), audit action hỗ trợ + back-office
   (`SUPPORT_REQUEST_*`, `FACILITY_*`, `STORAGE_UNIT_CREATED`/`_UPDATED`, `POLICY_UPDATED`, `UNIT_TYPE_UPDATED`,
   `ACCOUNT_CREATED`/`_UPDATED`, `ROLE_PERMISSIONS_UPDATED`) và entity type `SupportRequest`, `Facility`, `Policy`,
-  `UnitType`, `Role` — đây là lần cuối dựng lại `audit_logs_entity_type_check`. Xem [support/requests.md](support/requests.md),
+  `UnitType`, `Role` — V32 dựng lại `audit_logs_entity_type_check` lần nữa (thêm entity type nhân sự). Xem [support/requests.md](support/requests.md),
   [backoffice/overview.md](backoffice/overview.md).
 - V27 thêm cột `rental_contracts.document_html` (bản hợp đồng chốt lúc ký) và `rental_contracts.access_suspended_at`
   (tạm khoá truy cập do quá hạn kéo dài); seed policy `rent.invoice_lead_days = 5` (hoá đơn tiền thuê hằng tháng) và
@@ -211,8 +225,7 @@ Schema Flow 1.3 đi bằng migration V8–V11:
 - V28 thêm cột `rental_orders.canceled_at` (backfill từ audit `RENTAL_ORDER_CANCELED`; mốc cọc bị giữ lại trong báo
   cáo doanh thu), `proposal_feedbacks.agreed_at` (mốc cửa sổ đặt lịch check-in khi đơn đã cọc đổi khoang),
   `return_requests.no_show_count`; seed policy `return.no_show_grace_minutes = 120`, `return.max_no_shows = 2`; thêm
-  audit action `RETURN_NO_SHOW` — đây là lần cuối dựng lại `audit_logs_action_check` (đủ mọi giá trị của
-  `AuditAction`). Notification type `RETURN_NO_SHOW` chỉ thêm ở code. Cron `ReturnNoShowJob`
+  audit action `RETURN_NO_SHOW` — V32 dựng lại `audit_logs_action_check` lần nữa (thêm action nhân sự). Notification type `RETURN_NO_SHOW` chỉ thêm ở code. Cron `ReturnNoShowJob`
   (`tenancy.return-no-show.fixed-delay-ms`, mặc định 10 phút). Xem [tenancy/rentals.md](tenancy/rentals.md),
   [backoffice/overview.md](backoffice/overview.md), [booking/appointment-booking.md](booking/appointment-booking.md).
 - V29 chuyển `Attached` các upload `Pending` đang được biên bản bàn giao / biên bản trả kho / yêu cầu hỗ trợ / bản
@@ -222,6 +235,30 @@ Schema Flow 1.3 đi bằng migration V8–V11:
   khi xác định được đúng một đơn giữ khoang.
 - V31 thêm `invoices.refund_amount` — số phải hoàn khi chỉ hoàn một phần (rỗng = cả hoá đơn); FM ghi nhận đủ số này
   thì hoá đơn `Refunded` ([payment.md › Hoàn tiền thủ công](payment.md#hoàn-tiền-thủ-công)).
+- V32 thêm `staff_shifts`, `staff_leaves`, `staff_profiles`; seed policy `staff.shift_required = true`, ca mẫu
+  07:00–21:00 mỗi ngày (`CURRENT_DATE − 7` … `+ 60`) cho FS `ACTIVE` đang gán cơ sở, 4 permission `staff_*` + 7 dòng
+  mapping; dựng lại `audit_logs_action_check` (thêm `STAFF_SHIFT_*`, `STAFF_LEAVE_*`, `STAFF_PROFILE_UPDATED`) và
+  `audit_logs_entity_type_check` (thêm `StaffShift`, `StaffLeave`, `StaffProfile`) — hai CHECK là đúng tập giá trị
+  của `AuditAction` / `AuditEntityType`. Notification type `STAFF_SHIFT_CHANGED`, `STAFF_LEAVE_REQUESTED`,
+  `STAFF_LEAVE_REVIEWED` chỉ thêm ở code. Xem [backoffice/hr.md](backoffice/hr.md).
+- V35 thêm bảng `account_requests` (yêu cầu tạo tài khoản FM / FS của BOM, `replaces_account_id` khi thay người nghỉ
+  việc; unique `lower(email)` và `replaces_account_id` khi `Pending`), trạng thái tài khoản `INACTIVE` trong
+  `accounts_status_check`; dựng lại hai CHECK của `audit_logs` (thêm `ACCOUNT_REQUEST_*`, `AccountRequest`).
+  Notification type `ACCOUNT_REQUEST_SUBMITTED`, `ACCOUNT_REQUEST_REVIEWED`, `ACCOUNT_READY` chỉ thêm ở code. Xem
+  [backoffice/overview.md › Yêu cầu tạo tài khoản](backoffice/overview.md#yêu-cầu-tạo-tài-khoản-bom--admin).
+- V36 hạ policy `fee.lost_key` (phí mỗi chìa cơ mất / không trả lại) từ 200000 xuống 100000 — chỉ khi DB còn giữ
+  giá seed V25; giá BOM đã chỉnh giữ nguyên.
+- V37 (Flow 7 — khoang hư): thêm `Transferring` vào CHECK `support_requests.status`, bảng `unit_transfers` (chuyển
+  khoang giữa kỳ thuê gắn yêu cầu hỗ trợ; unique một lần chuyển đang mở / hợp đồng), dựng lại hai CHECK của
+  `audit_logs` (thêm `UNIT_TRANSFER_*`, `CONTRACT_UNIT_CHANGED`, `UnitTransfer`). Notification type
+  `UNIT_TRANSFER_REQUESTED`, `UNIT_TRANSFER_ALLOCATED`, `UNIT_TRANSFER_COMPLETED`, `UNIT_TRANSFER_CANCELED` chỉ thêm ở
+  code. Xem [support/requests.md › Chuyển khoang](support/requests.md#chuyển-khoang-khoang-hư-giữa-kỳ-thuê).
+- V38 (Flow 6 — khoá chặn của cơ sở): bảng `unit_overlocks` (`Required` / `Applied` / `RemovalRequired` / `Removed`
+  / `Canceled`; unique một khoá chặn đang mở / hợp đồng), dựng lại hai CHECK của `audit_logs` (thêm `OVERLOCK_*`,
+  `UnitOverlock`). Notification type `OVERLOCK_REQUIRED`, `OVERLOCK_REMOVAL_REQUIRED`, `OVERLOCK_REMOVED` chỉ thêm ở
+  code. Xem [tenancy/rentals.md › Khoá chặn](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ).
+- V39: `unit_overlocks.assigned_staff_id` + `assigned_at` (FM giao một FS gắn / gỡ khoá chặn), dựng lại CHECK
+  `audit_logs.action` (thêm `OVERLOCK_ASSIGNED`). Notification type `OVERLOCK_ASSIGNED` chỉ thêm ở code.
 - Policy `appointment.checkin_reschedule_enabled` không được seed: khách không đổi được lịch check-in `Pending`
   ([booking/appointment-booking.md](booking/appointment-booking.md)).
 
@@ -258,14 +295,23 @@ Phiên bàn giao dựng sẵn tới bước khách đã đến: `backend/sql/dev
   `10000`) giới hạn connect/read/write SMTP để SMTP treo không giữ request quá lâu.
 - Thiếu `MAIL_USERNAME`/`MAIL_PASSWORD` thì app vẫn khởi động, nhưng mỗi lần gửi Gmail từ chối xác
   thực → log ERROR và `send` trả `false` (nghiệp vụ không rollback).
+- Kênh gửi chọn bằng `app.mail.provider` (`MAIL_PROVIDER`): `smtp` (mặc định, `SmtpEmailSender`) hoặc `brevo`
+  (`BrevoEmailSender` — `POST https://api.brevo.com/v3/smtp/email` qua HTTPS, header `api-key`; timeout nối 5 giây /
+  đọc 15 giây). Dùng `brevo` khi host chặn cổng SMTP 25/465/587 — Render chặn ở web service gói free. Người gửi =
+  `MAIL_FROM` (dạng `email` hoặc `Tên <email>`), phải là sender đã xác minh trên Brevo; tên hiển thị `MAIL_FROM_NAME`
+  (mặc định "Kho Mộc"). Chọn `brevo` mà thiếu `BREVO_API_KEY` → app dừng lúc khởi động. Brevo trả lỗi (key sai, sender
+  chưa xác minh…) → log ERROR kèm thông báo của Brevo, `send` trả `false`. Hai kênh dùng chung lớp cha
+  `DeferredEmailSender` (gửi sau commit, executor nền, nuốt lỗi) nên hành vi giống nhau.
 - Giới hạn Gmail: khoảng 500 người nhận/ngày với tài khoản thường; account seed `@lemar.vn` là địa
   chỉ giả nên mail gửi tới sẽ bị trả về — test bằng email thật.
 - Caller tự dựng `subject` và `body`.
 - **Known limitation**:
   - Gửi best-effort, không retry/outbox. Process chết sau commit nhưng trước khi gửi xong thì
     email mất, không dấu vết. Gửi lỗi trả `false` và không thử lại.
-  - Gửi đồng bộ trên thread caller, kể cả nhánh afterCommit — SMTP chậm làm chậm response.
-    Không dùng `@Async`, không có outbox / worker.
+  - Gửi trên executor nền của `DeferredEmailSender` (2 luồng, hàng đợi 500; đầy thì luồng gọi tự gửi): request
+    trả về ngay sau commit, không chờ SMTP (Gmail mở kết nối TLS mỗi email, 1–3 giây). `true` = đã xếp hàng, chưa
+    chắc đã gửi xong. Tắt app thì đợi tối đa 20 giây cho mail đang xếp hàng. `app.mail.async=false` (cấu hình test)
+    gửi đồng bộ. Không có outbox / worker bền: mail đang xếp hàng mất nếu process chết.
   - Layout HTML là mẫu cố định dùng chung; nội dung theo `(type, recipient)` do
     `NotificationTemplateCatalog` render (placeholder `{{key}}`).
 
@@ -297,11 +343,11 @@ Phiên bàn giao dựng sẵn tới bước khách đã đến: `backend/sql/dev
 - File lưu theo folder `uploads/acc-{accountId}` — upload mồ côi vẫn truy vết được chủ sở hữu.
 - Module khác kiểm URL client gửi lên có đúng là file của account đó qua `vn.lemar.selfstorage.media.MediaUrlLookup`
   (chỉ đọc): `notUploadedBy(accountId, urls)` trả các URL **không** khớp upload `Pending`/`Attached` của account
-  (upload đã huỷ/xoá không tính). Handover dùng cho ảnh hiện trạng và bản scan hợp đồng.
+  (upload đã huỷ/xoá không tính). Handover dùng cho ảnh giấy tờ tuỳ thân, ảnh hiện trạng và bản scan hợp đồng.
 - Mỗi upload ghi row `media_uploads` (`Uploading` → `Pending`). `DELETE /batch/{batchId}` dọn asset
   chưa attach; `POST /batch/{batchId}/attach` đánh dấu `Attached` để không xoá nữa.
 - **Attach phía server:** flow lưu URL vào entity thì upload `Pending` của account đó chuyển `Attached` trong cùng transaction qua `media.MediaAttachments.attach` — không phụ thuộc FE gọi `/attach`:
-  ảnh hiện trạng + bản scan hợp đồng (handover, sau khi kiểm URL), ảnh biên bản trả kho (`CheckoutService.inspect`),
+  ảnh giấy tờ tuỳ thân + ảnh hiện trạng + bản scan hợp đồng (handover, sau khi kiểm URL), ảnh biên bản trả kho (`CheckoutService.inspect`),
   ảnh yêu cầu hỗ trợ (`SupportService.create`). URL không khớp upload `Pending` của account bị bỏ qua (không lỗi).
 - **Cron dọn upload bỏ ngang** (`MediaCleanupJob`, mỗi giờ — `media.orphan-cleanup.fixed-delay-ms`): row
   `Uploading`/`Pending` không đổi trạng thái quá `media.orphan-cleanup.max-age` (mặc định 3 ngày) → xoá asset trên
@@ -393,6 +439,8 @@ bấm **Authorize** và dán token (không cần prefix `Bearer `) để gọi A
 | [permission-catalog.md](permission-catalog.md) | Catalog permission + mapping role mặc định |
 | [error-handling.md](error-handling.md) | Xử lý lỗi: envelope, các tầng bắt lỗi, bảng status nền |
 | [audit-log.md](audit-log.md) | Hợp đồng tích hợp AuditLog cho module gọi + call site hiện có |
+| [backoffice/overview.md](backoffice/overview.md) | Back-office FM / BOM / Admin |
+| [backoffice/hr.md](backoffice/hr.md) | Nhân sự: ca làm việc, nghỉ phép, luật phân công theo ca, báo cáo nhân sự, hồ sơ |
 | [booking/conversion.md](booking/conversion.md) | Convert request → đơn + proposal, claim sau xác minh |
 | [booking/proposal-flow.md](booking/proposal-flow.md) | Đồng ý / từ chối đề xuất khoang, đề xuất lại: sơ đồ, state, invariant |
 | [booking/appointment-no-show.md](booking/appointment-no-show.md) | Cron no-show check-in, guard `noShowDue`, audit/notification |

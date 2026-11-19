@@ -11,6 +11,7 @@ import {
   useResource,
   type CustomerProposal,
 } from "../app/services/customer";
+import { UnitLocationCard } from "../components/domain/UnitLocationCard";
 import { Button } from "../components/ui/Button";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { StatusTag } from "../components/ui/StatusTag";
@@ -180,6 +181,16 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                   </div>
                 </div>
 
+                {isPending && (
+                  <div className="mt-4">
+                    <UnitLocationCard
+                      facilityId={proposal.facilityId}
+                      unitCode={proposal.unitCode}
+                      title="Khoang được đề xuất nằm ở"
+                    />
+                  </div>
+                )}
+
                 {proposal.note && (
                   <p className="mt-4 bg-surface-subtle p-3 text-small text-muted">
                     Lý do từ chối: {proposal.note}
@@ -222,7 +233,7 @@ export function ProposalsPage({ navigate }: { navigate: Navigate }) {
                     <label className="grid gap-1.5 text-label text-muted">
                       Lý do từ chối *
                       <textarea
-                        className="min-h-[70px] rounded-[2px] border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
+                        className="min-h-[70px] rounded-lg border border-rule-strong bg-surface p-2.5 text-small font-normal text-ink"
                         value={rejectNote}
                         onChange={(event) => setRejectNote(event.target.value)}
                         placeholder="Cho cơ sở biết vì sao khoang này chưa phù hợp…"

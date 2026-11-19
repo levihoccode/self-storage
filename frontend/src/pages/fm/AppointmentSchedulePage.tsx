@@ -8,7 +8,7 @@ import {
   type FmAppointment,
 } from "../../app/appointments";
 import { fetchCurrentFmFacility, type FmFacility } from "../../app/fmFacility";
-import { fetchFacilityStaff, type FmStaff } from "../../app/fmStaff";
+import { fetchFacilityStaff, staffDaySummary, type FmStaff } from "../../app/fmStaff";
 import { Button } from "../../components/ui/Button";
 import { DemoNotice } from "../../components/ui/DemoNotice";
 import { DetailPanel } from "../../components/ui/DetailPanel";
@@ -69,7 +69,7 @@ export function AppointmentSchedulePage() {
         const current = await fetchCurrentFmFacility();
         const [dayAppointments, facilityStaff] = await Promise.all([
           fetchFmAppointments(current.id, date),
-          fetchFacilityStaff(current.id),
+          fetchFacilityStaff(current.id, date),
         ]);
         if (!active) return;
         setFacility(current);
@@ -93,6 +93,7 @@ export function AppointmentSchedulePage() {
   }, [date, reloadKey]);
 
   const staffById = new Map(staff.map((member) => [member.id, member]));
+  const selectedStaff = staffById.get(Number(selectedStaffId)) ?? null;
   const openAppointment = appointments.find((item) => item.id === openId) ?? null;
   const filtered = unassignedOnly
     ? appointments.filter((item) => item.staffId === null)
@@ -185,7 +186,7 @@ export function AppointmentSchedulePage() {
         <label className="grid max-w-[200px] gap-1.5 text-label text-muted">
           Ngày
           <input
-            className="h-11 rounded-[2px] border border-rule-strong bg-surface px-3 text-small text-ink outline-0 transition-colors focus:border-brand"
+            className="h-11 rounded-lg border border-rule-strong bg-surface px-3 text-small text-ink outline-0 transition-colors focus:border-brand"
             type="date"
             value={date}
             onChange={(event) => event.target.value && changeDate(event.target.value)}
@@ -307,7 +308,7 @@ export function AppointmentSchedulePage() {
                       ? "Chọn nhân viên FS"
                       : "Đổi sang nhân viên FS"}
                     <select
-                      className="rounded-[2px] border border-rule-strong bg-surface px-3 py-2.5 text-small text-ink"
+                      className="rounded-lg border border-rule-strong bg-surface px-3 py-2.5 text-small text-ink"
                       value={selectedStaffId}
                       onChange={(event) => setSelectedStaffId(event.target.value)}
                     >
@@ -316,11 +317,18 @@ export function AppointmentSchedulePage() {
                         .filter((member) => member.id !== openAppointment.staffId)
                         .map((member) => (
                           <option key={member.id} value={member.id}>
-                            {staffLabel(member)}
+                            {staffLabel(member)} — {staffDaySummary(member)}
                           </option>
                         ))}
                     </select>
                   </label>
+                  {selectedStaff && (
+                    <p className="mt-2 text-label text-muted">
+                      Ngày {formatDateVN(openAppointment.date)}: {staffDaySummary(selectedStaff)}.
+                      FS cần có ca bao trọn giờ hẹn và không nghỉ phép — hệ thống kiểm khi phân
+                      công.
+                    </p>
+                  )}
                   <div className="mt-5">
                     <Button pending={assigning} disabled={!selectedStaffId} onClick={assign}>
                       {!assigning && <Check size={16} />}

@@ -127,7 +127,7 @@ class PostRentalControllerTest {
         when(tenancy.facilityReturns(1L)).thenReturn(List.of(returnView("Pending")));
         when(tenancy.assign(3L, 5L)).thenReturn(returnView("Assigned"));
         when(overdue.facilityOverdue(1L)).thenReturn(List.of(new OverdueContract(7L, "HD-1", 4L, "A-01",
-                LocalDate.now(), 5, 2, new BigDecimal("40000"), null, false)));
+                LocalDate.now(), 5, 2, new BigDecimal("40000"), null, false, false, null)));
 
         mockMvc.perform(as(get("/api/fm/return-requests?facilityId=1"), FM)).andExpect(status().isOk());
         mockMvc.perform(json(post("/api/fm/return-requests/3/assign"), FM, "{\"staffId\":5}"))
@@ -152,7 +152,7 @@ class PostRentalControllerTest {
     private static RentalView rental() {
         return new RentalView(7L, "HD-1", 4L, 1L, "A-01", 1L, "Active", new BigDecimal("100000"),
                 new BigDecimal("500000"), 3, LocalDate.now(), LocalDate.now().plusMonths(3), 90, false, List.of(),
-                List.of(), null, true, true);
+                List.of(), null, true, true, List.of(), false);
     }
 
     private static ReturnRequestView returnView(String status) {
@@ -164,7 +164,7 @@ class PostRentalControllerTest {
     private static CheckoutView checkoutView() {
         return new CheckoutView(returnView("Assigned"), Instant.now(), "IN_PROGRESS", true, false, BigDecimal.ZERO,
                 null, 2, List.of(), null, Instant.now(), new BigDecimal("500000"), new BigDecimal("100000"),
-                new BigDecimal("200000"), 2, BigDecimal.ZERO, null, null, null, null);
+                new BigDecimal("200000"), 2, BigDecimal.ZERO, null, null, null, null, false, null);
     }
 
     private void login(String email, String roleName, Long accountId) {

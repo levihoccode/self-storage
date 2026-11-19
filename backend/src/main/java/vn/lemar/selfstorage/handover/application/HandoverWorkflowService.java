@@ -40,6 +40,8 @@ import vn.lemar.selfstorage.handover.repository.RentalContractRepository;
 import vn.lemar.selfstorage.identity.application.AccountQueryService;
 import vn.lemar.selfstorage.identity.application.Access;
 import vn.lemar.selfstorage.identity.application.CurrentAccountProvider;
+import vn.lemar.selfstorage.identity.application.CustomerContactService;
+import vn.lemar.selfstorage.identity.application.CustomerContactService.Contact;
 import vn.lemar.selfstorage.media.MediaAttachments;
 import vn.lemar.selfstorage.media.MediaUrlLookup;
 import vn.lemar.selfstorage.notification.application.NotificationRecipient;
@@ -91,6 +93,14 @@ public class HandoverWorkflowService {
     static final String MSG_SCAN_NOT_UPLOADED = "Bản scan hợp đồng phải là tệp bạn đã tải lên hệ thống — vui lòng "
             + "tải bản scan lên lại";
     static final int MAX_PHOTOS = 20;
+    static final int MAX_IDENTITY_PHOTOS = 4;
+    static final int MAX_CUSTOMER_NAME = 255;
+    /** Cùng định dạng số điện thoại của form gửi nhu cầu ({@code CreateRentalRequestRequest}). */
+    static final java.util.regex.Pattern PHONE = java.util.regex.Pattern.compile("^\\+?[0-9 .\\-()]{7,20}$");
+    static final String MSG_IDENTITY_PHOTO_REQUIRED = "Cần ít nhất một ảnh CCCD/hộ chiếu khi xác minh đạt";
+    static final String MSG_MAX_IDENTITY_PHOTOS = "Tối đa 4 ảnh giấy tờ tuỳ thân";
+    static final String MSG_IDENTITY_PHOTO_NOT_UPLOADED = "Ảnh giấy tờ phải là ảnh bạn đã tải lên hệ thống — vui "
+            + "lòng tải ảnh lên lại";
 
     private static final Logger LOG = LoggerFactory.getLogger(HandoverWorkflowService.class);
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -113,6 +123,7 @@ public class HandoverWorkflowService {
     private final AuditRecorder auditRecorder;
     private final MediaUrlLookup mediaUrls;
     private final MediaAttachments mediaAttachments;
+    private final CustomerContactService customerContacts;
 
     HandoverWorkflowService(HandoverRecordRepository records, RentalContractRepository contracts,
                             HandoverReadRepository readRepository, HandoverOrderService orders,
@@ -120,7 +131,8 @@ public class HandoverWorkflowService {
                             FacilityAccess facilityAccess, PricingQuery pricingQuery, Access access,
                             CurrentAccountProvider currentAccount, AccountQueryService accountQuery,
                             NotificationService notificationService, AuditRecorder auditRecorder,
-                            MediaUrlLookup mediaUrls, MediaAttachments mediaAttachments) {
+                            MediaUrlLookup mediaUrls, MediaAttachments mediaAttachments,
+                            CustomerContactService customerContacts) {
         this.records = records;
         this.contracts = contracts;
         this.readRepository = readRepository;
@@ -136,6 +148,7 @@ public class HandoverWorkflowService {
         this.auditRecorder = auditRecorder;
         this.mediaUrls = mediaUrls;
         this.mediaAttachments = mediaAttachments;
+        this.customerContacts = customerContacts;
     }
 
     /** Khách từ chối khoang: chạm ngưỡng mà chưa xác nhận huỷ đơn → {@code requiresConfirmation}. */
@@ -148,18 +161,30 @@ public class HandoverWorkflowService {
 
     // ---------------------------------------------------------------- FS
 
-    /** Spec 2.2: FS đối chiếu giấy tờ với tài khoản của đơn. */
+    /**
+     * Spec 2.2: FS đối chiếu giấy tờ với tài khoản của đơn. Đạt bắt buộc 1–4 ảnh CCCD/hộ chiếu; không đạt ảnh tuỳ
+     * chọn. Ảnh phải là upload của chính FS này và được attach trong cùng transaction.
+     */
     @Transactional
-    public void verifyIdentity(Long handoverId, boolean passed, String note) {
+    public void verifyIdentity(Long handoverId, boolean passed, String note, List<String> photos) {
+        List<String> list = photos == null ? List.of() : photos;
+        if (passed && list.isEmpty()) {
+            throw new HandoverValidationException(MSG_IDENTITY_PHOTO_REQUIRED);
+        }
+        if (list.size() > MAX_IDENTITY_PHOTOS) {
+            throw new HandoverValidationException(MSG_MAX_IDENTITY_PHOTOS);
+        }
         Locked locked = lockForStaff(handoverId, PERM_VERIFY);
         HandoverRecord record = locked.record();
         if (record.identityVerified()) {
             throw new HandoverConflictException("Danh tính đã được xác minh");
         }
+        requireUploaded(locked.actorId(), list, record.getIdentityPhotos(), MSG_IDENTITY_PHOTO_NOT_UPLOADED);
         String before = record.getIdentityStatus();
-        record.verifyIdentity(passed, Instant.now());
+        record.verifyIdentity(passed, list, Instant.now());
         Map<String, Object> newValue = new HashMap<>();
         newValue.put("identityStatus", record.getIdentityStatus());
+        newValue.put("photoCount", list.size());
         if (note != null && !note.isBlank()) {
             newValue.put("note", note.trim());
         }
@@ -215,6 +240,58 @@ public class HandoverWorkflowService {
         record.correctInspection(newNotes, newPhotos, Instant.now());
         audit(AuditAction.INSPECTION_CORRECTED, AuditEntityType.HANDOVER_RECORD, record.getId(), oldValue,
                 inspectionSnapshot(record), reason.trim(), locked.actorId());
+    }
+
+    /**
+     * FS sửa họ tên / số điện thoại bên thuê sau khi đã đối chiếu giấy tờ, trước khi ký: ghi thẳng vào tài khoản khách
+     * (hợp đồng {@code Draft} render động nên thấy ngay; bản đã ký của hợp đồng khác giữ nguyên bản chốt). Audit
+     * {@code ACCOUNT_UPDATED} trên tài khoản khách, lý do kèm số phiên. Hợp đồng của đơn đã ký → 409.
+     */
+    @Transactional
+    public void correctCustomerInfo(Long handoverId, String name, String phone, String reason) {
+        String newName = trimToNull(name);
+        String newPhone = trimToNull(phone);
+        String why = trimToNull(reason);
+        if (why == null) {
+            throw new HandoverValidationException("Vui lòng nhập lý do sửa thông tin bên thuê");
+        }
+        if (why.length() > 500) {
+            throw new HandoverValidationException("Lý do tối đa 500 ký tự");
+        }
+        if (newName == null || newName.length() > MAX_CUSTOMER_NAME) {
+            throw new HandoverValidationException("Họ tên bên thuê không được trống, tối đa 255 ký tự");
+        }
+        if (newPhone == null || !PHONE.matcher(newPhone).matches()) {
+            throw new HandoverValidationException("Số điện thoại không đúng định dạng (7–20 ký tự số, + ( ) - .)");
+        }
+        Locked locked = lockForStaff(handoverId, PERM_VERIFY);
+        if (!locked.record().identityVerified()) {
+            throw new HandoverConflictException("Cần xác minh danh tính trước khi sửa thông tin bên thuê");
+        }
+        // Khoá hợp đồng đang xử lý của đơn (đơn → biên bản → hợp đồng): không chạy song song với bước ký.
+        boolean signed = contracts.findByOrderIdAndStatusInForUpdate(locked.record().getOrderId(),
+                        List.of(RentalContractStatus.DRAFT, RentalContractStatus.SIGNED, RentalContractStatus.ACTIVE))
+                .stream().anyMatch(c -> c.getStatus() != RentalContractStatus.DRAFT);
+        if (signed) {
+            throw new HandoverConflictException("Hợp đồng đã ký — không sửa thông tin bên thuê");
+        }
+        HandoverRow row = locked.row();
+        if (newName.equals(row.customerName()) && newPhone.equals(row.customerPhone())) {
+            throw new HandoverValidationException("Thông tin bên thuê không thay đổi");
+        }
+        Long customerId = locked.order().customerId();
+        Contact before = customerContacts.get(customerId);
+        customerContacts.update(customerId, newName, newPhone);
+        audit(AuditAction.ACCOUNT_UPDATED, AuditEntityType.ACCOUNT, customerId, contactSnapshot(before),
+                contactSnapshot(new Contact(newName, newPhone)),
+                "Sửa tại phiên bàn giao #" + handoverId + ": " + why, locked.actorId());
+    }
+
+    private static Map<String, Object> contactSnapshot(Contact contact) {
+        Map<String, Object> value = new HashMap<>();
+        value.put("name", contact.name());
+        value.put("phone", contact.phone());
+        return value;
     }
 
     /** Spec 2.3: FS đề nghị đổi mốc tính tiền trên hợp đồng {@code Draft}; FM duyệt. */
@@ -549,16 +626,21 @@ public class HandoverWorkflowService {
      * được attach (cùng transaction) để cron dọn upload bỏ ngang không xoá.
      */
     private void requireUploadedPhotos(Long actorId, List<String> photos, HandoverRecord record) {
+        requireUploaded(actorId, photos, record.getInspectionPhotos(), MSG_PHOTO_NOT_UPLOADED);
+    }
+
+    /** URL mới (chưa có trên record) phải là upload của FS này; attach chúng trong cùng transaction. */
+    private void requireUploaded(Long actorId, List<String> photos, List<String> current, String message) {
         if (photos == null || photos.isEmpty()) {
             return;
         }
         if (photos.stream().anyMatch(url -> url == null || url.isBlank())) {
-            throw new HandoverValidationException(MSG_PHOTO_NOT_UPLOADED);
+            throw new HandoverValidationException(message);
         }
-        List<String> existing = record.getInspectionPhotos() == null ? List.of() : record.getInspectionPhotos();
+        List<String> existing = current == null ? List.of() : current;
         List<String> fresh = photos.stream().filter(url -> !existing.contains(url)).toList();
         if (!fresh.isEmpty() && !mediaUrls.notUploadedBy(actorId, fresh).isEmpty()) {
-            throw new HandoverValidationException(MSG_PHOTO_NOT_UPLOADED);
+            throw new HandoverValidationException(message);
         }
         mediaAttachments.attach(actorId, fresh);
     }

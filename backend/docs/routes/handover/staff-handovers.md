@@ -14,22 +14,28 @@ purpose: FS — "Đơn đang bàn giao" và các thao tác Flow 2.2–2.5 trên 
 |---|---|---|---|---|
 | GET | `/api/staff/handovers` | — | — | Phiên `IN_PROGRESS`, khách đã đến, lịch phân cho FS |
 | GET | `/api/staff/handovers/{id}` | `rental_order.read` | — | `HandoverView` |
-| POST | `/api/staff/handovers/{id}/identity` | `handover_record.verify_identity` | `{verified, note?}` | `Verified` / `Failed` |
+| POST | `/api/staff/handovers/{id}/identity` | `handover_record.verify_identity` | `{verified, note?, photos?[]}` — `verified=true` cần 1–4 ảnh CCCD/hộ chiếu (upload của FS này) | `Verified` / `Failed`; ảnh lưu `identity_photos`, trả trong `identityPhotos` |
 | PUT | `/api/staff/handovers/{id}/inspection` | `handover_record.inspect` | `{notes?, photos?[]}` | Lưu hiện trạng (sửa được tới khi khách chốt); ảnh phải là upload của FS này |
 | POST | `/api/staff/handovers/{id}/inspection-correction` | `handover_record.inspect` | `{notes?, photos?[], reason}` | Sửa hiện trạng sau khi khách đã đồng ý; audit `INSPECTION_CORRECTED`; hợp đồng đã ký không đổi |
+| POST | `/api/staff/handovers/{id}/customer-info` | `handover_record.verify_identity` | `{name, phone, reason}` | Sửa họ tên / số điện thoại bên thuê (ghi vào tài khoản khách) khi đã xác minh danh tính và hợp đồng chưa ký; audit `ACCOUNT_UPDATED` |
 | POST | `/api/staff/contracts/{contractId}/start-date-override` | `rental_contract.start_date_override.request` | `{requestedDate, reason}` | Đề nghị `Pending`, khoá bước ký |
 | POST | `/api/staff/contracts/{contractId}/sign` | `rental_contract.sign` | `{pdfUrl}` (upload của FS này) | Hợp đồng `Signed`, chốt bản in `document_html` + hoá đơn `INV-RNT-…` (trả trong `data`) |
 | POST | `/api/staff/handovers/{id}/not-signed` | `rental_contract.sign` | — | Cascade "Khách không ký hợp đồng" (chỉ khi hợp đồng `Draft`) |
 | POST | `/api/staff/handovers/{id}/keys` | `unit_access_key.issue` | `{quantity}` (1–10) | Chốt bàn giao (khách đã chọn khóa cơ / cả hai) |
 
 Mutation trên `/handovers/{id}` trả `HandoverView` mới (`step` = bước kế tiếp). Lỗi:
-- 400 — body sai; ảnh hiện trạng / `pdfUrl` không phải file FS này đã upload qua `/api/media` (upload `Pending` /
-  `Attached`); sửa hiện trạng thiếu `reason`, `reason` > 500 ký tự, > 20 ảnh, hoặc sau khi sửa không còn ghi chú lẫn
-  ảnh;
+- 400 — body sai; ảnh hiện trạng / ảnh giấy tờ / `pdfUrl` không phải file FS này đã upload qua `/api/media` (upload
+  `Pending` / `Attached`); xác minh đạt mà không có ảnh giấy tờ, hoặc > 4 ảnh giấy tờ; sửa hiện trạng thiếu `reason`, `reason` > 500 ký tự, > 20 ảnh, hoặc sau khi sửa không còn ghi chú lẫn
+  ảnh; sửa thông tin bên thuê thiếu `reason` / họ tên, họ tên > 255 ký tự, số điện thoại sai định dạng hoặc không có gì
+  thay đổi;
 - 403 — không đúng FS / thiếu quyền;
 - 404 — không có phiên;
 - 409 — sai thứ tự bước, phiên đã đóng (kể cả sửa hiện trạng sau khi đã chốt bàn giao), đơn không `InProgress`; sửa
-  hiện trạng khi khách chưa đồng ý hiện trạng.
+  hiện trạng khi khách chưa đồng ý hiện trạng; sửa thông tin bên thuê khi chưa xác minh danh tính hoặc hợp đồng đã ký.
+
+`HandoverView.previousSession`: phiên gần nhất trước đó của cùng đơn đã đóng vì FS dời lịch (lý do, giờ hẹn cũ, kết quả
+xác minh + ảnh giấy tờ, hiện trạng + ảnh), `null` nếu không có — chỉ để xem lại, xem
+[staff-appointment-reschedule.md](staff-appointment-reschedule.md).
 
 `HandoverView.step` (`HandoverQueryService.step`, cùng giá trị cho khách và FS) — kiểm theo thứ tự, gặp điều kiện
 đầu tiên chưa đạt thì dừng:
@@ -53,7 +59,12 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: a
   -d '{"email":"fs1@lemar.vn","password":"Test@1234"}' | jq -r .data.token)
 
 curl -s -X POST http://localhost:8080/api/staff/handovers/3/identity -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"verified":true}' | jq '.data.step'
+  -H 'Content-Type: application/json' -d '{"verified":true}' | jq '.message'
+# "Cần ít nhất một ảnh CCCD/hộ chiếu khi xác minh đạt"   (400)
+
+curl -s -X POST http://localhost:8080/api/staff/handovers/3/identity -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"verified":true,"photos":["https://res.cloudinary.com/x/cccd-front.jpg"]}' | jq '.data.step'
 # "INSPECTION"
 
 curl -s -X POST http://localhost:8080/api/staff/contracts/2/sign -H "Authorization: Bearer $TOKEN" \

@@ -33,6 +33,7 @@ import {
   useResource,
   type CheckoutView,
   type ContractBill,
+  type RentalView,
   type ReturnRequestView,
 } from "../app/services/customer";
 import { Button } from "../components/ui/Button";
@@ -40,6 +41,7 @@ import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { DemoNotice } from "../components/ui/DemoNotice";
 import { DetailPanel } from "../components/ui/DetailPanel";
 import { FIELD_LABEL, INPUT_ELEMENT, INPUT_WRAP } from "../components/ui/FormField";
+import { UnitLocationCard } from "../components/domain/UnitLocationCard";
 import { SectionTitle } from "../components/ui/SectionTitle";
 import { StatusTag } from "../components/ui/StatusTag";
 import { SurfaceState } from "../components/ui/SurfaceState";
@@ -193,6 +195,16 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
           <span className="text-label text-muted">
             Khoang {contract.unitCode} · Hợp đồng {contract.contractCode}
           </span>
+          {(contract.unitMoves ?? []).map((move) => (
+            <span
+              key={`${move.fromUnitCode}-${move.movedAt}`}
+              className="block text-label text-muted"
+            >
+              Đã chuyển từ khoang {move.fromUnitCode} sang {move.toUnitCode}
+              {move.movedAt ? ` ngày ${formatDateTime(move.movedAt)}` : ""} (khoang cũ hư) — giá
+              thuê giữ nguyên; bản hợp đồng đã ký vẫn ghi khoang cũ.
+            </span>
+          ))}
           <h1 className="mt-1 text-title text-ink">{facility?.name ?? "Hợp đồng thuê kho"}</h1>
           {facility?.address && (
             <p className="mt-1.5 flex items-center gap-1.5 text-small text-muted">
@@ -219,6 +231,8 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
         </div>
       </div>
 
+      <UnitLocationCard facilityId={contract.facilityId} unitCode={contract.unitCode} />
+
       <div className="grid grid-cols-4 gap-2 max-[980px]:grid-cols-2 max-[760px]:grid-cols-1">
         <Summary label="Giá thuê / tháng" value={formatMoney(contract.monthlyPrice)} />
         <Summary label="Tiền cọc" value={formatMoney(contract.depositAmount)} />
@@ -237,11 +251,27 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
         )}
       </div>
 
-      {contract.overdue && (
-        <DemoNotice tone="error">
-          Hợp đồng đã qua ngày kết thúc {formatDate(contract.endDate)}. Phí quá hạn (nếu có) được
-          ghi vào hoá đơn của hợp đồng — gia hạn hoặc gửi yêu cầu trả kho để dừng phát sinh.
-        </DemoNotice>
+      {contract.status === "Active" && contract.overdue && (
+        <OverduePanel
+          contract={contract}
+          payingId={payment.payingId}
+          onPay={(invoiceId) => payment.pay(invoiceId)}
+          onExtended={(bill) => {
+            setNotice({
+              tone: "success",
+              message: `Đã tạo hoá đơn gia hạn ${bill.code} · ${formatMoney(bill.amount)}. Thanh toán để cộng thêm kỳ thuê — truy cập được mở lại ngay sau khi trả.`,
+            });
+            rental.reload();
+          }}
+          onReturned={() => {
+            setNotice({
+              tone: "success",
+              message:
+                "Đã gửi yêu cầu trả kho. Cơ sở sẽ phân công nhân viên và báo lịch hẹn; khi bạn đến buổi hẹn, khoang được mở để dọn đồ.",
+            });
+            reloadAll();
+          }}
+        />
       )}
       {notice && <DemoNotice tone={notice.tone}>{notice.message}</DemoNotice>}
 
@@ -272,7 +302,7 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={contract.status !== "Active"}
+                  disabled={contract.status !== "Active" || contract.accessSuspended}
                   onClick={() => {
                     setAccessCode(null);
                     setCodeConfirm(true);
@@ -284,6 +314,12 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
             >
               Quyền truy cập
             </SectionTitle>
+            {contract.accessSuspended && (
+              <p className="mt-3 bg-danger-soft p-3 text-small text-danger">
+                Quyền truy cập đang tạm khoá do quá hạn (mã số đã thu hồi). Trả phí quá hạn và gia
+                hạn, hoặc đến buổi trả kho để được mở lại — sau đó lấy mã khoá số mới tại đây.
+              </p>
+            )}
             {accessCode && (
               <div className="mt-4 border-2 border-brand bg-surface-subtle p-4 text-center">
                 <span className="text-label text-muted">Mã khoá số mới — chỉ hiển thị một lần</span>
@@ -361,7 +397,24 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
         </div>
 
         <aside className="grid gap-3">
-          {contract.canExtend && (
+          {/* Còn phí quá hạn chưa trả: backend chặn gia hạn (canExtend = false) — trả phí trước rồi mới gia hạn. */}
+          {!contract.canExtend &&
+            contract.status === "Active" &&
+            !contract.overdue &&
+            (() => {
+              const overdueFee = contract.invoices.find(
+                (bill) => bill.code.startsWith("INV-OVD-") && bill.status === "Unpaid",
+              );
+              return overdueFee ? (
+                <div className="bg-warning-soft p-4 text-small text-warning">
+                  <strong className="block">Thanh toán phí quá hạn trước khi gia hạn</strong>
+                  Còn phí quá hạn {formatMoney(overdueFee.amount)} chưa thanh toán (hoá đơn{" "}
+                  {overdueFee.code}). Thanh toán hoá đơn này ở danh sách hoá đơn bên dưới, sau đó
+                  mới gia hạn được. Nếu trả kho, phí sẽ được trừ vào tiền cọc.
+                </div>
+              ) : null;
+            })()}
+          {contract.canExtend && !contract.overdue && (
             <ExtendPanel
               contractId={contract.contractId}
               monthlyPrice={contract.monthlyPrice}
@@ -374,7 +427,7 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
               }}
             />
           )}
-          {contract.canRequestReturn && (
+          {contract.canRequestReturn && !contract.overdue && (
             <ReturnPanel
               contractId={contract.contractId}
               onDone={() => {
@@ -388,6 +441,7 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
           )}
           {!contract.canExtend &&
             !contract.canRequestReturn &&
+            !contract.overdue &&
             (contract.invoices.some(
               (bill) => bill.type === "Extension" && bill.status === "Unpaid",
             ) ? (
@@ -609,6 +663,182 @@ function ExtendPanel({
   );
 }
 
+/**
+ * Hợp đồng quá hạn: hai cách xử lý trong một khung — (1) trả phí quá hạn rồi gia hạn (truy cập mở lại ngay sau khi
+ * trả), (2) trả kho (khoang mở để dọn đồ khi nhân viên xác nhận bạn đến buổi hẹn; nợ trừ vào cọc). Số tiền trả kho là
+ * tạm tính: phí còn tăng tới ngày buổi trả kho, chưa gồm phí vệ sinh / hư hỏng / mất chìa.
+ */
+function OverduePanel({
+  contract,
+  payingId,
+  onPay,
+  onExtended,
+  onReturned,
+}: {
+  contract: RentalView;
+  payingId: number | null;
+  onPay: (invoiceId: number) => void;
+  onExtended: (bill: ContractBill) => void;
+  onReturned: () => void;
+}) {
+  const days = Math.abs(contract.daysLeft);
+  const fee =
+    contract.invoices.find(
+      (bill) => bill.code.startsWith("INV-OVD-") && bill.status === "Unpaid",
+    ) ?? null;
+  const otherDebt = contract.invoices
+    // Quyết toán trả kho gộp hoá đơn Unpaid + tiền thuê Expired (nợ thuê chưa trả).
+    .filter(
+      (bill) =>
+        (bill.status === "Unpaid" &&
+          bill.invoiceId !== fee?.invoiceId &&
+          bill.type !== "Extension") ||
+        (bill.status === "Expired" && bill.type === "Rental"),
+    )
+    .reduce((sum, bill) => sum + Number(bill.amount), 0);
+  const owed = Number(fee?.amount ?? 0) + otherDebt;
+  const balance = Number(contract.depositAmount) - owed;
+  // Hợp đồng đang khoá: khi khách đến buổi trả kho, mọi khoản nợ gộp vào một hoá đơn INV-DBT — trả xong mới mở khoang.
+  const moveOutDebt =
+    contract.invoices.find(
+      (bill) => bill.code.startsWith("INV-DBT-") && bill.status === "Unpaid",
+    ) ?? null;
+  const extensionPending = contract.invoices.some(
+    (bill) => bill.type === "Extension" && bill.status === "Unpaid",
+  );
+  const request = contract.returnRequest;
+
+  return (
+    <section className="border-l-4 border-danger bg-surface p-5">
+      <h2 className="m-0 flex items-center gap-2 text-section text-danger">
+        <AlertTriangle size={18} /> Hợp đồng đã quá hạn {days} ngày
+      </h2>
+      <p className="mt-1 text-small text-muted">
+        Kết thúc ngày {formatDate(contract.endDate)}.{" "}
+        {contract.accessSuspended
+          ? "Quyền truy cập khoang đang tạm khoá — chọn một trong hai cách dưới đây để được mở lại."
+          : "Phí quá hạn tính theo ngày sau thời gian ân hạn — chọn một trong hai cách dưới đây."}
+      </p>
+      <dl className="mb-0 mt-4 grid grid-cols-3 gap-2 text-small max-[760px]:grid-cols-1">
+        <div className="bg-surface-subtle p-3">
+          <dt className="text-label text-muted">Phí quá hạn hiện tại</dt>
+          <dd className="m-0 mt-1 font-semibold text-ink">
+            {fee ? `${formatMoney(fee.amount)} · ${fee.code}` : "Chưa phát sinh (còn ân hạn)"}
+          </dd>
+        </div>
+        <div className="bg-surface-subtle p-3">
+          <dt className="text-label text-muted">Hoá đơn khác chưa trả</dt>
+          <dd className="m-0 mt-1 font-semibold text-ink">{formatMoney(otherDebt)}</dd>
+        </div>
+        <div className="bg-surface-subtle p-3">
+          <dt className="text-label text-muted">Tiền cọc đang giữ</dt>
+          <dd className="m-0 mt-1 font-semibold text-ink">{formatMoney(contract.depositAmount)}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-4 grid grid-cols-2 gap-4 max-[980px]:grid-cols-1">
+        <div className="grid content-start gap-3 bg-surface-subtle p-4">
+          <strong className="text-small text-ink">Cách 1 — Trả phí và gia hạn</strong>
+          <ol className="m-0 grid gap-1 pl-5 text-small text-muted">
+            <li>Thanh toán phí quá hạn (bắt buộc trước khi gia hạn).</li>
+            <li>Tạo hoá đơn gia hạn và thanh toán.</li>
+            <li>
+              Truy cập được mở lại ngay sau khi trả — lấy mã khoá số mới trong trang này. Khoang
+              dùng chìa đã bị gắn khoá chặn của cơ sở thì nhân viên gỡ và bạn nhận thông báo.
+            </li>
+          </ol>
+          {fee && (
+            <Button pending={payingId === fee.invoiceId} onClick={() => onPay(fee.invoiceId)}>
+              Thanh toán phí {formatMoney(fee.amount)}
+            </Button>
+          )}
+          {contract.canExtend ? (
+            <ExtendPanel
+              contractId={contract.contractId}
+              monthlyPrice={contract.monthlyPrice}
+              onDone={onExtended}
+            />
+          ) : (
+            <p className="m-0 text-label text-muted">
+              {request
+                ? "Đang có yêu cầu trả kho — không gia hạn được."
+                : extensionPending
+                  ? "Đã có hoá đơn gia hạn chờ thanh toán ở danh sách hoá đơn."
+                  : fee
+                    ? "Form gia hạn hiện ra sau khi bạn thanh toán phí quá hạn."
+                    : "Hợp đồng hiện không gia hạn được."}
+            </p>
+          )}
+        </div>
+
+        <div className="grid content-start gap-3 bg-surface-subtle p-4">
+          <strong className="text-small text-ink">Cách 2 — Trả kho</strong>
+          {contract.accessSuspended ? (
+            <ul className="m-0 grid gap-1 pl-5 text-small text-muted">
+              <li>
+                Khi bạn đến buổi trả kho, hệ thống chốt phí quá hạn tới ngày đó và gộp mọi khoản còn
+                nợ thành một hoá đơn.
+              </li>
+              <li>
+                Thanh toán hết hoá đơn đó (ngay tại buổi hẹn) thì khoang mới được mở để bạn dọn đồ.
+              </li>
+              <li>
+                Tiền cọc giữ nguyên — khi quyết toán chỉ trừ phí vệ sinh, hư hỏng, mất chìa (nếu có)
+                rồi hoàn phần dư.
+              </li>
+              <li>
+                Cần thanh toán khoảng <strong className="text-ink">{formatMoney(owed)}</strong>{" "}
+                (tính tới hôm nay; phí quá hạn còn tăng tới ngày buổi hẹn).
+              </li>
+            </ul>
+          ) : (
+            <ul className="m-0 grid gap-1 pl-5 text-small text-muted">
+              <li>
+                Khi bạn đến buổi trả kho, nhân viên kiểm tra khoang cùng bạn rồi chốt biên bản.
+              </li>
+              <li>Phí quá hạn dừng ở ngày buổi trả kho và được trừ vào tiền cọc khi quyết toán.</li>
+              <li>
+                Tạm tính hiện tại:{" "}
+                <strong className="text-ink">
+                  {balance >= 0
+                    ? `được hoàn khoảng ${formatMoney(balance)}`
+                    : `phải trả thêm khoảng ${formatMoney(-balance)}`}
+                </strong>{" "}
+                (chưa gồm phí vệ sinh, hư hỏng, mất chìa nếu có).
+              </li>
+            </ul>
+          )}
+          {moveOutDebt && (
+            <Button
+              pending={payingId === moveOutDebt.invoiceId}
+              onClick={() => onPay(moveOutDebt.invoiceId)}
+            >
+              Thanh toán {formatMoney(moveOutDebt.amount)} để mở khoang
+            </Button>
+          )}
+          {request ? (
+            <p className="m-0 bg-surface p-3 text-small text-ink">
+              Đã gửi yêu cầu trả kho ngày {formatDate(request.preferredDate)} —{" "}
+              {RETURN_STATUS[request.status]?.label ?? request.status}
+              {request.appointmentStart
+                ? ` · lịch hẹn ${formatDateTime(request.appointmentStart)}`
+                : " · chờ cơ sở phân công và báo lịch"}
+              .
+            </p>
+          ) : contract.canRequestReturn ? (
+            <ReturnPanel contractId={contract.contractId} onDone={onReturned} />
+          ) : (
+            <p className="m-0 text-label text-muted">
+              Đang có hoá đơn gia hạn chờ thanh toán — thanh toán hoặc đợi hoá đơn hết hạn rồi mới
+              gửi yêu cầu trả kho.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ReturnPanel({ contractId, onDone }: { contractId: number; onDone: () => void }) {
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
@@ -659,7 +889,7 @@ function ReturnPanel({ contractId, onDone }: { contractId: number; onDone: () =>
         maxLength={1000}
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        className="min-h-[64px] w-full rounded-[2px] border border-rule-strong bg-surface p-2.5 text-small text-ink"
+        className="min-h-[64px] w-full rounded-lg border border-rule-strong bg-surface p-2.5 text-small text-ink"
       />
       {error && <DemoNotice tone="error">{error}</DemoNotice>}
       <Button
