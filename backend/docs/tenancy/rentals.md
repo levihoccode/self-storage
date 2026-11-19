@@ -290,3 +290,5 @@ FM xem danh sách hợp đồng quá hạn của cơ sở (`GET /api/fm/overdue-
 ## Test
 
 `tenancy/PostRentalIntegrationTest.java` (Postgres) và `tenancy/controller/PostRentalControllerTest.java` (HTTP).
+`overdue/application/Flow6HttpE2ETest.java` chạy Flow 6 qua HTTP thật cộng `OverdueJob`: cộng phí quá hạn, tạm khoá
+truy cập khi quá hạn kéo dài, gia hạn phủ kỳ quá hạn, trả phí rồi mở lại truy cập.
