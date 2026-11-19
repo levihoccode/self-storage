@@ -112,7 +112,7 @@ public class TenancyService {
                              int period, LocalDate startDate, LocalDate endDate, long daysLeft, boolean overdue,
                              List<ContractBill> invoices, List<RentalContractService.AccessKeySnapshot> accessKeys,
                              ReturnRequestView returnRequest, boolean canExtend, boolean canRequestReturn,
-                             List<UnitMoveNote> unitMoves, boolean accessSuspended) {
+                             List<UnitMoveNote> unitMoves, boolean accessSuspended, LocalDate reclaimDate) {
     }
 
     /**
@@ -447,7 +447,10 @@ public class TenancyService {
                 bills, contracts.accessKeys(c.id()), open,
                 c.active() && open == null && !extensionPending && !overdueFeeOpen,
                 c.active() && open == null && !extensionPending, unitMoves(c.id()),
-                c.active() && contracts.accessSuspended(c.id()));
+                c.active() && contracts.accessSuspended(c.id()),
+                // Quá hạn: ngày cơ sở được thu hồi khoang nếu khách không xử lý (overdue.abandon_days).
+                c.active() && daysLeft < 0 ? c.endDate().plusDays(pricingQuery.intPolicy("overdue.abandon_days"))
+                        : null);
     }
 
     /** Hoá đơn phí quá hạn {@code INV-OVD} còn {@code Unpaid} của hợp đồng (tối đa một). */

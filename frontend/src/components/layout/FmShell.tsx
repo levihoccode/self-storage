@@ -1,4 +1,5 @@
 import {
+  Archive,
   BarChart3,
   Bell,
   CalendarClock,
@@ -57,6 +58,13 @@ const navigation: (WorkspaceNavItem & { view: View; ready: boolean })[] = [
     path: "/fm/extend-requests",
     view: "fm-extend-requests",
     icon: CalendarClock,
+    ready: true,
+  },
+  {
+    label: "Thu hồi & lưu giữ",
+    path: "/fm/reclaims",
+    view: "fm-reclaims",
+    icon: Archive,
     ready: true,
   },
   {

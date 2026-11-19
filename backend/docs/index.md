@@ -147,7 +147,7 @@ hướng dẫn ở [docs/vnpay-testing.md](../../docs/vnpay-testing.md); chạy 
 ## Database & seed
 
 Flyway chạy migration lúc khởi động, từ `V1__baseline_schema.sql` tới file mới nhất trong `db/migration/`
-(hiện `V39__unit_overlock_assignee.sql`). V1/V2 có mirror byte-identical ở `backend/sql/` (CI check đồng bộ) và đã
+(hiện `V40__reclaim_and_hold.sql`). V1/V2 có mirror byte-identical ở `backend/sql/` (CI check đồng bộ) và đã
 đóng băng như mọi migration đã apply — đổi schema/seed bằng migration mới ([backend/sql/README.md](../sql/README.md));
 V3+ đọc trực tiếp trong `db/migration/`.
 
@@ -257,6 +257,13 @@ Schema Flow 1.3 đi bằng migration V8–V11:
   / `Canceled`; unique một khoá chặn đang mở / hợp đồng), dựng lại hai CHECK của `audit_logs` (thêm `OVERLOCK_*`,
   `UnitOverlock`). Notification type `OVERLOCK_REQUIRED`, `OVERLOCK_REMOVAL_REQUIRED`, `OVERLOCK_REMOVED` chỉ thêm ở
   code. Xem [tenancy/rentals.md › Khoá chặn](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ).
+- V40 (Flow 6 — thu hồi khoang / lưu giữ / thanh lý): seed 6 policy (`overdue.abandon_notice_days` 7,
+  `overdue.abandon_days` 45, `storage.hold_days` 60, `storage.liquidation_notice_days` 7, `fee.reclaim` 300000,
+  `fee.hold_per_day` 10000), bảng `reclaimed_goods`, dựng lại hai CHECK của `audit_logs` (thêm `CONTRACT_RECLAIMED`,
+  `GOODS_*`, `ReclaimedGoods`). Notification type `RECLAIM_FINAL_NOTICE`, `RECLAIM_DUE`, `GOODS_RECLAIMED`,
+  `GOODS_RETURN_REQUESTED`, `GOODS_RETURNED`, `LIQUIDATION_NOTICE`, `GOODS_LIQUIDATED`,
+  `GOODS_SURPLUS_REFUND_REQUIRED` chỉ thêm ở code. Xem
+  [tenancy/rentals.md › Thu hồi khoang](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý).
 - V39: `unit_overlocks.assigned_staff_id` + `assigned_at` (FM giao một FS gắn / gỡ khoá chặn), dựng lại CHECK
   `audit_logs.action` (thêm `OVERLOCK_ASSIGNED`). Notification type `OVERLOCK_ASSIGNED` chỉ thêm ở code.
 - Policy `appointment.checkin_reschedule_enabled` không được seed: khách không đổi được lịch check-in `Pending`
@@ -374,6 +381,7 @@ Phiên bàn giao dựng sẵn tới bước khách đã đến: `backend/sql/dev
 | `DepositStateRepairJob` | `booking.deposit-repair.fixed-delay-ms` (5') | sửa state hoá đơn cọc `Unpaid` đã có `PAY/Success` (listener lỗi) — [payment.md](payment.md#các-lớp-xác-nhận--đối-soát) |
 | `PendingPaymentWatchdogJob` | `payment.pending-watchdog.fixed-delay-ms` (5') | mở case đối soát cho `PAY/Pending` quá 15', báo ADMIN; không đổi trạng thái, không gọi cổng — [payment.md](payment.md#đối-soát-thủ-công) |
 | `HandoverOverdueJob` | `handover.overdue.fixed-delay-ms` (5') | đóng phiên bàn giao quá `due_at` (đợi phiên trả tháng đầu còn mở) — [handover/records.md](handover/records.md) |
+| `ReclaimJobs.notifyLiquidation` | `checkout.liquidation-notice.fixed-delay-ms` (1 giờ) | báo khách + FM đồ lưu giữ sắp tới hạn thanh lý — [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
 | `CheckoutJobs.reopenUnits` | `checkout.maintenance.fixed-delay-ms` (10') | mở lại khoang hết hạn bảo trì sau trả kho — [checkout/return.md](checkout/return.md#bảo-trì--mở-lại) |
 | `OverdueJob` | `overdue.job.fixed-delay-ms` (1 giờ) | nhắc sắp hết hạn, nhắc + cộng phí quá hạn, tạm khoá / mở lại truy cập khi quá hạn kéo dài — [tenancy/rentals.md](tenancy/rentals.md#quá-hạn-flow-6); lập hoá đơn tiền thuê tháng kế tiếp (`RentBillingService`) — [tenancy/rentals.md](tenancy/rentals.md#thu-tiền-thuê-hằng-tháng) |
 

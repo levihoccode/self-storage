@@ -76,6 +76,13 @@ hữu route (xem quy ước ở cuối trang).
 | POST | `/api/staff/return-requests/{id}/checkout/confirm` | Bearer + role `FS`; `unit_access_key.issue` + đúng FS | Chốt trả kho, quyết toán cọc | [checkout/return.md](checkout/return.md) |
 | GET | `/api/staff/overlocks` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Khoá chặn đang mở ở các cơ sở của tôi | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
 | POST | `/api/staff/overlocks/{id}/apply` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Xác nhận đã gắn khoá chặn (`Required → Applied`) | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
+| GET | `/api/fm/reclaims?facilityId=` | Bearer + role `FM`; `facility.access` | Chờ thu hồi + đồ lưu giữ của cơ sở | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| POST | `/api/fm/contracts/{contractId}/reclaim` | Bearer + role `FM`; `facility.access` | Thu hồi khoang của hợp đồng quá hạn kéo dài | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| POST | `/api/fm/reclaimed-goods/{id}/return` | Bearer + role `FM`; `facility.access` | Trả đồ lưu giữ cho khách (đã trả hết nợ) | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| POST | `/api/fm/reclaimed-goods/{id}/liquidate` | Bearer + role `FM`; `facility.access` | Thanh lý đồ sau hạn lưu giữ | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| POST | `/api/fm/reclaimed-goods/{id}/surplus-refunded` | Bearer + role `FM`; `facility.access` | Ghi nhận đã hoàn tiền dư thanh lý | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| GET | `/api/customer/reclaimed-goods` | Bearer + role `CUSTOMER` | Đồ lưu giữ của tôi | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| POST | `/api/customer/reclaimed-goods/{id}/return-request` | Bearer + role `CUSTOMER`; chủ hợp đồng | Yêu cầu nhận lại đồ (lập `INV-HLD`) | [tenancy/rentals.md](tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
 | GET | `/api/fm/overlocks?facilityId=` | Bearer + role `FM`; `rental_order.read` + facility scope | Khoá chặn đang mở của cơ sở, kèm FS phụ trách | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
 | POST | `/api/fm/overlocks/{id}/assign` | Bearer + role `FM`; `appointment.assign` + facility scope | Giao (lại) FS gắn / gỡ khoá chặn | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |
 | POST | `/api/staff/overlocks/{id}/remove` | Bearer + role `FS`; `unit_access_key.issue` + facility scope | Xác nhận đã gỡ khoá chặn (`RemovalRequired → Removed`) | [tenancy/rentals.md](tenancy/rentals.md#khoá-chặn-của-cơ-sở-chìa-cơ) |

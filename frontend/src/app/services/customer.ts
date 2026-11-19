@@ -487,6 +487,8 @@ export type RentalView = {
   unitMoves: { fromUnitCode: string; toUnitCode: string; movedAt: string | null }[];
   /** Quyền truy cập đang tạm khoá do quá hạn kéo dài (mã số bị thu hồi). */
   accessSuspended: boolean;
+  /** Hợp đồng quá hạn: ngày cơ sở được thu hồi khoang nếu khách không xử lý (`overdue.abandon_days`). */
+  reclaimDate: string | null;
 };
 
 /** CheckoutService.CheckoutView. */
@@ -517,6 +519,47 @@ export type CheckoutView = {
 
 export function fetchRentals(): Promise<RentalView[]> {
   return authed<RentalView[]>("/api/customer/rentals");
+}
+
+/** `ReclaimService.GoodsView` — lô đồ cơ sở thu hồi từ khoang và đang / đã lưu giữ. */
+export type ReclaimedGoods = {
+  id: number;
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitCode: string;
+  status: "Holding" | "Returned" | "Liquidated";
+  reclaimedAt: string;
+  witnessName: string | null;
+  inventoryNote: string;
+  photos: string[];
+  storageLocation: string;
+  holdUntil: string;
+  daysHeld: number;
+  holdFeePerDay: number;
+  outstandingDebt: number;
+  returnRequestedAt: string | null;
+  returnReady: boolean;
+  liquidationDue: boolean;
+  returnedAt: string | null;
+  liquidatedAt: string | null;
+  proceedsAmount: number | null;
+  liquidationNote: string | null;
+  liquidationPhotos: string[];
+  surplusAmount: number | null;
+  surplusRefundedAt: string | null;
+};
+
+/** GET /api/customer/reclaimed-goods — đồ lưu giữ của các hợp đồng của tôi. */
+export function fetchMyReclaimedGoods(): Promise<ReclaimedGoods[]> {
+  return authed<ReclaimedGoods[]>("/api/customer/reclaimed-goods");
+}
+
+/** POST /api/customer/reclaimed-goods/{id}/return-request — lập hoá đơn phí lưu giữ, báo FM. */
+export function requestGoodsReturn(id: number): Promise<ReclaimedGoods> {
+  return authed<ReclaimedGoods>(`/api/customer/reclaimed-goods/${id}/return-request`, {
+    method: "POST",
+  });
 }
 
 /** Hợp đồng đã kết thúc (đã trả kho), kết thúc gần nhất trước. */

@@ -34,7 +34,8 @@ public enum AuditEntityType {
     STAFF_PROFILE("StaffProfile"),
     ACCOUNT_REQUEST("AccountRequest"),
     UNIT_TRANSFER("UnitTransfer"),
-    UNIT_OVERLOCK("UnitOverlock");
+    UNIT_OVERLOCK("UnitOverlock"),
+    RECLAIMED_GOODS("ReclaimedGoods");
 
     private final String dbValue;
 

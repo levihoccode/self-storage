@@ -32,6 +32,7 @@ class OverdueJob {
         each("nhắc hợp đồng sắp hết hạn", service::expiringIds, service::remindExpiring);
         each("phí quá hạn", service::overdueCandidateIds, service::accrue);
         each("gộp nợ trước khi dọn đồ trả kho", service::suspendedIds, service::prepareMoveOut);
+        each("nhắc thu hồi khoang", service::suspendedIds, service::remindReclaim);
         each("mở lại truy cập", service::suspendedIds, service::restoreIfCleared);
         each("hoá đơn tiền thuê", rentBilling::candidateIds, rentBilling::bill);
     }

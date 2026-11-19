@@ -280,6 +280,53 @@ FM xem danh sách hợp đồng quá hạn của cơ sở (`GET /api/fm/overdue-
 - đang tạm khoá truy cập không (`accessSuspended`) và trạng thái khoá chặn đang mở (`overlockStatus`, `null` = không
   có).
 
+### Thu hồi khoang, lưu giữ và thanh lý
+
+Hợp đồng quá hạn kéo dài mà khách bỏ đi (`checkout/application/ReclaimService.java`, bảng `reclaimed_goods` — V40).
+Đồ trong khoang **không** mặc nhiên thuộc về cơ sở: cơ sở thu hồi khoang, lưu giữ đồ, rồi mới thanh lý theo Điều 6 hợp
+đồng mẫu; tiền thanh lý chỉ dùng trừ nợ, phần dư là của khách.
+
+| Mốc (ngày quá hạn) | Việc |
+|---|---|
+| `abandon_days − abandon_notice_days` (38) | `OverdueService.remindReclaim` (cron `OverdueJob`): hợp đồng đang tạm khoá, khách chưa đến buổi trả kho → khách + FM nhận `RECLAIM_FINAL_NOTICE` (mốc thu hồi, thời hạn lưu giữ, phí) — một lần mỗi kỳ |
+| `overdue.abandon_days` (45) | FM nhận `RECLAIM_DUE`; hợp đồng hiện "thu hồi được" ở trang **Thu hồi & lưu giữ** (`GET /api/fm/reclaims?facilityId=`) |
+
+Trước khi FM thu hồi, khách vẫn tự xử lý được (trả phí + gia hạn, hoặc đến trả kho và trả hết nợ) — hợp đồng rời danh
+sách. `RentalView.reclaimDate` (= `end_date + abandon_days` khi quá hạn) để trang hợp đồng của khách cảnh báo trước.
+
+**Thu hồi** (`POST /api/fm/contracts/{contractId}/reclaim` `{witnessStaffId, inventoryNote, photos, storageLocation}`,
+`facility.access`). Điều kiện: hợp đồng `Active`, quá hạn ≥ `abandon_days`, đang tạm khoá, không có yêu cầu trả kho mở
+(có → 409, xử lý theo buổi trả kho), chưa thu hồi; FS chứng kiến đang hoạt động và thuộc cơ sở (400), biên bản kiểm
+kê (≤ 4000 ký tự), 1–20 ảnh, vị trí lưu giữ. Một transaction, khoá đơn → hợp đồng:
+- khoá chặn đang mở đóng lại (`Required → Canceled`, đã gắn → `Removed`) — khoá khoang được thay khi bảo trì;
+- `revokeAll(returnedKeys = 0)`: chìa cơ → `Lost`, mã số → `Revoked`;
+- quyết toán như trả kho: mọi hoá đơn `Unpaid` (phí quá hạn, `INV-DBT`…) + tiền thuê `Expired` gộp vào `INV-PEN`, cộng
+  phí thu hồi `fee.reclaim` (`INV-RCL`) và phí mất chìa (`INV-KEY`) → trừ cọc theo thứ tự RCL → KEY → PEN. Thiếu → một
+  hoá đơn `INV-DBT` (công nợ, không tự hết hạn); dư → hàng đợi hoàn cọc như trả kho;
+- hợp đồng `Ended`; khoang `Maintenance` thủ công (không `maintenance_started_at` — FM thay khoá rồi mở lại tay);
+- lô đồ `Holding`, `hold_until = hôm nay + storage.hold_days` (60); ảnh attach media; audit `CONTRACT_RECLAIMED`; khách
+  nhận `GOODS_RECLAIMED` (hạn lưu giữ, công nợ, phí lưu giữ).
+
+**Khách nhận lại đồ** — trang hợp đồng (đã kết thúc) hiện khung "Khoang đã bị thu hồi" (biên bản, ảnh, công nợ):
+- `POST /api/customer/reclaimed-goods/{id}/return-request`: lập `INV-HLD` (`Service`) = số ngày đã giữ (tối thiểu 1) ×
+  `fee.hold_per_day` − phí lưu giữ đã trả, nếu chưa có `INV-HLD` chưa trả; FM nhận `GOODS_RETURN_REQUESTED` (lần đầu);
+  audit `GOODS_RETURN_REQUESTED`. `GET /api/customer/reclaimed-goods` trả đồ lưu giữ của khách.
+- Khách trả `INV-DBT` + `INV-HLD` → FM `POST /api/fm/reclaimed-goods/{id}/return` (chưa yêu cầu / còn nợ → 409) →
+  `Returned`, khách nhận `GOODS_RETURNED`.
+
+**Thanh lý** (`POST /api/fm/reclaimed-goods/{id}/liquidate` `{proceeds, note, photos}` — chỉ sau `hold_until`, 409 trước):
+- 7 ngày trước hạn (`storage.liquidation_notice_days`) cron `ReclaimJobs` (mỗi giờ) báo khách + FM
+  `LIQUIDATION_NOTICE`, một lần mỗi lô;
+- phí lưu giữ tới hôm nay (trừ phần đã trả) + `INV-DBT` / `INV-HLD` chưa trả (huỷ, gộp) = tổng nợ; tiền thanh lý (VND
+  nguyên ≥ 0) trừ nợ → hoá đơn `INV-LIQ` `Paid`; thiếu → `INV-DBT` mới; dư → `surplus_amount` giữ hộ khách, FM nhận
+  `GOODS_SURPLUS_REFUND_REQUIRED`, hoàn ngoài hệ thống rồi ghi nhận
+  `POST /api/fm/reclaimed-goods/{id}/surplus-refunded`;
+- lô `Liquidated`, audit `GOODS_LIQUIDATED`; khách nhận `GOODS_LIQUIDATED` (thu bao nhiêu, trừ bao nhiêu, dư / thiếu).
+  Biên bản ghi rõ món bán / giấy tờ gửi trả hoặc bàn giao cơ quan chức năng / huỷ.
+
+**Công nợ:** khách (theo email) còn `INV-DBT` chưa trả thì không gửi được yêu cầu thuê mới — 409 "Bạn còn công nợ của
+hợp đồng trước…" (`RentalRequestService.create`).
+
 ## Policy
 
 | Key | Mặc định | Migration |
@@ -293,6 +340,12 @@ FM xem danh sách hợp đồng quá hạn của cơ sở (`GET /api/fm/overdue-
 | `overdue.escalation_days` | 30 | V27 |
 | `return.no_show_grace_minutes` | 120 | V28 |
 | `return.max_no_shows` | 2 | V28 |
+| `overdue.abandon_notice_days` | 7 | V40 |
+| `overdue.abandon_days` | 45 | V40 |
+| `storage.hold_days` | 60 | V40 |
+| `storage.liquidation_notice_days` | 7 | V40 |
+| `fee.reclaim` | 300000 | V40 |
+| `fee.hold_per_day` | 10000 | V40 |
 
 ## Test
 

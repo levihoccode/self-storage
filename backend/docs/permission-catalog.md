@@ -89,6 +89,7 @@ gọi `canGlobalOrAt` vì `rental_order.read` của ADMIN/BOM là `G`:
 | Code | Call site dùng lại | Route |
 |---|---|---|
 | `rental_order.read` | `HandoverQueryService` (chi tiết phiên bàn giao FS), `ContractDocumentService` (bản hợp đồng), `TenancyService.facilityReturns`, `OverdueService.facilityOverdue`, `SupportService.facilityRequests`, `UnitOverlockService.facilityQueue` | `GET /api/staff/handovers/{id}`, `GET /api/contracts/{id}/document`, `GET /api/fm/return-requests`, `GET /api/fm/overdue-contracts`, `GET /api/fm/support-requests`, `GET /api/fm/overlocks` |
+| `facility.access` (thu hồi) | `ReclaimService` (danh sách, thu hồi, trả đồ, thanh lý, hoàn tiền dư — route `/api/fm/**` chỉ role FM) | `/api/fm/reclaims`, `/api/fm/contracts/{id}/reclaim`, `/api/fm/reclaimed-goods/{id}/…` |
 | `appointment.assign` | `TenancyService.assign`, `SupportService.assign`, `SupportService.resolve` (người gọi không phải FS được giao), `UnitOverlockService.assign` | `POST /api/fm/return-requests/{id}/assign`, `POST /api/fm/support-requests/{id}/assign`, `POST /api/fm/support-requests/{id}/resolve`, `POST /api/fm/overlocks/{id}/assign` |
 | `unit_access_key.issue` | `CheckoutService` (xem / ghi / chốt biên bản trả kho), `SupportService.resolve` (FS được giao), `UnitOverlockService` (gắn / gỡ khoá chặn) | `…/api/staff/return-requests/{id}/checkout…`, `POST /api/staff/support-requests/{id}/resolve`, `/api/staff/overlocks…` |
 

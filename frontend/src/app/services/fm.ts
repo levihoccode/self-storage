@@ -434,6 +434,83 @@ export function fetchOverdueContracts(facilityId: number): Promise<OverdueContra
   return authed(`/api/fm/overdue-contracts${query({ facilityId })}`);
 }
 
+/** `ReclaimService.GoodsView` — lô đồ cơ sở thu hồi từ khoang và đang / đã lưu giữ. */
+export type ReclaimedGoods = {
+  id: number;
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitCode: string;
+  status: "Holding" | "Returned" | "Liquidated";
+  reclaimedAt: string;
+  witnessName: string | null;
+  inventoryNote: string;
+  photos: string[];
+  storageLocation: string;
+  holdUntil: string;
+  daysHeld: number;
+  holdFeePerDay: number;
+  outstandingDebt: number;
+  returnRequestedAt: string | null;
+  returnReady: boolean;
+  liquidationDue: boolean;
+  returnedAt: string | null;
+  liquidatedAt: string | null;
+  proceedsAmount: number | null;
+  liquidationNote: string | null;
+  liquidationPhotos: string[];
+  surplusAmount: number | null;
+  surplusRefundedAt: string | null;
+};
+
+/** `ReclaimService.ReclaimCandidate` — hợp đồng đang tạm khoá tới / sắp tới mốc thu hồi. */
+export type ReclaimCandidate = {
+  contractId: number;
+  contractCode: string;
+  orderId: number;
+  unitCode: string;
+  endDate: string;
+  daysOverdue: number;
+  reclaimDate: string;
+  eligible: boolean;
+  returnRequestOpen: boolean;
+  outstanding: number;
+  depositAmount: number;
+};
+
+export type ReclaimBoard = { candidates: ReclaimCandidate[]; goods: ReclaimedGoods[] };
+
+export function fetchReclaimBoard(facilityId: number): Promise<ReclaimBoard> {
+  return authed(`/api/fm/reclaims${query({ facilityId })}`);
+}
+
+export function reclaimContract(
+  contractId: number,
+  body: {
+    witnessStaffId: number;
+    inventoryNote: string;
+    photos: string[];
+    storageLocation: string;
+  },
+): Promise<ReclaimedGoods> {
+  return authed(`/api/fm/contracts/${contractId}/reclaim`, { method: "POST", body });
+}
+
+export function returnReclaimedGoods(id: number): Promise<ReclaimedGoods> {
+  return authed(`/api/fm/reclaimed-goods/${id}/return`, { method: "POST" });
+}
+
+export function liquidateReclaimedGoods(
+  id: number,
+  body: { proceeds: number; note: string; photos: string[] },
+): Promise<ReclaimedGoods> {
+  return authed(`/api/fm/reclaimed-goods/${id}/liquidate`, { method: "POST", body });
+}
+
+export function markGoodsSurplusRefunded(id: number): Promise<ReclaimedGoods> {
+  return authed(`/api/fm/reclaimed-goods/${id}/surplus-refunded`, { method: "POST" });
+}
+
 /** `UnitOverlockService.OverlockView` — khoá chặn của cơ sở trên khoang dùng chìa cơ. */
 export type FmOverlock = {
   id: number;

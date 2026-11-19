@@ -24,6 +24,7 @@ import { ProposalRedoPage } from "./pages/fm/ProposalRedoPage";
 import { AppointmentSchedulePage } from "./pages/fm/AppointmentSchedulePage";
 import { ReturnRequestQueuePage } from "./pages/fm/ReturnRequestQueuePage";
 import { ExtendRequestQueuePage } from "./pages/fm/ExtendRequestQueuePage";
+import { ReclaimPage } from "./pages/fm/ReclaimPage";
 import { SupportRequestQueuePage } from "./pages/fm/SupportRequestQueuePage";
 import { StorageUnitManagementPage } from "./pages/fm/StorageUnitManagementPage";
 import { StaffListPage } from "./pages/fm/StaffListPage";
@@ -175,6 +176,7 @@ function App() {
     view === "fm-appointments" ||
     view === "fm-return-requests" ||
     view === "fm-extend-requests" ||
+    view === "fm-reclaims" ||
     view === "fm-support-requests" ||
     view === "fm-storage-units" ||
     view === "fm-staff" ||
@@ -284,6 +286,7 @@ function App() {
           {view === "fm-appointments" && <AppointmentSchedulePage />}
           {view === "fm-return-requests" && <ReturnRequestQueuePage />}
           {view === "fm-extend-requests" && <ExtendRequestQueuePage />}
+          {view === "fm-reclaims" && <ReclaimPage />}
           {view === "fm-support-requests" && <SupportRequestQueuePage />}
           {view === "fm-storage-units" && <StorageUnitManagementPage navigate={navigate} />}
           {view === "fm-staff" && <StaffListPage />}

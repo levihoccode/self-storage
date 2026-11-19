@@ -130,6 +130,24 @@ public class UnitOverlock {
         return REMOVAL_REQUIRED.equals(status);
     }
 
+    /**
+     * Thu hồi khoang: khoá của khoang được thay khi bảo trì nên khoá chặn không còn việc — chưa gắn thì huỷ, đã gắn thì
+     * coi như đã gỡ. Trả trạng thái trước đó.
+     */
+    public String closeForReclaim(Long actorId, String note, Instant now) {
+        String before = status;
+        if (REQUIRED.equals(status)) {
+            this.status = CANCELED;
+            this.canceledAt = now;
+        } else if (APPLIED.equals(status) || REMOVAL_REQUIRED.equals(status)) {
+            this.status = REMOVED;
+            this.removedBy = actorId;
+            this.removedAt = now;
+            this.note = note;
+        }
+        return before;
+    }
+
     /** FS đã gỡ khoá chặn: {@code RemovalRequired → Removed}. */
     public void remove(Long staffId, String note, Instant now) {
         if (!REMOVAL_REQUIRED.equals(status)) {

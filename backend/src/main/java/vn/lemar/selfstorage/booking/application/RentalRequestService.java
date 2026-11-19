@@ -21,6 +21,7 @@ import vn.lemar.selfstorage.booking.application.dto.RejectRentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.dto.RentalRequestPageResponse;
 import vn.lemar.selfstorage.booking.application.dto.RentalRequestResponse;
 import vn.lemar.selfstorage.booking.application.dto.RentalRequestSummaryResponse;
+import vn.lemar.selfstorage.booking.application.exception.BookingConflictException;
 import vn.lemar.selfstorage.booking.application.exception.FacilityNotFoundException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestAlreadyHandledException;
 import vn.lemar.selfstorage.booking.application.exception.RentalRequestDuplicateUnitException;
@@ -133,6 +134,11 @@ public class RentalRequestService {
             throw new RentalRequestValidationException("Ngày bắt đầu thuê không được ở quá khứ");
         }
         String normalizedEmail = request.customerEmail().strip().toLowerCase();
+        // Còn công nợ (hợp đồng bị thu hồi / dọn đồ chưa trả) → không nhận yêu cầu thuê mới tới khi trả hết.
+        if (repository.hasUnpaidStandingDebt(normalizedEmail)) {
+            throw new BookingConflictException("Bạn còn công nợ của hợp đồng trước (hoá đơn INV-DBT chưa thanh "
+                    + "toán). Vui lòng thanh toán trước khi gửi yêu cầu thuê mới.");
+        }
         String phoneDigits = request.customerPhone().replaceAll("\\D", "");
         if (phoneDigits.length() < 7 || phoneDigits.length() > 15) {
             throw new RentalRequestValidationException("Số điện thoại không đúng định dạng hỗ trợ");

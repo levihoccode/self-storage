@@ -48,6 +48,16 @@ class ContractPdfServiceTest {
         assertThat(ContractPdfService.toXhtml("<html><body>x</body></html>")).startsWith("<style>");
     }
 
+    @Test
+    void overdueClausePrintsPolicyValues() {
+        String html = ContractDocumentService.html(row(), new ContractDocumentService.OverdueTerms(3,
+                new java.math.BigDecimal("20000"), 30, 45, 60, new java.math.BigDecimal("300000"),
+                new java.math.BigDecimal("10000")));
+        assertThat(html).contains("Điều 6. Xử lý khi quá hạn kéo dài").contains("từ 45 ngày")
+                .contains("60 ngày kể từ ngày thu hồi").contains("300.000");
+        assertThat(ContractDocumentService.html(row())).contains("Điều 6.").contains("theo chính sách hiện hành");
+    }
+
     private static ContractDocumentRow row() {
         return new ContractDocumentRow(11L, "HD-Q7-261109-TEST", "Signed", "builtin-v1", new BigDecimal("500000"),
                 new BigDecimal("1000000"), 3, LocalDate.of(2026, 11, 9), LocalDate.of(2027, 2, 8), null,

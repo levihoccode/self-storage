@@ -50,6 +50,7 @@ export type View =
   | "fm-appointments"
   | "fm-return-requests"
   | "fm-extend-requests"
+  | "fm-reclaims"
   | "fm-support-requests"
   | "fm-storage-units"
   | "fm-staff"

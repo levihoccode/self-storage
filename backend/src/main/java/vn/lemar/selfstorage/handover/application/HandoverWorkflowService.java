@@ -616,7 +616,9 @@ public class HandoverWorkflowService {
      */
     private void freezeDocument(RentalContract contract) {
         contracts.flush();
-        String html = readRepository.findContractDocument(contract.getId()).map(ContractDocumentService::html)
+        ContractDocumentService.OverdueTerms terms = ContractDocumentService.OverdueTerms.from(pricingQuery);
+        String html = readRepository.findContractDocument(contract.getId())
+                .map(row -> ContractDocumentService.html(row, terms))
                 .orElseThrow(() -> new HandoverNotFoundException(MSG_CONTRACT_NOT_FOUND));
         contract.freezeDocument(html);
     }

@@ -19,6 +19,7 @@ import {
   CHECKOUT_RESULT_LABEL,
   fetchCheckout,
   fetchFacilities,
+  fetchMyReclaimedGoods,
   fetchMyReturnRequests,
   fetchRental,
   INVOICE_STATUS,
@@ -26,6 +27,7 @@ import {
   downloadContractPdf,
   openContractDocument,
   requestExtension,
+  requestGoodsReturn,
   requestReturn,
   RETURN_STATUS,
   rotateAccessCode,
@@ -33,6 +35,7 @@ import {
   useResource,
   type CheckoutView,
   type ContractBill,
+  type ReclaimedGoods,
   type RentalView,
   type ReturnRequestView,
 } from "../app/services/customer";
@@ -75,6 +78,7 @@ export function ContractDetailPage({ navigate }: { navigate: Navigate }) {
 function ContractDetail({ contractId, navigate }: { contractId: number; navigate: Navigate }) {
   const loadRental = useCallback(() => fetchRental(contractId), [contractId]);
   const rental = useResource(loadRental);
+  const reclaimed = useResource(fetchMyReclaimedGoods);
   const returns = useResource(fetchMyReturnRequests);
   const facilities = useResource(fetchFacilities);
   const payment = useInvoicePayment(rental.reload);
@@ -92,6 +96,7 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
   function reloadAll() {
     rental.reload();
     returns.reload();
+    reclaimed.reload();
   }
 
   async function openDocument() {
@@ -250,6 +255,23 @@ function ContractDetail({ contractId, navigate }: { contractId: number; navigate
           <Summary label="Kỳ thuê" value={`${contract.period} tháng`} />
         )}
       </div>
+
+      {(() => {
+        const goods = reclaimed.data?.find((item) => item.contractId === contract.contractId);
+        return goods ? (
+          <ReclaimedGoodsPanel
+            goods={goods}
+            onRequested={() => {
+              setNotice({
+                tone: "success",
+                message:
+                  "Đã gửi yêu cầu nhận lại đồ. Thanh toán công nợ và phí lưu giữ ở danh sách hoá đơn bên dưới, cơ sở sẽ liên hệ hẹn ngày trả đồ.",
+              });
+              reloadAll();
+            }}
+          />
+        ) : null;
+      })()}
 
       {contract.status === "Active" && contract.overdue && (
         <OverduePanel
@@ -719,6 +741,13 @@ function OverduePanel({
           ? "Quyền truy cập khoang đang tạm khoá — chọn một trong hai cách dưới đây để được mở lại."
           : "Phí quá hạn tính theo ngày sau thời gian ân hạn — chọn một trong hai cách dưới đây."}
       </p>
+      {contract.reclaimDate && (
+        <p className="m-0 mt-2 bg-danger-soft p-3 text-small text-danger">
+          Nếu tới ngày {formatDate(contract.reclaimDate)} bạn vẫn chưa xử lý, cơ sở sẽ thu hồi
+          khoang: mở khoang có biên bản, chuyển đồ về khu lưu giữ (tính phí thu hồi và phí lưu giữ
+          theo ngày). Hết hạn lưu giữ mà không nhận lại, đồ được thanh lý để trừ nợ.
+        </p>
+      )}
       <dl className="mb-0 mt-4 grid grid-cols-3 gap-2 text-small max-[760px]:grid-cols-1">
         <div className="bg-surface-subtle p-3">
           <dt className="text-label text-muted">Phí quá hạn hiện tại</dt>
@@ -835,6 +864,114 @@ function OverduePanel({
           )}
         </div>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Đồ của khách cơ sở đã thu hồi từ khoang (hợp đồng quá hạn kéo dài): đang lưu giữ tới ngày X — khách yêu cầu nhận
+ * lại (lập hoá đơn phí lưu giữ) rồi trả công nợ + phí lưu giữ ở danh sách hoá đơn; hoặc đã trả đồ / đã thanh lý.
+ */
+function ReclaimedGoodsPanel({
+  goods,
+  onRequested,
+}: {
+  goods: ReclaimedGoods;
+  onRequested: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function request() {
+    setPending(true);
+    setError(null);
+    try {
+      await requestGoodsReturn(goods.id);
+      onRequested();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="border-l-4 border-danger bg-surface p-5">
+      <h2 className="m-0 flex items-center gap-2 text-section text-danger">
+        <AlertTriangle size={18} /> Khoang đã bị thu hồi do quá hạn
+      </h2>
+      <p className="mt-1 text-small text-muted">
+        Cơ sở thu hồi khoang {goods.unitCode} ngày {formatDateTime(goods.reclaimedAt)}, có nhân viên
+        chứng kiến{goods.witnessName ? ` (${goods.witnessName})` : ""} và biên bản kiểm kê.
+      </p>
+      <dl className="mb-0 mt-4 grid grid-cols-3 gap-2 text-small max-[760px]:grid-cols-1">
+        <div className="bg-surface-subtle p-3">
+          <dt className="text-label text-muted">Trạng thái đồ</dt>
+          <dd className="m-0 mt-1 font-semibold text-ink">
+            {goods.status === "Holding"
+              ? `Đang lưu giữ tới ${formatDate(goods.holdUntil)}`
+              : goods.status === "Returned"
+                ? `Đã trả cho bạn ${formatDateTime(goods.returnedAt)}`
+                : `Đã thanh lý ${formatDateTime(goods.liquidatedAt)}`}
+          </dd>
+        </div>
+        <div className="bg-surface-subtle p-3">
+          <dt className="text-label text-muted">Công nợ chưa trả</dt>
+          <dd className="m-0 mt-1 font-semibold text-ink">{formatMoney(goods.outstandingDebt)}</dd>
+        </div>
+        <div className="bg-surface-subtle p-3">
+          <dt className="text-label text-muted">Phí lưu giữ</dt>
+          <dd className="m-0 mt-1 font-semibold text-ink">
+            {formatMoney(goods.holdFeePerDay)} / ngày · đã giữ {goods.daysHeld} ngày
+          </dd>
+        </div>
+      </dl>
+      <div className="mt-3 bg-surface-subtle p-3 text-small text-ink">
+        <span className="text-label text-muted">Biên bản kiểm kê</span>
+        <p className="m-0 mt-1 whitespace-pre-line">{goods.inventoryNote}</p>
+        {goods.photos.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {goods.photos.map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer">
+                <img src={url} alt="Ảnh kiểm kê" className="h-20 w-20 object-cover" />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+      {goods.status === "Holding" &&
+        (goods.returnRequestedAt ? (
+          <p className="m-0 mt-3 text-small text-ink">
+            Đã gửi yêu cầu nhận lại {formatDateTime(goods.returnRequestedAt)}.{" "}
+            {goods.outstandingDebt > 0
+              ? "Thanh toán công nợ và phí lưu giữ ở danh sách hoá đơn bên dưới, rồi đến cơ sở nhận đồ."
+              : "Bạn đã trả hết — liên hệ cơ sở để hẹn ngày nhận đồ."}
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            <p className="m-0 text-small text-muted">
+              Để nhận lại đồ: gửi yêu cầu, hệ thống lập hoá đơn phí lưu giữ tới hôm nay; thanh toán
+              hết công nợ + phí lưu giữ rồi đến cơ sở nhận. Hết hạn lưu giữ mà không nhận lại, đồ
+              được thanh lý để trừ nợ, tiền dư (nếu có) được hoàn cho bạn.
+            </p>
+            <Button pending={pending} onClick={request}>
+              Yêu cầu nhận lại đồ
+            </Button>
+          </div>
+        ))}
+      {goods.status === "Liquidated" && (
+        <p className="m-0 mt-3 text-small text-ink">
+          Thu được {formatMoney(goods.proceedsAmount ?? 0)} từ thanh lý.{" "}
+          {Number(goods.surplusAmount ?? 0) > 0
+            ? goods.surplusRefundedAt
+              ? `Cơ sở đã hoàn tiền dư ${formatMoney(goods.surplusAmount ?? 0)}.`
+              : `Tiền dư ${formatMoney(goods.surplusAmount ?? 0)} sẽ được cơ sở hoàn cho bạn.`
+            : goods.outstandingDebt > 0
+              ? "Tiền thanh lý chưa đủ trả nợ — vui lòng thanh toán công nợ còn lại."
+              : "Công nợ đã được trả hết."}
+        </p>
+      )}
+      {error && <DemoNotice tone="error">{error}</DemoNotice>}
     </section>
   );
 }

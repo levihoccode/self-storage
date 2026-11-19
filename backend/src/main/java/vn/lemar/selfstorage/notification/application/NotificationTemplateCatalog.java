@@ -289,6 +289,59 @@ public class NotificationTemplateCatalog {
                 "FM giao việc khoá chặn",
                 "FM giao bạn {{task}} khoá chặn của cơ sở trên khoang {{unitCode}} ({{facilityName}}, hợp đồng "
                         + "{{contractCode}}). Làm xong thì xác nhận ở trang Khoá chặn.");
+        put(NotificationType.RECLAIM_FINAL_NOTICE, NotificationRecipient.CUSTOMER,
+                "Cảnh báo cuối: khoang sắp bị thu hồi",
+                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Nếu tới ngày "
+                        + "{{reclaimDate}} "
+                        + "bạn chưa thanh toán phí quá hạn và gia hạn, hoặc chưa đến trả kho, cơ sở sẽ thu hồi khoang: "
+                        + "mở khoang có biên bản, chuyển đồ về khu lưu giữ {{holdDays}} ngày (phí lưu giữ "
+                        + "{{holdFeePerDay}}đ/ngày, phí thu hồi {{reclaimFee}}đ). Hết hạn lưu giữ mà không nhận lại, "
+                        + "đồ "
+                        + "được thanh lý để trừ nợ.");
+        put(NotificationType.RECLAIM_FINAL_NOTICE, NotificationRecipient.FM,
+                "Hợp đồng sắp tới mốc thu hồi",
+                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày, khách đã nhận cảnh báo "
+                        + "cuối. "
+                        + "Từ ngày {{reclaimDate}} có thể thu hồi khoang.");
+        put(NotificationType.RECLAIM_DUE, NotificationRecipient.FM,
+                "Tới hạn thu hồi khoang",
+                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) quá hạn {{days}} ngày, khách chưa xử lý. Thu hồi "
+                        + "khoang "
+                        + "ở trang Thu hồi & lưu giữ (cần FS chứng kiến, biên bản kiểm kê và ảnh).");
+        put(NotificationType.GOODS_RECLAIMED, NotificationRecipient.CUSTOMER,
+                "Khoang đã bị thu hồi",
+                "Cơ sở đã thu hồi khoang {{unitCode}} (hợp đồng {{contractCode}}) do quá hạn kéo dài; đồ của bạn đã "
+                        + "được "
+                        + "kiểm kê và chuyển về khu lưu giữ tới ngày {{holdUntil}}. Công nợ còn lại: {{debt}}đ. Để "
+                        + "nhận "
+                        + "lại đồ, gửi yêu cầu nhận lại trong trang hợp đồng và thanh toán công nợ + phí lưu giữ "
+                        + "({{holdFeePerDay}}đ/ngày). Hết hạn lưu giữ mà không nhận lại, đồ được thanh lý để trừ nợ.");
+        put(NotificationType.GOODS_RETURN_REQUESTED, NotificationRecipient.FM,
+                "Khách muốn nhận lại đồ lưu giữ",
+                "Khách của hợp đồng {{contractCode}} (khoang {{unitCode}}) yêu cầu nhận lại đồ lưu giữ. Khách trả hết "
+                        + "công nợ + phí lưu giữ thì trả đồ và xác nhận ở trang Thu hồi & lưu giữ.");
+        put(NotificationType.GOODS_RETURNED, NotificationRecipient.CUSTOMER,
+                "Đã nhận lại đồ lưu giữ",
+                "Bạn đã nhận lại đồ lưu giữ của hợp đồng {{contractCode}} (khoang {{unitCode}}). Cảm ơn bạn.");
+        put(NotificationType.LIQUIDATION_NOTICE, NotificationRecipient.CUSTOMER,
+                "Đồ lưu giữ sắp bị thanh lý",
+                "Đồ lưu giữ của hợp đồng {{contractCode}} (khoang {{unitCode}}) hết hạn lưu giữ ngày {{holdUntil}}. "
+                        + "Sau "
+                        + "ngày này, cơ sở thanh lý đồ để trừ công nợ; tiền dư (nếu có) được hoàn cho bạn. Gửi yêu cầu "
+                        + "nhận lại và thanh toán trước hạn để lấy lại đồ.");
+        put(NotificationType.LIQUIDATION_NOTICE, NotificationRecipient.FM,
+                "Đồ lưu giữ sắp hết hạn",
+                "Đồ lưu giữ của hợp đồng {{contractCode}} (khoang {{unitCode}}) hết hạn lưu giữ ngày {{holdUntil}}; "
+                        + "khách "
+                        + "đã được báo. Sau hạn thì thanh lý ở trang Thu hồi & lưu giữ.");
+        put(NotificationType.GOODS_LIQUIDATED, NotificationRecipient.CUSTOMER,
+                "Đồ lưu giữ đã được thanh lý",
+                "Đồ lưu giữ của hợp đồng {{contractCode}} (khoang {{unitCode}}) đã được thanh lý, thu {{proceeds}}đ. "
+                        + "Đã trừ nợ {{covered}}đ. {{outcome}}");
+        put(NotificationType.GOODS_SURPLUS_REFUND_REQUIRED, NotificationRecipient.FM,
+                "Hoàn tiền dư thanh lý cho khách",
+                "Thanh lý đồ của hợp đồng {{contractCode}} (khoang {{unitCode}}) còn dư {{surplus}}đ sau khi trừ nợ. "
+                        + "Hoàn cho khách rồi ghi nhận ở trang Thu hồi & lưu giữ.");
         put(NotificationType.OVERLOCK_REMOVED, NotificationRecipient.CUSTOMER,
                 "Đã gỡ khoá chặn",
                 "Nhân viên đã gỡ khoá chặn của cơ sở trên khoang {{unitCode}} (hợp đồng {{contractCode}}). Bạn vào "

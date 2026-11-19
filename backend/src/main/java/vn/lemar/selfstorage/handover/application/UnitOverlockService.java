@@ -235,6 +235,19 @@ public class UnitOverlockService {
         return Optional.of("Khoang còn khoá chặn của cơ sở — gỡ khoá chặn trước khi chốt trả kho");
     }
 
+    /** Thu hồi khoang (hợp đồng quá hạn kéo dài): đóng khoá chặn đang mở — khoá khoang được thay khi bảo trì. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void closeOnReclaim(Long contractId, Long actorAccountId) {
+        UnitOverlock lock = overlocks.findOpenForUpdate(contractId).orElse(null);
+        if (lock == null) {
+            return;
+        }
+        String before = lock.closeForReclaim(actorAccountId, "Thu hồi khoang — khoá được thay khi bảo trì",
+                Instant.now());
+        audit(UnitOverlock.CANCELED.equals(lock.getStatus()) ? AuditAction.OVERLOCK_CANCELED
+                : AuditAction.OVERLOCK_REMOVED, lock, before, actorAccountId);
+    }
+
     private UnitOverlock lockForStaff(Long overlockId) {
         UnitOverlock lock = overlocks.findByIdForUpdate(overlockId)
                 .orElseThrow(() -> new HandoverNotFoundException("Không tìm thấy khoá chặn"));

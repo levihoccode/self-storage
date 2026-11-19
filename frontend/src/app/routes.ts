@@ -54,6 +54,7 @@ export function viewFromLocation(): View {
   if (path === "/fm/appointments") return "fm-appointments";
   if (path === "/fm/return-requests") return "fm-return-requests";
   if (path === "/fm/extend-requests") return "fm-extend-requests";
+  if (path === "/fm/reclaims") return "fm-reclaims";
   if (path === "/fm/support-requests") return "fm-support-requests";
   if (path === "/fm/storage-units") return "fm-storage-units";
   if (path === "/fm/staff") return "fm-staff";

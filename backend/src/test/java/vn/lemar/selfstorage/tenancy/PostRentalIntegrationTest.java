@@ -36,6 +36,10 @@ import vn.lemar.selfstorage.booking.application.StaffAppointmentActionService;
 import vn.lemar.selfstorage.checkout.application.CheckoutService;
 import vn.lemar.selfstorage.checkout.application.CheckoutService.CheckoutView;
 import vn.lemar.selfstorage.checkout.application.CheckoutService.Inspection;
+import vn.lemar.selfstorage.checkout.application.ReclaimService;
+import vn.lemar.selfstorage.checkout.application.ReclaimService.GoodsView;
+import vn.lemar.selfstorage.checkout.application.ReclaimService.LiquidationInput;
+import vn.lemar.selfstorage.checkout.application.ReclaimService.ReclaimInput;
 import vn.lemar.selfstorage.handover.application.UnitOverlockService;
 import vn.lemar.selfstorage.handover.application.UnitOverlockService.OverlockView;
 import vn.lemar.selfstorage.handover.application.exception.HandoverConflictException;
@@ -98,6 +102,10 @@ class PostRentalIntegrationTest {
     private JdbcTemplate jdbc;
     @Autowired
     private UnitOverlockService overlocks;
+    @Autowired
+    private ReclaimService reclaims;
+    @Autowired
+    private vn.lemar.selfstorage.booking.repository.RentalRequestRepository rentalRequests;
 
     private long customerId;
     private long facilityId;
@@ -791,6 +799,153 @@ class PostRentalIntegrationTest {
         overdue.accrue(seed.contractId);
         assertThat(suspended(seed.contractId)).isTrue();
         assertThat(overlocks.openOf(seed.contractId)).isEmpty();
+    }
+
+    // ------------------------------------------------------------------ thu hồi khoang / lưu giữ / thanh lý
+
+    @Test
+    void abandonedContractIsReclaimedWithDepositSettlementAndGoodsHeld() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(46));
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        // Mốc 38 / 45: cảnh báo cuối (khách + FM) và báo FM tới hạn — mỗi loại một lần.
+        assertThat(overdue.remindReclaim(seed.contractId)).isTrue();
+        assertThat(overdue.remindReclaim(seed.contractId)).isFalse();
+        assertThat(notifications(CUSTOMER, "RECLAIM_FINAL_NOTICE", seed.orderId)).isEqualTo(1);
+        assertThat(notifications(FM, "RECLAIM_DUE", seed.orderId)).isEqualTo(1);
+
+        loginAs(FM);
+        assertThat(reclaims.board(facilityId).candidates()).filteredOn(c -> c.contractId().equals(seed.contractId))
+                .singleElement().satisfies(c -> assertThat(c.eligible()).isTrue());
+        String photo = "https://res.cloudinary.com/test/rcl-" + System.nanoTime() + ".jpg";
+        assertThatThrownBy(() -> reclaims.reclaim(seed.contractId, new ReclaimInput(fsId, "2 thùng", List.of(),
+                "Kệ A"))).isInstanceOf(TenancyException.class).hasMessageContaining("ảnh");
+        assertThatThrownBy(() -> reclaims.reclaim(seed.contractId, new ReclaimInput(customerId, "2 thùng",
+                List.of(photo), "Kệ A"))).isInstanceOf(TenancyException.class).hasMessageContaining("FS");
+
+        GoodsView goods = reclaims.reclaim(seed.contractId, new ReclaimInput(fsId, "2 thùng carton, 1 xe đạp",
+                List.of(photo), "Khu lưu giữ tầng 1 — kệ A"));
+        assertThat(goods.status()).isEqualTo("Holding");
+        assertThat(goods.holdUntil()).isEqualTo(LocalDate.now(VN).plusDays(60));
+        assertThat(contractStatus(seed.contractId)).isEqualTo("Ended");
+        assertThat(unitStatus(seed.unitId)).isEqualTo("Maintenance");
+        assertThat(maintenanceStartedAtIsNull(seed.unitId)).isTrue();
+        assertThat(count("select count(*) from unit_access_keys where contract_id = ? and status = 'Lost'",
+                seed.contractId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select status from unit_overlocks where contract_id = ?", String.class,
+                seed.contractId)).isEqualTo("Canceled");
+        // Phí quá hạn (46 − 3) × 20.000 = 860.000 + phí thu hồi 300.000 + mất 2 chìa × 200.000 = 1.560.000;
+        // cọc 500.000 trừ trước → công nợ INV-DBT 1.060.000.
+        assertThat(moveOutDebt(seed.contractId).amount()).isEqualByComparingTo("1060000");
+        assertThat(goods.outstandingDebt()).isEqualByComparingTo("1060000");
+        assertThat(paidPenalty(seed.contractId, "RCL")).isEqualByComparingTo("300000");
+        assertThat(notifications(CUSTOMER, "GOODS_RECLAIMED", seed.orderId)).isEqualTo(1);
+        assertThat(auditCount("CONTRACT_RECLAIMED", "ReclaimedGoods", goods.id())).isEqualTo(1);
+        assertThat(rentalRequests.hasUnpaidStandingDebt(CUSTOMER)).isTrue();
+        assertThatThrownBy(() -> reclaims.reclaim(seed.contractId, new ReclaimInput(fsId, "x", List.of(photo),
+                "y"))).isInstanceOf(TenancyException.class);
+    }
+
+    @Test
+    void reclaimWaitsForTheAbandonMilestoneAndAnOpenReturnRequest() {
+        Seed early = seedActive(LocalDate.now(VN).minusDays(40));
+        overdue.accrue(early.contractId);
+        loginAs(FM);
+        String photo = "https://res.cloudinary.com/test/rcl-early.jpg";
+        assertThatThrownBy(() -> reclaims.reclaim(early.contractId, new ReclaimInput(fsId, "x", List.of(photo),
+                "y"))).isInstanceOf(TenancyException.class).hasMessageContaining("Chưa tới mốc thu hồi");
+
+        Seed returning = seedActive(LocalDate.now(VN).minusDays(46));
+        overdue.accrue(returning.contractId);
+        tenancy.requestReturn(returning.contractId, customerId, LocalDate.now(VN).plusDays(1), null);
+        loginAs(FM);
+        assertThatThrownBy(() -> reclaims.reclaim(returning.contractId, new ReclaimInput(fsId, "x",
+                List.of(photo), "y"))).isInstanceOf(TenancyException.class).hasMessageContaining("yêu cầu trả kho");
+    }
+
+    @Test
+    void customerGetsGoodsBackAfterPayingDebtAndHoldFee() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(46));
+        GoodsView goods = reclaimed(seed);
+        loginAs(FM);
+        assertThatThrownBy(() -> reclaims.confirmReturn(goods.id())).isInstanceOf(TenancyException.class)
+                .hasMessageContaining("chưa gửi yêu cầu");
+        assertThatThrownBy(() -> reclaims.requestReturn(goods.id(), customerId + 999))
+                .isInstanceOf(TenancyException.class);
+
+        GoodsView requested = reclaims.requestReturn(goods.id(), customerId);
+        assertThat(requested.returnRequestedAt()).isNotNull();
+        ContractBill hold = contractInvoices.bill(id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-HLD-%' and status = 'Unpaid'")).orElseThrow();
+        assertThat(hold.amount()).isEqualByComparingTo("10000");
+        assertThat(notifications(FM, "GOODS_RETURN_REQUESTED", seed.orderId)).isEqualTo(1);
+        loginAs(FM);
+        assertThatThrownBy(() -> reclaims.confirmReturn(goods.id())).isInstanceOf(TenancyException.class)
+                .hasMessageContaining("còn nợ");
+
+        pay(moveOutDebt(seed.contractId));
+        pay(hold);
+        loginAs(FM);
+        GoodsView returned = reclaims.confirmReturn(goods.id());
+        assertThat(returned.status()).isEqualTo("Returned");
+        assertThat(notifications(CUSTOMER, "GOODS_RETURNED", seed.orderId)).isEqualTo(1);
+        assertThatThrownBy(() -> reclaims.confirmReturn(goods.id())).isInstanceOf(TenancyException.class);
+    }
+
+    @Test
+    void liquidationAfterHoldPeriodOffsetsDebtAndKeepsSurplusForCustomer() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(46));
+        GoodsView goods = reclaimed(seed);
+        String photo = "https://res.cloudinary.com/test/liq-" + System.nanoTime() + ".jpg";
+        loginAs(FM);
+        assertThatThrownBy(() -> reclaims.liquidate(goods.id(), new LiquidationInput(new BigDecimal("100000"),
+                "Bán thanh lý", List.of(photo)))).isInstanceOf(TenancyException.class)
+                .hasMessageContaining("Chưa hết hạn lưu giữ");
+
+        // Giữ đủ 61 ngày, đã qua hạn lưu giữ.
+        jdbc.update("update reclaimed_goods set reclaimed_at = now() - interval '61 days', hold_until = current_date "
+                + "- 1 where id = ?", goods.id());
+        GoodsView liquidated = reclaims.liquidate(goods.id(), new LiquidationInput(new BigDecimal("2000000"),
+                "Bán xe đạp + thùng đồ; giấy tờ gửi trả khách", List.of(photo)));
+        // Nợ 1.060.000 + phí lưu giữ 61 × 10.000 = 1.670.000 → trừ bằng tiền thanh lý, dư 330.000 giữ hộ khách.
+        assertThat(liquidated.status()).isEqualTo("Liquidated");
+        assertThat(liquidated.surplusAmount()).isEqualByComparingTo("330000");
+        assertThat(liquidated.outstandingDebt()).isEqualByComparingTo("0");
+        assertThat(paidPenalty(seed.contractId, "LIQ")).isEqualByComparingTo("1670000");
+        assertThat(notifications(CUSTOMER, "GOODS_LIQUIDATED", seed.orderId)).isEqualTo(1);
+        assertThat(notifications(FM, "GOODS_SURPLUS_REFUND_REQUIRED", seed.orderId)).isEqualTo(1);
+
+        loginAs(FM);
+        assertThat(reclaims.markSurplusRefunded(goods.id()).surplusRefundedAt()).isNotNull();
+        assertThatThrownBy(() -> reclaims.markSurplusRefunded(goods.id())).isInstanceOf(TenancyException.class);
+    }
+
+    @Test
+    void liquidationShortfallStaysAsDebtAndNoticeIsSentOnce() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(46));
+        GoodsView goods = reclaimed(seed);
+        jdbc.update("update reclaimed_goods set hold_until = current_date + 3 where id = ?", goods.id());
+        assertThat(reclaims.liquidationNoticeIds()).contains(goods.id());
+        assertThat(reclaims.notifyLiquidation(goods.id())).isTrue();
+        assertThat(reclaims.notifyLiquidation(goods.id())).isFalse();
+        assertThat(notifications(CUSTOMER, "LIQUIDATION_NOTICE", seed.orderId)).isEqualTo(1);
+
+        jdbc.update("update reclaimed_goods set reclaimed_at = now() - interval '61 days', hold_until = current_date "
+                + "- 1 where id = ?", goods.id());
+        loginAs(FM);
+        GoodsView liquidated = reclaims.liquidate(goods.id(), new LiquidationInput(new BigDecimal("100000"),
+                "Đồ cũ, bán được ít", List.of("https://res.cloudinary.com/test/liq-low.jpg")));
+        // Nợ 1.670.000 − 100.000 tiền thanh lý → công nợ mới 1.570.000.
+        assertThat(liquidated.surplusAmount()).isEqualByComparingTo("0");
+        assertThat(moveOutDebt(seed.contractId).amount()).isEqualByComparingTo("1570000");
+    }
+
+    /** Hợp đồng quá hạn 46 ngày → tạm khoá → FM thu hồi (FS fs1 chứng kiến). */
+    private GoodsView reclaimed(Seed seed) {
+        overdue.accrue(seed.contractId);
+        loginAs(FM);
+        return reclaims.reclaim(seed.contractId, new ReclaimInput(fsId, "1 tủ, 3 thùng",
+                List.of("https://res.cloudinary.com/test/rcl-" + System.nanoTime() + ".jpg"), "Kệ B"));
     }
 
     /** Hoá đơn nợ gộp trước khi dọn đồ ({@code INV-DBT}) còn {@code Unpaid} của hợp đồng. */

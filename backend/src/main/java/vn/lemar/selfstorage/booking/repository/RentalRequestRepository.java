@@ -87,4 +87,11 @@ public interface RentalRequestRepository extends JpaRepository<RentalRequest, Lo
             @Param("rejectNote") String rejectNote, @Param("respondedAt") Instant respondedAt,
             @Param("expectedStatus") RentalRequestStatus expectedStatus,
             @Param("newStatus") RentalRequestStatus newStatus);
+
+    /**
+     * Khách (theo email) còn công nợ {@code INV-DBT} chưa trả — nợ gộp khi dọn đồ / thu hồi khoang / thanh lý thiếu.
+     */
+    @Query(value = "select exists (select 1 from invoices i join accounts a on a.id = i.customer_id "
+            + "where lower(a.email) = :email and i.status = 'Unpaid' and i.code like 'INV-DBT-%')", nativeQuery = true)
+    boolean hasUnpaidStandingDebt(@Param("email") String email);
 }

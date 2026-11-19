@@ -53,6 +53,8 @@ public class OverdueService {
     static final String RESTORE_NOTE_OVERLOCK = " Khoá chặn của cơ sở trên khoang sẽ được nhân viên gỡ — bạn nhận "
             + "thông báo khi gỡ xong.";
     static final String PERM_READ = "rental_order.read";
+    static final String POLICY_ABANDON = "overdue.abandon_days";
+    static final String POLICY_ABANDON_NOTICE = "overdue.abandon_notice_days";
     static final int INVOICE_DUE_DAYS = 7;
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -180,6 +182,42 @@ public class OverdueService {
                 Map.of("contractCode", c.code(), "unitCode", unitCode(c), "invoiceCode", bill.code(),
                         "amount", String.format(VI, "%,d", bill.amount().longValue()))));
         return debt.isPresent();
+    }
+
+    /**
+     * Hợp đồng đang tạm khoá, khách chưa đến trả kho: từ {@code abandon_days − abandon_notice_days} ngày quá hạn gửi
+     * cảnh báo cuối (khách + FM), từ {@code abandon_days} báo FM tới hạn thu hồi khoang — mỗi loại một lần mỗi kỳ.
+     */
+    @Transactional
+    public boolean remindReclaim(Long contractId) {
+        ContractSnapshot c = contracts.find(contractId).orElse(null);
+        if (c == null || !c.active() || !contracts.accessSuspended(contractId) || arrivedAtReturn(contractId)) {
+            return false;
+        }
+        long days = ChronoUnit.DAYS.between(c.endDate(), LocalDate.now(ZONE));
+        int abandon = pricingQuery.intPolicy(POLICY_ABANDON);
+        if (days < abandon - pricingQuery.intPolicy(POLICY_ABANDON_NOTICE)) {
+            return false;
+        }
+        Instant since = startOf(c.endDate().plusDays(1));
+        Map<String, String> values = Map.of("contractCode", c.code(), "unitCode", unitCode(c),
+                "days", String.valueOf(days), "reclaimDate", DATE.format(c.endDate().plusDays(abandon)),
+                "holdDays", String.valueOf(pricingQuery.intPolicy("storage.hold_days")),
+                "holdFeePerDay", String.format(VI, "%,d", pricingQuery.decimalPolicy("fee.hold_per_day").longValue()),
+                "reclaimFee", String.format(VI, "%,d", pricingQuery.decimalPolicy("fee.reclaim").longValue()));
+        boolean sent = false;
+        if (!notificationService.hasOrderNotificationSince(c.orderId(), NotificationType.RECLAIM_FINAL_NOTICE,
+                since)) {
+            notifications.notifyCustomer(c.orderId(), NotificationType.RECLAIM_FINAL_NOTICE, values);
+            notifications.notifyFacilityManager(c.orderId(), NotificationType.RECLAIM_FINAL_NOTICE, values);
+            sent = true;
+        }
+        if (days >= abandon
+                && !notificationService.hasOrderNotificationSince(c.orderId(), NotificationType.RECLAIM_DUE, since)) {
+            notifications.notifyFacilityManager(c.orderId(), NotificationType.RECLAIM_DUE, values);
+            sent = true;
+        }
+        return sent;
     }
 
     private boolean arrivedAtReturn(Long contractId) {

@@ -51,9 +51,18 @@ public class ContractInvoiceService {
     public static final String DAMAGE_KIND = "DMG";
     /** Phí mất chìa khi trả kho. */
     public static final String LOST_KEY_KIND = "KEY";
-    /** Mọi tiền tố mã hoá đơn quyết toán trả kho — có một hoá đơn chưa huỷ mang mã này = đã chốt trả kho. */
+    /** Phí thu hồi khoang của hợp đồng quá hạn kéo dài (mở khoang, kiểm kê, di dời đồ). */
+    public static final String RECLAIM_KIND = "RCL";
+    /** Phí lưu giữ đồ sau khi thu hồi khoang. */
+    public static final String HOLD_KIND = "HLD";
+    /** Phần nợ được trừ bằng tiền thanh lý đồ lưu giữ ({@code Paid} ngay, không qua cổng). */
+    public static final String LIQUIDATION_KIND = "LIQ";
+    /**
+     * Mọi tiền tố mã hoá đơn quyết toán trả kho / thu hồi khoang — có một hoá đơn chưa huỷ mang mã này = hợp đồng đã
+     * chốt quyết toán.
+     */
     public static final Set<String> SETTLEMENT_KINDS =
-            Set.of(CLEANING_KIND, DAMAGE_KIND, LOST_KEY_KIND, SETTLEMENT_KIND);
+            Set.of(CLEANING_KIND, DAMAGE_KIND, LOST_KEY_KIND, SETTLEMENT_KIND, RECLAIM_KIND);
 
     private final InvoiceRepository invoiceRepository;
     private final RentalOrderRepository orderRepository;
@@ -314,16 +323,68 @@ public class ContractInvoiceService {
         if (!SETTLEMENT_KINDS.contains(kind)) {
             throw new IllegalArgumentException("Loại hoá đơn quyết toán không hợp lệ: " + kind);
         }
-        ContractBill issued = issue(orderId, contractId, customerId, InvoiceType.PENALTY.dbValue(), kind, title,
-                "Đối trừ vào tiền cọc khi trả kho.", amount, Instant.now(), actorAccountId);
+        return issuePaid(orderId, contractId, customerId, InvoiceType.PENALTY.dbValue(), kind, title,
+                "Đối trừ vào tiền cọc khi trả kho.", amount, "deposit", "Đối trừ tiền cọc", actorAccountId);
+    }
+
+    /**
+     * Phần nợ trừ bằng tiền thanh lý đồ lưu giữ → hoá đơn {@code INV-LIQ} {@code Paid} ngay (không qua cổng).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ContractBill settleByLiquidation(Long orderId, Long contractId, Long customerId, BigDecimal amount,
+                                            String title, Long actorAccountId) {
+        return issuePaid(orderId, contractId, customerId, InvoiceType.PENALTY.dbValue(), LIQUIDATION_KIND, title,
+                "Trừ bằng tiền thanh lý đồ lưu giữ.", amount, "liquidation", "Trừ bằng tiền thanh lý",
+                actorAccountId);
+    }
+
+    /** Tổng hoá đơn {@code Unpaid} của hợp đồng có mã bắt đầu bằng một trong {@code kinds} ({@code INV-<kind>-}). */
+    @Transactional(readOnly = true)
+    public BigDecimal unpaidTotal(Long contractId, String... kinds) {
+        return bills(contractId).stream()
+                .filter(b -> b.unpaid()
+                        && java.util.Arrays.stream(kinds).anyMatch(k -> b.code().startsWith("INV-" + k + "-")))
+                .map(ContractBill::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Tổng hoá đơn {@code Paid} của hợp đồng có mã {@code INV-<kind>-…}. */
+    @Transactional(readOnly = true)
+    public BigDecimal paidTotal(Long contractId, String kind) {
+        return bills(contractId).stream()
+                .filter(b -> "Paid".equals(b.status()) && b.code().startsWith("INV-" + kind + "-"))
+                .map(ContractBill::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Huỷ các hoá đơn {@code Unpaid} mã {@code INV-<kind>-…} của hợp đồng (gộp vào khoản khác) và trả tổng tiền đã huỷ.
+     * Còn phiên thanh toán mở → 409.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public BigDecimal foldUnpaidOfKinds(Long contractId, String reason, String... kinds) {
+        List<Invoice> unpaid = invoiceRepository.findByContractIdOrderByIdDesc(contractId).stream()
+                .filter(i -> i.isUnpaid()
+                        && java.util.Arrays.stream(kinds).anyMatch(k -> i.getCode().startsWith("INV-" + k + "-")))
+                .toList();
+        if (!paymentService.invoicesWithOpenSession(unpaid.stream().map(Invoice::getId).toList()).isEmpty()) {
+            throw new BookingConflictException("Khách đang có phiên thanh toán chưa kết thúc cho hoá đơn của hợp "
+                    + "đồng. Vui lòng thử lại sau ít phút.");
+        }
+        return foldOpenDebt(contractId, unpaid, reason, reason);
+    }
+
+    private ContractBill issuePaid(Long orderId, Long contractId, Long customerId, String type, String kind,
+                                   String title, String description, BigDecimal amount, String settledBy,
+                                   String reason, Long actorAccountId) {
+        ContractBill issued = issue(orderId, contractId, customerId, type, kind, title, description, amount,
+                Instant.now(), actorAccountId);
         Invoice invoice = invoiceRepository.findByIdForUpdate(issued.invoiceId()).orElseThrow();
         invoice.markPaid();
         Map<String, Object> newValue = new HashMap<>();
         newValue.put("status", invoice.getStatus().dbValue());
-        newValue.put("settledBy", "deposit");
+        newValue.put("settledBy", settledBy);
         auditRecorder.record(new AuditEntry(AuditAction.INVOICE_PAID, AuditEntityType.INVOICE,
                 String.valueOf(invoice.getId()), Map.of("status", InvoiceStatus.UNPAID.dbValue()), newValue,
-                "Đối trừ tiền cọc", actorAccountId));
+                reason, actorAccountId));
         return bill(invoice);
     }
 

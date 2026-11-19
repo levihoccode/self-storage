@@ -105,6 +105,16 @@ export function notificationPath(
     case "OVERLOCK_REMOVAL_REQUIRED":
     case "OVERLOCK_ASSIGNED":
       return role === "FS" ? "/staff/overlocks" : role === "FM" ? "/fm/extend-requests" : undefined;
+    case "RECLAIM_FINAL_NOTICE":
+    case "LIQUIDATION_NOTICE":
+      return role === "FM" ? "/fm/reclaims" : role === "CUSTOMER" ? "/my-storage" : undefined;
+    case "RECLAIM_DUE":
+    case "GOODS_RETURN_REQUESTED":
+    case "GOODS_SURPLUS_REFUND_REQUIRED":
+      return role === "FM" ? "/fm/reclaims" : undefined;
+    case "GOODS_RECLAIMED":
+    case "GOODS_RETURNED":
+    case "GOODS_LIQUIDATED":
     case "OVERLOCK_REMOVED":
     case "MOVE_OUT_DEBT_DUE":
     case "CONTRACT_ACCESS_RESTORED":

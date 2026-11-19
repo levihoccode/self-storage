@@ -154,8 +154,11 @@ class MigrationTest {
             // + fee.unit_change (V9) + handover.due_days (V16) + 7 key Flow 1.5/2.3 (V23)
             // + contract.start_date_rule (V24) + 9 key Flow 3/6/trả kho (V25)
             // − order.deposit_expiry_days (V27, không code nào đọc) + rent.invoice_lead_days + overdue.escalation_days
-            // + return.no_show_grace_minutes + return.max_no_shows (V28) + staff.shift_required (V32).
-            assertThat(count(connection, "policies")).isEqualTo(31);
+            // + return.no_show_grace_minutes + return.max_no_shows (V28) + staff.shift_required (V32)
+            // + 6 key thu hồi khoang / lưu giữ / thanh lý (V40).
+            assertThat(count(connection, "policies")).isEqualTo(37);
+            assertThat(countWhere(connection, "policies", "key = 'overdue.abandon_days' and value = '45'"))
+                    .isEqualTo(1);
             assertThat(countWhere(connection, "policies", "key = 'staff.shift_required' and value = 'true'"))
                     .isEqualTo(1);
             assertThat(countWhere(connection, "policies", "key = 'return.max_no_shows'")).isEqualTo(1);

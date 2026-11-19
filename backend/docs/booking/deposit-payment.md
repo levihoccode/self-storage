@@ -102,6 +102,9 @@ trên đơn đã giữ khoang không có `RENTAL_ORDER_DEPOSITED`; trên đơn c
 | `INV-KEY` | `Penalty` | quyết toán trả kho — phí mất chìa (`fee.lost_key × số chìa thiếu`) |
 | `INV-PEN` | `Penalty` | quyết toán trả kho — hoá đơn `Unpaid` của hợp đồng gộp vào, và phần còn thiếu khi phí vượt cọc |
 | `INV-SVC` | `Service` | FS / FM xử lý yêu cầu hỗ trợ có thu phí ([support/requests.md](../support/requests.md)) |
+| `INV-RCL` | `Penalty` | phí thu hồi khoang (đối trừ cọc, `Paid` ngay) — [tenancy/rentals.md](../tenancy/rentals.md#thu-hồi-khoang-lưu-giữ-và-thanh-lý) |
+| `INV-HLD` | `Service` | phí lưu giữ đồ sau thu hồi — khách yêu cầu nhận lại đồ |
+| `INV-LIQ` | `Penalty` | phần nợ trừ bằng tiền thanh lý đồ lưu giữ (`Paid` ngay) |
 
 `Deposit`/`DepositSupplement` gắn `order_id`; các loại còn lại gắn `contract_id` (CHECK V1: mỗi hoá đơn đúng một
 nguồn).
