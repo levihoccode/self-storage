@@ -304,6 +304,8 @@ export type CheckoutView = {
   refundAmount: number | null;
   shortfallInvoice: ContractBill | null;
   completedAt: string | null;
+  /** Hợp đồng đang bị tạm khoá truy cập (quá hạn) — mở lại khi xác nhận khách đến buổi trả kho. */
+  accessSuspended: boolean;
 };
 
 export type CheckoutInspection = {

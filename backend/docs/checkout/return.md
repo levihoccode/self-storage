@@ -57,7 +57,10 @@ flowchart TB
   chưa chốt được, quyền truy cập vẫn `Active`. Kiểm lại khi đã trống thì về `IN_PROGRESS`.
 - **Audit** `CHECKOUT_INSPECTED`.
 - `GET` cùng đường dẫn trả biên bản kèm phí dự kiến: `cleaningFee`, `lostKeyFee`, số chìa đã giao, tổng hoá đơn
-  `Unpaid` của hợp đồng, tiền cọc.
+  `Unpaid` của hợp đồng, tiền cọc, và `accessSuspended` (hợp đồng đang tạm khoá truy cập do quá hạn kéo dài).
+- Hợp đồng quá hạn đang tạm khoá: FS xác nhận khách đến buổi `RETURN` thì truy cập được mở lại để khách dọn đồ (khách
+  lấy mã khoá số mới trong ứng dụng); phí quá hạn dừng ở ngày buổi đó và gộp vào quyết toán — luật ở
+  [tenancy/rentals.md](../tenancy/rentals.md#quá-hạn-kéo-dài--tạm-khoá-truy-cập).
 
 ## Chốt và quyết toán
 

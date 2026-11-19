@@ -205,8 +205,9 @@ public class NotificationTemplateCatalog {
                         + "chưa thanh toán ({{amount}}đ). Cần liên hệ khách.");
         put(NotificationType.CONTRACT_ACCESS_SUSPENDED, NotificationRecipient.CUSTOMER,
                 "Quyền truy cập khoang tạm khoá",
-                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Mã khoá số đã tạm khoá; "
-                        + "gia hạn hoặc trả kho và thanh toán phí quá hạn để mở lại.");
+                "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Mã khoá số đã tạm khoá. "
+                        + "Để mở lại: thanh toán phí quá hạn rồi gia hạn, hoặc gửi yêu cầu trả kho — khoang được "
+                        + "mở để dọn đồ khi bạn đến buổi trả kho.");
         put(NotificationType.CONTRACT_ACCESS_SUSPENDED, NotificationRecipient.FM,
                 "Hợp đồng quá hạn kéo dài",
                 "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày, mã khoá số đã tạm khoá. "

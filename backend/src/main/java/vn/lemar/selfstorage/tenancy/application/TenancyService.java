@@ -112,7 +112,7 @@ public class TenancyService {
                              int period, LocalDate startDate, LocalDate endDate, long daysLeft, boolean overdue,
                              List<ContractBill> invoices, List<RentalContractService.AccessKeySnapshot> accessKeys,
                              ReturnRequestView returnRequest, boolean canExtend, boolean canRequestReturn,
-                             List<UnitMoveNote> unitMoves) {
+                             List<UnitMoveNote> unitMoves, boolean accessSuspended) {
     }
 
     /**
@@ -138,6 +138,12 @@ public class TenancyService {
     @Transactional(readOnly = true)
     public List<RentalView> rentals(Long customerId) {
         return contracts.activeOfCustomer(customerId).stream().map(this::view).toList();
+    }
+
+    /** Hợp đồng đã kết thúc (đã trả kho) của khách — mới nhất trước; xem lại hợp đồng, hoá đơn, biên bản. */
+    @Transactional(readOnly = true)
+    public List<RentalView> endedRentals(Long customerId) {
+        return contracts.endedOfCustomer(customerId).stream().map(this::view).toList();
     }
 
     @Transactional(readOnly = true)
@@ -440,7 +446,8 @@ public class TenancyService {
                 c.active() && daysLeft < 0,
                 bills, contracts.accessKeys(c.id()), open,
                 c.active() && open == null && !extensionPending && !overdueFeeOpen,
-                c.active() && open == null && !extensionPending, unitMoves(c.id()));
+                c.active() && open == null && !extensionPending, unitMoves(c.id()),
+                c.active() && contracts.accessSuspended(c.id()));
     }
 
     /** Hoá đơn phí quá hạn {@code INV-OVD} còn {@code Unpaid} của hợp đồng (tối đa một). */

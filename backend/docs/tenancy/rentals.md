@@ -25,6 +25,7 @@ Mọi route cần bearer token + `ACCOUNT_ACTIVE`; prefix quyết role (`/api/cu
 | Method | Path | Ai gọi | Lỗi chính |
 |---|---|---|---|
 | GET | `/api/customer/rentals` | khách — hợp đồng `Active` của chính mình | — (không có thì `data: []`) |
+| GET | `/api/customer/rentals/ended` | khách — hợp đồng `Ended` (đã trả kho) của chính mình, kết thúc gần nhất trước | — (không có thì `data: []`) |
 | GET | `/api/customer/rentals/{contractId}` | khách chủ hợp đồng (mọi trạng thái hợp đồng) | 404 "Không tìm thấy hợp đồng thuê" (không có / của khách khác) |
 | POST | `/api/customer/rentals/{contractId}/extensions` body `{months}` | khách chủ hợp đồng | 400 thiếu `months` / ngoài 1–`extension.max_months`; 404; 409 hợp đồng không `Active`, đang có yêu cầu trả kho mở, đã có hoá đơn gia hạn `Unpaid` |
 | POST | `/api/customer/rentals/{contractId}/return-request` body `{preferredDate, note?}` | khách chủ hợp đồng | 400 `preferredDate` trước hôm nay / quá 30 ngày tới, `note` > 1000 ký tự; 404; 409 hợp đồng không `Active`, đã có yêu cầu đang xử lý, còn hoá đơn gia hạn `Unpaid` |
@@ -46,7 +47,13 @@ Route trả kho tại cơ sở (`…/checkout`) thuộc [checkout/return.md](../
   buổi trả kho; `null` = chưa đến / chưa có lịch);
 - `canExtend`: hợp đồng `Active`, không có yêu cầu trả kho mở, không có hoá đơn gia hạn chờ trả, không còn phí quá
   hạn `INV-OVD` chưa trả;
-- `canRequestReturn`: hợp đồng `Active`, không có yêu cầu trả kho mở, không có hoá đơn gia hạn chờ trả.
+- `canRequestReturn`: hợp đồng `Active`, không có yêu cầu trả kho mở, không có hoá đơn gia hạn chờ trả;
+- `accessSuspended`: hợp đồng `Active` đang tạm khoá truy cập do quá hạn kéo dài
+  ([bên dưới](#quá-hạn-kéo-dài--tạm-khoá-truy-cập)).
+
+`GET /api/customer/rentals/ended` trả hợp đồng `Ended` cùng dạng `RentalView` (`overdue`, `canExtend`,
+`canRequestReturn`, `accessSuspended` luôn `false`) để khách xem lại hợp đồng, hoá đơn và biên bản trả kho sau khi
+trả kho xong — hợp đồng không biến mất khỏi tài khoản khi rời danh sách `Active`.
 
 ## Gia hạn
 
@@ -189,18 +196,32 @@ Trong bước đồng bộ phí (`OverdueService.accrue` → `escalate`): hợp 
 Chìa cơ (`PhysicalKey`) không thu hồi từ xa được — FM xử lý tại chỗ. Trong lúc khoá, khách lấy mã mới
 (`POST /api/customer/contracts/{id}/access-code`) bị 409.
 
-**Mở lại** (`OverdueService.restoreIfCleared`, cùng lượt cron, quét hợp đồng `Active` đang khoá). Điều kiện chung:
-không còn hoá đơn `INV-OVD` `Unpaid` và chưa chốt quyết toán trả kho (chưa có hoá đơn `INV-CLN/DMG/KEY/PEN` khác
-`Canceled` — FS đã thu hồi chìa/mã lúc chốt, không mở lại); thêm **một trong hai**:
-- hợp đồng không còn quá hạn (`end_date` ≥ hôm nay — gia hạn đã phủ kỳ quá hạn) **và** không còn `INV-OVD`
-  `Unpaid` của đợt trước: gia hạn chỉ dừng cộng thêm, khoản phí đã phát sinh vẫn phải trả;
-- hợp đồng còn quá hạn nhưng có yêu cầu trả kho đang mở — mở để khách dọn đồ. Phí vẫn tính tiếp tới buổi trả kho
-  khách đến (hoá đơn `INV-OVD` mới chỉ thu phần chênh) và gộp vào quyết toán; `escalate` bỏ qua hợp đồng có yêu cầu
-  trả kho mở nên không khoá lại. Khách huỷ yêu cầu trả kho thì lượt cron sau khoá lại theo điều kiện thường.
+**Mở lại** (`OverdueService.restoreIfCleared`). Hợp đồng đang khoá chỉ có hai đường lấy lại quyền vào khoang:
+
+| Đường | Điều kiện | Ghi chú |
+|---|---|---|
+| Trả nợ + gia hạn | không còn quá hạn (`end_date` ≥ hôm nay — gia hạn đã phủ kỳ quá hạn) **và** không còn `INV-OVD` `Unpaid` | chỉ trả phí mà chưa gia hạn, hoặc gia hạn chưa phủ hết kỳ quá hạn → vẫn khoá |
+| Trả kho | còn quá hạn, có yêu cầu trả kho mở và FS **đã xác nhận khách đến** buổi `RETURN` (`appointmentArrivedAt`) | mở để khách dọn đồ khi có FS tại chỗ, kể cả còn nợ `INV-OVD`: phí dừng ở ngày buổi đó và gộp vào quyết toán, trừ cọc |
+
+- Gửi yêu cầu trả kho hay được phân lịch **không** mở lại — khoang chỉ mở khi khách thật sự có mặt ở buổi trả kho.
+  `escalate` bỏ qua hợp đồng có yêu cầu trả kho mở nên sau khi mở không bị khoá lại; khách huỷ yêu cầu / no-show đủ
+  ngưỡng thì lượt cron sau khoá lại theo điều kiện thường.
+- Đã chốt quyết toán trả kho (có hoá đơn `INV-CLN/DMG/KEY/PEN` khác `Canceled` — FS đã thu hồi chìa / mã lúc chốt) thì
+  không mở lại.
+- **Thời điểm xét:** ngay sau khi hoá đơn của hợp đồng được trả (`ContractInvoicePaid` — gia hạn đã cộng kỳ trong cùng
+  transaction chốt thanh toán) và ngay sau khi FS xác nhận khách đến một buổi hẹn (`AppointmentArrived`), qua
+  `OverdueAccessListener` (`AFTER_COMMIT`, mỗi hợp đồng một transaction `REQUIRES_NEW`, lỗi chỉ log); cron mỗi giờ quét
+  lại hợp đồng `Active` đang khoá làm đường dự phòng.
 
 Kết quả: xoá `access_suspended_at`, audit `CONTRACT_ACCESS_RESTORED`, khách nhận `CONTRACT_ACCESS_RESTORED` (nội dung
-nêu rõ "không còn quá hạn" hay "mở lại để dọn đồ trả kho"). Mã cũ đã thu hồi nên khách tự lấy mã mới trong trang kho
-đang thuê.
+nêu rõ "không còn quá hạn" hay "mở lại để dọn đồ tại buổi trả kho; phí dừng ở ngày buổi đó và trừ vào cọc"). Mã cũ đã
+thu hồi nên khách tự lấy mã mới trong trang kho đang thuê.
+
+Trang hợp đồng của khách (hợp đồng `Active` quá hạn) gom hai đường trên vào một khung: số ngày quá hạn, phí
+`INV-OVD` hiện tại (nút thanh toán), hoá đơn khác chưa trả, tiền cọc đang giữ; "Cách 1 — trả phí và gia hạn" (form gia
+hạn hiện khi `canExtend`) và "Cách 2 — trả kho" (form yêu cầu trả kho, kèm tạm tính cọc − nợ: được hoàn / phải trả
+thêm, chưa gồm phí vệ sinh / hư hỏng / mất chìa). Nút lấy mã khoá số bị tắt khi `accessSuspended`. Trang biên bản trả
+kho của FS báo khi hợp đồng đang khoá: xác nhận khách đến thì khoang được mở lại để khách dọn đồ.
 
 FM xem danh sách hợp đồng quá hạn của cơ sở (`GET /api/fm/overdue-contracts?facilityId=`), gồm:
 - số ngày quá hạn và số ngày tính phí;

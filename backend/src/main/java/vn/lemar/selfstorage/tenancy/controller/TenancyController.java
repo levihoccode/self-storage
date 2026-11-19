@@ -38,6 +38,14 @@ public class TenancyController {
         return ResponseEntity.ok(ApiEnvelope.ok("Kho đang thuê", tenancyService.rentals(me())));
     }
 
+    @Operation(summary = "Hợp đồng đã kết thúc của tôi",
+            description = "Hợp đồng `Ended` (đã trả kho), kết thúc gần nhất trước — xem lại hợp đồng, hoá đơn, "
+                    + "biên bản.")
+    @GetMapping("/api/customer/rentals/ended")
+    public ResponseEntity<ApiEnvelope<List<RentalView>>> endedRentals() {
+        return ResponseEntity.ok(ApiEnvelope.ok("Hợp đồng đã kết thúc", tenancyService.endedRentals(me())));
+    }
+
     @GetMapping("/api/customer/rentals/{contractId}")
     public ResponseEntity<ApiEnvelope<RentalView>> rental(@PathVariable Long contractId) {
         return ResponseEntity.ok(ApiEnvelope.ok("Chi tiết kho đang thuê", tenancyService.rental(contractId, me())));

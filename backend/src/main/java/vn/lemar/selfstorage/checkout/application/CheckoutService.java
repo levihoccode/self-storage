@@ -109,7 +109,8 @@ public class CheckoutService {
                                Integer returnedKeys, List<String> photos, String note, Instant inspectedAt,
                                BigDecimal depositAmount, BigDecimal cleaningFee, BigDecimal lostKeyFee,
                                int keysIssued, BigDecimal unpaidContractInvoices, BigDecimal totalCharges,
-                               BigDecimal refundAmount, ContractBill shortfallInvoice, Instant completedAt) {
+                               BigDecimal refundAmount, ContractBill shortfallInvoice, Instant completedAt,
+                               boolean accessSuspended) {
     }
 
     // ------------------------------------------------------------------ đọc
@@ -364,7 +365,8 @@ public class CheckoutService {
                 record == null ? null : record.getNote(), record == null ? null : record.getInspectedAt(),
                 contract.depositAmount(), decimal(POLICY_CLEANING), decimal(POLICY_LOST_KEY), keysIssued, unpaid,
                 record == null ? null : record.getTotalCharges(), record == null ? null : record.getRefundAmount(),
-                shortfall, record == null ? null : record.getCompletedAt());
+                shortfall, record == null ? null : record.getCompletedAt(),
+                contract.active() && contracts.accessSuspended(contract.id()));
     }
 
     private BigDecimal decimal(String policy) {

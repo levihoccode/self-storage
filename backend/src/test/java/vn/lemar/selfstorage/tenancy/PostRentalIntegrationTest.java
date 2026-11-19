@@ -535,6 +535,71 @@ class PostRentalIntegrationTest {
         assertThat(invoiceStatus(feeId)).isEqualTo("Paid");
     }
 
+    // ------------------------------------------------------------------ mở lại truy cập đang tạm khoá
+
+    @Test
+    void lockedOverdueContractReopensForMoveOutWhenCustomerArrivesAtReturnAppointment() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        assertThat(tenancy.rental(seed.contractId, customerId).accessSuspended()).isTrue();
+
+        ReturnRequestView request = tenancy.requestReturn(seed.contractId, customerId, LocalDate.now(VN).plusDays(1),
+                null);
+        loginAs(FM);
+        ReturnRequestView assigned = tenancy.assign(request.id(), fsId);
+        // Gửi yêu cầu / đã có lịch: chưa mở — khách chỉ vào dọn đồ khi đến buổi trả kho, có FS giám sát.
+        assertThat(suspended(seed.contractId)).isTrue();
+
+        loginAs(FS);
+        staffActions.arrive(assigned.appointmentId());
+        // FS xác nhận khách đến → mở ngay (listener sau commit), kể cả khi còn nợ phí quá hạn (trừ cọc khi quyết toán).
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(count("select count(*) from invoices where contract_id = ? and code like 'INV-OVD-%' "
+                + "and status = 'Unpaid'", seed.contractId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select n.body from notifications n join order_notifications o on "
+                + "o.notification_id = n.id where n.type = 'CONTRACT_ACCESS_RESTORED' and o.order_id = ?",
+                String.class, seed.orderId)).contains("dọn đồ tại buổi trả kho");
+        assertThat(checkout.forStaff(request.id()).accessSuspended()).isFalse();
+    }
+
+    @Test
+    void lockedOverdueContractReopensRightAfterPayingFeeAndExtension() {
+        Seed seed = seedActive(LocalDate.now(VN).minusDays(31));
+        overdue.accrue(seed.contractId);
+        assertThat(suspended(seed.contractId)).isTrue();
+        long feeId = id("select id from invoices where contract_id = " + seed.contractId
+                + " and code like 'INV-OVD-%' and status = 'Unpaid'");
+
+        pay(contractInvoices.bill(feeId).orElseThrow());
+        // Đã trả phí nhưng còn quá hạn → chưa mở.
+        assertThat(suspended(seed.contractId)).isTrue();
+
+        pay(tenancy.requestExtension(seed.contractId, customerId, 2));
+        // Gia hạn phủ kỳ quá hạn, không còn nợ → mở ngay sau khi trả, không đợi cron mỗi giờ.
+        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(tenancy.rental(seed.contractId, customerId).accessSuspended()).isFalse();
+    }
+
+    @Test
+    void endedContractsStayVisibleInHistory() {
+        Seed seed = seedActive(LocalDate.now(VN).plusDays(20));
+        jdbc.update("update rental_contracts set status = 'Ended' where id = ?", seed.contractId);
+
+        assertThat(tenancy.rentals(customerId)).noneMatch(r -> r.contractId().equals(seed.contractId));
+        assertThat(tenancy.endedRentals(customerId)).anySatisfy(r -> {
+            assertThat(r.contractId()).isEqualTo(seed.contractId);
+            assertThat(r.status()).isEqualTo("Ended");
+            assertThat(r.canExtend()).isFalse();
+            assertThat(r.canRequestReturn()).isFalse();
+        });
+    }
+
+    private Boolean suspended(long contractId) {
+        return jdbc.queryForObject("select access_suspended_at is not null from rental_contracts where id = ?",
+                Boolean.class, contractId);
+    }
+
     @Test
     void returnRequestStopsOverdueAccrualAndReminderIsSentOnce() {
         Seed late = seedActive(LocalDate.now(VN).minusDays(10));

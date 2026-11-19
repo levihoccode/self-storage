@@ -170,28 +170,26 @@ class RentBillingAndRefundIntegrationTest {
     }
 
     @Test
-    void suspendedContractReopensForMoveOutOncePaidAndReturnRequested() {
+    void suspendedContractStaysLockedOnReturnRequestUntilCustomerArrives() {
+        // Luật mở để dọn đồ: gửi yêu cầu trả kho (kể cả đã trả hết phí) chưa mở — chỉ mở khi FS xác nhận khách đến
+        // buổi trả kho (PostRentalIntegrationTest kiểm nhánh mở khi khách đến).
         LocalDate end = LocalDate.now(VN).minusDays(31);
         Seed seed = seedActive(end.minusMonths(3), 3);
         overdue.accrue(seed.contractId);
         assertThat(suspended(seed.contractId)).isTrue();
 
         tenancy.requestReturn(seed.contractId, customerId, LocalDate.now(VN).plusDays(1), null);
-        // Còn INV-OVD chưa trả → chưa mở.
         assertThat(overdue.restoreIfCleared(seed.contractId)).isFalse();
-
         jdbc.update("update invoices set status = 'Paid' where contract_id = ? and code like 'INV-OVD-%'",
                 seed.contractId);
-        assertThat(overdue.restoreIfCleared(seed.contractId)).isTrue();
-        assertThat(suspended(seed.contractId)).isFalse();
-        assertThat(jdbc.queryForObject("select n.body from notifications n join order_notifications o on "
-                + "o.notification_id = n.id where n.type = 'CONTRACT_ACCESS_RESTORED' and o.order_id = ?",
-                String.class, seed.orderId)).contains("dọn đồ trả kho");
+        assertThat(overdue.restoreIfCleared(seed.contractId)).isFalse();
+        assertThat(suspended(seed.contractId)).isTrue();
 
-        // Phí vẫn tính tiếp tới buổi trả kho, nhưng đang có yêu cầu trả kho mở nên không khoá lại.
+        // Đang có yêu cầu trả kho mở: phí vẫn tính tới buổi trả kho, không khoá thêm lần nữa.
         jdbc.update("update rental_contracts set end_date = end_date - 1 where id = ?", seed.contractId);
         overdue.accrue(seed.contractId);
-        assertThat(suspended(seed.contractId)).isFalse();
+        assertThat(count("select count(*) from audit_logs where action = 'CONTRACT_ACCESS_SUSPENDED' "
+                + "and entity_id = ?", String.valueOf(seed.contractId))).isEqualTo(1);
     }
 
     // ------------------------------------------------------------------ hoàn tiền thủ công

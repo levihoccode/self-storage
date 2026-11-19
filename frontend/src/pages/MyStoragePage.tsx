@@ -6,6 +6,7 @@ import { errorMessage } from "../app/http";
 import {
   cancelMyOrder,
   fetchMyHandovers,
+  fetchEndedRentals,
   fetchMyOrders,
   fetchRentals,
   HANDOVER_STEP_LABEL,
@@ -37,6 +38,7 @@ function Skeleton({ count, height }: { count: number; height: string }) {
 export function MyStoragePage({ navigate }: { navigate: Navigate }) {
   const orders = useResource(fetchMyOrders);
   const rentals = useResource(fetchRentals);
+  const ended = useResource(fetchEndedRentals);
   const handovers = useResource(fetchMyHandovers);
   const [showClosed, setShowClosed] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<OrderOverview | null>(null);
@@ -134,6 +136,25 @@ export function MyStoragePage({ navigate }: { navigate: Navigate }) {
               </div>
             )}
           </section>
+
+          {(ended.data?.length ?? 0) > 0 && (
+            <section>
+              <div className="mb-2">
+                <SectionTitle
+                  action={
+                    <span className="text-label text-muted">{ended.data?.length} hợp đồng</span>
+                  }
+                >
+                  Hợp đồng đã kết thúc
+                </SectionTitle>
+              </div>
+              <div className="grid gap-2">
+                {ended.data?.map((rental) => (
+                  <EndedRentalRow key={rental.contractId} rental={rental} navigate={navigate} />
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <div className="mb-2">
@@ -366,6 +387,34 @@ function RentalCard({ rental, navigate }: { rental: RentalView; navigate: Naviga
           Đã gửi yêu cầu trả kho ngày {formatDate(rental.returnRequest.preferredDate)}.
         </p>
       )}
+    </article>
+  );
+}
+
+/** Hợp đồng đã trả kho — vẫn xem lại được hợp đồng, hoá đơn và biên bản trả kho. */
+function EndedRentalRow({ rental, navigate }: { rental: RentalView; navigate: Navigate }) {
+  return (
+    <article className="flex flex-wrap items-center justify-between gap-3 bg-surface p-4">
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <strong className="text-section text-ink">{rental.unitCode}</strong>
+          <span className="text-label text-muted">{rental.contractCode}</span>
+        </div>
+        <span className="mt-0.5 block text-label text-muted">
+          {formatDate(rental.startDate)} → {formatDate(rental.endDate)} ·{" "}
+          {formatMoney(rental.monthlyPrice)} / tháng
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <StatusTag tone="neutral">Đã kết thúc</StatusTag>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => navigate(`/my-storage/${rental.contractId}`)}
+        >
+          Xem
+        </Button>
+      </div>
     </article>
   );
 }

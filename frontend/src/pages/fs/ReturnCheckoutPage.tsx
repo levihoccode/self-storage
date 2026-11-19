@@ -260,6 +260,13 @@ export function ReturnCheckoutPage({ navigate }: { navigate: Navigate }) {
 
       {actionError && <DemoNotice tone="error">{actionError}</DemoNotice>}
       {notice && !actionError && <DemoNotice tone="success">{notice}</DemoNotice>}
+      {current.accessSuspended && current.result !== "COMPLETED" && (
+        <DemoNotice tone={current.arrivedAt === null ? "info" : "error"}>
+          {current.arrivedAt === null
+            ? "Hợp đồng quá hạn — quyền truy cập của khách đang tạm khoá. Khi bạn xác nhận khách đến, hệ thống mở lại khoang để khách dọn đồ (khách lấy mã khoá số mới trong ứng dụng)."
+            : "Quyền truy cập của khách vẫn đang khoá dù đã xác nhận khách đến. Làm mới trạng thái; nếu vẫn khoá, báo quản lý cơ sở để mở khoang cho khách dọn đồ."}
+        </DemoNotice>
+      )}
 
       <div className="grid grid-cols-[320px_minmax(0,1fr)] items-start gap-6 max-[980px]:grid-cols-1">
         <aside className="grid gap-4">

@@ -82,6 +82,16 @@ public class RentalContractService {
                 .map(this::snapshot).toList();
     }
 
+    /** Hợp đồng đã kết thúc (trả kho xong) của khách, kết thúc gần nhất trước. */
+    @Transactional(readOnly = true)
+    public List<ContractSnapshot> endedOfCustomer(Long customerId) {
+        List<ContractSnapshot> ended = new java.util.ArrayList<>(contracts
+                .findByCustomerIdAndStatusOrderByEndDateAsc(customerId, RentalContractStatus.ENDED).stream()
+                .map(this::snapshot).toList());
+        java.util.Collections.reverse(ended);
+        return ended;
+    }
+
     /** Hợp đồng đang thuê đã qua {@code end_date} (trước {@code date}). */
     @Transactional(readOnly = true)
     public List<Long> activeEndedBefore(LocalDate date) {

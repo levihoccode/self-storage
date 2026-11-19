@@ -60,6 +60,7 @@ hữu route (xem quy ước ở cuối trang).
 | POST | `/api/fm/contracts/{contractId}/start-date-override/approve` | Bearer + role `FM`; `rental_contract.start_date_override.review` + facility scope | Duyệt mốc tính tiền mới | [routes/handover/contracts.md](routes/handover/contracts.md) |
 | POST | `/api/fm/contracts/{contractId}/start-date-override/reject` | Bearer + role `FM`; `rental_contract.start_date_override.review` + facility scope | Từ chối đổi mốc | [routes/handover/contracts.md](routes/handover/contracts.md) |
 | GET | `/api/customer/rentals` | Bearer + role `CUSTOMER`; chủ tài nguyên | Kho đang thuê (hợp đồng `Active`) | [tenancy/rentals.md](tenancy/rentals.md) |
+| GET | `/api/customer/rentals/ended` | Bearer + role `CUSTOMER`; chủ tài nguyên | Hợp đồng đã kết thúc (`Ended`, đã trả kho) | [tenancy/rentals.md](tenancy/rentals.md) |
 | GET | `/api/customer/rentals/{contractId}` | Bearer + role `CUSTOMER`; chủ tài nguyên | Chi tiết kho đang thuê | [tenancy/rentals.md](tenancy/rentals.md) |
 | POST | `/api/customer/rentals/{contractId}/extensions` | Bearer + role `CUSTOMER`; chủ tài nguyên | Gia hạn — tạo hoá đơn `Extension` (còn phí quá hạn `INV-OVD` chưa trả → 409, trả phí trước) | [tenancy/rentals.md](tenancy/rentals.md) |
 | POST | `/api/customer/rentals/{contractId}/return-request` | Bearer + role `CUSTOMER`; chủ tài nguyên | Gửi yêu cầu trả kho | [tenancy/rentals.md](tenancy/rentals.md) |

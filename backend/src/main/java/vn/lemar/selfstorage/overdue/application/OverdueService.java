@@ -47,8 +47,8 @@ public class OverdueService {
     static final String POLICY_REMINDER = "contract.expiry_reminder_days";
     static final String POLICY_ESCALATION = "overdue.escalation_days";
     static final String RESTORE_NOTE_CLEARED = "không còn quá hạn.";
-    static final String RESTORE_NOTE_MOVING_OUT = "được mở lại để bạn dọn đồ trả kho; phí quá hạn vẫn tính tới ngày "
-            + "bạn đến buổi trả kho.";
+    static final String RESTORE_NOTE_MOVING_OUT = "được mở lại để bạn dọn đồ tại buổi trả kho; phí quá hạn dừng ở "
+            + "ngày buổi trả kho và được trừ vào tiền cọc khi quyết toán.";
     static final String PERM_READ = "rental_order.read";
     static final int INVOICE_DUE_DAYS = 7;
 
@@ -149,25 +149,35 @@ public class OverdueService {
         return contracts.activeIds().stream().filter(contracts::accessSuspended).toList();
     }
 
-    /** Hết quá hạn (gia hạn phủ kỳ quá hạn) và không còn phí quá hạn chưa trả → mở lại truy cập. */
+    /**
+     * Mở lại truy cập đang bị tạm khoá khi:
+     * <ul>
+     *   <li><b>đã trả</b> — hết quá hạn (gia hạn phủ kỳ quá hạn) và không còn phí quá hạn chưa trả;</li>
+     *   <li><b>dọn đồ trả kho</b> — còn quá hạn nhưng FS đã xác nhận khách đến buổi trả kho: mở để khách dọn đồ có FS
+     *       giám sát, kể cả khi còn nợ phí (phí dừng ở ngày buổi đó, trừ vào cọc khi quyết toán).</li>
+     * </ul>
+     * Đã chốt quyết toán trả kho (chìa / mã đã thu hồi) thì không mở nữa. Gọi từ cron mỗi giờ và ngay sau khi hoá đơn
+     * hợp đồng được trả / FS xác nhận khách đến ({@link OverdueAccessListener}).
+     */
     @Transactional
     public boolean restoreIfCleared(Long contractId) {
         ContractSnapshot peek = contracts.find(contractId).orElse(null);
-        if (peek == null) {
+        if (peek == null || !contracts.accessSuspended(contractId)) {
             return false;
         }
         orders.lock(peek.orderId());
         ContractSnapshot c = contracts.lock(contractId).orElseThrow();
         boolean overdue = c.endDate().isBefore(LocalDate.now(ZONE));
         boolean feeOpen = invoices.bills(c.id()).stream()
-                .anyMatch(b -> b.unpaid() && b.code().startsWith("INV-" + ContractInvoiceService.OVERDUE_KIND));
-        // Còn quá hạn nhưng đã gửi yêu cầu trả kho và trả hết phí tới nay → mở để khách dọn đồ. Phí vẫn tính tới buổi
-        // trả kho khách đến; escalate bỏ qua hợp đồng có yêu cầu trả kho mở nên không khoá lại.
-        boolean movingOut = overdue && tenancy.openReturnOf(c.id()).isPresent();
-        // Đã chốt quyết toán trả kho (FS đã thu hồi chìa / mã) — không "mở lại để dọn đồ" nữa.
+                .anyMatch(b -> b.unpaid() && ContractInvoiceService.isOverdueFeeCode(b.code()));
+        boolean cleared = !overdue && !feeOpen;
+        // Khách đã đến buổi trả kho (FS bấm "khách đã đến") → mở để dọn đồ; escalate bỏ qua hợp đồng có yêu cầu trả
+        // kho mở nên không khoá lại.
+        boolean movingOut = overdue && tenancy.openReturnOf(c.id())
+                .map(r -> r.appointmentArrivedAt() != null).orElse(false);
         boolean settled = invoices.bills(c.id()).stream()
                 .anyMatch(b -> ContractInvoiceService.isSettlementCode(b.code()) && !"Canceled".equals(b.status()));
-        if ((overdue && !movingOut) || feeOpen || settled || !contracts.restoreAccess(c.id(), null)) {
+        if (!(cleared || movingOut) || settled || !contracts.restoreAccess(c.id(), null)) {
             return false;
         }
         notifications.notifyCustomer(c.orderId(), NotificationType.CONTRACT_ACCESS_RESTORED,

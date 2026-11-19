@@ -152,7 +152,7 @@ class PostRentalControllerTest {
     private static RentalView rental() {
         return new RentalView(7L, "HD-1", 4L, 1L, "A-01", 1L, "Active", new BigDecimal("100000"),
                 new BigDecimal("500000"), 3, LocalDate.now(), LocalDate.now().plusMonths(3), 90, false, List.of(),
-                List.of(), null, true, true, List.of());
+                List.of(), null, true, true, List.of(), false);
     }
 
     private static ReturnRequestView returnView(String status) {
@@ -164,7 +164,7 @@ class PostRentalControllerTest {
     private static CheckoutView checkoutView() {
         return new CheckoutView(returnView("Assigned"), Instant.now(), "IN_PROGRESS", true, false, BigDecimal.ZERO,
                 null, 2, List.of(), null, Instant.now(), new BigDecimal("500000"), new BigDecimal("100000"),
-                new BigDecimal("200000"), 2, BigDecimal.ZERO, null, null, null, null);
+                new BigDecimal("200000"), 2, BigDecimal.ZERO, null, null, null, null, false);
     }
 
     private void login(String email, String roleName, Long accountId) {

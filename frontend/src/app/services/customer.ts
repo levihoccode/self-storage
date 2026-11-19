@@ -485,6 +485,8 @@ export type RentalView = {
   canRequestReturn: boolean;
   /** Đã chuyển khoang giữa kỳ (khoang hư) — bản hợp đồng đã ký vẫn ghi khoang cũ. */
   unitMoves: { fromUnitCode: string; toUnitCode: string; movedAt: string | null }[];
+  /** Quyền truy cập đang tạm khoá do quá hạn kéo dài (mã số bị thu hồi). */
+  accessSuspended: boolean;
 };
 
 /** CheckoutService.CheckoutView. */
@@ -509,10 +511,17 @@ export type CheckoutView = {
   refundAmount: number | null;
   shortfallInvoice: ContractBill | null;
   completedAt: string | null;
+  /** Hợp đồng đang bị tạm khoá truy cập (quá hạn) — mở lại khi FS xác nhận khách đến buổi trả kho. */
+  accessSuspended: boolean;
 };
 
 export function fetchRentals(): Promise<RentalView[]> {
   return authed<RentalView[]>("/api/customer/rentals");
+}
+
+/** Hợp đồng đã kết thúc (đã trả kho), kết thúc gần nhất trước. */
+export function fetchEndedRentals(): Promise<RentalView[]> {
+  return authed<RentalView[]>("/api/customer/rentals/ended");
 }
 
 export function fetchRental(contractId: number): Promise<RentalView> {
