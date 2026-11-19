@@ -38,6 +38,11 @@ public class ContractInvoiceService {
 
     /** Tiền tố mã hoá đơn phí quá hạn — phân biệt với phạt trả kho trong cùng {@code type = Penalty}. */
     public static final String OVERDUE_KIND = "OVD";
+    /**
+     * Nợ gộp trước khi dọn đồ trả kho: hợp đồng quá hạn đang tạm khoá, khách đã đến buổi trả kho → mọi khoản còn nợ gộp
+     * thành một hoá đơn; trả xong khoang mới mở.
+     */
+    public static final String MOVE_OUT_DEBT_KIND = "DBT";
     /** Mã hoá đơn quyết toán trả kho: hoá đơn chưa trả gộp vào quyết toán (phần đối trừ cọc) và phần còn thiếu. */
     public static final String SETTLEMENT_KIND = "PEN";
     /** Phí vệ sinh khi trả kho. */
@@ -132,9 +137,10 @@ public class ContractInvoiceService {
     public Optional<ContractBill> syncOverdueFee(Long orderId, Long contractId, Long customerId, BigDecimal accrued,
                                                  long days, Instant dueDate, Instant periodStart) {
         List<Invoice> all = invoiceRepository.findByContractIdOrderByIdDesc(contractId);
-        // Đã chốt quyết toán trả kho (có hoá đơn INV-CLN/DMG/KEY/PEN): phí quá hạn đã gộp vào quyết toán — không
-        // phát hành lại.
-        if (all.stream().anyMatch(i -> isSettlementCode(i.getCode()) && i.getStatus() != InvoiceStatus.CANCELED)) {
+        // Đã chốt quyết toán trả kho (có hoá đơn INV-CLN/DMG/KEY/PEN) hoặc đã gộp nợ trước khi dọn đồ (INV-DBT, phí
+        // đã chốt tới ngày buổi trả kho): phí quá hạn đã nằm trong hoá đơn đó — không phát hành lại.
+        if (all.stream().anyMatch(i -> (isSettlementCode(i.getCode()) || isMoveOutDebtCode(i.getCode()))
+                && i.getStatus() != InvoiceStatus.CANCELED)) {
             return Optional.empty();
         }
         List<Invoice> overdue = all.stream()
@@ -202,6 +208,44 @@ public class ContractInvoiceService {
             throw new BookingConflictException("Khách đang có phiên thanh toán chưa kết thúc cho hoá đơn của hợp "
                     + "đồng. Vui lòng thử lại sau ít phút.");
         }
+        return foldOpenDebt(contractId, unpaid, reason, "Gop vao quyet toan tra kho");
+    }
+
+    /**
+     * Hợp đồng quá hạn đang tạm khoá, khách đã đến buổi trả kho: gộp mọi hoá đơn {@code Unpaid} (phí quá hạn đã chốt
+     * tới ngày buổi đó, tiền thuê, dịch vụ, nợ gộp trước đó) và tiền thuê tháng {@code Expired} thành một hoá đơn
+     * {@code INV-DBT} để khách trả một lần trước khi vào dọn đồ. Không có gì để gộp, chỉ còn đúng một {@code INV-DBT}
+     * chưa trả, hoặc khách đang có phiên thanh toán mở → không làm gì (xét lại khi phiên đó chốt).
+     *
+     * @return hoá đơn nợ gộp vừa lập; rỗng khi không lập mới
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<ContractBill> foldDebtForMoveOut(Long orderId, Long contractId, Long customerId, Instant dueDate) {
+        List<Invoice> all = invoiceRepository.findByContractIdOrderByIdDesc(contractId);
+        List<Invoice> unpaid = all.stream().filter(Invoice::isUnpaid).toList();
+        boolean expiredRent = all.stream().anyMatch(Invoice::isExpiredRent);
+        if (unpaid.isEmpty() && !expiredRent) {
+            return Optional.empty();
+        }
+        if (!expiredRent && unpaid.size() == 1 && isMoveOutDebtCode(unpaid.get(0).getCode())) {
+            return Optional.empty();
+        }
+        if (!paymentService.invoicesWithOpenSession(unpaid.stream().map(Invoice::getId).toList()).isEmpty()) {
+            return Optional.empty();
+        }
+        BigDecimal total = foldOpenDebt(contractId, unpaid, "Gộp vào hoá đơn nợ trước khi dọn đồ trả kho",
+                "Gop no truoc khi tra kho");
+        if (total.signum() <= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(issue(orderId, contractId, customerId, InvoiceType.PENALTY.dbValue(), MOVE_OUT_DEBT_KIND,
+                "Thanh toán nợ trước khi dọn đồ trả kho",
+                "Gộp phí quá hạn tính tới ngày buổi trả kho và các khoản còn nợ của hợp đồng.", total, dueDate,
+                null));
+    }
+
+    /** Huỷ các hoá đơn {@code unpaid} và gộp tiền thuê tháng {@code Expired} của hợp đồng; trả tổng tiền đã gộp. */
+    private BigDecimal foldOpenDebt(Long contractId, List<Invoice> unpaid, String reason, String sessionReason) {
         BigDecimal total = BigDecimal.ZERO;
         List<Long> canceled = new ArrayList<>();
         for (Invoice found : unpaid) {
@@ -229,7 +273,7 @@ public class ContractInvoiceService {
             record(AuditAction.INVOICE_CANCELED, invoice, Map.of("status", InvoiceStatus.EXPIRED.dbValue()),
                     Map.of("status", invoice.getStatus().dbValue()), reason);
         }
-        sessionCloser.closeAfterCommit(canceled, "Gop vao quyet toan tra kho");
+        sessionCloser.closeAfterCommit(canceled, sessionReason);
         return total;
     }
 
@@ -244,6 +288,19 @@ public class ContractInvoiceService {
      */
     public static boolean isOverdueFeeCode(String code) {
         return code != null && code.startsWith("INV-" + OVERDUE_KIND + "-");
+    }
+
+    /** Hoá đơn nợ gộp trước khi dọn đồ trả kho ({@code INV-DBT-…}). */
+    public static boolean isMoveOutDebtCode(String code) {
+        return code != null && code.startsWith("INV-" + MOVE_OUT_DEBT_KIND + "-");
+    }
+
+    /**
+     * Công nợ không tự hết hạn — phí quá hạn ({@code INV-OVD}) và nợ gộp trước khi dọn đồ ({@code INV-DBT}): cron hết
+     * hạn bỏ qua, trả được cả sau {@code due_date}; nếu để {@code Expired}, quyết toán trả kho không gộp và nợ bị mất.
+     */
+    public static boolean isStandingDebtCode(String code) {
+        return isOverdueFeeCode(code) || isMoveOutDebtCode(code);
     }
 
     /**

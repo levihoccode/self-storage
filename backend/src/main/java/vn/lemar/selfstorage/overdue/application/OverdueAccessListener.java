@@ -14,8 +14,10 @@ import vn.lemar.selfstorage.booking.application.ContractInvoicePaid;
 /**
  * Mở lại truy cập đang tạm khoá ngay khi đủ điều kiện, không đợi cron mỗi giờ:
  * <ul>
- *   <li>hoá đơn của hợp đồng vừa trả (phí quá hạn, gia hạn) — hết nợ + hết quá hạn thì mở;</li>
- *   <li>FS vừa xác nhận khách đến một buổi hẹn — hợp đồng quá hạn có buổi trả kho khách đã đến thì mở để dọn đồ.</li>
+ *   <li>hoá đơn của hợp đồng vừa trả (phí quá hạn, gia hạn, nợ gộp trả kho) — hết nợ + hết quá hạn, hoặc khách đã
+ *       đến buổi trả kho và hết nợ, thì mở;</li>
+ *   <li>FS vừa xác nhận khách đến một buổi hẹn — hợp đồng quá hạn có buổi trả kho khách đã đến: chốt phí, gộp nợ
+ *       thành một hoá đơn; không còn nợ thì mở để dọn đồ.</li>
  * </ul>
  * Chạy {@code AFTER_COMMIT}: gia hạn / mốc khách đến đã ghi xong mới xét. Mỗi hợp đồng một transaction
  * {@code REQUIRES_NEW} — trong pha AFTER_COMMIT, gọi thẳng method {@code @Transactional} (REQUIRED) sẽ nhập vào
@@ -38,7 +40,7 @@ class OverdueAccessListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void on(ContractInvoicePaid event) {
         if (event.contractId() != null) {
-            restore(event.contractId(), "sau thanh toán");
+            prepareThenRestore(event.contractId(), "sau thanh toán");
         }
     }
 
@@ -47,11 +49,17 @@ class OverdueAccessListener {
         // Không có liên kết ngược lịch → hợp đồng ở đây; số hợp đồng đang tạm khoá nhỏ nên xét lại tất cả.
         java.util.List<Long> suspended = newTx.execute(status -> service.suspendedIds());
         for (Long contractId : suspended == null ? java.util.List.<Long>of() : suspended) {
-            restore(contractId, "khi khách đến buổi hẹn");
+            prepareThenRestore(contractId, "khi khách đến buổi hẹn");
         }
     }
 
-    private void restore(Long contractId, String when) {
+    /** Gộp nợ trước khi dọn đồ (nếu khách đã đến buổi trả kho) rồi xét mở lại — mỗi bước một transaction. */
+    private void prepareThenRestore(Long contractId, String when) {
+        try {
+            newTx.executeWithoutResult(status -> service.prepareMoveOut(contractId));
+        } catch (RuntimeException e) {
+            LOG.warn("Gộp nợ trả kho {} — hợp đồng {} lỗi: {}", when, contractId, e.getMessage());
+        }
         try {
             newTx.executeWithoutResult(status -> service.restoreIfCleared(contractId));
         } catch (RuntimeException e) {

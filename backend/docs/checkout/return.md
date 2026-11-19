@@ -59,8 +59,9 @@ flowchart TB
 - `GET` cùng đường dẫn trả biên bản kèm phí dự kiến: `cleaningFee`, `lostKeyFee`, số chìa đã giao, tổng hoá đơn
   `Unpaid` của hợp đồng, tiền cọc, `accessSuspended` (hợp đồng đang tạm khoá truy cập do quá hạn kéo dài) và
   `overlock` (khoá chặn của cơ sở đang mở trên khoang, `null` = không có).
-- Hợp đồng quá hạn đang tạm khoá: FS xác nhận khách đến buổi `RETURN` thì truy cập được mở lại để khách dọn đồ (khách
-  lấy mã khoá số mới trong ứng dụng); phí quá hạn dừng ở ngày buổi đó và gộp vào quyết toán — luật ở
+- Hợp đồng quá hạn đang tạm khoá: FS xác nhận khách đến buổi `RETURN` → hệ thống chốt phí quá hạn tới ngày buổi đó và
+  gộp mọi khoản nợ thành một hoá đơn `INV-DBT`; khách trả xong thì truy cập mới mở lại để dọn đồ (khách lấy mã khoá số
+  mới trong ứng dụng). Còn nợ thì khoang vẫn khoá — luật ở
   [tenancy/rentals.md](../tenancy/rentals.md#quá-hạn-kéo-dài--tạm-khoá-truy-cập).
 
 ## Chốt và quyết toán

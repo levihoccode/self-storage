@@ -66,5 +66,6 @@ public enum NotificationType {
     OVERLOCK_REQUIRED,
     OVERLOCK_REMOVAL_REQUIRED,
     OVERLOCK_REMOVED,
+    MOVE_OUT_DEBT_DUE,
     OTHER
 }

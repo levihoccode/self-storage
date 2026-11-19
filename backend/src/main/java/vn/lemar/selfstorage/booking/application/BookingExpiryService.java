@@ -138,7 +138,7 @@ public class BookingExpiryService {
             return false;
         }
         // Phí quá hạn là công nợ: không tự hết hạn (nếu Expired, quyết toán trả kho không gộp và khoản nợ bị mất).
-        if (ContractInvoiceService.isOverdueFeeCode(invoice.getCode())) {
+        if (ContractInvoiceService.isStandingDebtCode(invoice.getCode())) {
             return false;
         }
         invoice.expire();

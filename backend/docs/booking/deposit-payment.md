@@ -96,6 +96,7 @@ trên đơn đã giữ khoang không có `RENTAL_ORDER_DEPOSITED`; trên đơn c
 | `INV-RNT` | `Rental` | FS ký hợp đồng — tiền thuê tháng đầu; cron tiền thuê hằng tháng — các tháng sau ([tenancy/rentals.md](../tenancy/rentals.md#thu-tiền-thuê-hằng-tháng)) |
 | `INV-EXT` | `Extension` | khách gia hạn ([tenancy/rentals.md](../tenancy/rentals.md)) |
 | `INV-OVD` | `Penalty` | cron phí quá hạn ([tenancy/rentals.md](../tenancy/rentals.md#quá-hạn-flow-6)) |
+| `INV-DBT` | `Penalty` | nợ gộp trước khi dọn đồ trả kho — hợp đồng đang tạm khoá, khách đến buổi trả kho ([tenancy/rentals.md](../tenancy/rentals.md#quá-hạn-kéo-dài--tạm-khoá-truy-cập)) |
 | `INV-CLN` | `Penalty` | quyết toán trả kho — phí vệ sinh ([checkout/return.md](../checkout/return.md)) |
 | `INV-DMG` | `Penalty` | quyết toán trả kho — phí hư hỏng |
 | `INV-KEY` | `Penalty` | quyết toán trả kho — phí mất chìa (`fee.lost_key × số chìa thiếu`) |
@@ -123,8 +124,8 @@ loại:
   ([handover/records.md](../handover/records.md)); tháng sau (hợp đồng `Active`): FM nhận `RENT_UNPAID`, nợ giữ trên
   hoá đơn `Expired` ([tenancy/rentals.md](../tenancy/rentals.md#thu-tiền-thuê-hằng-tháng));
 - `Extension` — hợp đồng không đổi, khách tạo hoá đơn gia hạn mới ([tenancy/rentals.md](../tenancy/rentals.md));
-- `Penalty` `INV-OVD` — **không hết hạn**: cron bỏ qua (`InvoiceRepository.findOverdueUnpaidIds` lọc mã `INV-OVD-…`,
-  `expireInvoice` chặn thêm một lớp). Đây là công nợ của những ngày đã quá hạn, giữ `Unpaid` tới khi khách trả (trả được
+- `Penalty` `INV-OVD` và `INV-DBT` — **không hết hạn**: cron bỏ qua (`InvoiceRepository.findOverdueUnpaidIds` lọc mã
+  `INV-OVD-…` / `INV-DBT-…`, `expireInvoice` chặn thêm một lớp qua `ContractInvoiceService.isStandingDebtCode`). Đây là công nợ của những ngày đã quá hạn, giữ `Unpaid` tới khi khách trả (trả được
   cả sau `due_date`) hoặc gộp vào quyết toán trả kho — nếu để `Expired`, quyết toán không gộp và khoản nợ bị mất
   ([tenancy/rentals.md](../tenancy/rentals.md));
 - `Penalty` `INV-PEN` phần còn thiếu khi trả kho — trả kho vẫn hoàn tất, hoá đơn giữ `Expired` làm công nợ, FM nhận

@@ -58,7 +58,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
      * nợ, giữ {@code Unpaid} tới khi khách trả hoặc gộp vào quyết toán trả kho.
      */
     @Query("select i.id from Invoice i where i.status = vn.lemar.selfstorage.booking.domain.InvoiceStatus.UNPAID "
-            + "and i.dueDate < :now and i.code not like 'INV-OVD-%' order by i.id")
+            + "and i.dueDate < :now and i.code not like 'INV-OVD-%' and i.code not like 'INV-DBT-%' order by i.id")
     List<Long> findOverdueUnpaidIds(@Param("now") Instant now);
 
     /** Hoá đơn cọc đầy đủ đã thanh toán của đơn (V11: tối đa một hoá đơn {@code Deposit} active). */

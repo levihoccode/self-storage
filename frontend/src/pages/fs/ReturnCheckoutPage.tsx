@@ -265,8 +265,8 @@ export function ReturnCheckoutPage({ navigate }: { navigate: Navigate }) {
       {current.accessSuspended && current.result !== "COMPLETED" && (
         <DemoNotice tone={current.arrivedAt === null ? "info" : "error"}>
           {current.arrivedAt === null
-            ? "Hợp đồng quá hạn — quyền truy cập của khách đang tạm khoá. Khi bạn xác nhận khách đến, hệ thống mở lại khoang để khách dọn đồ (khách lấy mã khoá số mới trong ứng dụng)."
-            : "Quyền truy cập của khách vẫn đang khoá dù đã xác nhận khách đến. Làm mới trạng thái; nếu vẫn khoá, báo quản lý cơ sở để mở khoang cho khách dọn đồ."}
+            ? "Hợp đồng quá hạn — quyền truy cập của khách đang tạm khoá. Khi bạn xác nhận khách đến, hệ thống chốt phí quá hạn và gộp mọi khoản nợ thành một hoá đơn; khách thanh toán xong thì khoang mới mở để dọn đồ."
+            : `Khách còn nợ ${formatMoney(current.unpaidContractInvoices ?? 0)} — khoang vẫn khoá. Khách thanh toán hoá đơn nợ trong ứng dụng thì khoang tự mở (tải lại trang để cập nhật). Chưa trả thì không cho vào dọn đồ.`}
         </DemoNotice>
       )}
       {current.overlock && current.result !== "COMPLETED" && (

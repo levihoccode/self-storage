@@ -169,6 +169,8 @@ Phí cộng dồn nằm trên đúng một hoá đơn `Penalty` mã `INV-OVD-…
 - **Gia hạn khi còn nợ phí:** không được — phải trả `INV-OVD` trước (xem [Gia hạn](#gia-hạn), bước 1). Gia hạn phủ kỳ
   quá hạn (`end_date` mới ≥ hôm nay) thì phí **ngừng cộng thêm**. Hoá đơn phí đã phát sinh không bao giờ bị huỷ vì gia
   hạn: huỷ sẽ cho phép khách chậm rồi gia hạn để xoá sạch phí.
+- **Gộp nợ trước khi dọn đồ:** hợp đồng đang tạm khoá, khách đến buổi trả kho → phí chốt tới ngày buổi đó rồi gộp vào
+  `INV-DBT` cùng mọi khoản nợ khác ([bên dưới](#quá-hạn-kéo-dài--tạm-khoá-truy-cập)).
 - **`INV-OVD` không tự hết hạn:** khi phí ngừng cộng (vd. dừng ở ngày buổi trả kho khách đến) thì `due_date` (now + 7
   ngày lúc đổi số tiền gần nhất) không còn được dời, nên cron hết hạn hoá đơn bỏ qua `INV-OVD` và trang thanh toán cho
   trả cả sau `due_date`. Nếu để `Expired`, quyết toán trả kho (chỉ gộp hoá đơn `Unpaid` + tiền thuê `Expired`) sẽ
@@ -224,8 +226,24 @@ của cơ sở (overlock) — khách giữ chìa nhưng không mở được. B�
 | Đường | Điều kiện | Ghi chú |
 |---|---|---|
 | Trả nợ + gia hạn | không còn quá hạn (`end_date` ≥ hôm nay — gia hạn đã phủ kỳ quá hạn) **và** không còn `INV-OVD` `Unpaid` | chỉ trả phí mà chưa gia hạn, hoặc gia hạn chưa phủ hết kỳ quá hạn → vẫn khoá |
-| Trả kho | còn quá hạn, có yêu cầu trả kho mở và FS **đã xác nhận khách đến** buổi `RETURN` (`appointmentArrivedAt`) | mở để khách dọn đồ khi có FS tại chỗ, kể cả còn nợ `INV-OVD`: phí dừng ở ngày buổi đó và gộp vào quyết toán, trừ cọc |
+| Trả kho | còn quá hạn, có yêu cầu trả kho mở, FS **đã xác nhận khách đến** buổi `RETURN` (`appointmentArrivedAt`) **và khách đã trả hết nợ** (không còn hoá đơn `Unpaid` nào của hợp đồng, không còn tiền thuê `Expired`) | còn nợ thì giữ khoá — tránh khách dọn hết đồ rồi bỏ đi không trả; tiền cọc **không** dùng để bù nợ ở bước này |
 
+- **Nợ gộp trước khi dọn đồ** (`OverdueService.prepareMoveOut`): hợp đồng đang khoá, FS vừa xác nhận khách đến buổi
+  trả kho → chốt phí quá hạn tới ngày buổi đó (`accrue`, ngày dừng = `appointmentStart`), rồi
+  `ContractInvoiceService.foldDebtForMoveOut` huỷ mọi hoá đơn `Unpaid` của hợp đồng (phí `INV-OVD`, tiền thuê, dịch
+  vụ…) và gộp tiền thuê `Expired` (nợ cũ, không trả online được) thành **một** hoá đơn `Penalty`
+  `INV-DBT-{facility}-{YYMMDD}-{rand}` (hạn now + 7 ngày); khách nhận `MOVE_OUT_DEBT_DUE` (số tiền + mã hoá đơn). Khách
+  trả hoá đơn này (thường ngay tại buổi hẹn) → `ContractInvoicePaid` → mở khoang để dọn đồ.
+  - Chạy ngay sau khi khách đến, sau mỗi lần hoá đơn của hợp đồng được trả, và trong cron mỗi giờ; idempotent — chỉ còn
+    đúng một `INV-DBT` chưa trả thì không gộp lại; khách đang có phiên thanh toán mở thì đợi phiên đó chốt.
+  - Không còn nợ lúc khách đến (vd. đã trả phí trong ngày) → không lập hoá đơn, mở ngay.
+  - `INV-DBT` **không tự hết hạn** (như `INV-OVD`) và trả được cả sau `due_date`; đã có `INV-DBT` chưa huỷ thì cron
+    không phát hành lại `INV-OVD` (phí đã chốt trong hoá đơn đó).
+  - Tiền cọc giữ nguyên: khi chốt trả kho chỉ trừ phí vệ sinh / hư hỏng / mất chìa rồi hoàn phần dư. Khách không trả
+    mà FS vẫn chốt trả kho (khoang thực tế đã trống) thì `INV-DBT` còn `Unpaid` được gộp vào quyết toán như mọi hoá
+    đơn chưa trả.
+  - Chỉ áp dụng cho hợp đồng đang tạm khoá; hợp đồng quá hạn chưa bị khoá vẫn vào khoang bình thường, nợ gộp vào
+    quyết toán, trừ cọc.
 - Gửi yêu cầu trả kho hay được phân lịch **không** mở lại — khoang chỉ mở khi khách thật sự có mặt ở buổi trả kho.
   `escalate` bỏ qua hợp đồng có yêu cầu trả kho mở nên sau khi mở không bị khoá lại; khách huỷ yêu cầu / no-show đủ
   ngưỡng thì lượt cron sau khoá lại theo điều kiện thường.
@@ -237,14 +255,16 @@ của cơ sở (overlock) — khách giữ chìa nhưng không mở được. B�
   lại hợp đồng `Active` đang khoá làm đường dự phòng.
 
 Kết quả: xoá `access_suspended_at`, audit `CONTRACT_ACCESS_RESTORED`, khách nhận `CONTRACT_ACCESS_RESTORED` (nội dung
-nêu rõ "không còn quá hạn" hay "mở lại để dọn đồ tại buổi trả kho; phí dừng ở ngày buổi đó và trừ vào cọc"). Mã cũ đã
-thu hồi nên khách tự lấy mã mới trong trang kho đang thuê.
+nêu rõ "không còn quá hạn" hay "mở lại để dọn đồ tại buổi trả kho — bạn đã thanh toán hết nợ"). Mã cũ đã thu hồi nên
+khách tự lấy mã mới trong trang kho đang thuê.
 
 Trang hợp đồng của khách (hợp đồng `Active` quá hạn) gom hai đường trên vào một khung: số ngày quá hạn, phí
 `INV-OVD` hiện tại (nút thanh toán), hoá đơn khác chưa trả, tiền cọc đang giữ; "Cách 1 — trả phí và gia hạn" (form gia
-hạn hiện khi `canExtend`) và "Cách 2 — trả kho" (form yêu cầu trả kho, kèm tạm tính cọc − nợ: được hoàn / phải trả
-thêm, chưa gồm phí vệ sinh / hư hỏng / mất chìa). Nút lấy mã khoá số bị tắt khi `accessSuspended`. Trang biên bản trả
-kho của FS báo khi hợp đồng đang khoá: xác nhận khách đến thì khoang được mở lại để khách dọn đồ.
+hạn hiện khi `canExtend`) và "Cách 2 — trả kho" (form yêu cầu trả kho; hợp đồng đang khoá thì nêu số tiền cần trả
+trước khi dọn đồ và nút thanh toán `INV-DBT` khi đã có; chưa khoá thì tạm tính cọc − nợ: được hoàn / phải trả thêm,
+chưa gồm phí vệ sinh / hư hỏng / mất chìa). Nút lấy mã khoá số bị tắt khi `accessSuspended`. Trang biên bản trả kho
+của FS báo khi hợp đồng đang khoá: trước khi khách đến — xác nhận đến thì hệ thống gộp nợ; sau đó — khách còn nợ bao
+nhiêu, trả xong khoang tự mở.
 
 FM xem danh sách hợp đồng quá hạn của cơ sở (`GET /api/fm/overdue-contracts?facilityId=`), gồm:
 - số ngày quá hạn và số ngày tính phí;

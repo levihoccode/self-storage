@@ -698,6 +698,11 @@ function OverduePanel({
     .reduce((sum, bill) => sum + Number(bill.amount), 0);
   const owed = Number(fee?.amount ?? 0) + otherDebt;
   const balance = Number(contract.depositAmount) - owed;
+  // Hợp đồng đang khoá: khi khách đến buổi trả kho, mọi khoản nợ gộp vào một hoá đơn INV-DBT — trả xong mới mở khoang.
+  const moveOutDebt =
+    contract.invoices.find(
+      (bill) => bill.code.startsWith("INV-DBT-") && bill.status === "Unpaid",
+    ) ?? null;
   const extensionPending = contract.invoices.some(
     (bill) => bill.type === "Extension" && bill.status === "Unpaid",
   );
@@ -768,22 +773,49 @@ function OverduePanel({
 
         <div className="grid content-start gap-3 bg-surface-subtle p-4">
           <strong className="text-small text-ink">Cách 2 — Trả kho</strong>
-          <ul className="m-0 grid gap-1 pl-5 text-small text-muted">
-            <li>
-              Khi bạn đến buổi trả kho, nhân viên xác nhận và khoang được mở để bạn dọn đồ (lấy mã
-              mới trong trang này nếu dùng mã số).
-            </li>
-            <li>Phí quá hạn dừng ở ngày buổi trả kho và được trừ vào tiền cọc khi quyết toán.</li>
-            <li>
-              Tạm tính hiện tại:{" "}
-              <strong className="text-ink">
-                {balance >= 0
-                  ? `được hoàn khoảng ${formatMoney(balance)}`
-                  : `phải trả thêm khoảng ${formatMoney(-balance)}`}
-              </strong>{" "}
-              (chưa gồm phí vệ sinh, hư hỏng, mất chìa nếu có).
-            </li>
-          </ul>
+          {contract.accessSuspended ? (
+            <ul className="m-0 grid gap-1 pl-5 text-small text-muted">
+              <li>
+                Khi bạn đến buổi trả kho, hệ thống chốt phí quá hạn tới ngày đó và gộp mọi khoản còn
+                nợ thành một hoá đơn.
+              </li>
+              <li>
+                Thanh toán hết hoá đơn đó (ngay tại buổi hẹn) thì khoang mới được mở để bạn dọn đồ.
+              </li>
+              <li>
+                Tiền cọc giữ nguyên — khi quyết toán chỉ trừ phí vệ sinh, hư hỏng, mất chìa (nếu có)
+                rồi hoàn phần dư.
+              </li>
+              <li>
+                Cần thanh toán khoảng <strong className="text-ink">{formatMoney(owed)}</strong>{" "}
+                (tính tới hôm nay; phí quá hạn còn tăng tới ngày buổi hẹn).
+              </li>
+            </ul>
+          ) : (
+            <ul className="m-0 grid gap-1 pl-5 text-small text-muted">
+              <li>
+                Khi bạn đến buổi trả kho, nhân viên kiểm tra khoang cùng bạn rồi chốt biên bản.
+              </li>
+              <li>Phí quá hạn dừng ở ngày buổi trả kho và được trừ vào tiền cọc khi quyết toán.</li>
+              <li>
+                Tạm tính hiện tại:{" "}
+                <strong className="text-ink">
+                  {balance >= 0
+                    ? `được hoàn khoảng ${formatMoney(balance)}`
+                    : `phải trả thêm khoảng ${formatMoney(-balance)}`}
+                </strong>{" "}
+                (chưa gồm phí vệ sinh, hư hỏng, mất chìa nếu có).
+              </li>
+            </ul>
+          )}
+          {moveOutDebt && (
+            <Button
+              pending={payingId === moveOutDebt.invoiceId}
+              onClick={() => onPay(moveOutDebt.invoiceId)}
+            >
+              Thanh toán {formatMoney(moveOutDebt.amount)} để mở khoang
+            </Button>
+          )}
           {request ? (
             <p className="m-0 bg-surface p-3 text-small text-ink">
               Đã gửi yêu cầu trả kho ngày {formatDate(request.preferredDate)} —{" "}

@@ -207,8 +207,8 @@ public class NotificationTemplateCatalog {
                 "Quyền truy cập khoang tạm khoá",
                 "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày. Mã khoá số đã tạm khoá. "
                         + "Để mở lại: thanh toán phí quá hạn rồi gia hạn, hoặc gửi yêu cầu trả kho — khoang được "
-                        + "mở để dọn đồ khi bạn đến buổi trả kho. Khoang dùng chìa cơ sẽ được gắn thêm khoá chặn của "
-                        + "cơ sở cho tới khi mở lại.");
+                        + "mở để dọn đồ khi bạn đến buổi trả kho và thanh toán hết nợ. Khoang dùng chìa cơ sẽ được "
+                        + "gắn thêm khoá chặn của cơ sở cho tới khi mở lại.");
         put(NotificationType.CONTRACT_ACCESS_SUSPENDED, NotificationRecipient.FM,
                 "Hợp đồng quá hạn kéo dài",
                 "Hợp đồng {{contractCode}} (khoang {{unitCode}}) đã quá hạn {{days}} ngày, mã khoá số đã tạm khoá. "
@@ -280,6 +280,11 @@ public class NotificationTemplateCatalog {
                 "Cần gỡ khoá chặn",
                 "Khoang {{unitCode}} (hợp đồng {{contractCode}}) đã được mở lại truy cập. FS của cơ sở cần gỡ khoá "
                         + "chặn tại khoang.");
+        put(NotificationType.MOVE_OUT_DEBT_DUE, NotificationRecipient.CUSTOMER,
+                "Thanh toán nợ để dọn đồ trả kho",
+                "Để mở khoang {{unitCode}} (hợp đồng {{contractCode}}) dọn đồ trả kho, vui lòng thanh toán "
+                        + "{{amount}}đ — hoá đơn {{invoiceCode}} gồm phí quá hạn tính tới ngày buổi trả kho và các "
+                        + "khoản còn nợ. Thanh toán xong khoang được mở ngay; tiền cọc giữ nguyên tới khi quyết toán.");
         put(NotificationType.OVERLOCK_REMOVED, NotificationRecipient.CUSTOMER,
                 "Đã gỡ khoá chặn",
                 "Nhân viên đã gỡ khoá chặn của cơ sở trên khoang {{unitCode}} (hợp đồng {{contractCode}}). Bạn vào "
